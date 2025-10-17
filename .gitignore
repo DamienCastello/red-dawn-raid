@@ -1,0 +1,53 @@
+# -----------------------
+# OS / général
+# -----------------------
+.DS_Store
+Thumbs.db
+*.log
+logs/
+
+# -----------------------
+# IDE
+# -----------------------
+*.iml
+*.ipr
+*.iws
+
+# IntelliJ / IDEA (projet racine et sous-projets)
+.idea/
+
+
+# -----------------------
+# Environnements / secrets
+# -----------------------
+.env
+.env.*
+*.local
+
+# -----------------------
+# BACKEND (Maven / Spring)
+# -----------------------
+backend/target/
+backend/.idea/
+backend/*.iml
+backend/.classpath
+backend/.project
+backend/.settings/
+backend/.DS_Store
+
+# Maven Wrapper: keep scripts & ignore .jar
+backend/.mvn/wrapper/maven-wrapper.jar
+
+# -----------------------
+# FRONTEND (Angular / Node)
+# -----------------------
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/
+frontend/.cache/
+frontend/npm-debug.log*
+frontend/yarn-error.log*
+frontend/pnpm-debug.log*
+frontend/.DS_Store
+frontend/coverage/
+frontend/.vscode/
