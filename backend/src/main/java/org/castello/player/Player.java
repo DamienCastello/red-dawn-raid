@@ -1,20 +1,26 @@
 package org.castello.player;
 
-public class Player {
-    private final String id;
-    private final String nickname;
-    private final String token;
-    private final String gameId;
+import java.util.ArrayList;
+import java.util.List;
 
-    public Player(String id, String nickname, String token, String gameId) {
+/** Joueur DANS la partie (état de jeu). */
+public class Player {
+    private String id;                 // candidateId (vient de CandidateService)
+    private String nickname;           // affichage
+    private String role;               // "VAMPIRE" | "HUNTER"
+    private List<String> hand = new ArrayList<>(); // cartes lieu ("foret","carriere","lac","manoir")
+
+    public Player(String id, String nickname) {
         this.id = id;
         this.nickname = nickname;
-        this.token = token;
-        this.gameId = gameId;
     }
 
     public String getId() { return id; }
     public String getNickname() { return nickname; }
-    public String getToken() { return token; }
-    public String getGameId() { return gameId; }
+    public String getRole() { return role; }
+    public List<String> getHand() { return hand; }
+
+    public void setNickname(String nickname) { this.nickname = nickname; }
+    public void setRole(String role) { this.role = role; }
+    public void setHand(List<String> hand) { this.hand = hand; }
 }
