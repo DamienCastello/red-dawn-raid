@@ -8,43 +8,43 @@ Jeu de société "Chasseurs vs Vampire" — **frontend Angular** + **backend Spr
 - [Démarrage rapide (dev)](#démarrage-rapide-dev)
 - [API (aperçu)](#api-aperçu)
 - [Identité / Auth légère](#identité--auth-légère)
-- [Build production (aperçu)](#build-production-aperçu)
 
 ---
 
-## Structure
-├─ backend/ # Spring Boot (Java 21, Maven)
-│ ├─ pom.xml
-│ └─ src/main/java/org/castello/
-│ ├─ RedDawnRaidApplication.java # bootstrap Spring
-│ ├─ web/
-│ │ ├─ HealthController.java # GET /api/health
-│ │ ├─ GameController.java # REST /api/games...
-│ │ ├─ ApiError.java # format d’erreur JSON
-│ │ ├─ GlobalExceptionHandler.java # exceptions -> ApiError
-│ │ └─ dto/
-│ │ ├─ JoinRequest.java # { nickname }
-│ │ └─ JoinResponse.java # { game, playerId, playerToken }
-│ ├─ game/
-│ │ ├─ GameStatus.java # CREATED / ACTIVE / ENDED
-│ │ ├─ Game.java # état d'une partie (affiche players)
-│ │ └─ GameService.java # logique métier
-│ └─ player/
-│ ├─ Player.java # id, nickname, token, gameId
-│ └─ PlayerService.java # gestion tokens / validations
-└─ frontend/ # Angular 18 (Node 20+)
-├─ angular.json
-├─ package.json
-├─ proxy.conf.json # /api -> localhost:8080
- (dev)
-└─ src/app/
-├─ app.ts # composant racine
-├─ app.html # router-outlet
-├─ app.routes.ts # '' -> Lobby, 'game/:id' -> Game
-├─ api.service.ts # appels HTTP
-├─ auth.interceptor.ts # ajoute Authorization: Bearer token
-├─ lobby.component.ts # lobby (lister/joindre/démarrer)
-└─ game.component.ts # affichage players
+```text
+.
+├─ backend/                      # Spring Boot (Java 21, Maven)
+│  ├─ pom.xml
+│  └─ src/main/java/org/castello/
+│     ├─ RedDawnRaidApplication.java        # bootstrap Spring
+│     ├─ web/
+│     │  ├─ HealthController.java           # GET /api/health
+│     │  ├─ GameController.java             # REST /api/games...
+│     │  ├─ ApiError.java                   # format d’erreur JSON
+│     │  ├─ GlobalExceptionHandler.java     # exceptions -> ApiError
+│     │  └─ dto/
+│     │     ├─ JoinRequest.java             # { nickname }
+│     │     └─ JoinResponse.java            # { game, playerId, playerToken }
+│     ├─ game/
+│     │  ├─ GameStatus.java                 # CREATED / ACTIVE / ENDED
+│     │  ├─ Game.java                       # état d'une partie
+│     │  └─ GameService.java                # logique métier
+│     └─ player/
+│        ├─ Player.java                     # id, nickname, token, gameId
+│        └─ PlayerService.java              # gestion tokens / validations
+└─ frontend/                    # Angular 18 (Node 20+)
+   ├─ angular.json
+   ├─ package.json
+   ├─ proxy.conf.json                       # /api -> localhost:8080 (dev)
+   └─ src/app/
+      ├─ app.ts                             # composant racine
+      ├─ app.html                           # router-outlet
+      ├─ app.routes.ts                      # '' -> Lobby, 'game/:id' -> Game
+      ├─ api.service.ts                     # appels HTTP
+      ├─ auth.interceptor.ts                # ajoute Authorization: Bearer token
+      ├─ lobby.component.ts                 # lobby (lister/joindre/démarrer)
+      └─ game.component.ts                  # affichage players
+```
 
 ## Prérequis
 
@@ -78,15 +78,19 @@ ouvre http://localhost:4200
 Le proxy redirige /api/* vers http://localhost:8080/*
 
 ## API (aperçu)
+```text
 GET /api/health → { "status":"ok" }
 POST /api/games → crée une partie -> Game
 GET /api/games → liste les parties -> Game[]
 GET /api/games/{id} → état d’une partie -> Game
 POST /api/games/{id}/join { nickname } → JoinResponse { game, playerId, playerToken }
 POST /api/games/{id}/start (header Authorization: Bearer token) → Game
+```
 
 Erreurs renvoyées au format :
+```text
 { "error":"400 BAD_REQUEST", "message":"...", "path":"/api/...", "timestamp":"..." }
+```
 
 ## Identité / Auth légère
 Au join, le serveur génère un playerToken (UUID) et le renvoie avec le game.
