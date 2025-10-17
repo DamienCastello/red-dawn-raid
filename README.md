@@ -63,19 +63,22 @@ Jeu de société "Chasseurs vs Vampire" — **frontend Angular** + **backend Spr
 
 ## Démarrage rapide (dev)
 Backend
+```text
 cd backend
 mvn -q -DskipTests clean package
 mvn spring-boot:run
-écoute sur http://localhost:8080
+-> écoute sur http://localhost:8080
+```
 
 Frontend
+```text
 cd frontend
 npm install
 ng serve --proxy-config proxy.conf.json
-ouvre http://localhost:4200
-
+-> ouvre http://localhost:4200
 
 Le proxy redirige /api/* vers http://localhost:8080/*
+```
 
 ## API (aperçu)
 ```text
