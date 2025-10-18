@@ -5,7 +5,7 @@ public class CenterBoard {
     private String card;
     private boolean faceUp;
 
-    public CenterBoard(String candidateId, String card, boolean faceUp) {
+    public CenterBoard(String playerId, String card, boolean faceUp) {
         this.playerId = playerId;
         this.card = card;
         this.faceUp = faceUp;

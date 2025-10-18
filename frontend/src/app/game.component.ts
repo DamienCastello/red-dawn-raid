@@ -1,7 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { ApiService, Game, Player, CenterPlay } from './api.service';
+import { ApiService, Game, Player } from './api.service';
 
 @Component({
   standalone: true,
@@ -10,7 +10,7 @@ import { ApiService, Game, Player, CenterPlay } from './api.service';
   template: `
   <main class="container" style="max-width:1000px;margin:1rem auto">
     <button (click)="back()">← Retour Lobby</button>
-    <h2>Raid {{ game?.raid }} — Phase: {{ game?.phase || '...' }}</h2>
+    <h2>Raid {{ game?.raid }} — {{ game?.phase || '...' }}</h2>
 
     <div *ngIf="game?.phase==='PHASE0'" style="padding:.5rem;background:#eef;border:1px solid #99f;margin:.5rem 0">
       Sélection météo...
@@ -40,13 +40,27 @@ import { ApiService, Game, Player, CenterPlay } from './api.service';
       <!-- centre: plateau -->
       <section style="border:1px solid #ddd; padding:.5rem; min-height:180px">
         <h3>Plateau central</h3>
+        <!-- Messages Step 3 -->
+        <div *ngIf="(game?.messages?.length || 0) > 0" style="margin:.5rem 0; padding:.5rem; background:#f8f8ff; border:1px solid #ccd">
+          <div *ngFor="let m of game?.messages" style="margin:.15rem 0">{{ m }}</div>
+        </div>
+        <!-- Bandeau PREPHASE3 -->
+        <div *ngIf="game?.phase==='PREPHASE3'" style="margin:.5rem 0; padding:.5rem; background:#fffbe6; border:1px solid #e6c200">
+          <b>Préparation au combat</b> — Le combat commence bientôt.
+          <span *ngIf="remainingPrePhaseSeconds > 0">  ({{ remainingPrePhaseSeconds }}s)</span>
+          <div *ngIf="me" style="margin-top:.5rem">
+            <button (click)="skipNow()" [disabled]="hasSkipped" title="Signaler que vous avez fini vos actions">J’ai fini</button>
+            <small *ngIf="hasSkipped" style="margin-left:.5rem; color:#666">En attente des autres…</small>
+          </div>
+        </div>
+
         <div *ngIf="!game?.center?.length" style="color:#999">Aucune carte jouée pour l’instant</div>
         <div *ngFor="let cp of game?.center" style="margin:.25rem 0">
           <span *ngIf="cp.faceUp; else back">
             {{ nicknameOf(cp.playerId) }}: {{ labelLieu(cp.card) }}
           </span>
           <ng-template #back>
-            <i>Carte face cachée</i>
+            <i>Carte face cachée ({{ nicknameOf(cp.playerId) }})</i>
           </ng-template>
         </div>
       </section>
@@ -71,6 +85,9 @@ import { ApiService, Game, Player, CenterPlay } from './api.service';
           {{ labelLieu(c) }}
         </button>
       </div>
+      <div style="margin-top:.5rem">
+        <button (click)="playSelected()" [disabled]="!canPlay">Jouer cette carte</button>
+      </div>
     </section>
   </main>
   `,
@@ -84,6 +101,8 @@ export class GameComponent {
   gameId = '';
   game?: Game;
   errorMsg = '';
+  remainingPrePhaseSeconds = 0;
+  hasSkipped = false;
 
   meId = sessionStorage.getItem('playerId') || '';
   nickname = sessionStorage.getItem('nick') || '';
@@ -106,6 +125,14 @@ export class GameComponent {
   }
   get hunterPlayers(): Player[] {
     return (this.game?.players ?? []).filter(p => p.role === 'HUNTER' && p.id !== this.meId);
+  }
+
+  get canPlay(): boolean {
+    if (!this.game || !this.me || !this.selectedLocation) return false;
+    const phase = this.game.phase;
+    if (this.me.role === 'HUNTER') return phase === 'PHASE1';
+    if (this.me.role === 'VAMPIRE') return phase === 'PHASE2';
+    return false;
   }
 
   nicknameOf(id: string): string {
@@ -139,12 +166,39 @@ export class GameComponent {
   refresh(){
     if(!this.gameId) return;
     this.api.getGame(this.gameId).subscribe({
-      next: g => this.game = g,
+      next: g => {
+        this.game = g;
+        // PREPHASE3: calcule le compte à rebours
+        if (this.game?.phase === 'PREPHASE3' && this.game.prePhaseDeadlineMillis) {
+          const msLeft = this.game.prePhaseDeadlineMillis - Date.now();
+          this.remainingPrePhaseSeconds = Math.max(0, Math.ceil(msLeft / 1000));
+        } else {
+          this.remainingPrePhaseSeconds = 0;
+          this.hasSkipped = false; // reset si on change de phase
+        }
+      },
       error: e => this.showError(e)
     });
   }
 
   selectLocation(c: string){ this.selectedLocation = c; }
+
+  playSelected(){
+    if (!this.game || !this.selectedLocation) return;
+    this.api.selectLocation(this.game.id, this.selectedLocation).subscribe({
+      next: g => { this.game = g; this.selectedLocation = null; },
+      error: e => this.showError(e)
+    });
+  }
+
+  skipNow(){
+    if (!this.game) return;
+    this.hasSkipped = true;
+    this.api.skipPrePhase3(this.game.id).subscribe({
+      next: g => { this.game = g; /* eventuellement on recalcule timer */ },
+      error: e => this.showError(e)
+    });
+  }
 
   back(){ this.router.navigateByUrl('/'); }
 
