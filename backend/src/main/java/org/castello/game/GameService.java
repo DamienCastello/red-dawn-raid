@@ -1,23 +1,66 @@
 package org.castello.game;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.castello.player.Player;
 import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.lang.NonNull;
 import org.springframework.lang.Nullable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+import org.castello.persistence.GameEntity;
+import org.castello.persistence.GameRepository;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class GameService {
-    private final Map<String, Game> store = new ConcurrentHashMap<>();
+
+    // ----- PERSISTENCE -----
+    private final GameRepository repo;
+    private final ObjectMapper mapper; // Jackson fourni par Spring Boot
+
+    public GameService(GameRepository repo, ObjectMapper mapper) {
+        this.repo = repo;
+        this.mapper = mapper;
+    }
+
+    private String toJson(Game g) {
+        try { return mapper.writeValueAsString(g); }
+        catch (JsonProcessingException e) { throw new IllegalStateException(e); }
+    }
+
+    private Game fromJson(String json) {
+        try { return mapper.readValue(json, Game.class); }
+        catch (Exception e) { throw new IllegalStateException(e); }
+    }
+
+    private Game findOr404(String id) {
+        var e = repo.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Game not found"));
+        return fromJson(e.getStateJson());
+    }
+
+    /** Sauvegarde en préservant la version (évite les inserts involontaires). */
+    private void save(Game g) {
+        repo.findById(g.getId()).ifPresentOrElse(existing -> {
+            existing.setStateJson(toJson(g));
+            repo.save(existing);
+        }, () -> {
+            GameEntity ne = new GameEntity();
+            ne.setId(g.getId());
+            ne.setStateJson(toJson(g));
+            repo.save(ne);
+        });
+    }
+
+    // ----------------------------------------------------------
 
     private static final long PHASE_DELAY_MS = 5000L;   // 5 s (fenêtre “actions” quand tout le monde a joué)
     private static final long PHASE_FORCE_MS = 30000L;  // 30 s (au-delà, on force des choix aléatoires)
     private static final long PREPHASE3_WINDOW_MS = 20_000L; // 20 s avant PHASE3
-
 
     // ---------- utilitaires ----------
     private static final Random RND = new Random();
@@ -47,25 +90,27 @@ public class GameService {
     }
 
     // ---------- CRUD ----------
+    @Transactional
     public Game create() {
         String id = UUID.randomUUID().toString();
         Game game = new Game(id, GameStatus.CREATED, 0);
-        store.put(id, game);
+        save(game);
         return game;
     }
 
-    public Collection<Game> list() { return store.values(); }
-
-    public Game findOr404(String id) {
-        Game g = store.get(id);
-        if (g == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Game not found");
-        return g;
+    public Collection<Game> list() {
+        return repo.findAll().stream()
+                .map(ge -> fromJson(ge.getStateJson()))
+                .toList();
     }
 
+    // REM: findOr404(id) déjà défini ci-dessus (JSONB -> Game)
+
     // ---------- LOBBY ----------
-    public Game addOrUpdatePlayer(String gameId, String playerId, String nickname) {
-        if (nickname == null || nickname.isBlank())
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "nickname required");
+    @Transactional
+    public Game addOrUpdatePlayer(String gameId, String playerId, String username) {
+        if (username == null || username.isBlank())
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "username required");
         Game g = findOr404(gameId);
         if (g.getStatus() != GameStatus.CREATED)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "game already started/ended");
@@ -74,12 +119,15 @@ public class GameService {
                 .filter(p -> p.getId().equals(playerId))
                 .findFirst()
                 .ifPresentOrElse(
-                        p -> p.setNickname(nickname),
-                        () -> g.getPlayers().add(new Player(playerId, nickname))
+                        p -> p.setUsername(username),
+                        () -> g.getPlayers().add(new Player(playerId, username))
                 );
+
+        save(g);
         return g;
     }
 
+    @Transactional
     public Game start(String id) {
         Game g = findOr404(id);
         if (g.getStatus() != GameStatus.CREATED)
@@ -112,13 +160,24 @@ public class GameService {
         g.setPendingNextPhase(null);
         g.setNextAutoAdvanceAtMillis(0);
 
+        save(g);
         return g;
     }
 
     // ---------- TICK ----------
+    @Transactional
     public Game tickAndGet(String gameId) {
         Game g = findOr404(gameId);
+
+        String before = toJson(g);
+
         maybeAutoAdvance(g);
+
+        String after = toJson(g);
+
+        if (!after.equals(before)) {
+            save(g);
+        }
         return g;
     }
 
@@ -246,6 +305,7 @@ public class GameService {
     }
 
     // ---------- Sélection lieu ----------
+    @Transactional
     public Game selectLocation(String gameId, String playerId, String card) {
         Game g = findOr404(gameId);
         maybeAutoAdvance(g); // au cas où une bascule planifiée arrive juste maintenant
@@ -281,6 +341,7 @@ public class GameService {
             planNextPhase(g, Phase.PREPHASE3);
         }
 
+        save(g);
         return g;
     }
 
@@ -319,19 +380,19 @@ public class GameService {
                 if (vampHere && !huntersHere.isEmpty()) {
                     // Combat
                     String huntersNames = String.join(", ",
-                            huntersHere.stream().map(p -> p.getNickname() != null && !p.getNickname().isBlank() ? p.getNickname() : p.getId()).toList()
+                            huntersHere.stream().map(p -> p.getUsername() != null && !p.getUsername().isBlank() ? p.getUsername() : p.getId()).toList()
                     );
-                    String vampName = vamp.getNickname() != null && !vamp.getNickname().isBlank() ? vamp.getNickname() : vamp.getId();
+                    String vampName = vamp.getUsername() != null && !vamp.getUsername().isBlank() ? vamp.getUsername() : vamp.getId();
                     out.add("Combat — " + vampName + " VS " + huntersNames + " à " + labelLieuFr(loc));
                 } else {
                     // Récoltes indépendantes
                     if (vampHere) {
-                        String vampName = vamp.getNickname() != null && !vamp.getNickname().isBlank() ? vamp.getNickname() : vamp.getId();
+                        String vampName = vamp.getUsername() != null && !vamp.getUsername().isBlank() ? vamp.getUsername() : vamp.getId();
                         out.add("Récolte de " + labelLieuFr(loc) + " par le vampire (" + vampName + ")");
                     }
                     if (!huntersHere.isEmpty()) {
                         for (var h : huntersHere) {
-                            String hn = h.getNickname() != null && !h.getNickname().isBlank() ? h.getNickname() : h.getId();
+                            String hn = h.getUsername() != null && !h.getUsername().isBlank() ? h.getUsername() : h.getId();
                             out.add("Récolte de " + labelLieuFr(loc) + " par " + hn);
                         }
                     }
@@ -342,7 +403,7 @@ public class GameService {
             for (var e : groups.entrySet()) {
                 String loc = e.getKey();
                 for (var p : e.getValue()) {
-                    String n = p.getNickname() != null && !p.getNickname().isBlank() ? p.getNickname() : p.getId();
+                    String n = p.getUsername() != null && !p.getUsername().isBlank() ? p.getUsername() : p.getId();
                     out.add("Récolte de " + labelLieuFr(loc) + " par " + n);
                 }
             }
@@ -374,12 +435,13 @@ public class GameService {
         );
     }
 
+    @Transactional
     public Game skipAction(String gameId, String playerId) {
         Game g = findOr404(gameId);
         maybeAutoAdvance(g);
 
-        if (g.getPhase() != Phase.PREPHASE3)
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PREPHASE3");
+        if (g.getPhase() != Phase.PREPHASE3) // <-- garde ta logique, juste persistance derrière
+        throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PREPHASE3");
 
         var present = g.getPlayers().stream().anyMatch(p -> p.getId().equals(playerId));
         if (!present)
@@ -393,6 +455,7 @@ public class GameService {
             g.setNextAutoAdvanceAtMillis(System.currentTimeMillis());
             maybeAutoAdvance(g);
         }
+        save(g);
         return g;
     }
 }

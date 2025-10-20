@@ -24,7 +24,7 @@ import { ApiService, Game } from './api.service';
       <ul>
         <li *ngFor="let g of games">
           <a href="#" (click)="$event.preventDefault(); pick(g)"
-             [style.fontWeight]="currentGameId === g.id ? 'bold' : 'normal'">
+             [style.fontWeight]="isInGame(g) ? 'bold' : 'normal'">
             {{ g.id }} — {{ g.status }} ({{ g.players.length }} joueurs)
           </a>
         </li>
@@ -46,7 +46,6 @@ import { ApiService, Game } from './api.service';
 
       <!-- Cas 2 : je NE suis PAS dans la partie sélectionnée -->
       <ng-template #notInSelected>
-        <!-- Si j'ai déjà une autre partie rejointe, on bloque "Join" -->
         <ng-container *ngIf="inOtherGameSelected; else canJoinHere">
           <p style="color:#b55">
             Vous avez déjà rejoint une autre partie ({{ currentGameId }}). Impossible de joindre celle-ci.
@@ -54,12 +53,9 @@ import { ApiService, Game } from './api.service';
           <button disabled>Rejoindre</button>
         </ng-container>
 
-        <!-- Sinon je peux rejoindre ici (champ + bouton) -->
         <ng-template #canJoinHere>
-          <label>Pseudo:
-            <input [(ngModel)]="nickname" placeholder="Votre pseudo" />
-          </label>
-          <button (click)="join()" [disabled]="!nickname.trim()">Rejoindre</button>
+          <p>Vous rejoindrez en tant que <b>{{ currentUsername }}</b>.</p>
+          <button (click)="join()">Rejoindre</button>
         </ng-template>
       </ng-template>
 
@@ -76,7 +72,7 @@ export class LobbyComponent {
 
   games: Game[] = [];
   selected?: Game;
-  nickname = '';
+  username = '';
   errorMsg = '';
 
   private lastSelectedStatus?: string;
@@ -84,7 +80,7 @@ export class LobbyComponent {
 
   ngOnInit(){
     this.list();
-    this.nickname = sessionStorage.getItem('nick') ?? '';
+    this.username = sessionStorage.getItem('username') ?? '';
 
     // Auto-sélection UNE FOIS (si j'avais déjà une partie)
     const myGameId = this.currentGameId;
@@ -93,6 +89,9 @@ export class LobbyComponent {
         next: g => {
           this.selected = g;
           this.lastSelectedStatus = g.status; // mémorise le statut pour détecter CREATED->ACTIVE
+
+          // ➜ CHANGEMENT : on NE redirige PAS ici même si ACTIVE.
+          // La redirection automatique reste gérée uniquement par le polling CREATED->ACTIVE.
         },
         error: () => {}
       });
@@ -125,9 +124,38 @@ export class LobbyComponent {
     setTimeout(()=>this.errorMsg='',4000);
   }
 
+  // ---- identité côté front (temporaire tant qu’on garde le storage pour l’auth)
+  private get myUserId(): string {
+    return sessionStorage.getItem('userId') ?? '';
+  }
+
+  // ➜ AMÉLIORATION : on s’appuie sur la vérité serveur (players[]) plutôt que sur le storage
+  isInGame(g?: Game): boolean {
+    if (!g) return false;
+    return (g.players || []).some(p => p.id === this.myUserId);
+  }
+
   list(){
     this.api.listGames().subscribe({
-      next: gs => this.games = gs,
+      next: gs => {
+        this.games = gs;
+
+        // ➜ AMÉLIORATION : auto-select la game où je suis déjà inscrit selon le serveur
+        if (!this.selected) {
+          const mine = gs.find(g => this.isInGame(g));
+          if (mine) {
+            this.selected = mine;
+            this.lastSelectedStatus = mine.status;
+
+            // (optionnel) synchro du storage tant qu’on l’utilise encore
+            sessionStorage.setItem('gameId', mine.id);
+            sessionStorage.setItem('playerId', this.myUserId);
+
+            // ➜ CHANGEMENT : on NE redirige PAS ici même si la game est déjà ACTIVE.
+            // La navigation se fera au clic “Reprendre la partie” ou via le polling CREATED->ACTIVE.
+          }
+        }
+      },
       error: e => this.showError(e)
     });
   }
@@ -136,6 +164,9 @@ export class LobbyComponent {
   pick(g: Game){
     this.selected = g;
     this.lastSelectedStatus = g.status;
+
+    // ➜ CHANGEMENT : pas de navigation automatique même si je suis dedans et ACTIVE.
+    // L’utilisateur doit cliquer “Reprendre la partie”.
   }
 
   create(){
@@ -145,11 +176,20 @@ export class LobbyComponent {
     });
   }
 
-  // ---- états dérivés (petite API lisible pour le template) ----
+  get currentUsername(): string { return sessionStorage.getItem('username') ?? ''; }
+  // ---- états dérivés (petite API lisible pour le template)
   get currentGameId(): string | null { return sessionStorage.getItem('gameId'); }
-  get alreadyInSelected(): boolean { return !!this.selected && this.currentGameId === this.selected.id; }
+  get alreadyInSelected(): boolean {
+    // vérité serveur en priorité, storage en secours (pour compat avec l’existant)
+    return this.isInGame(this.selected) ||
+           (!!this.selected && this.currentGameId === this.selected.id);
+  }
   get inOtherGameSelected(): boolean {
-    return !!this.selected && !!this.currentGameId && this.currentGameId !== this.selected.id;
+    // ➜ AMÉLIORATION : détecte aussi via le serveur si je suis déjà dans une autre partie
+    if (!this.selected) return false;
+    const inAnotherByServer = this.games.some(x => x.id !== this.selected!.id && this.isInGame(x));
+    const storageSaysOther = !!this.currentGameId && this.currentGameId !== this.selected.id;
+    return inAnotherByServer || storageSaysOther;
   }
   get isSelectedCreated(): boolean { return this.selected?.status === 'CREATED'; }
   get isSelectedActive(): boolean { return this.selected?.status === 'ACTIVE'; }
@@ -161,30 +201,30 @@ export class LobbyComponent {
 
   // Rejoindre la game sélectionnée (si autorisé)
   join() {
-    if (!this.selected || !this.nickname.trim()) return;
+    if (!this.selected) return;
 
     // Si je suis déjà dans cette partie -> goToGame
     if (this.alreadyInSelected) { this.goToGame(); return; }
 
-    // Si j'ai déjà une autre partie -> bloqué par l'UI (déjà géré), double-sécurité :
+    // Si j'ai déjà une autre partie -> bloqué par l'UI (détection serveur + fallback storage)
     if (this.inOtherGameSelected) { this.showError('Vous avez déjà rejoint une autre partie.'); return; }
 
-    const nick = this.nickname.trim();
-    this.api.joinGame(this.selected.id, nick).subscribe({
+    this.api.joinGame(this.selected.id).subscribe({
       next: r => {
         this.selected = r.game;
         this.lastSelectedStatus = r.game.status;
-        sessionStorage.setItem('playerToken', r.playerToken);
+
+        // (optionnel) synchro storage pour compat avec l’existant
         sessionStorage.setItem('playerId', r.playerId);
-        sessionStorage.setItem('nick', nick);
+        sessionStorage.setItem('username', this.currentUsername);
         sessionStorage.setItem('gameId', this.selected!.id);
+
         this.list();
       },
       error: e => this.showError(e)
     });
   }
 
-  // Démarrer (créateur ou joueur autorisé). On navigue IMMÉDIATEMENT pour l’auteur du start
   start(){
     if(!this.selected) return;
     this.api.startGame(this.selected.id).subscribe({
@@ -192,11 +232,6 @@ export class LobbyComponent {
         this.selected = g;
         this.lastSelectedStatus = g.status;
         this.list();
-        // L’auteur du "Start" est nécessairement dans la partie -> nav immédiate.
-        if (this.alreadyInSelected && g.status === 'ACTIVE') {
-          this.router.navigate(['/game', g.id]);
-        }
-        // Les autres onglets/joueurs seront redirigés par le polling CREATED->ACTIVE.
       },
       error: e => this.showError(e)
     });

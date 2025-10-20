@@ -5,22 +5,24 @@ import java.util.List;
 
 /** Joueur DANS la partie (état de jeu). */
 public class Player {
-    private String id;                 // candidateId (vient de CandidateService)
-    private String nickname;           // affichage
-    private String role;               // "VAMPIRE" | "HUNTER"
-    private List<String> hand = new ArrayList<>(); // cartes lieu ("foret","carriere","lac","manoir")
+    private String id;                 // userId (vient de l’auth)
+    private String username;
+    private String role;
+    private List<String> hand = new ArrayList<>();
 
-    public Player(String id, String nickname) {
+    public Player() {}
+
+    public Player(String id, String username) {
         this.id = id;
-        this.nickname = nickname;
+        this.username = username;
     }
 
     public String getId() { return id; }
-    public String getNickname() { return nickname; }
+    public String getUsername() { return username; }
     public String getRole() { return role; }
     public List<String> getHand() { return hand; }
 
-    public void setNickname(String nickname) { this.nickname = nickname; }
+    public void setUsername(String username) { this.username = username; }
     public void setRole(String role) { this.role = role; }
     public void setHand(List<String> hand) { this.hand = hand; }
 }

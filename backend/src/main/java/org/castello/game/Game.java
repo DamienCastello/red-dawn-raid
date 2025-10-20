@@ -35,6 +35,7 @@ public class Game {
     private long prePhaseDeadlineMillis;                 // quand se termine la fenêtre PREPHASE3 (ms)
     private final Set<String> readyForPhase3 = new HashSet<>(); // joueurs ayant cliqué “j’ai fini”
 
+    public Game() {}
 
     public Game(String id, GameStatus status, int raid) {
         this.id = id;
@@ -46,7 +47,6 @@ public class Game {
     // getters de base
     public String getId() { return id; }
     public GameStatus getStatus() { return status; }
-    // compat: certains fronts lisent "round" -> on renvoie le raid
     public int getRound() { return raid; }
 
     public void setStatus(GameStatus status) { this.status = status; }

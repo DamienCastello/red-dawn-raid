@@ -1,28 +1,34 @@
 package org.castello.web;
 
-import org.castello.candidate.CandidateService;
+import org.castello.auth.AuthService;
 import org.castello.game.Game;
 import org.castello.game.GameService;
-import org.castello.web.dto.JoinRequest;
 import org.castello.web.dto.JoinResponse;
 import org.castello.web.dto.SelectLocationRequest;
+import org.castello.player.PlayerService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/games")
 public class GameController {
-    private final GameService games;
-    private final CandidateService candidates;
 
-    public GameController(GameService games, CandidateService candidates) {
+    private final GameService games;
+    private final AuthService authService;
+    private final PlayerService playerService;
+
+    public GameController(GameService games, AuthService authService, PlayerService playerService) {
         this.games = games;
-        this.candidates = candidates;
+        this.authService = authService;
+        this.playerService = playerService;
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public Game create() { return games.create(); }
+    public Game create(@RequestHeader(value="Authorization", required=false) String authorization) {
+        // tu peux exiger un user connecté ici si tu veux
+        return games.create();
+    }
 
     @GetMapping
     public Iterable<Game> list() { return games.list(); }
@@ -34,44 +40,47 @@ public class GameController {
 
     @PostMapping("/{id}/join")
     public JoinResponse join(@PathVariable String id,
-                             @RequestBody JoinRequest req,
-                             @RequestHeader(value="Authorization", required=false) String auth) {
-        // Si le client a déjà un token, on l’utilise (et on vérifie qu’il correspond bien à cette partie)
-        if (auth != null && !auth.isBlank()) {
-            var c = candidates.requireByTokenInGame(auth, id);   // 401/403 si pas ok
-            var g = games.addOrUpdatePlayer(id, c.getId(), req.nickname);
-            return new JoinResponse(g, c.getId(), c.getToken());
-        }
+                             @RequestHeader("Authorization") String authorization) {
+        // 1) Auth obligatoire
+        var user = authService.requireUser(authorization);
 
-        // Pas de token → on crée un nouveau Candidate
-        var c = candidates.create(id, req.nickname);
-        var g = games.addOrUpdatePlayer(id, c.getId(), req.nickname);
-        return new JoinResponse(g, c.getId(), c.getToken());
+        // 2) username issu de l’auth
+        String username = user.getUsername();
+
+        // 3) Joue l’appartenance persistée + reflet dans l’état de jeu
+        playerService.joinGame(user.getId(), id, username);
+        var g = games.addOrUpdatePlayer(id, user.getId(), username);
+
+        // 4) Retour sans playerToken
+        return new JoinResponse(g, user.getId());
     }
 
     @PostMapping("/{id}/start")
     public Game start(@PathVariable String id,
-                      @RequestHeader(value="Authorization", required=false) String auth) {
-        candidates.requireByTokenInGame(auth, id); // refuse si pas joueur de la bonne game
+                      @RequestHeader("Authorization") String authorization) {
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id); // refuse si pas joueur de cette game
         return games.start(id);
     }
 
     @PostMapping("/{id}/select-location")
     public Game selectLocation(@PathVariable String id,
                                @RequestBody SelectLocationRequest req,
-                               @RequestHeader(value="Authorization", required=false) String auth) {
-        var c = candidates.requireByTokenInGame(auth, id);
+                               @RequestHeader("Authorization") String authorization) {
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+
         if (req == null || req.card == null || req.card.isBlank()) {
             throw new org.springframework.web.server.ResponseStatusException(HttpStatus.BAD_REQUEST, "card required");
         }
-        return games.selectLocation(id, c.getId(), req.card);
+        return games.selectLocation(id, user.getId(), req.card);
     }
 
-    // POST /api/games/{id}/skip - player dit “j’ai fini” en PREPHASE3
     @PostMapping("/{id}/skip")
     public Game skip(@PathVariable String id,
-                     @RequestHeader(value="Authorization", required=false) String auth) {
-        var c = candidates.requireByTokenInGame(auth, id);
-        return games.skipAction(id, c.getId());
+                     @RequestHeader("Authorization") String authorization) {
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+        return games.skipAction(id, user.getId());
     }
 }

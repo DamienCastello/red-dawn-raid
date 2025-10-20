@@ -7,7 +7,7 @@ export type Phase = 'PHASE0'|'PHASE1'|'PHASE2'| 'PREPHASE3' | 'PHASE3'|'PHASE4';
 
 export type Player = {
   id: string;
-  nickname: string;
+  username: string;
   role: 'VAMPIRE'|'HUNTER';
   hand: string[];
 };
@@ -41,14 +41,17 @@ export type JoinResponse = { game: Game; playerId: string; playerToken: string }
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private http = inject(HttpClient);
-  private base = '/api';
+  // En dev:
+  private base = 'http://localhost:8080/api';
+  // En prod, passer ça via environment.ts ou proxy Angular.
 
+  // Games
   health()             { return this.http.get<Health>(`${this.base}/health`); }
   listGames()          { return this.http.get<Game[]>(`${this.base}/games`); }
   createGame()         { return this.http.post<Game>(`${this.base}/games`, {}); }
   getGame(id: string)  { return this.http.get<Game>(`${this.base}/games/${id}`); }
-  joinGame(id: string, nickname: string) {
-    return this.http.post<JoinResponse>(`${this.base}/games/${id}/join`, { nickname });
+  joinGame(id: string) {
+    return this.http.post<JoinResponse>(`${this.base}/games/${id}/join`, {});
   }
   startGame(id: string) {
     return this.http.post<Game>(`${this.base}/games/${id}/start`, {}); // token via interceptor
@@ -58,5 +61,13 @@ export class ApiService {
   }
   skipPrePhase3(id: string) {
     return this.http.post<Game>(`${this.base}/games/${id}/skip`, {});
+  }
+
+    // Auth (tu t’en serviras quand on fera l’écran de login)
+  signup(username: string, password: string) {
+    return this.http.post<{authToken:string, userId:string, username:string}>(`${this.base}/auth/signup`, { username, password });
+  }
+  login(username: string, password: string) {
+    return this.http.post<{authToken:string, userId:string, username:string}>(`${this.base}/auth/login`,  { username, password });
   }
 }

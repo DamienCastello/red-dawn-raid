@@ -4,10 +4,10 @@ import org.castello.game.Game;
 
 public class JoinResponse {
     public Game game;
-    public String playerId;
-    public String playerToken;
+    public String playerId; // = userId
 
-    public JoinResponse(Game game, String playerId, String playerToken) {
-        this.game = game; this.playerId = playerId; this.playerToken = playerToken;
+    public JoinResponse(Game game, String playerId) {
+        this.game = game;
+        this.playerId = playerId;
     }
 }

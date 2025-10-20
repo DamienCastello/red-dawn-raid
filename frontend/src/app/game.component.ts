@@ -24,7 +24,7 @@ import { ApiService, Game, Player } from './api.service';
     <section style="display:grid; gap:.5rem; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); padding:.5rem; border:1px solid #ddd; margin:.5rem 0">
       <div *ngFor="let p of hunterPlayers" [style.opacity]="isCurrent(p) ? 1 : .8"
            style="padding:.5rem; border:1px dashed #bbb; background:#f7f7ff">
-        <div><b>{{ p.nickname || p.id }}</b> (Chasseur)</div>
+        <div><b>{{ p.username || p.id }}</b> (Chasseur)</div>
       </div>
     </section>
 
@@ -33,7 +33,7 @@ import { ApiService, Game, Player } from './api.service';
       <!-- gauche: stats vampire -->
       <section *ngIf="hasVampire" style="border:1px solid #ddd; padding:.5rem">
         <h3>Vampire</h3>
-        <div>Joueur : {{ vampirePlayer.nickname }}</div>
+        <div>Joueur : {{ vampirePlayer.username }}</div>
         <div>Pioche actions: {{ game?.vampActionsLeft }} (défausse: {{ game?.vampActionsDiscard }})</div>
       </section>
 
@@ -57,10 +57,10 @@ import { ApiService, Game, Player } from './api.service';
         <div *ngIf="!game?.center?.length" style="color:#999">Aucune carte jouée pour l’instant</div>
         <div *ngFor="let cp of game?.center" style="margin:.25rem 0">
           <span *ngIf="cp.faceUp; else back">
-            {{ nicknameOf(cp.playerId) }}: {{ labelLieu(cp.card) }}
+            {{ usernameOf(cp.playerId) }}: {{ labelLieu(cp.card) }}
           </span>
           <ng-template #back>
-            <i>Carte face cachée ({{ nicknameOf(cp.playerId) }})</i>
+            <i>Carte face cachée ({{ usernameOf(cp.playerId) }})</i>
           </ng-template>
         </div>
       </section>
@@ -75,7 +75,7 @@ import { ApiService, Game, Player } from './api.service';
 
     <!-- BOARD BAS: moi -->
     <section *ngIf="me && game" style="border:2px solid #444; padding:.5rem; margin:1rem 0; background:#fafafa">
-      <h3>{{ me.nickname || 'anonyme' }} — {{ isVampire ? 'Vampire' : 'Chasseur' }}</h3>
+      <h3>{{ me.username || 'anonyme' }} — {{ isVampire ? 'Vampire' : 'Chasseur' }}</h3>
       <div>Votre main (lieux):</div>
       <div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.5rem">
         <button *ngFor="let c of (me.hand || [])"
@@ -104,8 +104,8 @@ export class GameComponent {
   remainingPrePhaseSeconds = 0;
   hasSkipped = false;
 
-  meId = sessionStorage.getItem('playerId') || '';
-  nickname = sessionStorage.getItem('nick') || '';
+  meId = sessionStorage.getItem('userId') || '';
+  username = sessionStorage.getItem('username') || '';
 
   selectedLocation: string | null = null;
   private timer?: any;
@@ -135,13 +135,13 @@ export class GameComponent {
     return false;
   }
 
-  nicknameOf(id: string): string {
+  usernameOf(id: string): string {
     if (!this.game) return id;
     const p = this.game.players.find(x => x.id === id);
-    if (p?.nickname) return p.nickname;
-    if (id === this.meId && this.nickname) return this.nickname;
+    if (p?.username) return p.username;
+    if (id === this.meId && this.username) return this.username;
     return id;
-    // (plus tard, on pourra faire une vraie map id->nickname côté back si besoin)
+    // (plus tard, on pourra faire une vraie map id->username côté back si besoin)
   }
 
   isCurrent(_p: Player){ return false; } // on branchera plus tard
@@ -200,7 +200,7 @@ export class GameComponent {
     });
   }
 
-  back(){ this.router.navigateByUrl('/'); }
+ back(){ this.router.navigate(['/lobby']); }
 
   private showError(e:any){
     try{ this.errorMsg = e?.error?.message || 'Erreur'; } catch { this.errorMsg='Erreur'; }

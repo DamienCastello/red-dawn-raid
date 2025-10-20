@@ -5,6 +5,8 @@ public class CenterBoard {
     private String card;
     private boolean faceUp;
 
+    public CenterBoard() {}
+
     public CenterBoard(String playerId, String card, boolean faceUp) {
         this.playerId = playerId;
         this.card = card;
