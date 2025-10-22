@@ -1,0 +1,61 @@
+services:
+  db:
+    image: postgres:16
+    container_name: rdr-db-preprod
+    restart: always
+    environment:
+      POSTGRES_DB: rdr_preprod
+      POSTGRES_USER: rdr_preprod
+      POSTGRES_PASSWORD: ${RDR_DB_PASSWORD}
+    volumes:
+      - pgdata_preprod:/var/lib/postgresql/data
+    networks:
+      - app
+
+  backend:
+    build:
+      context: ./backend
+    image: rdr-backend:preprod
+    container_name: rdr-backend-preprod
+    depends_on:
+      - db
+    restart: always
+    environment:
+      SPRING_PROFILES_ACTIVE: preprod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/rdr_preprod
+      SPRING_DATASOURCE_USERNAME: rdr_preprod
+      SPRING_DATASOURCE_PASSWORD: ${RDR_DB_PASSWORD}
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      APP_UPLOAD_DIR: /data/uploads
+      SERVER_FORWARD_HEADERS_STRATEGY: native
+    volumes:
+      - /home/gamma/rdr-preprod-uploads:/data/uploads
+    expose:
+      - "8080"
+    networks:
+      - app
+      - proxy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NG_CONFIGURATION: production
+    image: rdr-frontend:preprod
+    container_name: rdr-frontend-preprod
+    depends_on:
+      - backend
+    restart: always
+    expose:
+      - "80"
+    networks:
+      - proxy
+
+volumes:
+  pgdata_preprod:
+
+networks:
+  app:
+    driver: bridge
+  proxy:
+    external: true

@@ -38,12 +38,34 @@ export type Game = {
 
 export type JoinResponse = { game: Game; playerId: string; playerToken: string };
 
+/** 
+ * Détermine l’URL base de l’API selon le host courant (Option A : domaines séparés).
+ * - Dev (localhost / 127.0.0.1): http://localhost:8080/api
+ * - Préprod (front): red-dawn-raid-preprod.castello.ovh → back: red-dawn-raid-preprod-backend.castello.ovh
+ * - Prod (front): red-dawn-raid.castello.ovh → back: red-dawn-raid-backend.castello.ovh
+ */
+function computeApiBase(): string {
+  const host = window?.location?.host || '';
+  // Dev local: Angular tourne en 4200 généralement
+  if (host.includes('localhost') || host.startsWith('127.')) {
+    return 'http://localhost:8080/api';
+  }
+  // Préprod
+  if (host.includes('red-dawn-raid-preprod.castello.ovh')) {
+    return 'https://red-dawn-raid-preprod-backend.castello.ovh/api';
+  }
+  // Prod
+  if (host.includes('red-dawn-raid.castello.ovh')) {
+    return 'https://red-dawn-raid-backend.castello.ovh/api';
+  }
+  // Fallback
+  return 'http://localhost:8080/api';
+}
+
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private http = inject(HttpClient);
-  // En dev:
-  private base = 'http://localhost:8080/api';
-  // En prod, passer ça via environment.ts ou proxy Angular.
+  private base = computeApiBase();
 
   // Games
   health()             { return this.http.get<Health>(`${this.base}/health`); }
@@ -63,7 +85,7 @@ export class ApiService {
     return this.http.post<Game>(`${this.base}/games/${id}/skip`, {});
   }
 
-    // Auth (tu t’en serviras quand on fera l’écran de login)
+    // Auth
   signup(username: string, password: string) {
     return this.http.post<{authToken:string, userId:string, username:string}>(`${this.base}/auth/signup`, { username, password });
   }

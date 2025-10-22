@@ -1,0 +1,15 @@
+server:
+  forward-headers-strategy: native
+
+app:
+  cors:
+    allowed-origins:
+      - https://red-dawn-raid.castello.ovh
+
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate  # en prod, idéalement "validate"
+logging:
+  level:
+    org.hibernate.SQL: warn

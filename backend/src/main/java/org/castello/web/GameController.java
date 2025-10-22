@@ -26,7 +26,7 @@ public class GameController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public Game create(@RequestHeader(value="Authorization", required=false) String authorization) {
-        // tu peux exiger un user connecté ici si tu veux
+        // possible d'exiger un user connecté ici
         return games.create();
     }
 

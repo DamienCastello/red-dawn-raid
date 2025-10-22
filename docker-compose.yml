@@ -1,0 +1,49 @@
+services:
+  db:
+    image: postgres:16
+    container_name: rdr-db-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: red_dawn_raid
+      POSTGRES_USER: rdr_dev
+      POSTGRES_PASSWORD: azerty
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data-dev:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    container_name: rdr-backend-dev
+    depends_on:
+      - db
+    environment:
+      # Spring Boot datasource -> DB dans le réseau compose
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/red_dawn_raid
+      SPRING_DATASOURCE_USERNAME: rdr_dev
+      SPRING_DATASOURCE_PASSWORD: azerty
+      # Hibernate auto (dev)
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      # Profil facultatif
+      SPRING_PROFILES_ACTIVE: container
+      # CORS: penser à autoriser http://localhost:8081 dans la SecurityConfig (ou via conf)
+      # SERVER_FORWARD_HEADERS_STRATEGY: native  # pas indispensable en dev
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NG_CONFIGURATION: production  # ou development
+    container_name: rdr-frontend-dev
+    depends_on:
+      - backend
+    environment:
+      # Injecté par 50-env.sh dans assets/env.js
+      API_BASE_URL: http://localhost:8080/api
+    ports:
+      - "8081:80"
+
+volumes:
+  db-data-dev:

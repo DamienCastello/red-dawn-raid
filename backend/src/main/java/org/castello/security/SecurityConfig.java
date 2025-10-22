@@ -40,11 +40,14 @@ public class SecurityConfig {
                         // Auth public
                         .requestMatchers("/api/auth/**").permitAll()
 
-                        // Dev tools (si tu t'en sers)
+                        // Dev tools
                         .requestMatchers("/api/dev/**").permitAll()
 
                         // Lecture publique de l'état de partie (optionnel)
                         .requestMatchers(HttpMethod.GET, "/api/games/**").permitAll()
+
+                        // Autoriser /uploads/*
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/uploads/**").permitAll()
 
                         // Tout le reste des /api/games/** nécessite un user connecté (Bearer authToken)
                         .requestMatchers("/api/games/**").hasRole("USER")
@@ -59,10 +62,14 @@ public class SecurityConfig {
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         var cfg = new CorsConfiguration();
-        // En dev
-        cfg.setAllowedOrigins(List.of("http://localhost:4200"));
-        cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        cfg.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        cfg.setAllowedOrigins(List.of(
+                "http://localhost:4200",
+                "https://red-dawn-raid-preprod.castello.ovh",
+                "https://red-dawn-raid.castello.ovh"
+        ));
+        cfg.setAllowedMethods(List.of("GET","POST","PUT","DELETE","OPTIONS"));
+        // Parfois Angular en preflight envoie d’autres headers -> wildcard = peace of mind
+        cfg.setAllowedHeaders(List.of("*"));
         cfg.setAllowCredentials(false);
 
         var source = new UrlBasedCorsConfigurationSource();

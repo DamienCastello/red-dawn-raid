@@ -1,0 +1,18 @@
+# Fichier chargé quand SPRING_PROFILES_ACTIVE=preprod
+server:
+  # Derrière Nginx Proxy Manager: fais confiance aux en-têtes X-Forwarded-*
+  forward-headers-strategy: native
+
+app:
+  cors:
+    # Origines autorisées pour les requêtes navigateur
+    allowed-origins:
+      - https://red-dawn-raid-preprod.castello.ovh
+
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: update   # (préprod en "update" pour l’instant)
+logging:
+  level:
+    org.hibernate.SQL: info  # évite le spam SQL en préprod

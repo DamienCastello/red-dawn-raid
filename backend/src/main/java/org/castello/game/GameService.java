@@ -44,7 +44,7 @@ public class GameService {
     }
 
     /** Sauvegarde en préservant la version (évite les inserts involontaires). */
-    private void save(Game g) {
+    private void save(@NonNull Game g) {
         repo.findById(g.getId()).ifPresentOrElse(existing -> {
             existing.setStateJson(toJson(g));
             repo.save(existing);
@@ -429,7 +429,7 @@ public class GameService {
     // Tout le monde prêt pour PHASE3 ?
     private boolean allReadyForPhase3(@NonNull Game g) {
         // ici on exige que TOUS les joueurs de la partie aient cliqué "J’ai fini".
-        // plus tard tu pourras restreindre aux joueurs concernés par un combat.
+        // plus tard possible restreindre aux joueurs concernés par un combat.
         return g.getReadyForPhase3().containsAll(
                 g.getPlayers().stream().map(Player::getId).toList()
         );

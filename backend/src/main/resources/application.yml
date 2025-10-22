@@ -12,3 +12,12 @@ spring:
 logging:
   level:
     org.hibernate.SQL: debug
+# === Dossier où le backend stockera/servira les fichiers uploadés ===
+# - Valeur par défaut: /data/uploads (très pratique pour monter un volume en Docker)
+# - En local (hors Docker), override par env: APP_UPLOAD_DIR=/chemin/local
+app:
+  upload:
+    dir: ${APP_UPLOAD_DIR:./uploads}
+  cors:
+    allowed-origins:
+      - http://localhost:4200
