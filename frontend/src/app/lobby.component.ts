@@ -226,11 +226,22 @@ export class LobbyComponent {
   }
 
   start(){
-    if(!this.selected) return;
+    if (!this.selected) return;
+
+    // On mémorise l'ancien statut (normalement 'CREATED')
+    const prev = this.lastSelectedStatus;
+
     this.api.startGame(this.selected.id).subscribe({
       next: g => {
+        // La partie est maintenant ACTIVE côté serveur
         this.selected = g;
-        this.lastSelectedStatus = g.status;
+
+        // Point clé : NE PAS écraser lastSelectedStatus avec 'ACTIVE'
+        // On le laisse à l'état précédent pour que le polling détecte
+        // la transition CREATED -> ACTIVE et redirige tout le monde.
+        this.lastSelectedStatus = prev ?? 'CREATED';
+
+        //rafraîchir la liste
         this.list();
       },
       error: e => this.showError(e)

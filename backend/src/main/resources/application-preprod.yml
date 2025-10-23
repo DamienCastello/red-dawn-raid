@@ -10,6 +10,8 @@ app:
       - https://red-dawn-raid-preprod.castello.ovh
 
 spring:
+  profiles:
+    active: preprod
   jpa:
     hibernate:
       ddl-auto: update   # (préprod en "update" pour l’instant)

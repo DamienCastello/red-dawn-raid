@@ -5,11 +5,24 @@ type Health = { status: string };
 
 export type Phase = 'PHASE0'|'PHASE1'|'PHASE2'| 'PREPHASE3' | 'PHASE3'|'PHASE4';
 
+export type RoundFight = {
+  id: string;
+  location: string;
+  attackerId: string;
+  defenderId: string;
+  attackerRoll?: number | null;
+  defenderRoll?: number | null;
+  resolvedAtMillis?: number | null;
+};
+
 export type Player = {
   id: string;
   username: string;
   role: 'VAMPIRE'|'HUNTER';
   hand: string[];
+  hp: number;
+  attackDice: string;
+  defenseDice: string;  
 };
 
 // Compat centre: selon ton back c’est encore "candidateId".
@@ -34,6 +47,11 @@ export type Game = {
   // --- Step 3 ---
   messages: string[];
   prePhaseDeadlineMillis: number;  // fin de fenêtre PREPHASE3 (ms epoch)
+    // --- PHASE3 Combats ---
+  combatsQueue?: RoundFight[];
+  currentCombatIndex?: number | null;
+  currentCombat?: RoundFight | null;
+  currentCombatNextAdvanceAtMillis?: number;
 };
 
 export type JoinResponse = { game: Game; playerId: string; playerToken: string };
@@ -85,11 +103,20 @@ export class ApiService {
     return this.http.post<Game>(`${this.base}/games/${id}/skip`, {});
   }
 
+  rollDice(gameId: string) {
+    return this.http.post<Game>(`${this.base}/games/${gameId}/roll`, {});
+  }
+
     // Auth
   signup(username: string, password: string) {
     return this.http.post<{authToken:string, userId:string, username:string}>(`${this.base}/auth/signup`, { username, password });
   }
   login(username: string, password: string) {
     return this.http.post<{authToken:string, userId:string, username:string}>(`${this.base}/auth/login`,  { username, password });
+  }
+
+  wipeDb() {
+    // petit param confirm pour éviter les clics involontaires
+    return this.http.post(`${this.base}/dev/wipe?confirm=YES`, {});
   }
 }

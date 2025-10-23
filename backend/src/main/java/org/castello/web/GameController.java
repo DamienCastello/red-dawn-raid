@@ -83,4 +83,12 @@ public class GameController {
         playerService.requireInGame(user.getId(), id);
         return games.skipAction(id, user.getId());
     }
+
+    @PostMapping("/{id}/roll")
+    public Game roll(@PathVariable String id,
+                     @RequestHeader("Authorization") String authorization) {
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+        return games.rollDice(id, user.getId());
+    }
 }

@@ -7,6 +7,8 @@ app:
       - https://red-dawn-raid.castello.ovh
 
 spring:
+  profiles:
+    active: prod
   jpa:
     hibernate:
       ddl-auto: validate  # en prod, idéalement "validate"

@@ -26,6 +26,12 @@ import { ApiService } from './api.service';
         <button type="submit" [disabled]="loading">Login</button>
       </div>
     </form>
+    <!-- auth.component.html -->
+    <button *ngIf="isLocalDev"
+            (click)="wipeAll()"
+            style="margin-top:1rem; background:#b30000; color:#fff; border:none; padding:.5rem .75rem; border-radius:6px">
+      🧨 Vider toute la base (local)
+    </button>
 
     <p *ngIf="error" class="err" style="margin-top:1rem">{{error}}</p>
   </div>
@@ -47,6 +53,19 @@ export class AuthComponent {
 
   signup(){ this.submit('signup'); }
   login(){ this.submit('login'); }
+
+  isLocalDev = location.origin.startsWith('http://localhost') || location.origin.startsWith('http://127.0.0.1');
+
+  wipeAll() {
+    if (!this.isLocalDev) return;
+    const sure = confirm('⚠️ Tu es sûr ? Cela va VIDER TOUTE la base locale.');
+    if (!sure) return;
+
+    this.api.wipeDb().subscribe({
+      next: () => alert('Base vidée ✅'),
+      error: (e) => alert('Erreur wipe: ' + (e?.error?.message || e.message || 'inconnue'))
+    });
+  }
 
   private submit(kind:'signup'|'login'){
     if (this.form.invalid){ this.form.markAllAsTouched(); return; }

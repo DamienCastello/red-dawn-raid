@@ -35,6 +35,12 @@ public class Game {
     private long prePhaseDeadlineMillis;                 // quand se termine la fenêtre PREPHASE3 (ms)
     private final Set<String> readyForPhase3 = new HashSet<>(); // joueurs ayant cliqué “j’ai fini”
 
+    // --- PHASE3 : file de combats + combat courant ---
+    private java.util.List<RoundFight> combatsQueue = new java.util.ArrayList<>();
+    private Integer currentCombatIndex;           // null si aucun combat
+    private RoundFight currentCombat;            // miroir pour le client
+    private long currentCombatNextAdvanceAtMillis;// 0 si pas planifié
+
     public Game() {}
 
     public Game(String id, GameStatus status, int raid) {
@@ -103,4 +109,19 @@ public class Game {
 
     // skip/ready
     public Set<String> getReadyForPhase3() { return readyForPhase3; }
+
+    // fight
+    public java.util.List<RoundFight> getCombatsQueue() { return combatsQueue; }
+    public void setCombatsQueue(java.util.List<RoundFight> combatsQueue) { this.combatsQueue = combatsQueue; }
+
+    public Integer getCurrentCombatIndex() { return currentCombatIndex; }
+    public void setCurrentCombatIndex(Integer currentCombatIndex) { this.currentCombatIndex = currentCombatIndex; }
+
+    public RoundFight getCurrentCombat() { return currentCombat; }
+    public void setCurrentCombat(RoundFight currentCombat) { this.currentCombat = currentCombat; }
+
+    public long getCurrentCombatNextAdvanceAtMillis() { return currentCombatNextAdvanceAtMillis; }
+    public void setCurrentCombatNextAdvanceAtMillis(long currentCombatNextAdvanceAtMillis) {
+        this.currentCombatNextAdvanceAtMillis = currentCombatNextAdvanceAtMillis;
+    }
 }

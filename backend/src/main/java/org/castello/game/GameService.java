@@ -89,6 +89,26 @@ public class GameService {
                 .toList();
     }
 
+    private int diceSides(String d) {
+        if (d == null) return 6;
+        return switch (d.toUpperCase()) {
+            case "D4" -> 4;
+            case "D6" -> 6;
+            case "D8" -> 8;
+            case "D10" -> 10;
+            case "D12" -> 12;
+            case "D20" -> 20;
+            default -> 6;
+        };
+    }
+
+    private String nameOf(Game g, String playerId) {
+        return g.getPlayers().stream()
+                .filter(p -> p.getId().equals(playerId))
+                .map(p -> (p.getUsername()!=null && !p.getUsername().isBlank()) ? p.getUsername() : p.getId())
+                .findFirst().orElse(playerId);
+    }
+
     // ---------- CRUD ----------
     @Transactional
     public Game create() {
@@ -148,6 +168,20 @@ public class GameService {
             Player p = g.getPlayers().get(i);
             p.setRole(i == vampIndex ? "VAMPIRE" : "HUNTER");
             p.setHand(new ArrayList<>(List.of("foret", "carriere", "lac", "manoir")));
+        }
+
+        // init hp & dices
+        int huntersCount = (int) g.getPlayers().stream().filter(p -> !"VAMPIRE".equals(p.getRole())).count();
+        for (var p : g.getPlayers()) {
+            // Dés de base
+            p.setAttackDice("D6");
+            p.setDefenseDice("D6");
+            // PV
+            if ("VAMPIRE".equals(p.getRole())) {
+                p.setHp(20 + huntersCount * 10); // ex: 2 chasseurs -> 40 PV
+            } else {
+                p.setHp(20);
+            }
         }
 
         // compteurs + centre
@@ -223,9 +257,8 @@ public class GameService {
                 planNextPhaseWithDelay(g, Phase.PHASE3, PREPHASE3_WINDOW_MS);
             }
             case PHASE3 -> {
-                // Pour Step 3: on n’implémente pas encore la résolution détaillée.
-                // On laisse les messages déjà construits en PREPHASE3 s'afficher.
-                // (Plus tard: affichage combat séquentiel, jets de dés, etc.)
+                // On lance la file de combats (duels séquentiels)
+                buildCombatsQueue(g);
             }
             case PHASE4 -> {
                 // Maintenance : on rend les cartes aux propriétaires et on vide le centre
@@ -292,7 +325,7 @@ public class GameService {
     private void maybeAutoAdvance(@NonNull Game g) {
         long now = System.currentTimeMillis();
 
-        // 1) Si un passage de phase est planifié et l’heure atteinte → on applique
+        // 1) Appliquer en priorité une phase planifiée si l’heure est venue
         if (g.getPendingNextPhase() != null &&
                 g.getNextAutoAdvanceAtMillis() != 0 &&
                 now >= g.getNextAutoAdvanceAtMillis()) {
@@ -300,7 +333,55 @@ public class GameService {
             return;
         }
 
-        // 2) Sinon, si on est bloqué depuis trop longtemps → on force des choix aléatoires
+        // 2) Cadencer les combats (PHASE3)
+        if (g.getPhase() == Phase.PHASE3 && g.getCurrentCombat() != null) {
+            var r = g.getCurrentCombat();
+            boolean bothRolled = r.getAttackerRoll() != null && r.getDefenderRoll() != null;
+
+            // 2.a) Quand les 2 ont jeté le dé → appliquer dégâts + planifier +4s vers "duel suivant"
+            if (bothRolled && g.getCurrentCombatNextAdvanceAtMillis() == 0L) {
+                int atk = r.getAttackerRoll();
+                int def = r.getDefenderRoll();
+                int dmg = Math.max(0, atk - def);
+
+                // dégâts sur le défenseur (jamais négatif)
+                var defPlayer = g.getPlayers().stream()
+                        .filter(p -> p.getId().equals(r.getDefenderId()))
+                        .findFirst().orElse(null);
+                if (defPlayer != null && dmg > 0) {
+                    defPlayer.setHp(Math.max(0, defPlayer.getHp() - dmg));
+                }
+
+                // message lisible
+                String an = nameOf(g, r.getAttackerId());
+                String dn = nameOf(g, r.getDefenderId());
+                if (dmg > 0) g.getMessages().add(an + " inflige " + dmg + " dégâts à " + dn);
+                else        g.getMessages().add(dn + " pare l'attaque de " + an);
+
+                r.setResolvedAtMillis(now);
+                g.setCurrentCombatNextAdvanceAtMillis(now + 4000L); // attend 4s avant d’enchaîner
+                return; // on attend un prochain tick
+            }
+
+            // 2.b) Après le délai de 4s, passer au duel suivant OU planifier PHASE4 si c’était le dernier
+            if (bothRolled && g.getCurrentCombatNextAdvanceAtMillis() > 0L && now >= g.getCurrentCombatNextAdvanceAtMillis()) {
+                int nextIdx = g.getCurrentCombatIndex() + 1;
+                if (nextIdx < g.getCombatsQueue().size()) {
+                    g.setCurrentCombatIndex(nextIdx);
+                    g.setCurrentCombat(g.getCombatsQueue().get(nextIdx));
+                    g.setCurrentCombatNextAdvanceAtMillis(0L);
+                } else {
+                    // Fin des combats → planifie PHASE4 ET nettoie l’état de combat
+                    g.setCurrentCombat(null);
+                    g.setCurrentCombatIndex(null);
+                    g.setCurrentCombatNextAdvanceAtMillis(0L);
+                    planNextPhase(g, Phase.PHASE4);
+                }
+                return;
+            }
+        }
+
+        // 3) Si on n’a pas de phase planifiée à appliquer et pas en combat → logique de “force pick”
         forcePicksIfTimedOut(g);
     }
 
@@ -458,4 +539,74 @@ public class GameService {
         save(g);
         return g;
     }
+
+    /** Construit la file des duels (PHASE3) :
+     * pour chaque chasseur co-localisé avec le vampire, on pousse 2 rounds :
+     * Hunter->Vamp puis Vamp->Hunter (chasseur commence toujours). */
+    private void buildCombatsQueue(Game g) {
+        g.getCombatsQueue().clear();
+
+        var vampOpt = getVamp(g);
+        if (vampOpt.isEmpty()) {
+            g.setCurrentCombatIndex(null);
+            g.setCurrentCombat(null);
+            g.setCurrentCombatNextAdvanceAtMillis(0L);
+            return;
+        }
+        var vamp = vampOpt.get();
+
+        var groups = groupPlayersByLocation(g); // ta méthode existante
+        for (var e : groups.entrySet()) {
+            String loc = e.getKey();
+            var onLoc = e.getValue();
+            boolean vampHere = onLoc.stream().anyMatch(p -> p.getId().equals(vamp.getId()));
+            if (!vampHere) continue;
+
+            var huntersHere = onLoc.stream().filter(p -> "HUNTER".equals(p.getRole())).toList();
+            for (var h : huntersHere) {
+                // chasseur attaque d'abord
+                g.getCombatsQueue().add(new RoundFight(java.util.UUID.randomUUID().toString(), loc, h.getId(), vamp.getId()));
+                // puis le vampire attaque le chasseur
+                g.getCombatsQueue().add(new RoundFight(java.util.UUID.randomUUID().toString(), loc, vamp.getId(), h.getId()));
+            }
+        }
+
+        if (!g.getCombatsQueue().isEmpty()) {
+            g.setCurrentCombatIndex(0);
+            g.setCurrentCombat(g.getCombatsQueue().get(0));
+            g.setCurrentCombatNextAdvanceAtMillis(0L);
+        } else {
+            g.setCurrentCombatIndex(null);
+            g.setCurrentCombat(null);
+            g.setCurrentCombatNextAdvanceAtMillis(0L);
+        }
+    }
+
+    @Transactional
+    public Game rollDice(String gameId, String userId) {
+        Game g = findOr404(gameId);
+
+        if (g.getStatus() != GameStatus.ACTIVE || g.getPhase() != Phase.PHASE3 || g.getCurrentCombat() == null) {
+            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.CONFLICT, "not in combat");
+        }
+
+        var r = g.getCurrentCombat();
+
+        // Le joueur doit être soit l'attaquant sans jet, soit le défenseur sans jet
+        if (userId.equals(r.getAttackerId()) && r.getAttackerRoll() == null) {
+            var p = g.getPlayers().stream().filter(pp -> pp.getId().equals(userId)).findFirst().orElseThrow();
+            int sides = diceSides(p.getAttackDice());
+            r.setAttackerRoll(1 + RND.nextInt(sides));
+        } else if (userId.equals(r.getDefenderId()) && r.getDefenderRoll() == null) {
+            var p = g.getPlayers().stream().filter(pp -> pp.getId().equals(userId)).findFirst().orElseThrow();
+            int sides = diceSides(p.getDefenseDice());
+            r.setDefenderRoll(1 + RND.nextInt(sides));
+        } else {
+            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.CONFLICT, "no roll expected from you now");
+        }
+
+        save(g);
+        return g;
+    }
+
 }
