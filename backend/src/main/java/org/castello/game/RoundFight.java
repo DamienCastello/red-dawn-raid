@@ -2,12 +2,13 @@ package org.castello.game;
 
 public class RoundFight {
     private String id;
-    private String location;      // "foret", "carriere", "lac", "manoir"
+    private String location;      // "forest", "quarry", "lake", "manor"
     private String attackerId;    // joueur qui attaque
     private String defenderId;    // joueur qui défend
     private Integer attackerRoll; // jet (null tant que pas lancé)
     private Integer defenderRoll; // jet (null tant que pas lancé)
     private Long resolvedAtMillis;// quand les dégâts ont été appliqués (info)
+    private java.util.List<String> breakdownLines;
 
     public RoundFight() {}
 
@@ -38,4 +39,7 @@ public class RoundFight {
 
     public Long getResolvedAtMillis() { return resolvedAtMillis; }
     public void setResolvedAtMillis(Long resolvedAtMillis) { this.resolvedAtMillis = resolvedAtMillis; }
+
+    public java.util.List<String> getBreakdownLines() { return breakdownLines; }
+    public void setBreakdownLines(java.util.List<String> breakdownLines) { this.breakdownLines = breakdownLines; }
 }

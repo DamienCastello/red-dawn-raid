@@ -91,4 +91,12 @@ public class GameController {
         playerService.requireInGame(user.getId(), id);
         return games.rollDice(id, user.getId());
     }
+
+    @PostMapping("/{id}/weather/roll")
+    public Game rollWeather(@PathVariable String id,
+                            @RequestHeader("Authorization") String authorization) {
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+        return games.rollWeather(id, user.getId());
+    }
 }

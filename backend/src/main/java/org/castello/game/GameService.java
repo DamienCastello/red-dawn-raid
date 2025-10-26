@@ -59,18 +59,33 @@ public class GameService {
     // ----------------------------------------------------------
 
     private static final long PHASE_DELAY_MS = 5000L;   // 5 s (fenêtre “actions” quand tout le monde a joué)
-    private static final long PHASE_FORCE_MS = 30000L;  // 30 s (au-delà, on force des choix aléatoires)
     private static final long PREPHASE3_WINDOW_MS = 20_000L; // 20 s avant PHASE3
 
     // ---------- utilitaires ----------
     private static final Random RND = new Random();
 
-    @Nullable
-    private String pickRandomCardFromHand(@NonNull Player p) {
-        var hand = p.getHand();
-        if (hand == null || hand.isEmpty()) return null;
-        int idx = RND.nextInt(hand.size());
-        return hand.get(idx);
+    private boolean computeHasUpcomingCombat(@NonNull Game g) {
+        var vampOpt = getVamp(g);
+        if (vampOpt.isEmpty()) return false;
+        var vamp = vampOpt.get();
+        var groups = groupPlayersByLocation(g);
+        for (var e : groups.entrySet()) {
+            var onLoc = e.getValue();
+            boolean vampHere = onLoc.stream().anyMatch(p -> p.getId().equals(vamp.getId()));
+            boolean hunterHere = onLoc.stream().anyMatch(p -> "HUNTER".equals(p.getRole()));
+            if (vampHere && hunterHere) return true;
+        }
+        return false;
+    }
+
+    private void addHistory(@NonNull Game g, @NonNull String text) {
+        if (g.getHistory() == null) g.setHistory(new ArrayList<>());
+        var hi = new Game.HistoryItem();
+        hi.setRaid(g.getRaid());
+        hi.setPhase(g.getPhase());
+        hi.setTs(System.currentTimeMillis());
+        hi.setText(text);
+        g.getHistory().add(hi);
     }
 
     private boolean hasPlayed(@NonNull Game g, String playerId) {
@@ -108,6 +123,125 @@ public class GameService {
                 .map(p -> (p.getUsername()!=null && !p.getUsername().isBlank()) ? p.getUsername() : p.getId())
                 .findFirst().orElse(playerId);
     }
+
+    private WeatherStatus mapRollToWeather(int roll){
+        return switch (roll) {
+            case 1  -> WeatherStatus.SUNNY;
+            case 2  -> WeatherStatus.FOG;
+            case 3  -> WeatherStatus.AURORA;
+            case 4  -> WeatherStatus.WIND;
+            case 5  -> WeatherStatus.CLOUDY;
+            case 6  -> WeatherStatus.STORM;
+            case 7  -> WeatherStatus.RAIN;
+            case 8  -> WeatherStatus.BLIZZARD;
+            case 9  -> WeatherStatus.DUSK;
+            case 10 -> WeatherStatus.NIGHT_DARK;
+            case 11 -> WeatherStatus.NIGHT_CLEAR;
+            case 12 -> WeatherStatus.FULL_MOON;
+            default -> null;
+        };
+    }
+
+    private String weatherNameFr(WeatherStatus ws){
+        return switch (ws) {
+            case SUNNY      -> "Jour ensoleillé";
+            case FOG        -> "Brouillard protecteur";
+            case AURORA     -> "Aurore";
+            case WIND       -> "Vent violent";
+            case CLOUDY     -> "Ciel couvert";
+            case STORM      -> "Orage";
+            case RAIN       -> "Pluie diluvienne";
+            case BLIZZARD   -> "Blizzard";
+            case DUSK       -> "Crépuscule";
+            case NIGHT_DARK -> "Nuit obscure";
+            case NIGHT_CLEAR-> "Nuit claire";
+            case FULL_MOON  -> "Pleine lune";
+        };
+    }
+
+    private String weatherDescFr(WeatherStatus ws){
+        return switch (ws) {
+            case SUNNY      -> "La lumière domine. +1 attaque pour les chasseurs et –1 défense pour le vampire.";
+            case FOG        -> "La brume étouffe les sons et couvre l'approche. +1 attaque des chasseurs.";
+            case AURORA     -> "La lumière progresse. -1 défense pour le vampire.";
+            case WIND       -> "Les rafales dispersent le matériel. +1 de coût en ressource pour les constructions.";
+            case CLOUDY     -> "Lumière terne, ombres sans mordant. Aucun effet.";
+            case STORM      -> "La foudre déstabilise au combat. -2 défense pour tous.";
+            case RAIN       -> "La pluie torrentielle alourdit chaque geste. -2 attaque pour tous.";
+            case BLIZZARD   -> "Froid mordant. Potions gelées et -1 attaque pour tous.";
+            case DUSK       -> "Les ombres progressent. +1 défense du vampire.";
+            case NIGHT_DARK -> "Les ombres dominent. +1 attaque du vampire. Les chasseurs ne peuvent utiliser de pièges.";
+            case NIGHT_CLEAR-> "La lune éclaire légèrement et le vampire gagne en puissance. +1 attaque du vampire et –1 défense pour les chasseurs.";
+            case FULL_MOON  -> "La pleine lune exalte le sang ancien. +2 attaque du vampire.";
+        };
+    }
+
+    private boolean isManoir(String loc){ return "manor".equalsIgnoreCase(loc); }
+    private boolean isMine(String loc){ return "quarry".equalsIgnoreCase(loc); } // TODO: remplacer "quarry" par “mine” plus tard
+
+    // Certaines météos n'ont aucun effet à l'intérieur de ces lieux
+    private boolean weatherSuppressedHere(WeatherStatus ws, String loc){
+        if (loc == null || ws == null) return false;
+        if (isManoir(loc)) {
+            // au manoir : brouillard (FOG), vent (WIND), pluie (RAIN) sans effet
+            return ws == WeatherStatus.FOG || ws == WeatherStatus.WIND || ws == WeatherStatus.RAIN;
+        }
+        if (isMine(loc)) {
+            // mine : ensoleillé (SUNNY), aurore (AURORA), vent (WIND), pluie (RAIN) sans effet
+            return ws == WeatherStatus.SUNNY || ws == WeatherStatus.AURORA || ws == WeatherStatus.WIND || ws == WeatherStatus.RAIN;
+        }
+        return false;
+    }
+
+    // retourne la liste des mods VRAIMENT appliqués (bonne stat + pas supprimés par le lieu/météo)
+    private List<StatMod> modsAppliedFor(Game g, String playerId, String stat, @Nullable String location){
+        var all = g.getRaidMods() != null ? g.getRaidMods().get(playerId) : null;
+        if (all == null) return java.util.List.of();
+        WeatherStatus ws = g.getWeatherStatus();
+        return all.stream()
+                .filter(m -> stat.equalsIgnoreCase(m.getStat()))
+                .filter(m -> {
+                    boolean isWeather = m.getSource()!=null && m.getSource().startsWith("WEATHER:");
+                    return !(isWeather && weatherSuppressedHere(ws, location));
+                })
+                .toList();
+    }
+
+    // somme des mods
+    private int totalModFor(Game g, String playerId, String stat, String location){
+        return modsAppliedFor(g, playerId, stat, location)
+                .stream().mapToInt(StatMod::getAmount).sum();
+    }
+
+    // construit les logs liés aux mods
+    private List<String> buildModBreakdownLines(Game g, String playerId, String stat, int baseRoll, String location){
+        List<String> out = new ArrayList<>();
+        int cur = baseRoll;
+        String sideLabel = "ATTACK".equalsIgnoreCase(stat) ? "L’attaque" : "La défense";
+        String name = nameOf(g, playerId);
+
+        for (var m : modsAppliedFor(g, playerId, stat, location)) {
+            int delta = m.getAmount(); if (delta == 0) continue;
+            String verb = delta >= 0 ? "augmente" : "diminue";
+            int abs = Math.abs(delta);
+
+            String src = "par un effet";
+            if (m.getSource()!=null && m.getSource().startsWith("WEATHER:")) {
+                try {
+                    var wsStr = m.getSource().substring("WEATHER:".length());
+                    var ws = WeatherStatus.valueOf(wsStr);
+                    src = "par l’effet " + weatherNameFr(ws).toLowerCase();
+                } catch (Exception ignored) { /* fallback */ }
+            } else if (m.getDescription()!=null && !m.getDescription().isBlank()){
+                src = "par un effet (" + m.getDescription() + ")";
+            }
+
+            cur += delta;
+            out.add(String.format("%s de %s %s de %d %s et passe à %d", sideLabel, name, verb, abs, src, cur));
+        }
+        return out;
+    }
+
 
     // ---------- CRUD ----------
     @Transactional
@@ -158,16 +292,28 @@ public class GameService {
         g.setStatus(GameStatus.ACTIVE);
         g.setRaid(1);
 
-        // PHASE1 (chasseurs)
-        g.setPhase(Phase.PHASE1);
+        // === PHASE0 : météo ===
+        g.setPhase(Phase.PHASE0);
         g.setPhaseStartMillis(System.currentTimeMillis());
+        g.setWeatherRoll(null);
+        g.setWeatherStatus(null);
+        g.setWeatherStatusNameFr(null);
+        g.setWeatherDescriptionFr(null);
+        g.setWeatherShowUntilMillis(0L);
+
+        // petit timeout confort player : on laisse 3s avant d’ouvrir la modale
+        g.setWeatherModalNotBeforeMillis(System.currentTimeMillis() + 5_000L);
+
+
+        // PHASE1 (chasseurs)
+        //Le passage en PHASE1 est planifié par applyWeatherRoll(...)
 
         // rôles + mains
         int vampIndex = RND.nextInt(g.getPlayers().size());
         for (int i = 0; i < g.getPlayers().size(); i++) {
             Player p = g.getPlayers().get(i);
             p.setRole(i == vampIndex ? "VAMPIRE" : "HUNTER");
-            p.setHand(new ArrayList<>(List.of("foret", "carriere", "lac", "manoir")));
+            p.setHand(new ArrayList<>(List.of("forest", "quarry", "lake", "manor")));
         }
 
         // init hp & dices
@@ -248,17 +394,46 @@ public class GameService {
         g.setPhaseStartMillis(System.currentTimeMillis());
 
         switch (to) {
+            case PHASE0 -> {
+                g.setWeatherRoll(null);
+                g.setWeatherStatus(null);
+                g.setWeatherStatusNameFr(null);
+                g.setWeatherDescriptionFr(null);
+                g.setWeatherShowUntilMillis(0L);
+                g.setPhaseStartMillis(System.currentTimeMillis());
+                g.setMessages(new ArrayList<>(java.util.List.of("Préparation : tirage météo…")));
+
+                // petit timeout confort player : 3s avant la modale
+                g.setWeatherModalNotBeforeMillis(System.currentTimeMillis() + 3_000L);
+            }
+            case PHASE1 -> {
+                g.setMessages(new ArrayList<>(List.of("Les chasseurs planifient un raid…")));
+            }
+            case PHASE2 -> {
+                g.setMessages(new ArrayList<>(List.of("Le vampire s’éveille…")));
+            }
             case PREPHASE3 -> {
                 // révélation + messages + fenêtre d’actions
                 g.setMessages(buildRevealMessages(g));
+                for (var m : g.getMessages()) addHistory(g, m);
                 g.getReadyForPhase3().clear();
-                g.setPrePhaseDeadlineMillis(System.currentTimeMillis() + PREPHASE3_WINDOW_MS);
-                // plan préventif vers PHASE3 à la fin de la fenêtre (si pas allReady avant)
-                planNextPhaseWithDelay(g, Phase.PHASE3, PREPHASE3_WINDOW_MS);
+                long now = System.currentTimeMillis();
+                // Si combat à venir -> fenêtre normale, sinon fenêtre très courte (pas besoin du bouton)
+                long window = g.isHasUpcomingCombat() ? PREPHASE3_WINDOW_MS : 4000L;
+                g.setPrePhaseDeadlineMillis(now + window);
+                planNextPhaseWithDelay(g, Phase.PHASE3, window);
             }
             case PHASE3 -> {
                 // On lance la file de combats (duels séquentiels)
                 buildCombatsQueue(g);
+
+                // Aucun combat ce raid ? On saute directement à la maintenance.
+                if (g.getCurrentCombat() == null) {
+                    if (g.getMessages() == null) g.setMessages(new ArrayList<>());
+                    g.getMessages().add("Aucun combat ce raid.");
+                    // petit délai cosmétique pour laisser lire le message
+                    planNextPhaseWithDelay(g, Phase.PHASE4, 1500L);
+                }
             }
             case PHASE4 -> {
                 // Maintenance : on rend les cartes aux propriétaires et on vide le centre
@@ -271,6 +446,7 @@ public class GameService {
                 }
                 g.getCenter().clear();
                 g.setMessages(new ArrayList<>(List.of("Maintenance…")));
+                addHistory(g, "Maintenance…");
                 // Préparer le raid suivant : retour PHASE0 (météo) → PHASE1
                 g.setRaid(g.getRaid() + 1);
                 planNextPhase(g, Phase.PHASE0);
@@ -279,53 +455,10 @@ public class GameService {
         }
     }
 
-    private void forcePicksIfTimedOut(@NonNull Game g) {
-        long now = System.currentTimeMillis();
-        if (g.getPhaseStartMillis() == 0) g.setPhaseStartMillis(now);
-        long elapsed = now - g.getPhaseStartMillis();
-
-        if (elapsed < PHASE_FORCE_MS) return; // pas encore l’heure de forcer
-
-        switch (g.getPhase()) {
-            case PHASE1 -> {
-                // Forcer les chasseurs qui n’ont pas joué
-                for (var h : getHunters(g)) {
-                    if (!hasPlayed(g, h.getId())) {
-                        String card = pickRandomCardFromHand(h);
-                        if (card != null) {
-                            h.getHand().remove(card);
-                            g.getCenter().add(new CenterBoard(h.getId(), card, false));
-                        }
-                    }
-                }
-                // Si au moins un pick a été ajouté, planifier la PHASE2 (avec petit délai)
-                if (allHuntersSelected(g) && g.getPendingNextPhase() == null) {
-                    planNextPhase(g, Phase.PHASE2);
-                }
-            }
-            case PHASE2 -> {
-                // Forcer le vampire s’il n’a pas joué
-                var vampOpt = getVamp(g);
-                if (vampOpt.isPresent() && !hasPlayed(g, vampOpt.get().getId())) {
-                    var v = vampOpt.get();
-                    String card = pickRandomCardFromHand(v);
-                    if (card != null) {
-                        v.getHand().remove(card);
-                        g.getCenter().add(new CenterBoard(v.getId(), card, false));
-                    }
-                }
-                if (vampireSelected(g) && g.getPendingNextPhase() == null) {
-                    planNextPhase(g, Phase.PHASE3);
-                }
-            }
-            default -> { /* pas de force pick sur les autres phases ici */ }
-        }
-    }
-
     private void maybeAutoAdvance(@NonNull Game g) {
         long now = System.currentTimeMillis();
 
-        // 1) Appliquer en priorité une phase planifiée si l’heure est venue
+        // 1) appliquer une phase planifiée si l’heure est venue
         if (g.getPendingNextPhase() != null &&
                 g.getNextAutoAdvanceAtMillis() != 0 &&
                 now >= g.getNextAutoAdvanceAtMillis()) {
@@ -333,8 +466,39 @@ public class GameService {
             return;
         }
 
+        // PHASE0 : après la modale (5s), on affiche la météo au centre pendant 5s avant PHASE1
+        if (g.getPhase() == Phase.PHASE0 && g.getWeatherRoll() != null) {
+            boolean modalOver = now >= g.getWeatherShowUntilMillis();
+            boolean centerEmpty = g.getMessages() == null || g.getMessages().isEmpty();
+
+            if (modalOver && centerEmpty) {
+                // On injecte le message "Météo ..." au centre (sera visible ~5s jusqu'au passage en PHASE1)
+                List<String> msgs = new ArrayList<>();
+                msgs.add("Météo — " + (g.getWeatherStatusNameFr() != null ? g.getWeatherStatusNameFr() : ""));
+                if (g.getWeatherDescriptionFr() != null && !g.getWeatherDescriptionFr().isBlank()) {
+                    msgs.add(g.getWeatherDescriptionFr());
+                }
+                g.setMessages(msgs);
+                // NB : pas de return, on laisse tourner les autres règles; le passage PHASE1 est déjà planifié à +10s total
+            }
+        }
+
         // 2) Cadencer les combats (PHASE3)
-        if (g.getPhase() == Phase.PHASE3 && g.getCurrentCombat() != null) {
+        if (g.getPhase() == Phase.PHASE3) {
+
+            // ⛳ Garde-fou : si aucun combat n'est prévu, on évite le blocage.
+            if (g.getCurrentCombat() == null) {
+                if (g.getPendingNextPhase() == null) {
+                    if (g.getMessages() == null) g.setMessages(new ArrayList<>());
+                    g.getMessages().add("Aucun combat ce raid.");
+                    addHistory(g, "Aucun combat ce raid.");
+                    // petit délai possible : planNextPhaseWithDelay(g, Phase.PHASE4, 1500L);
+                    planNextPhase(g, Phase.PHASE4);
+                }
+
+                return; // rien à faire d'autre ce tick
+            }
+
             var r = g.getCurrentCombat();
             boolean bothRolled = r.getAttackerRoll() != null && r.getDefenderRoll() != null;
 
@@ -342,7 +506,12 @@ public class GameService {
             if (bothRolled && g.getCurrentCombatNextAdvanceAtMillis() == 0L) {
                 int atk = r.getAttackerRoll();
                 int def = r.getDefenderRoll();
-                int dmg = Math.max(0, atk - def);
+
+                // Ajoute les mods meteo (et plus tard cartes), avec exceptions lieu
+                int atkMod = totalModFor(g, r.getAttackerId(), "ATTACK", r.getLocation());
+                int defMod = totalModFor(g, r.getDefenderId(), "DEFENSE", r.getLocation());
+
+                int dmg = Math.max(0, (atk + atkMod) - (def + defMod));
 
                 // dégâts sur le défenseur (jamais négatif)
                 var defPlayer = g.getPlayers().stream()
@@ -352,14 +521,31 @@ public class GameService {
                     defPlayer.setHp(Math.max(0, defPlayer.getHp() - dmg));
                 }
 
-                // message lisible
+                // messages lisibles
+                // breakdown poussé en history
+                List<String> atkBk = buildModBreakdownLines(g, r.getAttackerId(), "ATTACK",  r.getAttackerRoll(), r.getLocation());
+                List<String> defBk = buildModBreakdownLines(g, r.getDefenderId(), "DEFENSE", r.getDefenderRoll(), r.getLocation());
+
+                for (String ln : atkBk) addHistory(g, ln);
+                for (String ln : defBk) addHistory(g, ln);
+
+                if (r.getBreakdownLines() == null) r.setBreakdownLines(new ArrayList<>());
+                r.getBreakdownLines().clear();
+                r.getBreakdownLines().addAll(atkBk);
+                r.getBreakdownLines().addAll(defBk);
+
+                // résultat du fight
                 String an = nameOf(g, r.getAttackerId());
                 String dn = nameOf(g, r.getDefenderId());
                 if (dmg > 0) g.getMessages().add(an + " inflige " + dmg + " dégâts à " + dn);
                 else        g.getMessages().add(dn + " pare l'attaque de " + an);
 
+                // history
+                if (dmg > 0) { addHistory(g, an + " inflige " + dmg + " dégâts à " + dn); }
+                else         { addHistory(g, dn + " pare l'attaque de " + an); }
+
                 r.setResolvedAtMillis(now);
-                g.setCurrentCombatNextAdvanceAtMillis(now + 4000L); // attend 4s avant d’enchaîner
+                g.setCurrentCombatNextAdvanceAtMillis(now + 5000L); // attend 4s avant d’enchaîner
                 return; // on attend un prochain tick
             }
 
@@ -380,9 +566,6 @@ public class GameService {
                 return;
             }
         }
-
-        // 3) Si on n’a pas de phase planifiée à appliquer et pas en combat → logique de “force pick”
-        forcePicksIfTimedOut(g);
     }
 
     // ---------- Sélection lieu ----------
@@ -419,6 +602,7 @@ public class GameService {
         if (g.getPhase() == Phase.PHASE1 && allHuntersSelected(g) && g.getPendingNextPhase() == null) {
             planNextPhase(g, Phase.PHASE2);
         } else if (g.getPhase() == Phase.PHASE2 && vampireSelected(g) && g.getPendingNextPhase() == null) {
+            g.setHasUpcomingCombat(computeHasUpcomingCombat(g));
             planNextPhase(g, Phase.PREPHASE3);
         }
 
@@ -499,10 +683,10 @@ public class GameService {
     // Mini label FR pour l’affichage des lieux
     private String labelLieuFr(@NonNull String c){
         return switch (c) {
-            case "foret" -> "Forêt";
-            case "carriere" -> "Carrière";
-            case "lac" -> "Lac";
-            case "manoir" -> "Manoir";
+            case "forest" -> "Forêt";
+            case "quarry" -> "Carrière";
+            case "lake" -> "Lac";
+            case "manor" -> "Manoir";
             default -> c;
         };
     }
@@ -521,8 +705,8 @@ public class GameService {
         Game g = findOr404(gameId);
         maybeAutoAdvance(g);
 
-        if (g.getPhase() != Phase.PREPHASE3) // <-- garde ta logique, juste persistance derrière
-        throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PREPHASE3");
+        if (g.getPhase() != Phase.PREPHASE3)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PREPHASE3");
 
         var present = g.getPlayers().stream().anyMatch(p -> p.getId().equals(playerId));
         if (!present)
@@ -609,4 +793,135 @@ public class GameService {
         return g;
     }
 
+    // alimente raidMods
+    private void rebuildWeatherMods(Game g){
+        // 1) retire les mods existants de type WEATHER, en gardant les autres (cartes etc.)
+        for (var entry : g.getRaidMods().entrySet()) {
+            var list = entry.getValue();
+            if (list == null) continue;
+            list.removeIf(m -> m.getSource() != null && m.getSource().startsWith("WEATHER:"));
+        }
+
+        if (g.getWeatherStatus() == null) return;
+
+        // 2) s'assurer que chaque joueur a une liste
+        for (var p : g.getPlayers()) g.getRaidMods().computeIfAbsent(p.getId(), __ -> new java.util.ArrayList<>());
+
+        WeatherStatus ws = g.getWeatherStatus();
+        switch (ws) {
+            case SUNNY -> {
+                for (var p : g.getPlayers()) {
+                    if ("HUNTER".equals(p.getRole()))
+                        g.getRaidMods().get(p.getId()).add(new StatMod("ATTACK", +1, "WEATHER:SUNNY", "+1 attaque (météo : jour ensoleillé)"));
+                    if ("VAMPIRE".equals(p.getRole()))
+                        g.getRaidMods().get(p.getId()).add(new StatMod("DEFENSE", -1, "WEATHER:SUNNY", "−1 défense (météo : jour ensoleillé)"));
+                }
+            }
+            case FOG -> {
+                for (var p : g.getPlayers())
+                    if ("HUNTER".equals(p.getRole()))
+                        g.getRaidMods().get(p.getId()).add(new StatMod("ATTACK", +1, "WEATHER:FOG", "+1 attaque (météo : brouillard)"));
+            }
+            case AURORA -> {
+                for (var p : g.getPlayers())
+                    if ("VAMPIRE".equals(p.getRole()))
+                        g.getRaidMods().get(p.getId()).add(new StatMod("DEFENSE", -1, "WEATHER:AURORA", "−1 défense (météo : aurore)"));
+            }
+            case WIND -> { /* effet construction pas géré -> pas de mod de combat */ }
+            case CLOUDY -> { /* aucun mod */ }
+            case STORM -> {
+                for (var p : g.getPlayers())
+                    g.getRaidMods().get(p.getId()).add(new StatMod("DEFENSE", -2, "WEATHER:STORM", "−2 défense (météo : orage)"));
+            }
+            case RAIN -> {
+                for (var p : g.getPlayers())
+                    g.getRaidMods().get(p.getId()).add(new StatMod("ATTACK", -2, "WEATHER:RAIN", "−2 attaque (météo : pluie diluvienne)"));
+            }
+            case BLIZZARD -> {
+                for (var p : g.getPlayers())
+                    g.getRaidMods().get(p.getId()).add(new StatMod("ATTACK", -1, "WEATHER:BLIZZARD", "−1 attaque (météo : blizzard)"));
+            }
+            case DUSK -> {
+                for (var p : g.getPlayers())
+                    if ("VAMPIRE".equals(p.getRole()))
+                        g.getRaidMods().get(p.getId()).add(new StatMod("DEFENSE", +1, "WEATHER:DUSK", "+1 défense (météo : crépuscule)"));
+            }
+            case NIGHT_DARK -> {
+                for (var p : g.getPlayers())
+                    if ("VAMPIRE".equals(p.getRole()))
+                        g.getRaidMods().get(p.getId()).add(new StatMod("ATTACK", +1, "WEATHER:NIGHT_DARK", "+1 attaque (météo : nuit obscure)"));
+            }
+            case NIGHT_CLEAR -> {
+                for (var p : g.getPlayers()) {
+                    if ("VAMPIRE".equals(p.getRole()))
+                        g.getRaidMods().get(p.getId()).add(new StatMod("ATTACK", +1, "WEATHER:NIGHT_CLEAR", "+1 attaque (météo : nuit claire)"));
+                    if ("HUNTER".equals(p.getRole()))
+                        g.getRaidMods().get(p.getId()).add(new StatMod("DEFENSE", -1, "WEATHER:NIGHT_CLEAR", "−1 défense (météo : nuit claire)"));
+                }
+            }
+            case FULL_MOON -> {
+                for (var p : g.getPlayers())
+                    if ("VAMPIRE".equals(p.getRole()))
+                        g.getRaidMods().get(p.getId()).add(new StatMod("ATTACK", +2, "WEATHER:FULL_MOON", "+2 attaque (météo : pleine lune)"));
+            }
+        }
+    }
+
+    @Transactional
+    public Game rollWeather(String gameId, String userId) {
+        Game g = findOr404(gameId);
+
+        if (userId == null || userId.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "missing user id");
+        }
+        if (g.getPhase() != Phase.PHASE0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "not in weather phase");
+        }
+
+        var vamp = getVamp(g).orElseThrow(() ->
+                new ResponseStatusException(HttpStatus.CONFLICT, "no vampire")
+        );
+        if (!vamp.getId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "only vampire can roll weather");
+        }
+        if (g.getWeatherRoll() != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "weather already rolled");
+        }
+
+        // safety: structures non-null
+        if (g.getRaidMods() == null) g.setRaidMods(new HashMap<>());
+
+        int roll = 1 + RND.nextInt(12);
+        applyWeatherRoll(g, roll);
+
+        save(g);
+        return g;
+    }
+
+    private void applyWeatherRoll(@NonNull Game g, int roll){
+        g.setWeatherRoll(roll);
+        WeatherStatus ws = mapRollToWeather(roll);
+        g.setWeatherStatus(ws);
+        g.setWeatherStatusNameFr(weatherNameFr(ws));
+        g.setWeatherDescriptionFr(weatherDescFr(ws));
+
+        // (re)calcule les mods météo (affichage/combat)
+        rebuildWeatherMods(g);
+
+        // add in history
+        addHistory(g, "Météo — " + g.getWeatherStatusNameFr());
+        if (g.getWeatherDescriptionFr() != null && !g.getWeatherDescriptionFr().isBlank())
+            addHistory(g, g.getWeatherDescriptionFr());
+
+        long now = System.currentTimeMillis();
+
+        // 1) Pendant la modale : NE RIEN AFFICHER au centre
+        g.setMessages(new ArrayList<>()); // centre vide tant que la modale est ouverte
+
+        // 2) La modale reste visible 5s
+        g.setWeatherShowUntilMillis(now + 5_000L);
+
+        // 3) Planifie le passage en PHASE1 dans 10s total (5s modale + 5s centre)
+        planNextPhaseWithDelay(g, Phase.PHASE1, 10_000L);
+    }
 }

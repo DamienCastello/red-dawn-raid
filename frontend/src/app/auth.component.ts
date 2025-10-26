@@ -10,7 +10,7 @@ import { ApiService } from './api.service';
   imports: [CommonModule, ReactiveFormsModule],
   template: `
   <div class="container" style="max-width:400px;margin:4rem auto">
-    <h2>Red Dawn Raid — Auth</h2>
+    <h1>Red Dawn Raid — Auth</h1>
 
     <form [formGroup]="form" (ngSubmit)="login()">
       <label>Username</label>

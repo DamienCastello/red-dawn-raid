@@ -41,6 +41,55 @@ public class Game {
     private RoundFight currentCombat;            // miroir pour le client
     private long currentCombatNextAdvanceAtMillis;// 0 si pas planifié
 
+    // --- METEO ---
+    private long weatherModalNotBeforeMillis;
+    private Integer weatherRoll;
+    private WeatherStatus weatherStatus;
+    private String weatherStatusNameFr;
+    private String weatherDescriptionFr;
+    private long weatherShowUntilMillis;
+
+    // --- Buffs/Debuffs du raid (affichage + calcul) ---
+    private java.util.Map<String, java.util.List<StatMod>> raidMods = new java.util.HashMap<>();
+
+    // --- historique ---
+    private boolean hasUpcomingCombat;
+    private List<HistoryItem> history = new ArrayList<>();
+
+    public boolean isHasUpcomingCombat() { return hasUpcomingCombat; }
+    public void setHasUpcomingCombat(boolean v) { this.hasUpcomingCombat = v; }
+
+    public List<HistoryItem> getHistory() { return history; }
+    public void setHistory(List<HistoryItem> h) { this.history = h; }
+
+    public static class HistoryItem {
+        private int raid;
+        private Phase phase;
+        private long ts;
+        private String text;
+
+        public HistoryItem() {}
+
+        public HistoryItem(int raid, Phase phase, long ts, String text) {
+            this.raid = raid;
+            this.phase = phase;
+            this.ts = ts;
+            this.text = text;
+        }
+
+        public int getRaid() { return raid; }
+        public void setRaid(int raid) { this.raid = raid; }
+
+        public Phase getPhase() { return phase; }
+        public void setPhase(Phase phase) { this.phase = phase; }
+
+        public long getTs() { return ts; }
+        public void setTs(long ts) { this.ts = ts; }
+
+        public String getText() { return text; }
+        public void setText(String text) { this.text = text; }
+    }
+
     public Game() {}
 
     public Game(String id, GameStatus status, int raid) {
@@ -124,4 +173,22 @@ public class Game {
     public void setCurrentCombatNextAdvanceAtMillis(long currentCombatNextAdvanceAtMillis) {
         this.currentCombatNextAdvanceAtMillis = currentCombatNextAdvanceAtMillis;
     }
+
+    // meteo
+    public long getWeatherModalNotBeforeMillis() { return weatherModalNotBeforeMillis; }
+    public void setWeatherModalNotBeforeMillis(long v) { this.weatherModalNotBeforeMillis = v; }
+    public Integer getWeatherRoll() { return weatherRoll; }
+    public void setWeatherRoll(Integer weatherRoll) { this.weatherRoll = weatherRoll; }
+    public WeatherStatus getWeatherStatus() { return weatherStatus; }
+    public void setWeatherStatus(WeatherStatus weatherStatus) { this.weatherStatus = weatherStatus; }
+    public String getWeatherStatusNameFr() { return weatherStatusNameFr; }
+    public void setWeatherStatusNameFr(String weatherStatusNameFr) { this.weatherStatusNameFr = weatherStatusNameFr; }
+    public String getWeatherDescriptionFr() { return weatherDescriptionFr; }
+    public void setWeatherDescriptionFr(String weatherDescriptionFr) { this.weatherDescriptionFr = weatherDescriptionFr; }
+    public long getWeatherShowUntilMillis() { return weatherShowUntilMillis; }
+    public void setWeatherShowUntilMillis(long weatherShowUntilMillis) { this.weatherShowUntilMillis = weatherShowUntilMillis; }
+
+    // buffs/debuffs
+    public java.util.Map<String, java.util.List<StatMod>> getRaidMods() { return raidMods; }
+    public void setRaidMods(java.util.Map<String, java.util.List<StatMod>> raidMods) { this.raidMods = raidMods; }
 }

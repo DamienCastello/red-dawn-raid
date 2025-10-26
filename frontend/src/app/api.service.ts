@@ -13,6 +13,7 @@ export type RoundFight = {
   attackerRoll?: number | null;
   defenderRoll?: number | null;
   resolvedAtMillis?: number | null;
+  breakdownLines?: string[];
 };
 
 export type Player = {
@@ -33,6 +34,13 @@ export type CenterBoard = {
   faceUp: boolean;
 };
 
+export interface HistoryItem {
+  raid: number;
+  phase: string; // "PHASE0"..."PHASE4"
+  ts: number;
+  text: string;
+}
+
 export type Game = {
   id: string;
   status: string;
@@ -40,6 +48,8 @@ export type Game = {
   phase: Phase;
   players: Player[];
   center: CenterBoard[];
+  hasUpcomingCombat?: boolean;
+  history?: HistoryItem[];
   // compteurs
   vampActionsLeft: number; vampActionsDiscard: number;
   hunterActionsLeft: number; hunterActionsDiscard: number;
@@ -52,7 +62,29 @@ export type Game = {
   currentCombatIndex?: number | null;
   currentCombat?: RoundFight | null;
   currentCombatNextAdvanceAtMillis?: number;
+  // --- METEO ---
+  weatherModalNotBeforeMillis?: number;
+  weatherRoll?: number|null;
+  weatherStatus?: string|null;
+  weatherStatusNameFr?: string|null;
+  weatherDescriptionFr?: string|null;
+  weatherPhaseDeadlineMillis?: number;
+  weatherShowUntilMillis?: number;
+  raidMods?: Record<string, StatMod[]>;  // buffs/debuffs par joueur (affichage)
 };
+
+export interface ForceVote {
+  id: string;
+  targetPlayerId: string;
+  context: 'PHASE1_SELECT'|'PHASE2_SELECT'|'PHASE3_ATTACK_ROLL'|'PHASE3_DEFENSE_ROLL';
+  combatRoundId?: string|null;
+  createdAtMillis: number;
+  eligible: string[];
+  yes: string[];
+  resolved: boolean;
+}
+
+export type StatMod = { stat: 'ATTACK'|'DEFENSE'; amount: number; source: string; labelFr: string };
 
 export type JoinResponse = { game: Game; playerId: string; playerToken: string };
 
@@ -96,6 +128,7 @@ export class ApiService {
   startGame(id: string) {
     return this.http.post<Game>(`${this.base}/games/${id}/start`, {}); // token via interceptor
   }
+
   selectLocation(id: string, card: string) {
     return this.http.post<Game>(`${this.base}/games/${id}/select-location`, { card });
   }
@@ -107,6 +140,10 @@ export class ApiService {
     return this.http.post<Game>(`${this.base}/games/${gameId}/roll`, {});
   }
 
+  rollWeather(id: string){
+    return this.http.post<Game>(`${this.base}/games/${id}/weather/roll`, {});
+  }
+
     // Auth
   signup(username: string, password: string) {
     return this.http.post<{authToken:string, userId:string, username:string}>(`${this.base}/auth/signup`, { username, password });
@@ -114,7 +151,6 @@ export class ApiService {
   login(username: string, password: string) {
     return this.http.post<{authToken:string, userId:string, username:string}>(`${this.base}/auth/login`,  { username, password });
   }
-
   wipeDb() {
     // petit param confirm pour éviter les clics involontaires
     return this.http.post(`${this.base}/dev/wipe?confirm=YES`, {});
