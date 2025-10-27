@@ -176,63 +176,43 @@ public class GameService {
         };
     }
 
-    private boolean isManoir(String loc){ return "manor".equalsIgnoreCase(loc); }
-    private boolean isMine(String loc){ return "quarry".equalsIgnoreCase(loc); } // TODO: remplacer "quarry" par “mine” plus tard
-
-    // Certaines météos n'ont aucun effet à l'intérieur de ces lieux
-    private boolean weatherSuppressedHere(WeatherStatus ws, String loc){
-        if (loc == null || ws == null) return false;
-        if (isManoir(loc)) {
-            // au manoir : brouillard (FOG), vent (WIND), pluie (RAIN) sans effet
-            return ws == WeatherStatus.FOG || ws == WeatherStatus.WIND || ws == WeatherStatus.RAIN;
-        }
-        if (isMine(loc)) {
-            // mine : ensoleillé (SUNNY), aurore (AURORA), vent (WIND), pluie (RAIN) sans effet
-            return ws == WeatherStatus.SUNNY || ws == WeatherStatus.AURORA || ws == WeatherStatus.WIND || ws == WeatherStatus.RAIN;
-        }
-        return false;
-    }
-
     // retourne la liste des mods VRAIMENT appliqués (bonne stat + pas supprimés par le lieu/météo)
-    private List<StatMod> modsAppliedFor(Game g, String playerId, String stat, @Nullable String location){
+    private List<StatMod> modsAppliedFor(Game g, String playerId, String stat){
         var all = g.getRaidMods() != null ? g.getRaidMods().get(playerId) : null;
         if (all == null) return java.util.List.of();
-        WeatherStatus ws = g.getWeatherStatus();
         return all.stream()
                 .filter(m -> stat.equalsIgnoreCase(m.getStat()))
-                .filter(m -> {
-                    boolean isWeather = m.getSource()!=null && m.getSource().startsWith("WEATHER:");
-                    return !(isWeather && weatherSuppressedHere(ws, location));
-                })
                 .toList();
     }
 
     // somme des mods
-    private int totalModFor(Game g, String playerId, String stat, String location){
-        return modsAppliedFor(g, playerId, stat, location)
+    private int totalModFor(Game g, String playerId, String stat){
+        return modsAppliedFor(g, playerId, stat)
                 .stream().mapToInt(StatMod::getAmount).sum();
     }
 
-    // construit les logs liés aux mods
-    private List<String> buildModBreakdownLines(Game g, String playerId, String stat, int baseRoll, String location){
+    /** Construit les logs liés aux mods (affichés dans la modale spectateur ET poussés dans l'historique). */
+    private List<String> buildModBreakdownLines(Game g, String playerId, String stat, int baseRoll){
         List<String> out = new ArrayList<>();
         int cur = baseRoll;
         String sideLabel = "ATTACK".equalsIgnoreCase(stat) ? "L’attaque" : "La défense";
         String name = nameOf(g, playerId);
 
-        for (var m : modsAppliedFor(g, playerId, stat, location)) {
-            int delta = m.getAmount(); if (delta == 0) continue;
-            String verb = delta >= 0 ? "augmente" : "diminue";
+        for (var m : modsAppliedFor(g, playerId, stat)) {
+            int delta = m.getAmount();
+            if (delta == 0) continue;
+
+            String verb = (delta >= 0) ? "augmente" : "diminue";
             int abs = Math.abs(delta);
 
             String src = "par un effet";
-            if (m.getSource()!=null && m.getSource().startsWith("WEATHER:")) {
+            if (m.getSource() != null && m.getSource().startsWith("WEATHER:")) {
                 try {
                     var wsStr = m.getSource().substring("WEATHER:".length());
                     var ws = WeatherStatus.valueOf(wsStr);
                     src = "par l’effet " + weatherNameFr(ws).toLowerCase();
-                } catch (Exception ignored) { /* fallback */ }
-            } else if (m.getDescription()!=null && !m.getDescription().isBlank()){
+                } catch (Exception ignored) { /* fallback simple */ }
+            } else if (m.getDescription() != null && !m.getDescription().isBlank()) {
                 src = "par un effet (" + m.getDescription() + ")";
             }
 
@@ -403,6 +383,11 @@ public class GameService {
                 g.setPhaseStartMillis(System.currentTimeMillis());
                 g.setMessages(new ArrayList<>(java.util.List.of("Préparation : tirage météo…")));
 
+                if (g.getRaidMods() == null) g.setRaidMods(new HashMap<>());
+                rebuildWeatherMods(g);
+
+                g.setHarvestedRaid(null);
+
                 // petit timeout confort player : 3s avant la modale
                 g.setWeatherModalNotBeforeMillis(System.currentTimeMillis() + 3_000L);
             }
@@ -424,14 +409,19 @@ public class GameService {
                 planNextPhaseWithDelay(g, Phase.PHASE3, window);
             }
             case PHASE3 -> {
-                // On lance la file de combats (duels séquentiels)
+                // 0) Récoltes (une seule fois par raid)
+                if (g.getHarvestedRaid() == null || !g.getHarvestedRaid().equals(g.getRaid())) {
+                    applyHarvests(g);
+                    g.setHarvestedRaid(g.getRaid());
+                }
+
+                // 1) Construire la file de combats
                 buildCombatsQueue(g);
 
-                // Aucun combat ce raid ? On saute directement à la maintenance.
+                // 2) Si aucun combat : message + passage maintenance
                 if (g.getCurrentCombat() == null) {
                     if (g.getMessages() == null) g.setMessages(new ArrayList<>());
                     g.getMessages().add("Aucun combat ce raid.");
-                    // petit délai cosmétique pour laisser lire le message
                     planNextPhaseWithDelay(g, Phase.PHASE4, 1500L);
                 }
             }
@@ -508,8 +498,8 @@ public class GameService {
                 int def = r.getDefenderRoll();
 
                 // Ajoute les mods meteo (et plus tard cartes), avec exceptions lieu
-                int atkMod = totalModFor(g, r.getAttackerId(), "ATTACK", r.getLocation());
-                int defMod = totalModFor(g, r.getDefenderId(), "DEFENSE", r.getLocation());
+                int atkMod = totalModFor(g, r.getAttackerId(), "ATTACK");
+                int defMod = totalModFor(g, r.getDefenderId(), "DEFENSE");
 
                 int dmg = Math.max(0, (atk + atkMod) - (def + defMod));
 
@@ -521,10 +511,21 @@ public class GameService {
                     defPlayer.setHp(Math.max(0, defPlayer.getHp() - dmg));
                 }
 
+                String theftLine = null;
+
+                // VOL du vampire
+                var atkPlayer = g.getPlayers().stream()
+                        .filter(p -> p.getId().equals(r.getAttackerId()))
+                        .findFirst().orElse(null);
+                if (atkPlayer != null && "VAMPIRE".equals(atkPlayer.getRole()) &&
+                        defPlayer != null && "HUNTER".equals(defPlayer.getRole()) && dmg > 0) {
+                    theftLine = vampStealOne(g, atkPlayer, defPlayer);
+                }
+
                 // messages lisibles
                 // breakdown poussé en history
-                List<String> atkBk = buildModBreakdownLines(g, r.getAttackerId(), "ATTACK",  r.getAttackerRoll(), r.getLocation());
-                List<String> defBk = buildModBreakdownLines(g, r.getDefenderId(), "DEFENSE", r.getDefenderRoll(), r.getLocation());
+                List<String> atkBk = buildModBreakdownLines(g, r.getAttackerId(), "ATTACK",  r.getAttackerRoll());
+                List<String> defBk = buildModBreakdownLines(g, r.getDefenderId(), "DEFENSE", r.getDefenderRoll());
 
                 for (String ln : atkBk) addHistory(g, ln);
                 for (String ln : defBk) addHistory(g, ln);
@@ -533,6 +534,11 @@ public class GameService {
                 r.getBreakdownLines().clear();
                 r.getBreakdownLines().addAll(atkBk);
                 r.getBreakdownLines().addAll(defBk);
+
+                // larcin en breakdownLines
+                if (theftLine != null) {
+                    r.getBreakdownLines().add(theftLine);
+                }
 
                 // résultat du fight
                 String an = nameOf(g, r.getAttackerId());
@@ -923,5 +929,123 @@ public class GameService {
 
         // 3) Planifie le passage en PHASE1 dans 10s total (5s modale + 5s centre)
         planNextPhaseWithDelay(g, Phase.PHASE1, 10_000L);
+    }
+
+    // ressources
+    private int rollD100Tens() { return RND.nextInt(10) * 10; }
+
+    private void grant(Player p, String res, int qty) {
+        if (qty <= 0 || p == null) return;
+        switch (res) {
+            case "wood"  -> p.setWood(p.getWood() + qty);
+            case "herbs" -> p.setHerbs(p.getHerbs() + qty);
+            case "stone" -> p.setStone(p.getStone() + qty);
+            case "iron"  -> p.setIron(p.getIron() + qty);
+            case "water" -> p.setWater(p.getWater() + qty);
+            case "gold"  -> p.setGold(p.getGold() + qty);
+            case "souls" -> p.setSouls(p.getSouls() + qty);
+            case "silver"-> p.setSilver(p.getSilver() + qty);
+        }
+    }
+
+    private String resLabelFr(String res){
+        return switch (res) {
+            case "wood"  -> "bois";
+            case "herbs" -> "herbe médicinale";
+            case "stone" -> "pierre";
+            case "iron"  -> "fer";
+            case "water" -> "eau pure";
+            case "gold"  -> "or";
+            case "souls" -> "âmes déchues";
+            case "silver"-> "argent";
+            default -> res;
+        };
+    }
+
+    /** Applique les récoltes pour les lieux SANS combat (une seule fois par raid). */
+    private void applyHarvests(@NonNull Game g) {
+        var vamp = getVamp(g).orElse(null);
+        var groups = groupPlayersByLocation(g);
+
+        for (var e : groups.entrySet()) {
+            String loc = e.getKey();
+            var onLoc = e.getValue();
+
+            boolean vampHere   = (vamp != null) && onLoc.stream().anyMatch(p -> p.getId().equals(vamp.getId()));
+            boolean hunterHere = onLoc.stream().anyMatch(p -> "HUNTER".equals(p.getRole()));
+            boolean combatHere = vampHere && hunterHere;
+            if (combatHere) continue; // pas de récolte sur un lieu où il y a combat
+
+            for (var p : onLoc) {
+                java.util.List<String> gains = new java.util.ArrayList<>();
+                switch (loc) {
+                    case "forest" -> {
+                        grant(p, "wood", 1);  gains.add("+1 bois");
+                        grant(p, "herbs", 2); gains.add("+2 herbe médicinale");
+                    }
+                    case "quarry" -> {
+                        grant(p, "iron", 1);  gains.add("+1 fer");
+                        grant(p, "stone", 2); gains.add("+2 pierre");
+                    }
+                    case "lake" -> {
+                        grant(p, "water", 2); gains.add("+2 eau pure");
+                        grant(p, "herbs", 1); gains.add("+1 herbe médicinale");
+                    }
+                    case "manor" -> {
+                        int roll = rollD100Tens();
+                        if ("HUNTER".equals(p.getRole())) {
+                            grant(p, "gold", roll); gains.add("+" + roll + " or");
+                        } else if ("VAMPIRE".equals(p.getRole())) {
+                            grant(p, "souls", roll); gains.add("+" + roll + " âmes déchues");
+                        }
+                    }
+                    default -> { /* autres cartes / infrastructures plus tard */ }
+                }
+
+                if (!gains.isEmpty()) {
+                    String name = nameOf(g, p.getId());
+                    String line = "Récoltes — " + name + " (" + labelLieuFr(loc) + ") : " + String.join(", ", gains);
+                    if (g.getMessages() == null) g.setMessages(new java.util.ArrayList<>());
+                    g.getMessages().add(line);
+                    addHistory(g, line);
+                }
+            }
+        }
+    }
+
+    private @Nullable String pickStealableFromHunter(Player h) {
+        // Ressources volables chez un chasseur (ni or, ni argent)
+        java.util.List<String> pool = new java.util.ArrayList<>();
+        if (h.getWood()  > 0) pool.add("wood");
+        if (h.getHerbs() > 0) pool.add("herbs");
+        if (h.getStone() > 0) pool.add("stone");
+        if (h.getIron()  > 0) pool.add("iron");
+        if (h.getWater() > 0) pool.add("water");
+        return pool.isEmpty() ? null : pool.get(RND.nextInt(pool.size()));
+    }
+
+    private @Nullable String vampStealOne(Game g, Player vamp, Player hunter) {
+        String res = pickStealableFromHunter(hunter);
+        if (res == null) {
+            addHistory(g, nameOf(g, vamp.getId()) + " tente de voler, mais " + nameOf(g, hunter.getId()) + " n'a rien à prendre.");
+            return null; // ← rien à afficher en breakdown
+        }
+        // retire au chasseur
+        switch (res) {
+            case "wood"  -> hunter.setWood(hunter.getWood() - 1);
+            case "herbs" -> hunter.setHerbs(hunter.getHerbs() - 1);
+            case "stone" -> hunter.setStone(hunter.getStone() - 1);
+            case "iron"  -> hunter.setIron(hunter.getIron() - 1);
+            case "water" -> hunter.setWater(hunter.getWater() - 1);
+        }
+        // donne au vampire
+        grant(vamp, res, 1);
+
+        String line = "Larcin — " + nameOf(g, vamp.getId()) + " vole 1 " + resLabelFr(res) + " à " + nameOf(g, hunter.getId()) + ".";
+        if (g.getMessages() == null) g.setMessages(new java.util.ArrayList<>());
+        g.getMessages().add(line);
+        addHistory(g, line);
+
+        return line; // ← on renvoie la ligne pour la modale spectateur
     }
 }

@@ -24,6 +24,14 @@ export type Player = {
   hp: number;
   attackDice: string;
   defenseDice: string;  
+  wood: number;
+  herbs: number;
+  stone: number;
+  iron: number;
+  water: number;
+  gold: number;
+  souls: number;
+  silver: number;
 };
 
 // Compat centre: selon ton back c’est encore "candidateId".

@@ -53,15 +53,6 @@ public class Game {
     private java.util.Map<String, java.util.List<StatMod>> raidMods = new java.util.HashMap<>();
 
     // --- historique ---
-    private boolean hasUpcomingCombat;
-    private List<HistoryItem> history = new ArrayList<>();
-
-    public boolean isHasUpcomingCombat() { return hasUpcomingCombat; }
-    public void setHasUpcomingCombat(boolean v) { this.hasUpcomingCombat = v; }
-
-    public List<HistoryItem> getHistory() { return history; }
-    public void setHistory(List<HistoryItem> h) { this.history = h; }
-
     public static class HistoryItem {
         private int raid;
         private Phase phase;
@@ -89,6 +80,9 @@ public class Game {
         public String getText() { return text; }
         public void setText(String text) { this.text = text; }
     }
+
+    // --- Récolte ---
+    private Integer harvestedRaid; // n° de raid pour lequel la récolte a déjà été appliquée (null = pas encore)
 
     public Game() {}
 
@@ -191,4 +185,18 @@ public class Game {
     // buffs/debuffs
     public java.util.Map<String, java.util.List<StatMod>> getRaidMods() { return raidMods; }
     public void setRaidMods(java.util.Map<String, java.util.List<StatMod>> raidMods) { this.raidMods = raidMods; }
+
+    //historique
+    private boolean hasUpcomingCombat;
+    private List<HistoryItem> history = new ArrayList<>();
+
+    public boolean isHasUpcomingCombat() { return hasUpcomingCombat; }
+    public void setHasUpcomingCombat(boolean v) { this.hasUpcomingCombat = v; }
+
+    public List<HistoryItem> getHistory() { return history; }
+    public void setHistory(List<HistoryItem> h) { this.history = h; }
+
+    // récolte
+    public Integer getHarvestedRaid() { return harvestedRaid; }
+    public void setHarvestedRaid(Integer v) { this.harvestedRaid = v; }
 }

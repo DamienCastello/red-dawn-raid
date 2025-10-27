@@ -15,6 +15,16 @@ public class Player {
     private String attackDice;
     private String defenseDice;
 
+    // --- RESSOURCES ---
+    private int wood;
+    private int herbs;
+    private int stone;
+    private int iron;
+    private int water;
+    private int gold;
+    private int souls;
+    private int silver;
+
     public Player() {}
 
     public Player(String id, String username) {
@@ -38,5 +48,20 @@ public class Player {
     public void setAttackDice(String attackDice) { this.attackDice = attackDice; }
     public void setDefenseDice(String defenseDice) { this.defenseDice = defenseDice; }
 
-
+    public int getWood() { return wood; }
+    public void setWood(int v) { this.wood = v; }
+    public int getHerbs() { return herbs; }
+    public void setHerbs(int v) { this.herbs = v; }
+    public int getStone() { return stone; }
+    public void setStone(int v) { this.stone = v; }
+    public int getIron() { return iron; }
+    public void setIron(int v) { this.iron = v; }
+    public int getWater() { return water; }
+    public void setWater(int v) { this.water = v; }
+    public int getGold() { return gold; }
+    public void setGold(int v) { this.gold = v; }
+    public int getSouls() { return souls; }
+    public void setSouls(int v) { this.souls = v; }
+    public int getSilver(){ return silver; }
+    public void setSilver(int v){ this.silver = v; }
 }

@@ -49,21 +49,16 @@ import { ApiService, Game, Player, StatMod } from './api.service';
         </div>
 
         <!-- CHIPS -->
-        <div class="mods-row" *ngIf="modsForDisplay(p).length">     
-          <span class="mod-chip" *ngFor="let m of modsForDisplay(p)">
-            <div
-              class="mods-badge-weather"
-              *ngIf="game?.weatherStatus && game?.weatherRoll != null"
-            >
-              <img
-                class="weather-ico"
-                [src]="weatherIconSrc(game?.weatherStatus)"
-                alt="icône météo"
-              />
-            </div>
-            <span class="chip-val">{{ chipOf(m) }}</span>
-          </span>
-        </div>
+        <ng-container *ngIf="modsForDisplay(p) as mods">
+          <div class="mods-row" *ngIf="mods.length">
+            <span class="mod-chip" *ngFor="let m of mods">
+              <div class="mods-badge-weather" *ngIf="m.source?.startsWith('WEATHER:')">
+                <img class="weather-ico" [src]="weatherIconSrc(game?.weatherStatus)" alt="icône météo" />
+              </div>
+              <span class="chip-val">{{ chipOf(m) }}</span>
+            </span>
+          </div>
+        </ng-container>
       </div>
     </section>
 
@@ -71,7 +66,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
     <div class="boards-row">
       <!-- gauche: stats vampire -->
       <section *ngIf="hasVampire" class="panel">
-        <h3 style="margin-top:0">Vampire</h3>
+        <h3 style="margin:0 0 10px 0">Vampire</h3>
 
         <div class="player-strip">
           <div class="name">{{ vampirePlayer.username || vampirePlayer.id }}</div>
@@ -102,7 +97,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
           <span class="mod-chip" *ngFor="let m of modsForDisplay(vampirePlayer)">
             <div
               class="mods-badge-weather"
-              *ngIf="game?.weatherStatus && game?.weatherRoll != null"
+              *ngIf="m.source?.startsWith('WEATHER:')"
             >
               <img
                 class="weather-ico"
@@ -194,6 +189,17 @@ import { ApiService, Game, Player, StatMod } from './api.service';
           <span class="hp-value">{{ me.hp }}</span>
         </div>
       </div>
+      <div class="res-board" *ngIf="me as m" style="display:flex;gap:.5rem;align-items:center;margin:.25rem 0;">
+        <span>Ressources&nbsp;:</span>
+        <span title="Bois">🪵 {{ m.wood || 0 }}</span>
+        <span title="Herbe médicinale">🌿 {{ m.herbs || 0 }}</span>
+        <span title="Pierre">🪨 {{ m.stone || 0 }}</span>
+        <span title="Fer">⛓️ {{ m.iron || 0 }}</span>
+        <span title="Eau pure">💧 {{ m.water || 0 }}</span>
+        <span *ngIf="m.role==='HUNTER'" title="Or">🪙 {{ m.gold || 0 }}</span>
+        <span *ngIf="m.role==='VAMPIRE'" title="Âmes déchues">🕯️ {{ m.souls || 0 }}</span>
+        <span *ngIf="m.role==='HUNTER'" title="Argent">🥈 {{ (m.silver || 0) }}</span>
+      </div>
 
       <!-- BARRE D’ÉQUIPEMENT -->
       <div class="equip-bar">
@@ -212,21 +218,16 @@ import { ApiService, Game, Player, StatMod } from './api.service';
       </div>
 
       <!-- CHIPS -->
-      <div class="mods-row" *ngIf="modsForDisplay(me).length">
-        <span class="mod-chip" *ngFor="let m of modsForDisplay(me)">
-          <div
-              class="mods-badge-weather"
-              *ngIf="game?.weatherStatus && game?.weatherRoll != null"
-            >
-              <img
-                class="weather-ico"
-                [src]="weatherIconSrc(game.weatherStatus)"
-                alt="icône météo"
-              />
+      <ng-container *ngIf="modsForDisplay(me) as myMods">
+        <div class="mods-row" *ngIf="myMods.length">
+          <span class="mod-chip" *ngFor="let m of myMods">
+            <div class="mods-badge-weather" *ngIf="m.source?.startsWith('WEATHER:')">
+              <img class="weather-ico" [src]="weatherIconSrc(game.weatherStatus)" alt="icône météo" />
             </div>
-          <span class="chip-val">{{ chipOf(m) }}</span>
-        </span>
-      </div>
+            <span class="chip-val">{{ chipOf(m) }}</span>
+          </span>
+        </div>
+      </ng-container>
 
       <div>Votre main (lieux):</div>
       <div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.5rem">
@@ -296,7 +297,6 @@ import { ApiService, Game, Player, StatMod } from './api.service';
         <div class="content weather result">
           <div class="weather-badge">{{ game?.weatherStatusNameFr }}</div>
           <p class="weather-desc">{{ game?.weatherDescriptionFr }}</p>
-          <div *ngIf="weatherExceptionNote() as note" class="weather-note">{{ note }}</div>
         </div>
       </ng-template>
     </div>
@@ -324,21 +324,16 @@ import { ApiService, Game, Player, StatMod } from './api.service';
                   alt="dice"/>
               <div class="dice-overlay" *ngIf="r.attackerRoll != null">{{ r.attackerRoll }}</div>
             </div>
-            <div class="mods-row" *ngIf="modsForStat(getPlayer(r.attackerId), 'ATTACK', r.location).length">
-              <span class="mod-chip" *ngFor="let m of modsForStat(getPlayer(r.attackerId), 'ATTACK', r.location)">
-                <div
-                  class="mods-badge-weather"
-                  *ngIf="game?.weatherStatus && game?.weatherRoll != null"
-                >
-                  <img
-                    class="weather-ico"
-                    [src]="weatherIconSrc(game?.weatherStatus)"
-                    alt="icône météo"
-                  />
-                </div>
-                <span class="chip-val">{{ chipOf(m) }}</span>
-              </span>
-            </div>
+            <ng-container *ngIf="modsForStat(getPlayer(r.attackerId), 'ATTACK') as atkMods">
+              <div class="mods-row" *ngIf="atkMods.length">
+                <span class="mod-chip" *ngFor="let m of atkMods">
+                  <div class="mods-badge-weather" *ngIf="m.source?.startsWith('WEATHER:')">
+                    <img class="weather-ico" [src]="weatherIconSrc(game?.weatherStatus)" alt="icône météo" />
+                  </div>
+                  <span class="chip-val">{{ chipOf(m) }}</span>
+                </span>
+              </div>
+            </ng-container>
           </ng-container>
           <ng-template #defenseSide>
             <!-- DEFENSEUR -->
@@ -353,21 +348,16 @@ import { ApiService, Game, Player, StatMod } from './api.service';
                   alt="dice"/>
               <div class="dice-overlay" *ngIf="r.defenderRoll != null">{{ r.defenderRoll }}</div>
             </div>
-            <div class="mods-row" *ngIf="modsForStat(getPlayer(r.defenderId), 'DEFENSE', r.location).length">
-              <span class="mod-chip" *ngFor="let m of modsForStat(getPlayer(r.defenderId), 'DEFENSE', r.location)">
-                <div
-                  class="mods-badge-weather"
-                  *ngIf="game?.weatherStatus && game?.weatherRoll != null"
-                >
-                  <img
-                    class="weather-ico"
-                    [src]="weatherIconSrc(game?.weatherStatus)"
-                    alt="icône météo"
-                  />
-                </div>
-                <span class="chip-val">{{ chipOf(m) }}</span>
-              </span>
-            </div>
+            <ng-container *ngIf="modsForStat(getPlayer(r.defenderId), 'DEFENSE') as defMods">
+              <div class="mods-row" *ngIf="defMods.length">
+                <span class="mod-chip" *ngFor="let m of defMods">
+                  <div class="mods-badge-weather" *ngIf="m.source?.startsWith('WEATHER:')">
+                    <img class="weather-ico" [src]="weatherIconSrc(game?.weatherStatus)" alt="icône météo" />
+                  </div>
+                  <span class="chip-val">{{ chipOf(m) }}</span>
+                </span>
+              </div>
+            </ng-container>
           </ng-template>
         </ng-container>
       </div>
@@ -389,24 +379,18 @@ import { ApiService, Game, Player, StatMod } from './api.service';
         <!-- Côté attaquant -->
         <div class="side">
           <!-- Colonne mods à GAUCHE -->
-          <div class="mods-col left"
-              *ngIf="modsForStat(getPlayer(r.attackerId), 'ATTACK', r.location).length">
-            <div class="mods-row" *ngIf="modsForStat(getPlayer(r.attackerId), 'ATTACK', r.location).length">
-              <span class="mod-chip" *ngFor="let m of modsForStat(getPlayer(r.attackerId), 'ATTACK', r.location)">
-                <div
-                  class="mods-badge-weather"
-                  *ngIf="game?.weatherStatus && game?.weatherRoll != null"
-                >
-                  <img
-                    class="weather-ico"
-                    [src]="weatherIconSrc(game?.weatherStatus)"
-                    alt="icône météo"
-                  />
-                </div>
-                <span class="chip-val">{{ chipOf(m) }}</span>
-              </span>
+          <ng-container *ngIf="modsForStat(getPlayer(r.attackerId), 'ATTACK') as atkMods">
+            <div class="mods-col left" *ngIf="atkMods.length">
+              <div class="mods-row">
+                <span class="mod-chip" *ngFor="let m of atkMods">
+                  <div class="mods-badge-weather" *ngIf="m.source?.startsWith('WEATHER:')">
+                    <img class="weather-ico" [src]="weatherIconSrc(game?.weatherStatus)" alt="icône météo" />
+                  </div>
+                  <span class="chip-val">{{ chipOf(m) }}</span>
+                </span>
+              </div>
             </div>
-          </div>
+          </ng-container>
 
           <div class="icon-halo oval" [ngClass]="(getPlayer(r.attackerId)?.role==='VAMPIRE') ? 'round' : 'oval'">
             <img class="icon-side" [src]="roleIcon(getRole(getPlayer(r.attackerId)),'sword')" alt="attaque"/>
@@ -422,24 +406,18 @@ import { ApiService, Game, Player, StatMod } from './api.service';
         <!-- Côté défenseur -->
         <div class="side">
           <!-- Colonne mods à DROITE -->
-          <div class="mods-col right"
-              *ngIf="modsForStat(getPlayer(r.defenderId), 'DEFENSE', r.location).length">
-            <div class="mods-row" *ngIf="modsForStat(getPlayer(r.defenderId), 'DEFENSE', r.location).length">
-              <span class="mod-chip" *ngFor="let m of modsForStat(getPlayer(r.defenderId), 'DEFENSE', r.location)">
-                <div
-                  class="mods-badge-weather"
-                  *ngIf="game?.weatherStatus && game?.weatherRoll != null"
-                >
-                  <img
-                    class="weather-ico"
-                    [src]="weatherIconSrc(game?.weatherStatus)"
-                    alt="icône météo"
-                  />
-                </div>
-                <span class="chip-val">{{ chipOf(m) }}</span>
-              </span>
+          <ng-container *ngIf="modsForStat(getPlayer(r.defenderId), 'DEFENSE') as defMods">
+            <div class="mods-col right" *ngIf="defMods.length">
+              <div class="mods-row">
+                <span class="mod-chip" *ngFor="let m of defMods">
+                  <div class="mods-badge-weather" *ngIf="m.source?.startsWith('WEATHER:')">
+                    <img class="weather-ico" [src]="weatherIconSrc(game?.weatherStatus)" alt="icône météo" />
+                  </div>
+                  <span class="chip-val">{{ chipOf(m) }}</span>
+                </span>
+              </div>
             </div>
-          </div>
+          </ng-container>
 
           <div class="icon-halo oval">
             <img class="icon-side" [src]="roleIcon(getRole(getPlayer(r.defenderId)),'armor')" alt="défense"/>
@@ -506,7 +484,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
 
   /* Historique scrollable */
   .history-box{
-    max-height: 235px;
+    max-height: 206px;
     overflow: auto;
     border:1px solid #e5e5e5;
     border-radius: 6px;
@@ -543,7 +521,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
   min-width: 0;
   border:1px solid #ddd; border-radius:10px; padding:.5rem .4rem;
   background:linear-gradient(180deg,#f8f9fb,#eef1f5);
-  height: 120px
+  height: 100px
 }
 
 .equip-bar > .mini-stack{
@@ -560,7 +538,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
   border:1px solid #ddd; border-radius:10px; padding:.5rem .4rem;
   background:linear-gradient(180deg,#f8f9fb,#eef1f5);
   margin: 1px 3px 0 0;
-  height: 45px
+  height: 35px
 }
 
 
@@ -1059,43 +1037,32 @@ export class GameComponent {
   }
 
   // === Helpers buff/debuff ===
-  // 1) Lieu "connu" par le client pour un joueur donné.
-  // - Pour MOI : je connais mon lieu dès que j’ai joué (même faceUp=false).
-  // - Pour les AUTRES : seulement quand faceUp=true (après révélation).
-  private knownLocationFor(playerId: string): string | null {
-    const cb = this.game?.center?.find(x => x.playerId === playerId);
-    if (!cb) return null;
-    if (playerId === this.meId) return cb.card || null;     // moi : toujours
-    return cb.faceUp ? (cb.card || null) : null;            // autres : seulement révélé
-  }
+
 
   // mêmes règles que modsForDisplay, mais en filtrant aussi par STAT
-  modsForStat(p: Player | undefined, stat: 'ATTACK'|'DEFENSE', overrideLoc?: string | null): StatMod[] {
+  modsForStat(p: Player | undefined, stat: 'ATTACK'|'DEFENSE'): StatMod[] {
     if (!p || !this.game?.raidMods) return [];
     const list = this.game.raidMods[p.id] || [];
-    const ws = this.game?.weatherStatus || null;
-    const loc = (overrideLoc !== undefined ? overrideLoc : this.knownLocationFor(p.id));
-    return list.filter(m => {
-      if (m.stat !== stat) return false;                                  // filtre par stat
-      const isWeather = m.source?.startsWith('WEATHER:');
-      if (isWeather && this.weatherSuppressedHere(ws, loc)) return false;  // annulation lieu/météo
-      return true;
-    });
+    const weatherActive = this.isWeatherActive();
+    return list.filter(m =>
+      m.stat === stat &&
+      (weatherActive || !(m.source?.startsWith('WEATHER:')))
+    );
   }
 
-  // 2) Mods à AFFICHER, en filtrant les mods météo si le lieu connu annule l’effet.
-  modsForDisplay(p?: Player, overrideLoc?: string | null): StatMod[] {
+  // Mods à AFFICHER (tous stats confondues)
+  modsForDisplay(p?: Player): StatMod[] {
     if (!p || !this.game?.raidMods) return [];
     const list = this.game.raidMods[p.id] || [];
-    const ws = this.game?.weatherStatus || null;
-    const loc = (overrideLoc !== undefined ? overrideLoc : this.knownLocationFor(p.id));
+    const weatherActive = this.isWeatherActive();
+    return list.filter(m =>
+      weatherActive || !(m.source?.startsWith('WEATHER:'))
+    );
+  }
 
-    return list.filter(m => {
-      const isWeather = m.source?.startsWith('WEATHER:');
-      // On NE masque que si l’effet météo est annulé par CE lieu.
-      if (isWeather && this.weatherSuppressedHere(ws, loc)) return false;
-      return true;
-    });
+  private isWeatherActive(): boolean {
+    const g = this.game;
+    return !!g && g.weatherRoll != null && !!g.weatherStatus;
   }
 
   // === Helpers combat ===
@@ -1148,25 +1115,10 @@ export class GameComponent {
     console.log("r:", role, "n:", name)
     return `/assets/icons/${role}-${name}.png`;
   }
-  
-  private weatherSuppressedHere(ws?: string|null, loc?: string|null): boolean {
-    if (!ws || !loc) return false;
-    const L = loc.toLowerCase();
-    const manor = L === 'manor';
-    const mine   = L === 'quarry';
-    if (manor) return ['FOG','WIND','RAIN'].includes(ws);
-    if (mine)   return ['SUNNY','AURORA','WIND','RAIN'].includes(ws);
-    return false;
-  }
 
-  private totalModForDisplay(pId: string, stat: 'ATTACK'|'DEFENSE', loc?: string|null): number {
+  private totalModForDisplay(pId: string, stat: 'ATTACK'|'DEFENSE'): number {
     const list = this.game?.raidMods?.[pId] || [];
-    const ws = this.game?.weatherStatus || null;
-    return list.reduce((sum, m) => {
-      const isWeather = m.source?.startsWith('WEATHER:');
-      if (isWeather && this.weatherSuppressedHere(ws, loc)) return sum;
-      return sum + (m.stat === stat ? m.amount : 0);
-    }, 0);
+    return list.reduce((sum, m) => sum + (m.stat === stat ? m.amount : 0), 0);
   }
 
   getCombatResultText(): string | null {
@@ -1175,8 +1127,8 @@ export class GameComponent {
     const defP = this.getPlayer(r.defenderId);
     if (r.attackerRoll == null || r.defenderRoll == null) return null;
 
-    const atkMod = this.totalModForDisplay(r.attackerId, 'ATTACK', r.location);
-    const defMod = this.totalModForDisplay(r.defenderId, 'DEFENSE', r.location);
+    const atkMod = this.totalModForDisplay(r.attackerId, 'ATTACK');
+    const defMod = this.totalModForDisplay(r.defenderId, 'DEFENSE');
     const dmg = Math.max(0, (r.attackerRoll + atkMod) - (r.defenderRoll + defMod));
 
     const an = atkP?.username || r.attackerId;
@@ -1310,11 +1262,6 @@ export class GameComponent {
     });
   }
 
-  modsFor(p?: Player): StatMod[] {
-    if (!p || !this.game?.raidMods) return [];
-    return this.game.raidMods[p.id] || [];
-  }
-
   chipOf(m: StatMod): string {
     // Affiche au format "ATK+1" / "DEF-2"
     const short = m.stat === 'ATTACK' ? 'ATK' : 'DEF';
@@ -1322,7 +1269,7 @@ export class GameComponent {
     return `${short}${sign}`;
   }
 
- back(){ this.router.navigate(['/lobby']); }
+  back(){ this.router.navigate(['/lobby']); }
 
   private showError(e:any){
     try{ this.errorMsg = e?.error?.message || 'Erreur'; } catch { this.errorMsg='Erreur'; }
@@ -1369,16 +1316,6 @@ export class GameComponent {
       return loc ? `url('/assets/locations/${loc}.png')` : 'none';
     }
     return 'none';
-  }
-  
-
-  // NOTE sur les exceptions (affichage didactique)
-  weatherExceptionNote(): string | null {
-    const ws = this.game?.weatherStatus; if (!ws) return null;
-    // On rappelle les exceptions à titre d’info. (Elles sont appliquées au calcul serveur)
-    if (['FOG','WIND','RAIN'].includes(ws)) return "Au manoir, cet effet est sans impact.";
-    if (['SUNNY','AURORA','WIND','RAIN'].includes(ws)) return "Dans la mine (carrière), cet effet est sans impact.";
-    return null;
   }
 
   // on reste sur la roue tant qu'on n'a pas activé le bg météo
