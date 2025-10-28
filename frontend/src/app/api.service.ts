@@ -152,6 +152,10 @@ export class ApiService {
     return this.http.post<Game>(`${this.base}/games/${id}/weather/roll`, {});
   }
 
+  usePotion(gameId: string, type: string){
+    return this.http.post<Game>(`${this.base}/games/${gameId}/potions/use`, { type });
+  }
+
     // Auth
   signup(username: string, password: string) {
     return this.http.post<{authToken:string, userId:string, username:string}>(`${this.base}/auth/signup`, { username, password });

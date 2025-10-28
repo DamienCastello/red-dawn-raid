@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.Map;
+import java.util.HashMap;
 
 public class Game {
     private String id;
@@ -36,7 +38,7 @@ public class Game {
     private final Set<String> readyForPhase3 = new HashSet<>(); // joueurs ayant cliqué “j’ai fini”
 
     // --- PHASE3 : file de combats + combat courant ---
-    private java.util.List<RoundFight> combatsQueue = new java.util.ArrayList<>();
+    private List<RoundFight> combatsQueue = new ArrayList<>();
     private Integer currentCombatIndex;           // null si aucun combat
     private RoundFight currentCombat;            // miroir pour le client
     private long currentCombatNextAdvanceAtMillis;// 0 si pas planifié
@@ -50,7 +52,7 @@ public class Game {
     private long weatherShowUntilMillis;
 
     // --- Buffs/Debuffs du raid (affichage + calcul) ---
-    private java.util.Map<String, java.util.List<StatMod>> raidMods = new java.util.HashMap<>();
+    private Map<String, List<StatMod>> raidMods = new HashMap<>();
 
     // --- historique ---
     public static class HistoryItem {
@@ -83,6 +85,14 @@ public class Game {
 
     // --- Récolte ---
     private Integer harvestedRaid; // n° de raid pour lequel la récolte a déjà été appliquée (null = pas encore)
+
+    // --- actions & potions ---
+    // Inventaire de potions par joueur (liste d'IDs de potions).
+    // Ex: "FORCE", "ENDURANCE", "VIE", ...
+    private Map<String, List<String>> potionsByPlayer = new HashMap<>();
+
+    // Effets temporaires pour le raid courant (réinitialisés en PHASE0)
+    private Map<String, RaidEffects> raidEffects = new HashMap<>();
 
     public Game() {}
 
@@ -154,8 +164,8 @@ public class Game {
     public Set<String> getReadyForPhase3() { return readyForPhase3; }
 
     // fight
-    public java.util.List<RoundFight> getCombatsQueue() { return combatsQueue; }
-    public void setCombatsQueue(java.util.List<RoundFight> combatsQueue) { this.combatsQueue = combatsQueue; }
+    public List<RoundFight> getCombatsQueue() { return combatsQueue; }
+    public void setCombatsQueue(List<RoundFight> combatsQueue) { this.combatsQueue = combatsQueue; }
 
     public Integer getCurrentCombatIndex() { return currentCombatIndex; }
     public void setCurrentCombatIndex(Integer currentCombatIndex) { this.currentCombatIndex = currentCombatIndex; }
@@ -183,8 +193,8 @@ public class Game {
     public void setWeatherShowUntilMillis(long weatherShowUntilMillis) { this.weatherShowUntilMillis = weatherShowUntilMillis; }
 
     // buffs/debuffs
-    public java.util.Map<String, java.util.List<StatMod>> getRaidMods() { return raidMods; }
-    public void setRaidMods(java.util.Map<String, java.util.List<StatMod>> raidMods) { this.raidMods = raidMods; }
+    public Map<String, List<StatMod>> getRaidMods() { return raidMods; }
+    public void setRaidMods(Map<String, List<StatMod>> raidMods) { this.raidMods = raidMods; }
 
     //historique
     private boolean hasUpcomingCombat;
@@ -199,4 +209,11 @@ public class Game {
     // récolte
     public Integer getHarvestedRaid() { return harvestedRaid; }
     public void setHarvestedRaid(Integer v) { this.harvestedRaid = v; }
+
+    // actions & potions
+    public Map<String, List<String>> getPotionsByPlayer() { return potionsByPlayer; }
+    public void setPotionsByPlayer(Map<String, List<String>> m) { this.potionsByPlayer = m; }
+
+    public Map<String, RaidEffects> getRaidEffects() { return raidEffects; }
+    public void setRaidEffects(Map<String, RaidEffects> m) { this.raidEffects = m; }
 }

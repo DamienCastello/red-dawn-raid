@@ -296,6 +296,15 @@ public class GameService {
             p.setHand(new ArrayList<>(List.of("forest", "quarry", "lake", "manor")));
         }
 
+        // actions & potions // dev -> a supprimer a la fin
+        // Donner 1 potion de chaque aux chasseurs pour tester
+        for (var p : g.getPlayers()) {
+            g.getPotionsByPlayer().computeIfAbsent(p.getId(), __ -> new ArrayList<>());
+            if ("HUNTER".equals(p.getRole())) {
+                g.getPotionsByPlayer().get(p.getId()).addAll(List.of("FORCE","ENDURANCE","VIE"));
+            }
+        }
+
         // init hp & dices
         int huntersCount = (int) g.getPlayers().stream().filter(p -> !"VAMPIRE".equals(p.getRole())).count();
         for (var p : g.getPlayers()) {
@@ -384,8 +393,27 @@ public class GameService {
                 g.setMessages(new ArrayList<>(java.util.List.of("Préparation : tirage météo…")));
 
                 if (g.getRaidMods() == null) g.setRaidMods(new HashMap<>());
+
+                // purge des effets transitoires (potions/actions) du raid précédent
+                for (var list : g.getRaidMods().values()) {
+                    if (list != null) {
+                        list.removeIf(m -> {
+                            String s = m.getSource();
+                            return s != null && (s.startsWith("POTION:") || s.startsWith("ACTION:"));
+                        });
+                    }
+                }
+
                 rebuildWeatherMods(g);
 
+                // raidEffects safe
+                if (g.getRaidEffects() == null) g.setRaidEffects(new HashMap<>());
+                g.getRaidEffects().clear();
+                for (var p : g.getPlayers()) {
+                    g.getRaidEffects().put(p.getId(), new RaidEffects());
+                }
+
+                // récolte reset
                 g.setHarvestedRaid(null);
 
                 // petit timeout confort player : 3s avant la modale
@@ -1047,5 +1075,93 @@ public class GameService {
         addHistory(g, line);
 
         return line; // ← on renvoie la ligne pour la modale spectateur
+    }
+
+    // actions & potions
+    private RaidEffects raidFx(Game g, String playerId){
+        return g.getRaidEffects().computeIfAbsent(playerId, __ -> new RaidEffects());
+    }
+
+    private Set<String> participantsOfUpcomingCombat(Game g) {
+        Set<String> ids = new HashSet<>();
+        var vampOpt = getVamp(g);
+        if (vampOpt.isEmpty()) return ids;
+        var vamp = vampOpt.get();
+
+        var groups = groupPlayersByLocation(g);
+        for (var e : groups.entrySet()) {
+            var onLoc = e.getValue();
+            boolean vampHere   = onLoc.stream().anyMatch(p -> p.getId().equals(vamp.getId()));
+            boolean hunterHere = onLoc.stream().anyMatch(p -> "HUNTER".equals(p.getRole()));
+            if (vampHere && hunterHere) {
+                ids.add(vamp.getId());
+                onLoc.stream().filter(p -> "HUNTER".equals(p.getRole()))
+                        .forEach(p -> ids.add(p.getId()));
+            }
+        }
+        return ids;
+    }
+
+    @Transactional
+    public Game usePotion(String gameId, String userId, Potion type) {
+        Game g = findOr404(gameId);
+        maybeAutoAdvance(g);
+
+        if (g.getStatus() != GameStatus.ACTIVE)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "game not active");
+
+        // Uniquement en PREPHASE3, s'il y a un combat imminent, et si je suis concerné
+        if (g.getPhase() != Phase.PREPHASE3 || !g.isHasUpcomingCombat())
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "potions usable only during PREPHASE3 before combat");
+
+        Set<String> allowed = participantsOfUpcomingCombat(g);
+        if (!allowed.contains(userId))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "you are not part of the upcoming combat");
+
+        // inventaire
+        var inv = g.getPotionsByPlayer().get(userId);
+        if (inv == null || !inv.contains(type.name()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "potion not in inventory");
+
+        // appliquer l’effet + message
+        switch (type) {
+            case FORCE -> {
+                if (g.getRaidMods() == null) g.setRaidMods(new HashMap<>());
+                g.getRaidMods().computeIfAbsent(userId, __ -> new ArrayList<>())
+                        .add(new StatMod("ATTACK", +1, "POTION:FORCE", "Potion de force (+1 attaque ce raid)"));
+                addHistory(g, nameOf(g, userId) + " utilise une Potion de force (+1 attaque ce raid).");
+                pushLive(g, nameOf(g, userId) + " boit une Potion de force !");
+            }
+            case ENDURANCE -> {
+                if (g.getRaidMods() == null) g.setRaidMods(new HashMap<>());
+                g.getRaidMods().computeIfAbsent(userId, __ -> new ArrayList<>())
+                        .add(new StatMod("DEFENSE", +1, "POTION:ENDURANCE", "Potion d’endurance (+1 défense ce raid)"));
+                addHistory(g, nameOf(g, userId) + " utilise une Potion d’endurance (+1 défense ce raid).");
+                pushLive(g, nameOf(g, userId) + " boit une Potion d’endurance !");
+            }
+            case VIE -> {
+                var p = g.getPlayers().stream().filter(pp -> pp.getId().equals(userId)).findFirst().orElseThrow();
+                int before = p.getHp();
+                int max = ("VAMPIRE".equals(p.getRole()))
+                        ? (20 + (int) g.getPlayers().stream().filter(x -> "HUNTER".equals(x.getRole())).count() * 10)
+                        : 20;
+                p.setHp(Math.min(max, p.getHp() + 10));
+                int healed = p.getHp() - before;
+                addHistory(g, nameOf(g, userId) + " boit une Potion de vie (+" + healed + " PV).");
+                pushLive(g, nameOf(g, userId) + " récupère " + healed + " PV.");
+            }
+        }
+
+        // consommer et sauver
+        inv.remove(type.name());
+        if (inv.isEmpty()) g.getPotionsByPlayer().remove(userId);
+
+        save(g);
+        return g;
+    }
+
+    private void pushLive(Game g, String msg){
+        if (g.getMessages() == null) g.setMessages(new ArrayList<>());
+        g.getMessages().add(msg);
     }
 }

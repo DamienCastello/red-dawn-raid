@@ -3,11 +3,14 @@ package org.castello.web;
 import org.castello.auth.AuthService;
 import org.castello.game.Game;
 import org.castello.game.GameService;
+import org.castello.game.Potion;
 import org.castello.web.dto.JoinResponse;
 import org.castello.web.dto.SelectLocationRequest;
 import org.castello.player.PlayerService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
+
 
 @RestController
 @RequestMapping("/api/games")
@@ -98,5 +101,23 @@ public class GameController {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         return games.rollWeather(id, user.getId());
+    }
+
+    // --- Utiliser une potion ---
+    public static class UsePotionReq { public String type; }
+
+    @PostMapping("/{id}/potions/use")
+    public Game usePotion(
+            @PathVariable String id,
+            @RequestBody UsePotionReq body,
+            @RequestHeader("Authorization") String authorization
+    ){
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+
+        if (body == null || body.type == null || body.type.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "type required");
+        }
+        return games.usePotion(id, user.getId(), Potion.valueOf(body.type));
     }
 }

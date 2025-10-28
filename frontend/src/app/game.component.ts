@@ -55,6 +55,14 @@ import { ApiService, Game, Player, StatMod } from './api.service';
               <div class="mods-badge-weather" *ngIf="m.source?.startsWith('WEATHER:')">
                 <img class="weather-ico" [src]="weatherIconSrc(game?.weatherStatus)" alt="icône météo" />
               </div>
+
+              <div class="mods-badge-potion" *ngIf="m.source?.startsWith('POTION:')">
+                <img class="mod-ico" src="/assets/icons/potion-icon.png" alt="potion"/>
+              </div>
+
+              <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
+                <img class="mod-ico" [src]="actionIconSrc(p)" alt="action"/>
+              </div>
               <span class="chip-val">{{ chipOf(m) }}</span>
             </span>
           </div>
@@ -104,6 +112,14 @@ import { ApiService, Game, Player, StatMod } from './api.service';
                 [src]="weatherIconSrc(game?.weatherStatus)"
                 alt="icône météo"
               />
+            </div>
+
+            <div class="mods-badge-potion" *ngIf="m.source?.startsWith('POTION:')">
+              <img class="mod-ico" src="/assets/icons/potion-icon.png" alt="potion"/>
+            </div>
+
+            <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
+              <img class="mod-ico" [src]="actionIconSrc(vampirePlayer)" alt="action"/>
             </div>
             <span class="chip-val">{{ chipOf(m) }}</span>
           </span>
@@ -224,22 +240,61 @@ import { ApiService, Game, Player, StatMod } from './api.service';
             <div class="mods-badge-weather" *ngIf="m.source?.startsWith('WEATHER:')">
               <img class="weather-ico" [src]="weatherIconSrc(game.weatherStatus)" alt="icône météo" />
             </div>
+
+            <div class="mods-badge-potion" *ngIf="m.source?.startsWith('POTION:')">
+              <img class="mod-ico" src="/assets/icons/potion-icon.png" alt="potion"/>
+            </div>
+
+            <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
+              <img class="mod-ico" [src]="actionIconSrc(me)" alt="action"/>
+            </div>
             <span class="chip-val">{{ chipOf(m) }}</span>
           </span>
         </div>
       </ng-container>
 
-      <div>Votre main (lieux):</div>
-      <div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.5rem">
-        <button *ngFor="let c of (me.hand || [])"
-                [class.selected]="selectedLocation===c"
-                (click)="selectLocation(c)"
-                style="padding:.5rem 1rem; border:1px solid #ccc; cursor:pointer">
-          {{ labelLieu(c) }}
-        </button>
-      </div>
-      <div style="margin-top:.5rem">
-        <button (click)="playSelected()" [disabled]="!canPlay">Jouer cette carte</button>
+     <div class="hand">
+        <!-- En-têtes sur la même ligne -->
+        <div class="hand-head">
+          <div class="hand-title">Votre main (lieux)</div>
+          <div class="hand-title" *ngIf="myPotions().length > 0">Mes potions</div>
+        </div>
+
+        <!-- Deux colonnes : lieux | potions -->
+        <div class="hand-body">
+          <!-- Colonne LIEUX : style inchangé -->
+          <div class="hand-col">
+            <div class="hand-cards">
+              <button *ngFor="let c of (me?.hand || [])"
+                      [class.selected]="selectedLocation===c"
+                      (click)="selectLocation(c)"
+                      style="padding:.5rem 1rem; border:1px solid #ccc; cursor:pointer">
+                {{ labelLieu(c) }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Colonne POTIONS : mêmes cartes/visuel que lieux + info au survol -->
+          <div class="hand-col">
+            <div class="hand-cards">
+              <button *ngFor="let pot of myPotions()"
+                      class="card-btn"
+                      [class.is-disabled]="!canUsePotionNow(pot)"
+                      [attr.aria-disabled]="!canUsePotionNow(pot) ? true : null"
+                      (click)="onPotionClick(pot)"
+                      [title]="canUsePotionNow(pot)
+                      ? 'Utiliser maintenant (préparation au combat)'
+                      : 'Disponible uniquement en PREPHASE3 si vous participez à un combat'">
+                {{ potionLabelFr(pot) }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bouton jouer (lieu sélectionné) -->
+        <div style="margin-top:.5rem">
+          <button (click)="playSelected()" [disabled]="!canPlay">Jouer cette carte</button>
+        </div>
       </div>
     </section>
   </main>
@@ -330,6 +385,14 @@ import { ApiService, Game, Player, StatMod } from './api.service';
                   <div class="mods-badge-weather" *ngIf="m.source?.startsWith('WEATHER:')">
                     <img class="weather-ico" [src]="weatherIconSrc(game?.weatherStatus)" alt="icône météo" />
                   </div>
+
+                  <div class="mods-badge-potion" *ngIf="m.source?.startsWith('POTION:')">
+                    <img class="mod-ico" src="/assets/icons/potion-icon.png" alt="potion"/>
+                  </div>
+
+                  <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
+                    <img class="mod-ico" [src]="actionIconSrc(getPlayer(r.attackerId))" alt="action"/>
+                  </div>
                   <span class="chip-val">{{ chipOf(m) }}</span>
                 </span>
               </div>
@@ -353,6 +416,14 @@ import { ApiService, Game, Player, StatMod } from './api.service';
                 <span class="mod-chip" *ngFor="let m of defMods">
                   <div class="mods-badge-weather" *ngIf="m.source?.startsWith('WEATHER:')">
                     <img class="weather-ico" [src]="weatherIconSrc(game?.weatherStatus)" alt="icône météo" />
+                  </div>
+
+                  <div class="mods-badge-potion" *ngIf="m.source?.startsWith('POTION:')">
+                    <img class="mod-ico" src="/assets/icons/potion-icon.png" alt="potion"/>
+                  </div>
+
+                  <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
+                    <img class="mod-ico" [src]="actionIconSrc(getPlayer(r.defenderId))" alt="action"/>
                   </div>
                   <span class="chip-val">{{ chipOf(m) }}</span>
                 </span>
@@ -386,6 +457,14 @@ import { ApiService, Game, Player, StatMod } from './api.service';
                   <div class="mods-badge-weather" *ngIf="m.source?.startsWith('WEATHER:')">
                     <img class="weather-ico" [src]="weatherIconSrc(game?.weatherStatus)" alt="icône météo" />
                   </div>
+
+                  <div class="mods-badge-potion" *ngIf="m.source?.startsWith('POTION:')">
+                    <img class="mod-ico" src="/assets/icons/potion-icon.png" alt="potion"/>
+                  </div>
+
+                  <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
+                    <img class="mod-ico" [src]="actionIconSrc(getPlayer(r.attackerId))" alt="action"/>
+                  </div>
                   <span class="chip-val">{{ chipOf(m) }}</span>
                 </span>
               </div>
@@ -413,6 +492,14 @@ import { ApiService, Game, Player, StatMod } from './api.service';
                   <div class="mods-badge-weather" *ngIf="m.source?.startsWith('WEATHER:')">
                     <img class="weather-ico" [src]="weatherIconSrc(game?.weatherStatus)" alt="icône météo" />
                   </div>
+                  
+                  <div class="mods-badge-potion" *ngIf="m.source?.startsWith('POTION:')">
+                    <img class="mod-ico" src="/assets/icons/potion-icon.png" alt="potion"/>
+                  </div>
+
+                  <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
+                    <img class="mod-ico" [src]="actionIconSrc(getPlayer(r.defenderId))" alt="action"/>
+                  </div>
                   <span class="chip-val">{{ chipOf(m) }}</span>
                 </span>
               </div>
@@ -431,7 +518,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
         </div>
       </div>
 
-      <div class="breakdown bg-badge" *ngIf="currentCombat?.        breakdownLines as lines">
+      <div class="breakdown bg-badge" *ngIf="currentCombat?.breakdownLines as lines">
         <div *ngFor="let line of lines">{{ line }}</div>
       </div>
       <div class="result bg-badge" *ngIf="getCombatResultText() as txt">{{ txt }}</div>
@@ -440,8 +527,6 @@ import { ApiService, Game, Player, StatMod } from './api.service';
   </div>
   `,
   styles: [`
-  .selected{ outline:2px solid #000 }
-
   /* Layout des boards */
   .container{
     width: 96vw;
@@ -510,36 +595,36 @@ import { ApiService, Game, Player, StatMod } from './api.service';
 
   /* --- Barre d'équipement --- */
   .equip-bar{
-  display:flex;
-  align-items:stretch;
-  gap:.5rem;
-  flex-wrap:nowrap;
-}
+    display:flex;
+    align-items:stretch;
+    gap:.5rem;
+    flex-wrap:nowrap;
+  }
 
-.equip-bar > .equip-card{
-  flex: 0 0 90px;
-  min-width: 0;
-  border:1px solid #ddd; border-radius:10px; padding:.5rem .4rem;
-  background:linear-gradient(180deg,#f8f9fb,#eef1f5);
-  height: 100px
-}
+  .equip-bar > .equip-card{
+    flex: 0 0 90px;
+    min-width: 0;
+    border:1px solid #ddd; border-radius:10px; padding:.5rem .4rem;
+    background:linear-gradient(180deg,#f8f9fb,#eef1f5);
+    height: 100px
+  }
 
-.equip-bar > .mini-stack{
-  flex: 0 0 50px;
-  width: 50px;
-  min-width: 0;
-  display:flex;
-  flex-direction:column;
-  gap:.5rem;
+  .equip-bar > .mini-stack{
+    flex: 0 0 50px;
+    width: 50px;
+    min-width: 0;
+    display:flex;
+    flex-direction:column;
+    gap:.5rem;
 
-}
+  }
 
-.mini-card {
-  border:1px solid #ddd; border-radius:10px; padding:.5rem .4rem;
-  background:linear-gradient(180deg,#f8f9fb,#eef1f5);
-  margin: 1px 3px 0 0;
-  height: 35px
-}
+  .mini-card {
+    border:1px solid #ddd; border-radius:10px; padding:.5rem .4rem;
+    background:linear-gradient(180deg,#f8f9fb,#eef1f5);
+    margin: 1px 3px 0 0;
+    height: 35px
+  }
 
 
   .equip-label{ font:600 12px/1.1 system-ui, sans-serif; color:#333; margin-bottom:.35rem; }
@@ -559,6 +644,55 @@ import { ApiService, Game, Player, StatMod } from './api.service';
     width:     calc((100% - 1rem) / 3);
   }
   .my-board .equip-bar > .mini-stack{ display:none; }
+
+  .hand{
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    gap: .5rem;
+    margin-top: 10px;
+  }
+
+  .hand-head{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    align-items: end;
+    font-weight: 600;
+  }
+
+  .hand-title{
+    font: 600 14px/1.1 system-ui, sans-serif;
+  }
+
+  .hand-body{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    align-items: start;
+  }
+
+  .hand-col{ min-width: 0; }
+
+  .hand-cards{
+    display:flex;
+    gap:.5rem;
+    flex-wrap:wrap;
+    margin-top:.5rem;
+  }
+
+  .card-btn{
+    padding:.5rem 1rem;
+    border:1px solid #ccc;
+    cursor:pointer;
+    background:#fff;
+  }
+
+  .card-btn.is-disabled{
+    opacity:.55;
+    cursor:not-allowed;
+    pointer-events: auto;
+  }
+  .selected{ outline:2px solid #000 }
 
 
   /* Chips buffs */
@@ -612,7 +746,6 @@ import { ApiService, Game, Player, StatMod } from './api.service';
   .side{ position: relative; display: grid; gap: .25rem; justify-items: center; }
   .dice{ width: 180px; height: auto; }
   .dice-big{ width: 240px; height: auto; }
-  .icon-small{ width: 120px; height: 180px; opacity: .8; }
   .icon-side{ width: 120px; height: 180px; opacity: .9; }
 
 .dice-wrap{ position: relative; display:inline-block; }
@@ -664,7 +797,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
   }
   .breakdown { text-align: center; }
   .result{ margin-top: .75rem; font-weight: 600; text-align: center; }
-  .footer{ margin-top: .75rem; text-align: center; color: #eeeeeeff; }
+  .modal .footer{ margin-top: .75rem; text-align: center; color: #eeeeeeff; }
 
   /* MODALE ACTION */
   .modal.location-modal{
@@ -738,6 +871,8 @@ import { ApiService, Game, Player, StatMod } from './api.service';
   }
 
   /* dessiner Le HALO  */
+  .icon-bubble{ display:grid; place-items:center; }
+
   .modal.location-modal .icon-halo::before{
     content: "";
     position: absolute;
@@ -788,7 +923,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
     --halo-dy: 5px;
   }
 
-  .modal.location-modal .spectate{
+  .modal.location-modal.spectate{
     width: min(780px, 95vw);
     min-height: 540px;
     background-repeat: no-repeat;
@@ -796,12 +931,6 @@ import { ApiService, Game, Player, StatMod } from './api.service';
     background-position: center 50%;
     display: flex;
     flex-direction: column;
-  }
-
-  .modal.location-modal.spectate .mods-col{
-    top: 50%;
-    bottom: auto;
-    transform: translateY(-50%);
   }
 
   /* Spectateur : chips identiques aux boards */
@@ -888,30 +1017,6 @@ import { ApiService, Game, Player, StatMod } from './api.service';
     text-shadow: 0 2px 6px rgba(0,0,0,.55);
     opacity:.95;
   }
-
-  .content.weather.result{
-    display:flex;
-    flex-direction:column;
-    justify-content:center;
-    align-items:center;
-    gap:.5rem;
-    min-height: 260px; /* même hauteur que l’état pré-jet */
-    text-align:center;
-  }
-
-  .weather-badge{
-    font: 800 1.1rem/1.1 system-ui, sans-serif;
-    padding:.35rem .75rem;
-    border-radius: 999px;
-    background: rgba(0,0,0,.45);
-  }
-
-  .weather-desc, .weather-note{
-    max-width: 48ch;
-    margin: 0;
-    text-shadow: 0 2px 6px rgba(0,0,0,.55);
-    opacity:.95;
-  }
   
   .content.weather{
     display:flex; flex-direction:column; align-items:center; justify-content:center;
@@ -945,12 +1050,22 @@ import { ApiService, Game, Player, StatMod } from './api.service';
     opacity: .92;
   }
 
-  .mods-badge-weather{
+  .mods-badge-weather, .mods-badge-potion, .mods-badge-action{
     width: 28px; height: 28px;
     background: #ddddddff;
     border-radius: 999px;
     opacity: .92;
   }
+
+  /* Icône de potion et d'action à l'intérieur du badge */
+  .mods-badge-potion .mod-ico,
+  .mods-badge-action .mod-ico{
+    width: 28px;
+    height: 28px;
+    display: block;
+    object-fit: contain;
+  }
+
   .weather-footer{color: white; font-weight: bold;}
   .wheel{ width: 400px; height:auto; opacity:.95; }
   .btn-primary{ padding:.5rem 1rem; font-weight:600; }
@@ -1380,4 +1495,79 @@ export class GameComponent {
       }, GameComponent.WEATHER_PRE_BG_MS);
     }
   }
+
+  //actions & potions
+  // afficher mes potions (IDs)
+  myPotions(): string[] {
+    const g = this.game;
+    if (!g) return [];
+    const map = (g as any).potionsByPlayer || {};
+    return map[this.meId] || [];
+  }
+
+  canUsePotionNow(_pot: string): boolean {
+    const g = this.game;
+    if (!g) return false;
+
+    // Web app : fenêtre unique de préparation avant les duels
+    if (g.phase === 'PREPHASE3' && g.hasUpcomingCombat) {
+      return this.imInUpcomingCombat();
+    }
+
+    // Jamais en PHASE3
+    return false;
+  }
+
+  // Suis-je posé sur un lieu où un combat va avoir lieu ?
+  private imInUpcomingCombat(): boolean {
+    const g = this.game; if (!g) return false;
+    const vamp = g.players.find(p => p.role === 'VAMPIRE'); if (!vamp) return false;
+
+    // Lieux révélés en PREPHASE3 où vamp + ≥1 chasseur sont ensemble
+    const combatLocs = new Set<string>();
+    for (const cb of (g.center || [])) {
+      if (!cb.faceUp) continue;
+      if (cb.playerId === vamp.id) {
+        const loc = cb.card;
+        const hunterThere = (g.center || []).some(c2 =>
+          c2.card === loc &&
+          g.players.find(p => p.id === c2.playerId)?.role === 'HUNTER'
+        );
+        if (hunterThere) combatLocs.add(loc);
+      }
+    }
+
+    // Moi, suis-je sur un de ces lieux ?
+    return (g.center || []).some(cb => cb.playerId === this.meId && combatLocs.has(cb.card));
+  }
+
+  potionLabelFr(id: string): string {
+    switch (id) {
+      case 'FORCE': return 'Potion de force';
+      case 'ENDURANCE': return 'Potion d’endurance';
+      case 'VIE': return 'Potion de vie';
+      default: return id;
+    }
+  }
+
+  usePotion(id: string){
+    if (!this.game) return;
+    this.api.usePotion(this.game.id, id).subscribe({
+      next: g => this.game = g,
+      error: e => this.showError(e)
+    });
+  }
+
+  actionIconSrc(p?: Player): string {
+    if (!p) return '/assets/icons/action-hunter-icon.png';
+    return p.role === 'VAMPIRE'
+      ? '/assets/icons/action-vampire-icon.png'
+      : '/assets/icons/action-hunter-icon.png';
+  }
+
+  onPotionClick(pot: string){
+    if (!this.canUsePotionNow(pot)) return;
+    this.usePotion(pot);
+  }
+
 }
