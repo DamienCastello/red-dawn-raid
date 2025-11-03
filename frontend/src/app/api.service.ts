@@ -1,5 +1,20 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
+
+export interface HistoryItem {
+  raid: number;
+  phase: string; // "PHASE0"..."PHASE4"
+  ts: number;
+  text: string;
+}
+
+export interface Bite {
+  id: string;
+  attackerId: string;
+  targetId: string;
+  roll?: number | null;
+  resolvedAtMillis?: number | null;
+}
 
 type Health = { status: string };
 
@@ -19,7 +34,7 @@ export type RoundFight = {
 export type Player = {
   id: string;
   username: string;
-  role: 'VAMPIRE'|'HUNTER';
+  role: 'VAMPIRE'|'HUNTER'|'SERVANT';
   hand: string[];
   hp: number;
   attackDice: string;
@@ -32,22 +47,14 @@ export type Player = {
   gold: number;
   souls: number;
   silver: number;
+  corruption: number;
 };
 
-// Compat centre: selon ton back c’est encore "candidateId".
-// On supporte les deux sans casser.
 export type CenterBoard = {
   playerId: string;
   card: string;
   faceUp: boolean;
 };
-
-export interface HistoryItem {
-  raid: number;
-  phase: string; // "PHASE0"..."PHASE4"
-  ts: number;
-  text: string;
-}
 
 export type Game = {
   id: string;
@@ -79,20 +86,27 @@ export type Game = {
   weatherPhaseDeadlineMillis?: number;
   weatherShowUntilMillis?: number;
   raidMods?: Record<string, StatMod[]>;  // buffs/debuffs par joueur (affichage)
+  unstableEligibleTargets?: Record<string, string[]>;   // instableId -> [targetIds]
+  unstableTargetByPlayer?: Record<string, string>;      // instableId -> chosenTargetId
+  currentBite?: Bite | null;                            // morsure en cours (après dégâts)
 };
 
-export interface ForceVote {
+export type BiteAttempt = {
   id: string;
-  targetPlayerId: string;
-  context: 'PHASE1_SELECT'|'PHASE2_SELECT'|'PHASE3_ATTACK_ROLL'|'PHASE3_DEFENSE_ROLL';
-  combatRoundId?: string|null;
-  createdAtMillis: number;
-  eligible: string[];
-  yes: string[];
-  resolved: boolean;
-}
+  attackerId: string; // vampire
+  targetId: string;   // chasseur
+  location: string;
+  roll?: number|null;
+  resolvedAtMillis?: number|null;
+};
 
-export type StatMod = { stat: 'ATTACK'|'DEFENSE'; amount: number; source: string; labelFr: string };
+export type StatMod = { 
+  stat: 'ATTACK'|'DEFENSE'|'MULTIPLE'|'INSTABLE'|'SERVITEUR';
+  amount: number;
+  source: string;
+  labelFr: string,
+  displayOnly?: boolean;
+ };
 
 export type JoinResponse = { game: Game; playerId: string; playerToken: string };
 
@@ -155,6 +169,25 @@ export class ApiService {
   usePotion(gameId: string, type: string){
     return this.http.post<Game>(`${this.base}/games/${gameId}/potions/use`, { type });
   }
+
+  rollCorruption(gameId: string){
+    return this.http.post<Game>(`${this.base}/games/${gameId}/corruption/roll`, {});
+  }
+
+  assignUnstableTarget(gameId: string, unstableId: string, targetId: string) {
+    const params = new HttpParams()
+      .set('unstableId', unstableId)
+      .set('targetId', targetId);
+    return this.http.post<Game>(`${this.base}/games/${gameId}/unstable/assign-target`, null, { params });
+  }
+
+  assignUnstableHarvest(gameId: string, unstableId: string, loc: string) {
+    const params = new HttpParams()
+      .set('unstableId', unstableId)
+      .set('loc', loc);
+    return this.http.post<Game>(`${this.base}/games/${gameId}/unstable/assign-harvest`, null, { params });
+  }
+
 
     // Auth
   signup(username: string, password: string) {

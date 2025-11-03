@@ -15,6 +15,7 @@ public class CenterBoard {
 
     public String getPlayerId() { return playerId; }
     public String getCard() { return card; }
+    public void setCard(String card) { this.card = card; }
     public boolean isFaceUp() { return faceUp; }
     public void setFaceUp(boolean faceUp) { this.faceUp = faceUp; }
 }

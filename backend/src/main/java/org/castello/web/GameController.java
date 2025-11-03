@@ -120,4 +120,41 @@ public class GameController {
         }
         return games.usePotion(id, user.getId(), Potion.valueOf(body.type));
     }
+
+    // --- Corruption ---
+    // Choisir la cible d’un chasseur instable (vampire only)
+    @PostMapping("/{id}/unstable/assign-target")
+    public Game assignUnstable(
+            @PathVariable String id,
+            @RequestParam String unstableId,
+            @RequestParam String targetId,
+            @RequestHeader("Authorization") String authorization
+    ){
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+        return games.assignUnstableTarget(id, user.getId(), unstableId, targetId);
+    }
+
+    @PostMapping("/{id}/unstable/assign-harvest")
+    public Game assignUnstableHarvest(
+            @PathVariable String id,
+            @RequestParam String unstableId,
+            @RequestParam String loc,
+            @RequestHeader("Authorization") String authorization
+    ){
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+        return games.assignUnstableHarvest(id, user.getId(), unstableId, loc);
+    }
+
+    // Jet de morsure (vampire only) après un duel où il a infligé des dégâts
+    @PostMapping("/{id}/corruption/roll")
+    public Game rollCorruption(
+            @PathVariable String id,
+            @RequestHeader("Authorization") String authorization
+    ){
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+        return games.rollCorruption(id, user.getId());
+    }
 }

@@ -51,7 +51,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
         <!-- CHIPS -->
         <ng-container *ngIf="modsForDisplay(p) as mods">
           <div class="mods-row" *ngIf="mods.length">
-            <span class="mod-chip" *ngFor="let m of mods">
+            <span class="mod-chip" *ngFor="let m of mods" [title]="titleFor(m)">
               <div class="mods-badge-weather" *ngIf="m.source?.startsWith('WEATHER:')">
                 <img class="weather-ico" [src]="weatherIconSrc(game?.weatherStatus)" alt="icône météo" />
               </div>
@@ -63,7 +63,12 @@ import { ApiService, Game, Player, StatMod } from './api.service';
               <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
                 <img class="mod-ico" [src]="actionIconSrc(p)" alt="action"/>
               </div>
-              <span class="chip-val">{{ chipOf(m) }}</span>
+
+              <div class="mods-badge-corruption"
+                  *ngIf="m.source?.startsWith('CORRUPTION')">
+                <img class="mod-ico" src="/assets/corruption/corruption-icon.png" alt="corruption"/>
+              </div>
+              <span class="chip-val">{{ labelOrChip(m) }}</span>
             </span>
           </div>
         </ng-container>
@@ -102,7 +107,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
 
         <!-- CHIPS -->
         <div class="mods-row" *ngIf="modsForDisplay(vampirePlayer).length">
-          <span class="mod-chip" *ngFor="let m of modsForDisplay(vampirePlayer)">
+          <span class="mod-chip" *ngFor="let m of modsForDisplay(vampirePlayer)" [title]="titleFor(m)">
             <div
               class="mods-badge-weather"
               *ngIf="m.source?.startsWith('WEATHER:')"
@@ -121,7 +126,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
             <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
               <img class="mod-ico" [src]="actionIconSrc(vampirePlayer)" alt="action"/>
             </div>
-            <span class="chip-val">{{ chipOf(m) }}</span>
+            <span class="chip-val">{{ labelOrChip(m) }}</span>
           </span>
         </div>
 
@@ -146,7 +151,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
 
               <!-- Le bouton n’apparaît QUE s’il y aura un combat -->
               <div *ngIf="me && game?.hasUpcomingCombat" style="margin-top:.5rem">
-                <button (click)="skipNow()" [disabled]="hasSkipped" title="Signaler que vous avez fini vos actions">
+                <button *ngIf="!pendingUnstable()" (click)="skipNow()" [disabled]="hasSkipped" title="Signaler que vous avez fini vos actions">
                   J’ai fini
                 </button>
                 <small *ngIf="hasSkipped" style="margin-left:.5rem; color:#666">En attente des autres…</small>
@@ -162,7 +167,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
             <div *ngIf="!game?.center?.length" style="color:#999">Aucune carte jouée pour l’instant</div>
             <div *ngFor="let cp of game?.center" style="margin:.25rem 0">
               <span *ngIf="cp.faceUp; else back">
-                {{ usernameOf(cp.playerId) }}: {{ labelLieu(cp.card) }}
+                {{ usernameOf(cp.playerId) }}: {{ labelLocation(cp.card) }}
               </span>
               <ng-template #back>
                 <i>Carte face cachée ({{ usernameOf(cp.playerId) }})</i>
@@ -198,7 +203,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
     <section *ngIf="me && game" class="board-wide my-board">
       <div class="player-strip">
         <div class="name">
-          {{ me.username || 'anonyme' }} — {{ isVampire ? 'Vampire' : 'Chasseur' }}
+          {{ me.username || 'anonyme' }} — {{ me.role === 'VAMPIRE' ? 'Vampire' : (me.role === 'SERVANT' ? 'Serviteur' : 'Chasseur') }}
         </div>
         <div class="hp">
           <img class="hp-heart" [src]="heartIconFor(me)" alt="HP"/>
@@ -213,7 +218,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
         <span title="Fer">⛓️ {{ m.iron || 0 }}</span>
         <span title="Eau pure">💧 {{ m.water || 0 }}</span>
         <span *ngIf="m.role==='HUNTER'" title="Or">🪙 {{ m.gold || 0 }}</span>
-        <span *ngIf="m.role==='VAMPIRE'" title="Âmes déchues">🕯️ {{ m.souls || 0 }}</span>
+        <span *ngIf="m.role==='VAMPIRE' || m.role==='SERVANT'" title="Âmes déchues">🕯️ {{ m.souls || 0 }}</span>
         <span *ngIf="m.role==='HUNTER'" title="Argent">🥈 {{ (m.silver || 0) }}</span>
       </div>
 
@@ -236,7 +241,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
       <!-- CHIPS -->
       <ng-container *ngIf="modsForDisplay(me) as myMods">
         <div class="mods-row" *ngIf="myMods.length">
-          <span class="mod-chip" *ngFor="let m of myMods">
+          <span class="mod-chip" *ngFor="let m of myMods" [title]="titleFor(m)">
             <div class="mods-badge-weather" *ngIf="m.source?.startsWith('WEATHER:')">
               <img class="weather-ico" [src]="weatherIconSrc(game.weatherStatus)" alt="icône météo" />
             </div>
@@ -248,7 +253,12 @@ import { ApiService, Game, Player, StatMod } from './api.service';
             <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
               <img class="mod-ico" [src]="actionIconSrc(me)" alt="action"/>
             </div>
-            <span class="chip-val">{{ chipOf(m) }}</span>
+
+            <div class="mods-badge-corruption"
+                *ngIf="m.source?.startsWith('CORRUPTION')">
+              <img class="mod-ico" src="/assets/corruption/corruption-icon.png" alt="corruption"/>
+            </div>
+            <span class="chip-val">{{ labelOrChip(m) }}</span>
           </span>
         </div>
       </ng-container>
@@ -269,7 +279,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
                       [class.selected]="selectedLocation===c"
                       (click)="selectLocation(c)"
                       style="padding:.5rem 1rem; border:1px solid #ccc; cursor:pointer">
-                {{ labelLieu(c) }}
+                {{ labelLocation(c) }}
               </button>
             </div>
           </div>
@@ -304,7 +314,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
     <div
       class="modal weather-modal"
       [ngClass]="{ 'with-bg': weatherBgActive }"
-      [style.backgroundImage]="weatherBgActive ? setImageBackgroundCss('weather') : null"
+      [style.backgroundImage]="weatherBgActive ? setImageBackground('weather') : null"
     >
       <h3 style="margin-top:0; color:white;">{{'Tirage météo'}}</h3>
 
@@ -358,7 +368,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
   </div>
   <!-- === MODALE ACTION (joueur concerné) — AJOUT === -->
   <div *ngIf="showActionModal && currentCombat as r" class="modal-backdrop">
-    <div class="modal location-modal" [style.backgroundImage]="setImageBackgroundCss('location')">
+    <div class="modal location-modal" [style.backgroundImage]="setImageBackground('location')">
       <h3 style="margin-top:0" class="bg-badge">
         {{ modalTitle(r) }}
       </h3>
@@ -381,7 +391,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
             </div>
             <ng-container *ngIf="modsForStat(getPlayer(r.attackerId), 'ATTACK') as atkMods">
               <div class="mods-row" *ngIf="atkMods.length">
-                <span class="mod-chip" *ngFor="let m of atkMods">
+                <span class="mod-chip" *ngFor="let m of atkMods" [title]="titleFor(m)">
                   <div class="mods-badge-weather" *ngIf="m.source?.startsWith('WEATHER:')">
                     <img class="weather-ico" [src]="weatherIconSrc(game?.weatherStatus)" alt="icône météo" />
                   </div>
@@ -393,7 +403,12 @@ import { ApiService, Game, Player, StatMod } from './api.service';
                   <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
                     <img class="mod-ico" [src]="actionIconSrc(getPlayer(r.attackerId))" alt="action"/>
                   </div>
-                  <span class="chip-val">{{ chipOf(m) }}</span>
+
+                  <div class="mods-badge-corruption"
+                      *ngIf="m.source?.startsWith('CORRUPTION')">
+                    <img class="mod-ico" src="/assets/corruption/corruption-icon.png" alt="corruption"/>
+                  </div>
+                  <span class="chip-val">{{ labelOrChip(m) }}</span>
                 </span>
               </div>
             </ng-container>
@@ -413,7 +428,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
             </div>
             <ng-container *ngIf="modsForStat(getPlayer(r.defenderId), 'DEFENSE') as defMods">
               <div class="mods-row" *ngIf="defMods.length">
-                <span class="mod-chip" *ngFor="let m of defMods">
+                <span class="mod-chip" *ngFor="let m of defMods" [title]="titleFor(m)">
                   <div class="mods-badge-weather" *ngIf="m.source?.startsWith('WEATHER:')">
                     <img class="weather-ico" [src]="weatherIconSrc(game?.weatherStatus)" alt="icône météo" />
                   </div>
@@ -425,7 +440,12 @@ import { ApiService, Game, Player, StatMod } from './api.service';
                   <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
                     <img class="mod-ico" [src]="actionIconSrc(getPlayer(r.defenderId))" alt="action"/>
                   </div>
-                  <span class="chip-val">{{ chipOf(m) }}</span>
+
+                  <div class="mods-badge-corruption"
+                      *ngIf="m.source?.startsWith('CORRUPTION')">
+                    <img class="mod-ico" src="/assets/corruption/corruption-icon.png" alt="corruption"/>
+                  </div>
+                  <span class="chip-val">{{ labelOrChip(m) }}</span>
                 </span>
               </div>
             </ng-container>
@@ -441,7 +461,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
 
   <!-- === MODALE SPECTATEUR === -->
   <div *ngIf="showSpectatorModal && currentCombat as r" class="modal-backdrop">
-    <div class="modal location-modal spectate" [style.backgroundImage]="setImageBackgroundCss('location')">
+    <div class="modal location-modal spectate" [style.backgroundImage]="setImageBackground('location')">
       <h3 style="margin-top:0" class="bg-badge">
         {{ modalTitle(r) }}
       </h3>
@@ -453,7 +473,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
           <ng-container *ngIf="modsForStat(getPlayer(r.attackerId), 'ATTACK') as atkMods">
             <div class="mods-col left" *ngIf="atkMods.length">
               <div class="mods-row">
-                <span class="mod-chip" *ngFor="let m of atkMods">
+                <span class="mod-chip" *ngFor="let m of atkMods" [title]="titleFor(m)">
                   <div class="mods-badge-weather" *ngIf="m.source?.startsWith('WEATHER:')">
                     <img class="weather-ico" [src]="weatherIconSrc(game?.weatherStatus)" alt="icône météo" />
                   </div>
@@ -465,7 +485,12 @@ import { ApiService, Game, Player, StatMod } from './api.service';
                   <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
                     <img class="mod-ico" [src]="actionIconSrc(getPlayer(r.attackerId))" alt="action"/>
                   </div>
-                  <span class="chip-val">{{ chipOf(m) }}</span>
+
+                  <div class="mods-badge-corruption"
+                      *ngIf="m.source?.startsWith('CORRUPTION')">
+                    <img class="mod-ico" src="/assets/corruption/corruption-icon.png" alt="corruption"/>
+                  </div>
+                  <span class="chip-val">{{ labelOrChip(m) }}</span>
                 </span>
               </div>
             </div>
@@ -488,7 +513,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
           <ng-container *ngIf="modsForStat(getPlayer(r.defenderId), 'DEFENSE') as defMods">
             <div class="mods-col right" *ngIf="defMods.length">
               <div class="mods-row">
-                <span class="mod-chip" *ngFor="let m of defMods">
+                <span class="mod-chip" *ngFor="let m of defMods" [title]="titleFor(m)">
                   <div class="mods-badge-weather" *ngIf="m.source?.startsWith('WEATHER:')">
                     <img class="weather-ico" [src]="weatherIconSrc(game?.weatherStatus)" alt="icône météo" />
                   </div>
@@ -500,7 +525,12 @@ import { ApiService, Game, Player, StatMod } from './api.service';
                   <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
                     <img class="mod-ico" [src]="actionIconSrc(getPlayer(r.defenderId))" alt="action"/>
                   </div>
-                  <span class="chip-val">{{ chipOf(m) }}</span>
+
+                  <div class="mods-badge-corruption"
+                      *ngIf="m.source?.startsWith('CORRUPTION')">
+                    <img class="mod-ico" src="/assets/corruption/corruption-icon.png" alt="corruption"/>
+                  </div>
+                  <span class="chip-val">{{ labelOrChip(m) }}</span>
                 </span>
               </div>
             </div>
@@ -523,6 +553,82 @@ import { ApiService, Game, Player, StatMod } from './api.service';
       </div>
       <div class="result bg-badge" *ngIf="getCombatResultText() as txt">{{ txt }}</div>
       <div class="footer bg-badge" *ngIf="!getCombatResultText()">Les adversaires s’affrontent…</div>
+    </div>
+  </div>
+  <!-- === MODALE MORSURE (PHASE3, quand currentBite actif) === -->
+  <div *ngIf="canShowBiteModal()" class="modal-backdrop">
+    <div class="modal bite-modal" [style.backgroundImage]="setImageBackground('bite')">
+      <h3 class="bg-badge">Tentative de morsure</h3>
+
+      <div class="content action">
+        <!-- Icône corruption -->
+        <div class="icon-bubble round">
+          <div class="icon-halo round">
+            <img class="icon-side" src="/assets/corruption/corruption-icon.png" alt="corruption"/>
+          </div>
+        </div>
+
+        <!-- Dé du vampire (seul le vampire peut lancer) -->
+        <div class="dice-wrap" [attr.data-digits]="1">
+          <img class="dice-big" src="/assets/dices/d6-red.png" alt="d6"/>
+          <div class="dice-overlay" *ngIf="game?.currentBite?.roll != null">
+            {{ game?.currentBite?.roll }}
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <ng-container *ngIf="canRollBite(); else waitBite">
+          <button (click)="rollCorruption()" class="btn-primary">Jeter le dé</button>
+        </ng-container>
+        <ng-template #waitBite>
+          <span>En attente du jet…</span>
+        </ng-template>
+      </div>
+    </div>
+  </div>
+  <!-- === MODALE CHOIX INSTABLE (PREPHASE3) === -->
+  <div *ngIf="showUnstableModal()" class="modal-backdrop">
+    <div class="modal corruption-modal with-bg" [style.backgroundImage]="setImageBackground('corruption')">
+      <h3 class="bg-badge" style="margin-top:0;">
+        Contrôle d’un chasseur instable
+      </h3>
+
+      <div class="scrim-bottom"></div>
+
+      <div class="content corruption">
+        <div class="bg-box">
+
+          <ng-container *ngFor="let it of unstableChoices; trackBy: trackByUnstable">
+            <div class="bg-badge">
+              {{ vampireName() }} doit décider pour {{ usernameOf(it.unstableId) }}.
+            </div>
+
+            <div>
+              <div class="label-choices">
+                Choisir un chasseur pris pour cible par {{ usernameOf(it.unstableId) }}
+              </div>
+              <div class="choices">
+                <button *ngFor="let tid of it.targets" (click)="assignTarget(it.unstableId, tid)">
+                  {{ usernameOf(tid) }}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <div class="label-choices">
+                Choisir un lieu où {{ usernameOf(it.unstableId) }} récoltera pour {{ vampireName() }}
+              </div>
+              <div class="choices">
+                <button *ngFor="let loc of it.locations" (click)="assignHarvest(it.unstableId, loc)">
+                  {{ labelLocation(loc) }}
+                </button>
+              </div>
+            </div>
+          </ng-container>
+
+        </div>
+      </div>
     </div>
   </div>
   `,
@@ -802,16 +908,16 @@ import { ApiService, Game, Player, StatMod } from './api.service';
   /* MODALE ACTION */
   .modal.location-modal{
     display: flex;
-  flex-direction: column;
-  justify-content: space-around;
+    flex-direction: column;
+    justify-content: space-around;
     background-repeat: no-repeat; 
-  background-size: cover; 
-  background-position: center 50%; 
-  min-height: 500px;
+    background-size: cover; 
+    background-position: center 50%; 
+    min-height: 500px;
   }
 
   /* Badge de titre compact et centré */
-  .modal.location-modal .bg-badge{
+  .modal.location-modal .bg-badge, .modal.bite-modal .bg-badge{
     display: inline-block;
     margin: 0 auto .4rem;
     text-align: center;
@@ -823,7 +929,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
   }
 
   /* Contenu centré même quand des chips existent */
-  .modal.location-modal .content.action{
+  .modal.location-modal .content.action, .modal.bite-modal .content.action{
     display: flex;
     align-items: center;
     justify-content: center;
@@ -860,7 +966,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
     background: rgba(255,255,255,.85);
   }
     
-  .modal.location-modal .icon-halo{
+  .modal.location-modal .icon-halo, .modal.bite-modal .icon-halo{
     position: relative;
     display: grid;
     place-items: center;
@@ -873,7 +979,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
   /* dessiner Le HALO  */
   .icon-bubble{ display:grid; place-items:center; }
 
-  .modal.location-modal .icon-halo::before{
+  .modal.location-modal .icon-halo::before, .modal.bite-modal .icon-halo::before{
     content: "";
     position: absolute;
     z-index: 0;
@@ -894,7 +1000,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
   }
 
   /* L'image passe au-dessus du halo */
-  .modal.location-modal .icon-halo .icon-side{
+  .modal.location-modal .icon-halo .icon-side, modal.bite-modal .icon-halo .icon-side{
     position: relative;
     z-index: 1;
     width: 120px;
@@ -905,7 +1011,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
   .modal.location-modal .icon-halo.oval::before{
     border-radius: 50% / 35%;
   }
-  .modal.location-modal .icon-halo.round::before{
+  .modal.location-modal .icon-halo.round::before, .modal.bite-modal .icon-halo.round::before{
     border-radius: 50%;
   }
 
@@ -975,6 +1081,8 @@ import { ApiService, Game, Player, StatMod } from './api.service';
   .modal.location-modal.spectate .icon-halo.oval{
     --halo-dx: 0px;
   }
+
+
 
   /* AJOUT WEATHER */
   .modal.weather-modal{
@@ -1050,16 +1158,142 @@ import { ApiService, Game, Player, StatMod } from './api.service';
     opacity: .92;
   }
 
-  .mods-badge-weather, .mods-badge-potion, .mods-badge-action{
+  .mods-badge-weather, .mods-badge-potion, .mods-badge-action, .mods-badge-corruption{
     width: 28px; height: 28px;
     background: #ddddddff;
     border-radius: 999px;
     opacity: .92;
   }
 
+  .modal.location-modal.spectate .mods-col .mods-row{
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+
+  /* ==== MODALE MOSRURE ==== */
+  .modal.bite-modal{
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    background-repeat: no-repeat; 
+    background-size: cover; 
+    background-position: center 30%; 
+    min-height: 500px;
+  }
+
+  .modal.bite-modal {
+    width: min(780px, 95vw);
+    min-height: 540px;
+  }
+
+  .modal.bite-modal .icon-side{ width: 120px; height: 120px; opacity: .9; }
+
+  .modal.bite-modal .icon-halo.oval{
+    --halo-w: 120px;
+    --halo-h: 120px;
+    --halo-dx: 0px;
+    --halo-dy: 0px;
+  }
+
+  .modal.bite-modal .icon-halo.round, .modal.bite-modal .icon-halo.round{
+    --halo-w: 140px;
+    --halo-h: 140px;
+    --halo-dx: 0px;
+    --halo-dy: 0px;
+  }
+
+  /* ==== MODALE CORRUPTION ==== */
+  .modal.corruption-modal{
+    position: relative;
+    width: min(680px, 95vw);
+    min-height: 540px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .corruption-modal.with-bg{
+    background-size: cover;
+    background-position: center 20%;
+    background-color: rgba(0,0,0,.30);
+    background-blend-mode: multiply;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,.6);
+  }
+
+  .modal.corruption-modal .scrim-bottom{
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 45%;
+    background: linear-gradient(to top, rgba(0,0,0,.55), rgba(0,0,0,0));
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .modal.corruption-modal .content.corruption{
+    position: relative;
+    flex: 1;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: .75rem;
+    z-index: 2;
+  }
+
+  /* Boîte lisible autour du texte et des choix */
+  .modal.corruption-modal .bg-box{
+    background: rgba(0,0,0,.45);
+    color: #fff;
+    border-radius: 12px;
+    padding: .6rem .75rem;
+    box-shadow:
+      inset 0 8px 24px rgba(0,0,0,.25),
+      0 6px 16px rgba(0,0,0,.25);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    max-width: 560px;
+    width: min(560px, 90vw);
+  }
+
+  .modal.corruption-modal .bg-badge{
+    margin: .2rem auto 0;
+    padding: .35rem .75rem;
+    border-radius: 999px;
+    background: rgba(0,0,0,.45);
+    color: #fff;
+    text-align: center;
+    z-index: 2;
+    padding:.4rem .8rem;
+    font-weight:600;
+  }
+
+  .label-choices{
+    font-weight:500;
+    margin:.75rem 0 .25rem;
+  }
+
+  .modal.corruption-modal .choices{
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem;
+  }
+
+  .modal.corruption-modal .choices > button{
+    padding: .4rem .65rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,.25);
+    background: rgba(255,255,255,.08);
+    color: #fff;
+    cursor: pointer;
+  }
+  .modal.corruption-modal .choices > button:hover{
+    background: rgba(255,255,255,.16);
+  }
+
   /* Icône de potion et d'action à l'intérieur du badge */
   .mods-badge-potion .mod-ico,
-  .mods-badge-action .mod-ico{
+  .mods-badge-action .mod-ico,
+  .mods-badge-corruption .mod-ico{
     width: 28px;
     height: 28px;
     display: block;
@@ -1105,6 +1339,8 @@ export class GameComponent {
   // règle tes durées ici (mets très grand pour debug)
   private static readonly WEATHER_PRE_BG_MS  = 4000;   // délai roue -> fond météo
   private static readonly WEATHER_POST_BG_MS = 5000;      // durée d'affichage garantie après fond
+
+  private readonly SPECTATE_HOLD_MS = 5000;
 
   // roue = 12 pales => 30° par pale. Offset pour aligner la pale.
   private static readonly WHEEL_DEG_PER_FACE = 30;
@@ -1152,17 +1388,30 @@ export class GameComponent {
   }
 
   // === Helpers buff/debuff ===
-
-
   // mêmes règles que modsForDisplay, mais en filtrant aussi par STAT
   modsForStat(p: Player | undefined, stat: 'ATTACK'|'DEFENSE'): StatMod[] {
     if (!p || !this.game?.raidMods) return [];
     const list = this.game.raidMods[p.id] || [];
     const weatherActive = this.isWeatherActive();
-    return list.filter(m =>
+
+    const out: StatMod[] = list.filter(m =>
       m.stat === stat &&
-      (weatherActive || !(m.source?.startsWith('WEATHER:')))
+      (weatherActive || !(m.source?.startsWith('WEATHER:'))) &&
+      !(m.source?.includes(':ENG') && m.source?.startsWith('CORRUPTION'))
     );
+
+    // 1) Si le back a déjà posé une DSP (MULTIPLE/INSTABLE/SERVITEUR), on l’affiche
+    const dsp = list.filter(mm =>
+      mm.source?.startsWith('CORRUPTION:') && mm.source?.includes(':DSP')
+    );
+    if (dsp.length) {
+      out.push(dsp[0]); // une seule puce d’état
+    } else {
+      // 2) Sinon, fallback sur ta puce synthétique front (si le niveau est dispo)
+      const statusChip = this.corruptionDisplayChip(p);
+      if (statusChip) out.push(statusChip);
+    }
+    return out;
   }
 
   // Mods à AFFICHER (tous stats confondues)
@@ -1170,9 +1419,100 @@ export class GameComponent {
     if (!p || !this.game?.raidMods) return [];
     const list = this.game.raidMods[p.id] || [];
     const weatherActive = this.isWeatherActive();
-    return list.filter(m =>
-      weatherActive || !(m.source?.startsWith('WEATHER:'))
-    );
+
+    const filtered = list.filter(m => {
+      console.log("check m :", m);
+      return (weatherActive || !(m.source?.startsWith('WEATHER:'))) &&
+            !(m.source?.startsWith('CORRUPTION') && m.source?.includes(':ENG'));
+    });
+
+    return filtered;
+  }
+
+  // Construit UN chip d’affichage : MULTIPLE (L1), INSTABLE (L2) ou SERVITEUR (L3)
+  private corruptionDisplayChip(p?: Player): StatMod | null {
+    const lvl = p?.corruption;
+    console.log("lvl: ", lvl)
+    if (lvl === 1) {
+      return {
+        stat: 'MULTIPLE',
+        amount: 0,
+        source: 'CORRUPTION:L1:DSP',
+        labelFr: 'affaibli',
+        displayOnly: true
+      };
+    }
+    if (lvl === 2) {
+      return {
+        stat: 'INSTABLE',
+        amount: 0,
+        source: 'CORRUPTION:L2:DSP',
+        labelFr: 'instable',
+        displayOnly: true
+      };
+    }
+    if (lvl === 3) {
+      return {
+        stat: 'SERVITEUR',
+        amount: 0,
+        source: 'CORRUPTION:L3:DSP',
+        labelFr: 'serviteur',
+        displayOnly: true
+      };
+    }
+    return null;
+  }
+
+  labelOrChip(m: StatMod): string {
+    const s = (m as any).source || '';
+    if (s.startsWith('CORRUPTION:') && s.includes(':DSP')) {
+      switch ((m as any).stat) {
+        case 'MULTIPLE':  return 'affaibli';
+        case 'INSTABLE':  return 'instable';
+        case 'SERVITEUR': return 'serviteur';
+      }
+    }
+    return (m as any).labelFr || this.chipOf(m);
+  }
+
+  titleFor(m: StatMod): string | null {
+    const s = (m as any).source || '';
+
+    // Corruption (DSP) — tu as déjà ce bloc, garde-le tel quel
+    if (s.startsWith('CORRUPTION:') && s.endsWith(':DSP')) {
+      if (s.includes(':L1:')) return 'Attaque et défense diminuées de 1 (persiste entre les raids).';
+      if (s.includes(':L2:')) return 'Peut se retourner contre ses alliés sur un jet défavorable.';
+      if (s.includes(':L3:')) return 'Ce chasseur est un serviteur du vampire';
+      return 'Effet de corruption';
+    }
+
+    if (s.startsWith('WEATHER:')) {
+      const g = this.game;
+      if (g?.weatherStatusNameFr && g?.weatherDescriptionFr) {
+        return `${g.weatherStatusNameFr} — ${g.weatherDescriptionFr}`;
+      }
+      return 'Effets météo';
+    }
+
+    if (s.startsWith('POTION:')) {
+      const type = (s.split(':')[1] || '').toUpperCase();
+      const tooltips: Record<string, string> = {
+        FORCE:           'augmente de +1 le dé d’attaque.',
+        ENDURANCE:       'augmente de +1 le dé de défense.',
+        VIE:             'se soigner de +10 PV.',
+        FOCALISATION:    'lancer 2 dés lors du combat et garder le meilleur.',
+        CHALEUR:         'se soigner d’un montant égal aux dégats infligés.',
+        RESILIENCE:      'double la défense ce raid',
+        RAGE:            'double l’attaque ce raid',
+        RAPIDITE:        'attaque x2 ce raid',
+        INVISIBILITE:    'surprise — le défenseur ne jette pas de dé de défense.',
+        INVULNERABILITE: 'insensible aux dégâts.',
+      };
+    return tooltips[type] ?? null;
+  }
+
+  // (Garde le reste de tes cas, ex. météo si tu l’avais déjà ajouté)
+  return null;
   }
 
   private isWeatherActive(): boolean {
@@ -1219,16 +1559,15 @@ export class GameComponent {
   roleColorOf(p?: Player): 'red'|'blue' {
     return (p?.role === 'VAMPIRE') ? 'red' : 'blue';
   }
-  getRole(p?: Player): 'VAMPIRE'|'HUNTER'|undefined {
+  getRole(p?: Player): 'VAMPIRE'|'HUNTER'|'SERVANT'|undefined {
     return p?.role ;
   }
   diceAsset(dice: string | undefined, color: 'red'|'blue'): string {
     const d = (dice || 'D6').toLowerCase();
     return `/assets/dices/${d}-${color}.png`;
   }
-  roleIcon(role: 'VAMPIRE' | 'HUNTER' | undefined, name: 'sword'|'armor'): string {
-    console.log("r:", role, "n:", name)
-    return `/assets/icons/${role}-${name}.png`;
+  roleIcon(role?: 'VAMPIRE'|'HUNTER'|'SERVANT'|undefined, name?: 'sword'|'armor'): string {
+    return role === 'SERVANT' ? `/assets/icons/HUNTER-${name}.png` : `/assets/icons/${role}-${name}.png`;
   }
 
   private totalModForDisplay(pId: string, stat: 'ATTACK'|'DEFENSE'): number {
@@ -1261,8 +1600,9 @@ export class GameComponent {
 
   // --- Assets helpers (cœurs + cartes équipement) ---
   heartIconFor(p?: Player): string {
-    const role = (p?.role || 'HUNTER').toUpperCase();
-    return `/assets/icons/${role}-hearth.png`;
+    const role = p?.role.toUpperCase();
+    if (role === 'SERVANT') return `/assets/icons/VAMPIRE-hearth.png`;
+    else return `/assets/icons/${role}-hearth.png`;
   }
 
   trackById(_i: number, p: Player) { return p.id; }
@@ -1286,7 +1626,7 @@ export class GameComponent {
     return this.game?.players.find(p => p.id === this.meId);
   }
   get isVampire(): boolean {
-    return this.me?.role === 'VAMPIRE';
+    return this.me?.role === 'VAMPIRE' || this.me?.role === 'SERVANT';
   }
   get hasVampire(): boolean {
     return !!this.game && this.game.players.some(p => p.role === 'VAMPIRE');
@@ -1295,14 +1635,18 @@ export class GameComponent {
     return this.game!.players.find(p => p.role === 'VAMPIRE')!;
   }
   get hunterPlayers(): Player[] {
-    return (this.game?.players ?? []).filter(p => p.role === 'HUNTER' && p.id !== this.meId);
+    const list = (this.game?.players ?? []).filter(
+      p => (p.role === 'HUNTER' || p.role === 'SERVANT') && p.id !== this.meId
+    );
+    // garder les serviteurs en premier puis les chasseurs
+    // return list.sort((a, b) => (a.role === b.role ? 0 : a.role === 'SERVANT' ? -1 : 1));
+    return list;
   }
-
   get canPlay(): boolean {
     if (!this.game || !this.me || !this.selectedLocation) return false;
     const phase = this.game.phase;
     if (this.me.role === 'HUNTER') return phase === 'PHASE1';
-    if (this.me.role === 'VAMPIRE') return phase === 'PHASE2';
+    if (this.me.role === 'VAMPIRE' || this.me.role === 'SERVANT') return phase === 'PHASE2';
     return false;
   }
 
@@ -1317,7 +1661,7 @@ export class GameComponent {
 
   isCurrent(_p: Player){ return false; } // on branchera plus tard
 
-  labelLieu(c: string){
+  labelLocation(c: string){
     switch(c){
       case 'forest': return 'Forêt';
       case 'quarry': return 'Carrière';
@@ -1345,6 +1689,7 @@ export class GameComponent {
         this.game = g;
         this.handleWeatherReveal(g);
         this.bumpHistoryScroll();
+        this.recomputeUnstableChoices();
         // PREPHASE3: calcule le compte à rebours
         if (this.game?.phase === 'PREPHASE3' && this.game.prePhaseDeadlineMillis) {
           const msLeft = this.game.prePhaseDeadlineMillis - Date.now();
@@ -1378,7 +1723,10 @@ export class GameComponent {
   }
 
   chipOf(m: StatMod): string {
-    // Affiche au format "ATK+1" / "DEF-2"
+    if (m.labelFr) return m.labelFr;
+    if (m.stat === 'MULTIPLE') return 'affaibli'; // fallback
+    if (m.stat === 'INSTABLE') return 'instable'; // fallback
+
     const short = m.stat === 'ATTACK' ? 'ATK' : 'DEF';
     const sign = m.amount > 0 ? `+${m.amount}` : `${m.amount}`;
     return `${short}${sign}`;
@@ -1416,19 +1764,23 @@ export class GameComponent {
   }
 
   // Image de fond une fois la météo tirée
-  setImageBackgroundCss(modal:'weather'|'location'): string | null {
+  setImageBackground(modal:'weather'|'location'|'bite'|'corruption'): string | null {
 
     if (modal === 'weather') {
       const ws = this.game?.weatherStatus;
       if (!ws || this.game?.weatherRoll == null) return null;
-      console.log("check 1: ", `url('/assets/weather/bg-${ws.toLowerCase()}.png')`)
       return `url('/assets/weather/bg-${ws.toLowerCase()}.png')`;
     }
     if (modal === 'location') {
-
       const loc = this.game?.currentCombat?.location?.toLowerCase();
                 console.log("loc", `url('/assets/locations/${loc}.png')`)
       return loc ? `url('/assets/locations/${loc}.png')` : 'none';
+    }
+    if (modal === 'corruption') {
+      return `url('/assets/corruption/corrupted.png')`;
+    }
+    if (modal === 'bite') {
+      return `url('/assets/corruption/bite.png')`;
     }
     return 'none';
   }
@@ -1518,27 +1870,38 @@ export class GameComponent {
     return false;
   }
 
-  // Suis-je posé sur un lieu où un combat va avoir lieu ?
+  // Suis-je (moi) sur un lieu face-up où il y aura un combat (ennemi = vampire OU serviteur) ?
   private imInUpcomingCombat(): boolean {
-    const g = this.game; if (!g) return false;
-    const vamp = g.players.find(p => p.role === 'VAMPIRE'); if (!vamp) return false;
+    const game = this.game;
+    if (!game) return false;
 
-    // Lieux révélés en PREPHASE3 où vamp + ≥1 chasseur sont ensemble
+    // On ne se base que sur les cartes révélées
+    const faceUp = (game.center || []).filter(cb => cb.faceUp);
+    if (faceUp.length === 0) return false;
+
+    // Lieux où il y a au moins un ennemi (VAMPIRE/SERVANT) et au moins un HUNTER
     const combatLocs = new Set<string>();
-    for (const cb of (g.center || [])) {
-      if (!cb.faceUp) continue;
-      if (cb.playerId === vamp.id) {
-        const loc = cb.card;
-        const hunterThere = (g.center || []).some(c2 =>
-          c2.card === loc &&
-          g.players.find(p => p.id === c2.playerId)?.role === 'HUNTER'
-        );
-        if (hunterThere) combatLocs.add(loc);
-      }
+    const allLocs = Array.from(new Set(faceUp.map(cb => cb.card)));
+
+    for (const loc of allLocs) {
+      const idsOnLoc = faceUp.filter(cb => cb.card === loc).map(cb => cb.playerId);
+      const playersOnLoc = idsOnLoc
+        .map(id => game.players.find(p => p.id === id))
+        .filter((p): p is Player => !!p);
+
+      const hasEnemy  = playersOnLoc.some(p => this.isEnemy(p));
+      const hasHunter = playersOnLoc.some(p => p.role === 'HUNTER');
+
+      if (hasEnemy && hasHunter) combatLocs.add(loc);
     }
 
-    // Moi, suis-je sur un de ces lieux ?
-    return (g.center || []).some(cb => cb.playerId === this.meId && combatLocs.has(cb.card));
+    // Est-ce que moi (this.meId) je suis sur un de ces lieux ?
+    const myFaceUpCard = faceUp.find(cb => cb.playerId === this.meId)?.card;
+    return !!myFaceUpCard && combatLocs.has(myFaceUpCard);
+  }
+
+  private isEnemy(p?: Player): boolean {
+    return p?.role === 'VAMPIRE' || p?.role === 'SERVANT';
   }
 
   potionLabelFr(id: string): string {
@@ -1570,4 +1933,120 @@ export class GameComponent {
     this.usePotion(pot);
   }
 
+  // Corruption
+  get showBiteModal(): boolean {
+    const g: any = this.game;
+    const b = g?.currentBite;
+    if (!b || b.resolvedAtMillis) return false;
+
+    // Respecte le délai posé par le back pour laisser lire les breakdownLines
+    const notBefore: number = g.currentBiteNextAdvanceAtMillis || 0;
+    if (notBefore && Date.now() < notBefore) return false;
+
+    return true;
+  }
+  biteAttacker(): Player | undefined {
+    const id = this.game?.currentBite?.attackerId; return id ? this.getPlayer(id) : undefined;
+  }
+  biteTarget(): Player | undefined {
+    const id = this.game?.currentBite?.targetId; return id ? this.getPlayer(id) : undefined;
+  }
+  rollBiteNow() {
+    if (!this.game) return;
+    this.api.rollCorruption(this.game.id).subscribe({
+      next: g => this.game = g,
+      error: e => this.showError(e)
+    });
+  }
+  biteTitle(): string {
+    const a = this.biteAttacker(); const d = this.biteTarget();
+    return `Morsure — ${(a?.username ?? 'Vampire')} → ${(d?.username ?? 'Chasseur')}`;
+  }
+  // Conditions d’ouverture de la modale (seulement vampire + PREPHASE3 + choix restants)
+  showUnstableModal(): boolean {
+    return !!this.game
+      && this.game.phase === 'PREPHASE3'
+      && this.isMeVampire()
+      && this.pendingUnstable();
+  }
+  unstableEntries() {
+    const g = this.game as any;
+    if (!g) return [];
+    const eligT = g.unstableEligibleTargets || {};
+    const eligL = g.unstableEligibleLocations || {};
+    const ids = new Set<string>([...Object.keys(eligT), ...Object.keys(eligL)]);
+    return [...ids].map(uId => ({
+      unstableId: uId,
+      targets: eligT[uId] || [],
+      locations: eligL[uId] || []
+    }));
+  }
+  pendingUnstable(): boolean {
+    const g = this.game as any;
+    if (!g) return false;
+    const t = g.unstableEligibleTargets || {};
+    const l = g.unstableEligibleLocations || {};
+    return Object.keys(t).length > 0 || Object.keys(l).length > 0;
+  }
+  assignTarget(uId: string, tId: string) {
+    if (!this.game) return;
+    this.api.assignUnstableTarget(this.game.id, uId, tId).subscribe({
+      next: g => { this.game = g; this.recomputeUnstableChoices(); },
+      error: e => this.showError(e)
+    });
+  }
+  assignHarvest(uId: string, loc: string) {
+    if (!this.game) return;
+    this.api.assignUnstableHarvest(this.game.id, uId, loc).subscribe({
+      next: g => { this.game = g; this.recomputeUnstableChoices(); },
+      error: e => this.showError(e)
+    });
+  }
+  canShowBiteModal(): boolean {
+    const g = this.game;
+    return !!g && g.phase === 'PHASE3' && !!(g as any).currentBite; // aligné avec ton back
+  }
+  canRollBite(): boolean {
+    const g: any = this.game;
+    if (!g?.currentBite) return false;
+    return g.currentBite.attackerId === this.meId && (g.currentBite.roll == null);
+  }
+  rollCorruption(){
+    if (!this.game) return;
+    this.api.rollCorruption(this.game.id).subscribe({
+      next: g => this.game = g,
+      error: e => this.showError(e)
+    });
+  }
+
+  // Garder l’array stable et ne le remplacer que si le contenu change
+  unstableChoices: Array<{ unstableId: string; targets: string[]; locations: string[] }> = [];
+  trackByUnstable = (_i: number, it: { unstableId: string }) => it.unstableId;
+
+  private recomputeUnstableChoices() {
+    const g: any = this.game;
+    if (!g) { this.unstableChoices = []; return; }
+
+    const t: Record<string, string[]> = g.unstableEligibleTargets || {};
+    const L: Record<string, string[]> = g.unstableEligibleLocations || {};
+
+    const next: Array<{ unstableId: string; targets: string[]; locations: string[] }> = [];
+    const ids = new Set([...Object.keys(t || {}), ...Object.keys(L || {})]);
+    for (const uid of ids) {
+      next.push({
+        unstableId: uid,
+        targets: (t?.[uid] ?? []).slice(),
+        locations: (L?.[uid] ?? []).slice(),
+      });
+    }
+
+    if (JSON.stringify(this.unstableChoices) !== JSON.stringify(next)) {
+      this.unstableChoices = next;
+    }
+  }
+
+  vampireName(): string {
+    const v = this.game?.players.find(p => p.role === 'VAMPIRE');
+    return v?.username || v?.id || 'vampire';
+  }
 }

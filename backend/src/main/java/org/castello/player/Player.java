@@ -25,6 +25,9 @@ public class Player {
     private int souls;
     private int silver;
 
+    // --- CORRUPTION ---
+    private int corruption; // 0 = sain, 1 = affaibli, 2 = instable, 3 = servant
+
     public Player() {}
 
     public Player(String id, String username) {
@@ -64,4 +67,6 @@ public class Player {
     public void setSouls(int v) { this.souls = v; }
     public int getSilver(){ return silver; }
     public void setSilver(int v){ this.silver = v; }
+    public int getCorruption() { return corruption; }
+    public void setCorruption(int corruption) { this.corruption = Math.max(0, Math.min(3, corruption)); }
 }

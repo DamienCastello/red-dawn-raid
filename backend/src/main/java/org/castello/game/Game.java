@@ -94,6 +94,45 @@ public class Game {
     // Effets temporaires pour le raid courant (réinitialisés en PHASE0)
     private Map<String, RaidEffects> raidEffects = new HashMap<>();
 
+    // Corruption
+    public static class BiteAttempt {
+        private String id;
+        private String attackerId; // vampire
+        private String targetId;   // chasseur mordu
+        private String location;   // pour l’affichage
+        private Integer roll;      // null tant que pas lancé
+        private Long resolvedAtMillis;
+
+        public String getId() { return id; }
+        public void setId(String id) { this.id = id; }
+
+        public String getAttackerId() { return attackerId; }
+        public void setAttackerId(String s) { this.attackerId = s; }
+
+        public String getTargetId() { return targetId; }
+        public void setTargetId(String s) { this.targetId = s; }
+
+        public String getLocation() { return location; }
+        public void setLocation(String s) { this.location = s; }
+
+        public Integer getRoll() { return roll; }
+        public void setRoll(Integer r) { this.roll = r; }
+
+        public Long getResolvedAtMillis() { return resolvedAtMillis; }
+        public void setResolvedAtMillis(Long r) { this.resolvedAtMillis = r; }
+    }
+
+    private BiteAttempt currentBite;
+    private long currentBiteNextAdvanceAtMillis;
+
+    // En PREPHASE3 : options chasseur instable -> cible à attaquer
+    private Map<String, String> unstableTargetByPlayer = new HashMap<>();
+    // PREPHASE3 — options “récolte pour le vampire”
+    private Map<String, List<String>> unstableEligibleLocations = new HashMap<>();
+    private Map<String, String> unstableHarvestLocByPlayer = new HashMap<>();
+    // Pour afficher une modale de choix au vampire
+    private Map<String, List<String>> unstableEligibleTargets = new HashMap<>();
+
     public Game() {}
 
     public Game(String id, GameStatus status, int raid) {
@@ -216,4 +255,23 @@ public class Game {
 
     public Map<String, RaidEffects> getRaidEffects() { return raidEffects; }
     public void setRaidEffects(Map<String, RaidEffects> m) { this.raidEffects = m; }
+
+    // corruption
+    public Map<String, List<String>> getUnstableEligibleTargets() { return unstableEligibleTargets; }
+    public void setUnstableEligibleTargets(Map<String, List<String>> m) { this.unstableEligibleTargets = m; }
+
+    public Map<String, String> getUnstableTargetByPlayer() { return unstableTargetByPlayer; }
+    public void setUnstableTargetByPlayer(Map<String, String> m) { this.unstableTargetByPlayer = m; }
+
+    public BiteAttempt getCurrentBite() { return currentBite; }
+    public void setCurrentBite(BiteAttempt b) { this.currentBite = b; }
+
+    public long getCurrentBiteNextAdvanceAtMillis() { return currentBiteNextAdvanceAtMillis; }
+    public void setCurrentBiteNextAdvanceAtMillis(long ms) { this.currentBiteNextAdvanceAtMillis = ms; }
+
+    public Map<String, List<String>> getUnstableEligibleLocations() { return unstableEligibleLocations; }
+    public void setUnstableEligibleLocations(Map<String, List<String>> m) { this.unstableEligibleLocations = m; }
+
+    public Map<String, String> getUnstableHarvestLocByPlayer() { return unstableHarvestLocByPlayer; }
+    public void setUnstableHarvestLocByPlayer(Map<String, String> m) { this.unstableHarvestLocByPlayer = m; }
 }
