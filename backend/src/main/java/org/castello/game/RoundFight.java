@@ -8,7 +8,7 @@ public class RoundFight {
     private Integer attackerRoll; // jet (null tant que pas lancé)
     private Integer defenderRoll; // jet (null tant que pas lancé)
     private Long resolvedAtMillis;// quand les dégâts ont été appliqués (info)
-    private java.util.List<String> breakdownLines;
+    private java.util.List<String> breakdownLines = new java.util.ArrayList<>();
 
     public RoundFight() {}
 
@@ -17,6 +17,7 @@ public class RoundFight {
         this.location = location;
         this.attackerId = attackerId;
         this.defenderId = defenderId;
+        this.breakdownLines = new java.util.ArrayList<>();
     }
 
     public String getId() { return id; }

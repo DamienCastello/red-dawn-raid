@@ -13,6 +13,8 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 logging:
   level:
+    root: info
+    org.castello: debug
     org.hibernate.SQL: debug
 # === Dossier où le backend stockera/servira les fichiers uploadés ===
 # - Valeur par défaut: /data/uploads (très pratique pour monter un volume en Docker)

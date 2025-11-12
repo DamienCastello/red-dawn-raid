@@ -17,4 +17,6 @@ spring:
       ddl-auto: update   # (préprod en "update" pour l’instant)
 logging:
   level:
+    root: info
+    org.castello: debug
     org.hibernate.SQL: info  # évite le spam SQL en préprod

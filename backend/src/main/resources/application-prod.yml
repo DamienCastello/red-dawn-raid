@@ -14,4 +14,6 @@ spring:
       ddl-auto: validate  # en prod, idéalement "validate"
 logging:
   level:
+    root: info
+    org.castello: debug
     org.hibernate.SQL: warn

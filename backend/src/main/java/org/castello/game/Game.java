@@ -17,10 +17,6 @@ public class Game {
     private int raid;            // n° de raid (1 au start)
     private Phase phase;         // PHASE0 / PHASE1 / PHASE2 / PHASE3 / PHASE4
 
-    private long phaseStartMillis;            // timestamp d’entrée dans la phase courante
-    private Phase pendingNextPhase;           // phase à appliquer automatiquement (sinon null)
-    private long nextAutoAdvanceAtMillis;     // quand appliquer pendingNextPhase (ms)
-
     // joueurs dans la partie
     private final List<Player> players = new ArrayList<>();
 
@@ -34,22 +30,18 @@ public class Game {
 
     // --- Step 3: messages & fenêtre d’actions ---
     private List<String> messages = new ArrayList<>();   // messages à afficher (préphase3 / phase3)
-    private long prePhaseDeadlineMillis;                 // quand se termine la fenêtre PREPHASE3 (ms)
     private final Set<String> readyForPhase3 = new HashSet<>(); // joueurs ayant cliqué “j’ai fini”
 
     // --- PHASE3 : file de combats + combat courant ---
     private List<RoundFight> combatsQueue = new ArrayList<>();
     private Integer currentCombatIndex;           // null si aucun combat
     private RoundFight currentCombat;            // miroir pour le client
-    private long currentCombatNextAdvanceAtMillis;// 0 si pas planifié
 
     // --- METEO ---
-    private long weatherModalNotBeforeMillis;
     private Integer weatherRoll;
     private WeatherStatus weatherStatus;
     private String weatherStatusNameFr;
     private String weatherDescriptionFr;
-    private long weatherShowUntilMillis;
 
     // --- Buffs/Debuffs du raid (affichage + calcul) ---
     private Map<String, List<StatMod>> raidMods = new HashMap<>();
@@ -123,7 +115,6 @@ public class Game {
     }
 
     private BiteAttempt currentBite;
-    private long currentBiteNextAdvanceAtMillis;
 
     // En PREPHASE3 : options chasseur instable -> cible à attaquer
     private Map<String, String> unstableTargetByPlayer = new HashMap<>();
@@ -182,22 +173,9 @@ public class Game {
     public int getPotionsDiscard() { return potionsDiscard; }
     public void setPotionsDiscard(int v) { this.potionsDiscard = v; }
 
-    // gestion des phases
-    public long getPhaseStartMillis() { return phaseStartMillis; }
-    public Phase getPendingNextPhase() { return pendingNextPhase; }
-    public long getNextAutoAdvanceAtMillis() { return nextAutoAdvanceAtMillis; }
-
-    public void setPhaseStartMillis(long v) { this.phaseStartMillis = v; }
-    public void setPendingNextPhase(Phase p) { this.pendingNextPhase = p; }
-    public void setNextAutoAdvanceAtMillis(long v) { this.nextAutoAdvanceAtMillis = v; }
-
     // messages
     public List<String> getMessages() { return messages; }
     public void setMessages(List<String> messages) { this.messages = messages; }
-
-    // fenêtre PREPHASE3
-    public long getPrePhaseDeadlineMillis() { return prePhaseDeadlineMillis; }
-    public void setPrePhaseDeadlineMillis(long v) { this.prePhaseDeadlineMillis = v; }
 
     // skip/ready
     public Set<String> getReadyForPhase3() { return readyForPhase3; }
@@ -212,14 +190,7 @@ public class Game {
     public RoundFight getCurrentCombat() { return currentCombat; }
     public void setCurrentCombat(RoundFight currentCombat) { this.currentCombat = currentCombat; }
 
-    public long getCurrentCombatNextAdvanceAtMillis() { return currentCombatNextAdvanceAtMillis; }
-    public void setCurrentCombatNextAdvanceAtMillis(long currentCombatNextAdvanceAtMillis) {
-        this.currentCombatNextAdvanceAtMillis = currentCombatNextAdvanceAtMillis;
-    }
-
     // meteo
-    public long getWeatherModalNotBeforeMillis() { return weatherModalNotBeforeMillis; }
-    public void setWeatherModalNotBeforeMillis(long v) { this.weatherModalNotBeforeMillis = v; }
     public Integer getWeatherRoll() { return weatherRoll; }
     public void setWeatherRoll(Integer weatherRoll) { this.weatherRoll = weatherRoll; }
     public WeatherStatus getWeatherStatus() { return weatherStatus; }
@@ -228,8 +199,6 @@ public class Game {
     public void setWeatherStatusNameFr(String weatherStatusNameFr) { this.weatherStatusNameFr = weatherStatusNameFr; }
     public String getWeatherDescriptionFr() { return weatherDescriptionFr; }
     public void setWeatherDescriptionFr(String weatherDescriptionFr) { this.weatherDescriptionFr = weatherDescriptionFr; }
-    public long getWeatherShowUntilMillis() { return weatherShowUntilMillis; }
-    public void setWeatherShowUntilMillis(long weatherShowUntilMillis) { this.weatherShowUntilMillis = weatherShowUntilMillis; }
 
     // buffs/debuffs
     public Map<String, List<StatMod>> getRaidMods() { return raidMods; }
@@ -253,6 +222,15 @@ public class Game {
     public Map<String, List<String>> getPotionsByPlayer() { return potionsByPlayer; }
     public void setPotionsByPlayer(Map<String, List<String>> m) { this.potionsByPlayer = m; }
 
+    public List<String> potionsOf(String playerId) {
+        var m = getPotionsByPlayer();
+        return m != null ? m.getOrDefault(playerId, java.util.List.of()) : java.util.List.of();
+    }
+
+    public boolean hasPotion(String playerId, Potion type) {
+        return potionsOf(playerId).contains(type.name());
+    }
+
     public Map<String, RaidEffects> getRaidEffects() { return raidEffects; }
     public void setRaidEffects(Map<String, RaidEffects> m) { this.raidEffects = m; }
 
@@ -265,9 +243,6 @@ public class Game {
 
     public BiteAttempt getCurrentBite() { return currentBite; }
     public void setCurrentBite(BiteAttempt b) { this.currentBite = b; }
-
-    public long getCurrentBiteNextAdvanceAtMillis() { return currentBiteNextAdvanceAtMillis; }
-    public void setCurrentBiteNextAdvanceAtMillis(long ms) { this.currentBiteNextAdvanceAtMillis = ms; }
 
     public Map<String, List<String>> getUnstableEligibleLocations() { return unstableEligibleLocations; }
     public void setUnstableEligibleLocations(Map<String, List<String>> m) { this.unstableEligibleLocations = m; }

@@ -52,6 +52,9 @@ public class SecurityConfig {
                         // Tout le reste des /api/games/** nécessite un user connecté (Bearer authToken)
                         .requestMatchers("/api/games/**").hasRole("USER")
 
+                        .requestMatchers("/ws").permitAll()
+                        .requestMatchers("/ws/**").permitAll()
+
                         // Par défaut on bloque
                         .anyRequest().denyAll()
                 );

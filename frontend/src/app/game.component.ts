@@ -1,7 +1,12 @@
 import { Component, inject, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { ApiService, Game, Player, StatMod } from './api.service';
+import { ApiService, GameSnapshot, RawStatMod, Phase } from './api.service';
+import { LiveService, GameEvent } from './live.service';
+
+type SPlayer = GameSnapshot['players'][number];
+type UiStatMod = RawStatMod & { labelFr?: string; displayOnly?: boolean };
+type DefaultFightInfo = { willFight: boolean; loc?: string; opponentName?: string };
 
 @Component({
   standalone: true,
@@ -53,7 +58,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
           <div class="mods-row" *ngIf="mods.length">
             <span class="mod-chip" *ngFor="let m of mods" [title]="titleFor(m)">
               <div class="mods-badge-weather" *ngIf="m.source?.startsWith('WEATHER:')">
-                <img class="weather-ico" [src]="weatherIconSrc(game?.weatherStatus)" alt="icône météo" />
+                <img class="weather-ico" [src]="weatherIconSrc(game?.weather?.status)" alt="icône météo" />
               </div>
 
               <div class="mods-badge-potion" *ngIf="m.source?.startsWith('POTION:')">
@@ -114,7 +119,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
             >
               <img
                 class="weather-ico"
-                [src]="weatherIconSrc(game?.weatherStatus)"
+                [src]="weatherIconSrc(game?.weather?.status)"
                 alt="icône météo"
               />
             </div>
@@ -131,7 +136,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
         </div>
 
         <div style="margin-top:.6rem; color:#555">
-          Pioche actions: {{ game?.vampActionsLeft }} (défausse: {{ game?.vampActionsDiscard }})
+          Pioche actions: {{ game?.decks?.actionsVamp?.left }} (défausse: {{ game?.decks?.actionsVamp?.discard }})
         </div>
       </section>
 
@@ -151,10 +156,10 @@ import { ApiService, Game, Player, StatMod } from './api.service';
 
               <!-- Le bouton n’apparaît QUE s’il y aura un combat -->
               <div *ngIf="me && game?.hasUpcomingCombat" style="margin-top:.5rem">
-                <button *ngIf="!pendingUnstable()" (click)="skipNow()" [disabled]="hasSkipped" title="Signaler que vous avez fini vos actions">
+                <button *ngIf="!pendingUnstable() && imInUpcomingCombat()" (click)="skipNow()" [disabled]="hasSkipped" title="Signaler que vous avez fini vos actions">
                   J’ai fini
                 </button>
-                <small *ngIf="hasSkipped" style="margin-left:.5rem; color:#666">En attente des autres…</small>
+                <small *ngIf="hasSkipped || !imInUpcomingCombat()" style="margin-left:.5rem; color:#666">En attente des autres…</small>
               </div>
             </div>
 
@@ -194,8 +199,8 @@ import { ApiService, Game, Player, StatMod } from './api.service';
       <!-- droite: stats chasseurs + potions -->
       <section class="panel">
         <h3>Chasseurs & Potions</h3>
-        <div>Pioche actions: {{ game?.hunterActionsLeft }} (défausse: {{ game?.hunterActionsDiscard }})</div>
-        <div>Pioche potions: {{ game?.potionsLeft }} (défausse: {{ game?.potionsDiscard }})</div>
+        <div>Pioche actions: {{ game?.decks?.actionsHunters?.left }} (défausse: {{ game?.decks?.actionsHunters?.discard }})</div>
+        <div>Pioche potions: {{ game?.decks?.potions?.left }} (défausse: {{ game?.decks?.potions?.discard }})</div>
       </section>
     </div>
 
@@ -243,7 +248,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
         <div class="mods-row" *ngIf="myMods.length">
           <span class="mod-chip" *ngFor="let m of myMods" [title]="titleFor(m)">
             <div class="mods-badge-weather" *ngIf="m.source?.startsWith('WEATHER:')">
-              <img class="weather-ico" [src]="weatherIconSrc(game.weatherStatus)" alt="icône météo" />
+              <img class="weather-ico" [src]="weatherIconSrc(game.weather?.status)" alt="icône météo" />
             </div>
 
             <div class="mods-badge-potion" *ngIf="m.source?.startsWith('POTION:')">
@@ -326,33 +331,33 @@ import { ApiService, Game, Player, StatMod } from './api.service';
             <!-- icône météo posée sur la pale tirée -->
             <div
               class="badge-weather"
-              *ngIf="game?.weatherStatus && game?.weatherRoll != null"
+              *ngIf="game?.weather?.status && game?.weather?.roll != null"
               [style.transform]="weatherIconTransform()"
             >
               <img
                 class="weather-ico"
-                [src]="weatherIconSrc(game?.weatherStatus)"
+                [src]="weatherIconSrc(game?.weather?.status)"
                 alt="icône météo"
               />
             </div>
           </div>
 
           <div class="dice-wrap" style="margin-top:1rem"
-              [attr.data-digits]="(game?.weatherRoll ?? 0) > 9 ? 2 : 1">
+              [attr.data-digits]="(game?.weather?.roll ?? 0) > 9 ? 2 : 1">
             <img class="dice" src="/assets/dices/d12-red.png" alt="d12"/>
-            <div class="dice-overlay" *ngIf="game?.weatherRoll != null">
-              {{ game?.weatherRoll }}
+            <div class="dice-overlay" *ngIf="game?.weather?.roll != null">
+              {{ game?.weather?.roll }}
             </div>
           </div>
         </div>
 
         <div class="footer">
-          <ng-container *ngIf="isMeVampire() && game?.weatherRoll == null; else waitWeather">
+          <ng-container *ngIf="isMeVampire() && game?.weather?.roll == null; else waitWeather">
             <button (click)="rollWeather()" class="btn-primary">Jeter le dé</button>
           </ng-container>
           <ng-template #waitWeather>
-            <span *ngIf="game?.weatherRoll == null">En attente du tirage…</span>
-            <span class="weather-footer" *ngIf="game?.weatherRoll != null">{{ game?.weatherStatusNameFr }}</span>
+            <span *ngIf="game?.weather?.roll == null">En attente du tirage…</span>
+            <span class="weather-footer" *ngIf="game?.weather?.roll != null">{{ game?.weather?.nameFr }}</span>
           </ng-template>
         </div>
       </ng-container>
@@ -360,8 +365,8 @@ import { ApiService, Game, Player, StatMod } from './api.service';
       <!-- APRES le délai : fond météo + texte -->
       <ng-template #weatherResult>
         <div class="content weather result">
-          <div class="weather-badge">{{ game?.weatherStatusNameFr }}</div>
-          <p class="weather-desc">{{ game?.weatherDescriptionFr }}</p>
+          <div class="weather-badge">{{ game?.weather?.nameFr }}</div>
+          <p class="weather-desc">{{ game?.weather?.descFr }}</p>
         </div>
       </ng-template>
     </div>
@@ -393,7 +398,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
               <div class="mods-row" *ngIf="atkMods.length">
                 <span class="mod-chip" *ngFor="let m of atkMods" [title]="titleFor(m)">
                   <div class="mods-badge-weather" *ngIf="m.source?.startsWith('WEATHER:')">
-                    <img class="weather-ico" [src]="weatherIconSrc(game?.weatherStatus)" alt="icône météo" />
+                    <img class="weather-ico" [src]="weatherIconSrc(game?.weather?.status)" alt="icône météo" />
                   </div>
 
                   <div class="mods-badge-potion" *ngIf="m.source?.startsWith('POTION:')">
@@ -430,7 +435,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
               <div class="mods-row" *ngIf="defMods.length">
                 <span class="mod-chip" *ngFor="let m of defMods" [title]="titleFor(m)">
                   <div class="mods-badge-weather" *ngIf="m.source?.startsWith('WEATHER:')">
-                    <img class="weather-ico" [src]="weatherIconSrc(game?.weatherStatus)" alt="icône météo" />
+                    <img class="weather-ico" [src]="weatherIconSrc(game?.weather?.status)" alt="icône météo" />
                   </div>
 
                   <div class="mods-badge-potion" *ngIf="m.source?.startsWith('POTION:')">
@@ -475,7 +480,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
               <div class="mods-row">
                 <span class="mod-chip" *ngFor="let m of atkMods" [title]="titleFor(m)">
                   <div class="mods-badge-weather" *ngIf="m.source?.startsWith('WEATHER:')">
-                    <img class="weather-ico" [src]="weatherIconSrc(game?.weatherStatus)" alt="icône météo" />
+                    <img class="weather-ico" [src]="weatherIconSrc(game?.weather?.status)" alt="icône météo" />
                   </div>
 
                   <div class="mods-badge-potion" *ngIf="m.source?.startsWith('POTION:')">
@@ -515,7 +520,7 @@ import { ApiService, Game, Player, StatMod } from './api.service';
               <div class="mods-row">
                 <span class="mod-chip" *ngFor="let m of defMods" [title]="titleFor(m)">
                   <div class="mods-badge-weather" *ngIf="m.source?.startsWith('WEATHER:')">
-                    <img class="weather-ico" [src]="weatherIconSrc(game?.weatherStatus)" alt="icône météo" />
+                    <img class="weather-ico" [src]="weatherIconSrc(game?.weather?.status)" alt="icône météo" />
                   </div>
                   
                   <div class="mods-badge-potion" *ngIf="m.source?.startsWith('POTION:')">
@@ -548,27 +553,25 @@ import { ApiService, Game, Player, StatMod } from './api.service';
         </div>
       </div>
 
-      <div class="breakdown bg-badge" *ngIf="currentCombat?.breakdownLines as lines">
-        <div *ngFor="let line of lines">{{ line }}</div>
+      <div class="breakdown bg-badge" *ngIf="currentCombat?.breakdownLines?.length">
+        <div *ngFor="let line of currentCombat!.breakdownLines">{{ line }}</div>
       </div>
       <div class="result bg-badge" *ngIf="getCombatResultText() as txt">{{ txt }}</div>
       <div class="footer bg-badge" *ngIf="!getCombatResultText()">Les adversaires s’affrontent…</div>
     </div>
   </div>
   <!-- === MODALE MORSURE (PHASE3, quand currentBite actif) === -->
-  <div *ngIf="canShowBiteModal()" class="modal-backdrop">
+  <div *ngIf="showBiteModal" class="modal-backdrop">
     <div class="modal bite-modal" [style.backgroundImage]="setImageBackground('bite')">
       <h3 class="bg-badge">Tentative de morsure</h3>
 
       <div class="content action">
-        <!-- Icône corruption -->
         <div class="icon-bubble round">
           <div class="icon-halo round">
             <img class="icon-side" src="/assets/corruption/corruption-icon.png" alt="corruption"/>
           </div>
         </div>
 
-        <!-- Dé du vampire (seul le vampire peut lancer) -->
         <div class="dice-wrap" [attr.data-digits]="1">
           <img class="dice-big" src="/assets/dices/d6-red.png" alt="d6"/>
           <div class="dice-overlay" *ngIf="game?.currentBite?.roll != null">
@@ -577,12 +580,20 @@ import { ApiService, Game, Player, StatMod } from './api.service';
         </div>
       </div>
 
-      <div class="footer">
-        <ng-container *ngIf="canRollBite(); else waitBite">
-          <button (click)="rollCorruption()" class="btn-primary">Jeter le dé</button>
+      <div class="footer" class="bg-badge">
+        <!-- avant le jet -->
+        <ng-container *ngIf="game?.currentBite?.roll == null; else biteResult">
+          <ng-container *ngIf="canRollBite(); else waitBite">
+            <button (click)="rollCorruption()" class="btn-primary">Jeter le dé</button>
+          </ng-container>
+          <ng-template #waitBite >
+            <span>En attente du jet…</span>
+          </ng-template>
         </ng-container>
-        <ng-template #waitBite>
-          <span>En attente du jet…</span>
+
+        <!-- après le jet -->
+        <ng-template #biteResult>
+          <span>{{ biteResultText() }}</span>
         </ng-template>
       </div>
     </div>
@@ -600,16 +611,23 @@ import { ApiService, Game, Player, StatMod } from './api.service';
         <div class="bg-box">
 
           <ng-container *ngFor="let it of unstableChoices; trackBy: trackByUnstable">
-            <div class="bg-badge">
-              {{ vampireName() }} doit décider pour {{ usernameOf(it.unstableId) }}.
-            </div>
+            <ng-container *ngIf="getUnstableDefaultFight(it.unstableId) as info">
+              <div class="bg-badge warn" *ngIf="info.willFight">
+                {{ usernameOf(it.unstableId) }} va bientôt combattre sur {{ labelLocation(info.loc!) }}
+                contre {{ info.opponentName }}. Si vous lui ordonnez une récolte, cela annulera son combat !
+              </div>
+            </ng-container>
 
-            <div>
+            <div *ngIf="it.targets?.length">
               <div class="label-choices">
                 Choisir un chasseur pris pour cible par {{ usernameOf(it.unstableId) }}
               </div>
               <div class="choices">
-                <button *ngFor="let tid of it.targets" (click)="assignTarget(it.unstableId, tid)">
+                <button *ngFor="let tid of it.targets"
+                        (click)="assignUnstableTarget(it.unstableId, tid)"
+                        [disabled]="!isMeVampire() || isUnstableLocked(it.unstableId)"
+                        [class.is-disabled]="isUnstableAlreadyDecided(it.unstableId)"
+                        [attr.aria-disabled]="isUnstableAlreadyDecided(it.unstableId) ? true : null">>
                   {{ usernameOf(tid) }}
                 </button>
               </div>
@@ -620,13 +638,21 @@ import { ApiService, Game, Player, StatMod } from './api.service';
                 Choisir un lieu où {{ usernameOf(it.unstableId) }} récoltera pour {{ vampireName() }}
               </div>
               <div class="choices">
-                <button *ngFor="let loc of it.locations" (click)="assignHarvest(it.unstableId, loc)">
+                <button *ngFor="let loc of it.locations"
+                        (click)="assignUnstableHarvest(it.unstableId, loc)"
+                        [disabled]="!isMeVampire() || isUnstableLocked(it.unstableId)">
                   {{ labelLocation(loc) }}
+                </button>
+
+                <!-- Bouton "Ne rien faire" seulement si combat par défaut ET choix encore possible -->
+                <button *ngIf="getUnstableDefaultFight(it.unstableId).willFight && isPendingUnstable(it.unstableId)"
+                        (click)="assignUnstableNothing(it.unstableId)"
+                        [disabled]="!isMeVampire() || isUnstableLocked(it.unstableId)">
+                  Ne rien faire
                 </button>
               </div>
             </div>
           </ng-container>
-
         </div>
       </div>
     </div>
@@ -1309,23 +1335,70 @@ export class GameComponent {
   private api = inject(ApiService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
+  private live = inject(LiveService);
+  private unsubscribeGameTopic?: () => void; // pour couper l’abonnement WS au destroy
 
-  manyModsForDebug(p: Player, times = 3) {
-  const base = this.modsForDisplay(p);
-  return Array(times).fill(base).flat();
-}
+  private weatherWaitTimer?: any;
+
+  manyModsForDebug(p: SPlayer, times = 3) {
+    const base = this.modsForDisplay(p);
+    return Array(times).fill(base).flat();
+  }
 
   gameId = '';
-  game?: Game;
+  game?: GameSnapshot;
   errorMsg = '';
-  remainingPrePhaseSeconds = 0;
   hasSkipped = false;
 
   meId = sessionStorage.getItem('userId') || '';
   username = sessionStorage.getItem('username') || '';
 
   selectedLocation: string | null = null;
-  private timer?: any;
+
+  private seenEventKeys = new Set<string>();
+
+  private stableEventKey(ev: any): string {
+    const t = ev?.type || 'UNKNOWN';
+    const ts = ev?.ts ?? 0;
+    const p = ev?.payload || {};
+
+    switch (t) {
+      case 'LOCATION_SELECTED':
+        return `${t}|${ts}|${p.playerId ?? ''}|${p.card ?? ''}`;
+      case 'DICE_ROLLED':
+        return `${t}|${ts}|${p.roundId ?? ''}|${p.who ?? ''}|${p.side ?? ''}|${p.roll ?? ''}`;
+      case 'COMBAT_RESOLVED':
+        return `${t}|${ts}|${p.roundId ?? ''}|${p.dmg ?? ''}`;
+      case 'BITE_STARTED':
+        return `${t}|${ts}|${p.attackerId ?? ''}|${p.targetId ?? ''}|${p.location ?? ''}`;
+      case 'BITE_ROLLED':
+        return `${t}|${ts}|${p.attackerId ?? ''}|${p.targetId ?? ''}|${p.roll ?? ''}`;
+      case 'READY_UPDATED':
+        return `${t}|${ts}|${p.playerId ?? ''}|${p.ready ?? ''}/${p.total ?? ''}`;
+      default:
+        // fallback très discriminant
+        return `${t}|${ts}|${JSON.stringify(p)}`;
+    }
+  }
+  private weatherAdvanceSent = false;
+  private phase2AdvanceSent = false;
+  private prephase3AdvanceSent = false;
+  private phase4AdvanceSent = false;
+  private toPhase0AdvanceSent = false;
+
+  // === PREPHASE3 — timer local (30 s non-autoritaire) ===
+  prephaseEndsAtMillis: number | null = null;   // timestamp local de fin
+  remainingPrePhaseSeconds = 0;                 // affichage "XX s"
+  private prephaseTicker: any | null = null;    // setInterval handle
+  private static readonly PREPHASE_MS = 30_000;
+
+  // --- Morsure : état purement UI (pas dans GameSnapshot)
+  private biteNotBeforeMillis = 0; // petit délai de lecture avant d'ouvrir la modale
+  unstableLockedIds: Set<string> = new Set();
+
+  isUnstableLocked = (unstableId: string) => this.unstableLockedIds.has(unstableId);
+  private lockUnstable(id: string)   { this.unstableLockedIds.add(id); }
+  private unlockUnstable(id: string) { this.unstableLockedIds.delete(id); }
 
   // --- Météo: états/temporisations contrôlées côté client ---
   weatherBgActive = false;                // quand true => on affiche le fond météo
@@ -1336,9 +1409,12 @@ export class GameComponent {
   // Hold pour garder la modale visible même si phase != PHASE0
   private weatherModalHold = false;
 
-  // règle tes durées ici (mets très grand pour debug)
-  private static readonly WEATHER_PRE_BG_MS  = 4000;   // délai roue -> fond météo
-  private static readonly WEATHER_POST_BG_MS = 5000;      // durée d'affichage garantie après fond
+  private static readonly WEATHER_WAIT_BEFORE_MODAL_MS = 2000;
+  readonly WEATHER_WHEEL_MS = 5000;   // durée de la roue
+  readonly WEATHER_BG_MS    = 5000;   // fondu du fond
+  readonly WEATHER_HOLD_MS  = 5000;   // petite pause lecturegarantie après fond
+
+  readonly CENTER_FLIP_HOLD_MS = 4000;   // petite pause après le flip en PREPHASE3
 
   private readonly SPECTATE_HOLD_MS = 5000;
 
@@ -1346,6 +1422,142 @@ export class GameComponent {
   private static readonly WHEEL_DEG_PER_FACE = 30;
   private static readonly WHEEL_BASE_OFFSET = 15;
   private static readonly WEATHER_ICON_RADIUS = 120;
+
+  back(){ this.router.navigate(['/lobby']); }
+
+  private showError(e:any){
+    try{ this.errorMsg = e?.error?.message || 'Erreur'; } catch { this.errorMsg='Erreur'; }
+    setTimeout(()=>this.errorMsg='', 4000);
+  }
+
+    private advanceToPhase1IfNeeded() {
+    if (this.weatherAdvanceSent) return;
+    if (!this.game?.id) return;
+    if (this.game.phase !== 'PHASE0') return;
+
+    this.weatherAdvanceSent = true;
+    this.api.advancePhase(this.game.id, 'PHASE1').subscribe({
+      error: (httpError) => {
+        // si un autre client a déjà avancé (409), on ignore
+        if (httpError?.status !== 409) {
+          this.weatherAdvanceSent = false; // autorise un retry si vraie erreur
+          this.showError(httpError);
+        }
+      }
+    });
+  }
+
+  /** Renvoie les compteurs "prêts/total" d'après l'état courant. */
+  private readyCounts(): { ready: number; total: number } {
+    const g: any = this.game || {};
+    const ready = (typeof g.readyCount === 'number') ? g.readyCount : (g.readyForPhase3?.length || 0);
+    const total = (typeof g.readyTotal === 'number') ? g.readyTotal : (g.players?.length || 0);
+    return { ready, total };
+  }
+
+  /** Lance (ou relance) le timer PREPHASE3 local. */
+  private startPrephaseTimer(seedEndsAt?: number): void {
+    // Si on donne une seed (ex: relance après reload), on la respecte, sinon on part de maintenant + 30s
+    this.prephaseEndsAtMillis = seedEndsAt ?? (Date.now() + GameComponent.PREPHASE_MS);
+
+    // Nettoie un éventuel ancien interval
+    if (this.prephaseTicker) {
+      clearInterval(this.prephaseTicker);
+      this.prephaseTicker = null;
+    }
+
+    // Tick 4x/s pour un affichage fluide
+    this.prephaseTicker = setInterval(() => {
+      if (!this.prephaseEndsAtMillis) return;
+
+      const left = this.prephaseEndsAtMillis - Date.now();
+      this.remainingPrePhaseSeconds = Math.max(0, Math.ceil(left / 1000));
+
+      if (left <= 0) {
+        this.stopPrephaseTimer();
+        this.remainingPrePhaseSeconds = 0;
+        // ❌ On ne fait rien ici (pas d’auto-advance côté front) :
+        // le serveur forcera PHASE3 via son propre timer, et on recevra PHASE_CHANGED en WS.
+      }
+    }, 250);
+  }
+
+  /** Stoppe le timer local et remet à zéro les valeurs. */
+  private stopPrephaseTimer(): void {
+    if (this.prephaseTicker) {
+      clearInterval(this.prephaseTicker);
+      this.prephaseTicker = null;
+    }
+    this.prephaseEndsAtMillis = null;
+    this.remainingPrePhaseSeconds = 0;
+  }
+
+  /** Déclenche automatiquement l'avance vers PHASE3 si tout le monde est prêt. */
+  private maybeAutoAdvanceToPhase3(): void {
+    if (!this.game) return;
+    if (this.game.phase !== 'PREPHASE3') return;
+    if (this.prephase3AdvanceSent) return;
+
+    const { ready, total } = this.readyCounts();
+    if (total > 0 && ready >= total) {
+      this.prephase3AdvanceSent = true;
+      // petit hold UX (facultatif)
+      setTimeout(() => {
+        this.api.advancePhase(this.gameId, 'PHASE3').subscribe({
+        error: e => {
+          if (e?.status === 409 || e?.error?.message === 'illegal advance') return;
+          this.prephase3AdvanceSent = false;
+          this.showError(e);
+        }
+        });
+      }, 400);
+    }
+  }  
+
+  /** Avance automatiquement en PHASE4 quand PHASE3 n’a plus rien à traiter. */
+  private maybeAdvanceToPhase4EndOfRaid() {
+    const g = this.game;
+    if (!g || g.phase !== 'PHASE3') return;
+    if (this.phase4AdvanceSent) return;
+
+    const noCurrent = !g.currentCombat && g.currentCombatIndex == null;
+    const queueEmpty = !g.combatsQueue || g.combatsQueue.length === 0;
+
+    if (noCurrent || queueEmpty) {
+      this.phase4AdvanceSent = true;
+      setTimeout(() => {
+        this.api.advancePhase(this.gameId, 'PHASE4').subscribe({
+          error: e => { this.phase4AdvanceSent = false; this.showError(e); }
+        });
+      }, this.SPECTATE_HOLD_MS); // petit temps de lecture du dernier breakdown
+    }
+  }
+
+  /** Passe automatiquement en PHASE0 après PHASE4 (début du raid suivant). */
+  private maybeAdvanceToPhase0AfterPhase4() {
+    const g = this.game;
+    if (!g || g.phase !== 'PHASE4') return;
+    if (this.toPhase0AdvanceSent) return;
+
+    this.toPhase0AdvanceSent = true;
+    setTimeout(() => {
+      // petit hold UX si tu veux afficher un message de fin de raid
+      this.api.advancePhase(this.gameId, 'PHASE0').subscribe({
+        error: e => {
+          if (e?.status === 409 || e?.error?.message === 'illegal advance') return;
+          this.toPhase0AdvanceSent = false;
+          this.showError(e);
+        }
+      });
+    }, 2000);
+  }
+
+  /** Patch “flip” local des cartes (utilisé quand on reçoit CENTER_REVEALED). */
+  private flipCenterFaceUpLocally() {
+    if (!this.game) return;
+    this.game.center = this.game.center.map(c => ({ ...c, faceUp: true }));
+    this.game = { ...(this.game as any) };
+  }
 
   // === Helpers center history ===
   @ViewChild('historyBox') historyBox?: ElementRef<HTMLDivElement>;
@@ -1389,12 +1601,12 @@ export class GameComponent {
 
   // === Helpers buff/debuff ===
   // mêmes règles que modsForDisplay, mais en filtrant aussi par STAT
-  modsForStat(p: Player | undefined, stat: 'ATTACK'|'DEFENSE'): StatMod[] {
+  modsForStat(p: SPlayer | undefined, stat: 'ATTACK'|'DEFENSE'): RawStatMod[] {
     if (!p || !this.game?.raidMods) return [];
     const list = this.game.raidMods[p.id] || [];
     const weatherActive = this.isWeatherActive();
 
-    const out: StatMod[] = list.filter(m =>
+    const out: RawStatMod[] = list.filter(m =>
       m.stat === stat &&
       (weatherActive || !(m.source?.startsWith('WEATHER:'))) &&
       !(m.source?.includes(':ENG') && m.source?.startsWith('CORRUPTION'))
@@ -1414,14 +1626,23 @@ export class GameComponent {
     return out;
   }
 
+  chipOf(m: UiStatMod): string {
+    if (m.labelFr) return m.labelFr;
+    if (m.stat === 'MULTIPLE') return 'affaibli'; // fallback
+    if (m.stat === 'INSTABLE') return 'instable'; // fallback
+
+    const short = m.stat === 'ATTACK' ? 'ATK' : 'DEF';
+    const sign = m.amount > 0 ? `+${m.amount}` : `${m.amount}`;
+    return `${short}${sign}`;
+  }
+
   // Mods à AFFICHER (tous stats confondues)
-  modsForDisplay(p?: Player): StatMod[] {
+  modsForDisplay(p?: SPlayer): RawStatMod[] {
     if (!p || !this.game?.raidMods) return [];
     const list = this.game.raidMods[p.id] || [];
     const weatherActive = this.isWeatherActive();
 
     const filtered = list.filter(m => {
-      console.log("check m :", m);
       return (weatherActive || !(m.source?.startsWith('WEATHER:'))) &&
             !(m.source?.startsWith('CORRUPTION') && m.source?.includes(':ENG'));
     });
@@ -1429,10 +1650,14 @@ export class GameComponent {
     return filtered;
   }
 
+  private totalModForDisplay(pId: string, stat: 'ATTACK'|'DEFENSE'): number {
+    const list = this.game?.raidMods?.[pId] || [];
+    return list.reduce((sum, m) => sum + (m.stat === stat ? m.amount : 0), 0);
+  }
+
   // Construit UN chip d’affichage : MULTIPLE (L1), INSTABLE (L2) ou SERVITEUR (L3)
-  private corruptionDisplayChip(p?: Player): StatMod | null {
+  private corruptionDisplayChip(p?: SPlayer): UiStatMod | null {
     const lvl = p?.corruption;
-    console.log("lvl: ", lvl)
     if (lvl === 1) {
       return {
         stat: 'MULTIPLE',
@@ -1463,7 +1688,7 @@ export class GameComponent {
     return null;
   }
 
-  labelOrChip(m: StatMod): string {
+  labelOrChip(m: RawStatMod): string {
     const s = (m as any).source || '';
     if (s.startsWith('CORRUPTION:') && s.includes(':DSP')) {
       switch ((m as any).stat) {
@@ -1475,7 +1700,7 @@ export class GameComponent {
     return (m as any).labelFr || this.chipOf(m);
   }
 
-  titleFor(m: StatMod): string | null {
+  titleFor(m: RawStatMod): string | null {
     const s = (m as any).source || '';
 
     // Corruption (DSP) — tu as déjà ce bloc, garde-le tel quel
@@ -1488,8 +1713,8 @@ export class GameComponent {
 
     if (s.startsWith('WEATHER:')) {
       const g = this.game;
-      if (g?.weatherStatusNameFr && g?.weatherDescriptionFr) {
-        return `${g.weatherStatusNameFr} — ${g.weatherDescriptionFr}`;
+      if (g?.weather?.nameFr && g?.weather.descFr) {
+        return `${g.weather.nameFr} — ${g.weather.descFr}`;
       }
       return 'Effets météo';
     }
@@ -1508,16 +1733,16 @@ export class GameComponent {
         INVISIBILITE:    'surprise — le défenseur ne jette pas de dé de défense.',
         INVULNERABILITE: 'insensible aux dégâts.',
       };
-    return tooltips[type] ?? null;
-  }
+      return tooltips[type] ?? null;
+    }
 
-  // (Garde le reste de tes cas, ex. météo si tu l’avais déjà ajouté)
-  return null;
+    // (Garde le reste de tes cas, ex. météo si tu l’avais déjà ajouté)
+    return null;
   }
 
   private isWeatherActive(): boolean {
     const g = this.game;
-    return !!g && g.weatherRoll != null && !!g.weatherStatus;
+    return !!g && g.weather?.roll != null && !!g.weather.status;
   }
 
   // === Helpers combat ===
@@ -1538,6 +1763,18 @@ export class GameComponent {
     return vampireLeft ? `${vampireName} vs ${hunterName}` : `${hunterName} vs ${vampireName}`;
   }
 
+  /* non utilisé pour le moment 
+  /*
+  get readyGauge(): string {
+    const g: any = this.game || {};
+    const ready = (typeof g.readyCount === 'number') ? g.readyCount : (g.readyForPhase3?.length || 0);
+    const total = (typeof g.readyTotal === 'number') ? g.readyTotal : (g.players?.length || 0);
+    return `${ready}/${total}`;
+  }
+  */
+
+  trackById(_i: number, p: SPlayer) { return p.id; }
+
   get currentCombat() {
     return this.game?.currentCombat || null;
   }
@@ -1553,13 +1790,13 @@ export class GameComponent {
   get showSpectatorModal(): boolean {
     return this.game?.phase === 'PHASE3' && !!this.currentCombat && !this.waitingForMyRoll;
   }
-  getPlayer(id: string): Player | undefined {
+  getPlayer(id: string): SPlayer | undefined {
     return this.game?.players.find(p => p.id === id);
   }
-  roleColorOf(p?: Player): 'red'|'blue' {
+  roleColorOf(p?: SPlayer): 'red'|'blue' {
     return (p?.role === 'VAMPIRE') ? 'red' : 'blue';
   }
-  getRole(p?: Player): 'VAMPIRE'|'HUNTER'|'SERVANT'|undefined {
+  getRole(p?: SPlayer): 'VAMPIRE'|'HUNTER'|'SERVANT'|undefined {
     return p?.role ;
   }
   diceAsset(dice: string | undefined, color: 'red'|'blue'): string {
@@ -1568,11 +1805,6 @@ export class GameComponent {
   }
   roleIcon(role?: 'VAMPIRE'|'HUNTER'|'SERVANT'|undefined, name?: 'sword'|'armor'): string {
     return role === 'SERVANT' ? `/assets/icons/HUNTER-${name}.png` : `/assets/icons/${role}-${name}.png`;
-  }
-
-  private totalModForDisplay(pId: string, stat: 'ATTACK'|'DEFENSE'): number {
-    const list = this.game?.raidMods?.[pId] || [];
-    return list.reduce((sum, m) => sum + (m.stat === stat ? m.amount : 0), 0);
   }
 
   getCombatResultText(): string | null {
@@ -1593,36 +1825,67 @@ export class GameComponent {
   rollNow(){
     if (!this.game) return;
     this.api.rollDice(this.game.id).subscribe({
-      next: g => this.game = g,
       error: e => this.showError(e)
     });
   }
 
   // --- Assets helpers (cœurs + cartes équipement) ---
-  heartIconFor(p?: Player): string {
+  heartIconFor(p?: SPlayer): string {
     const role = p?.role.toUpperCase();
     if (role === 'SERVANT') return `/assets/icons/VAMPIRE-hearth.png`;
     else return `/assets/icons/${role}-hearth.png`;
   }
 
-  trackById(_i: number, p: Player) { return p.id; }
+  // Image de fond une fois la météo tirée
+  setImageBackground(modal:'weather'|'location'|'bite'|'corruption'): string | null {
+
+    if (modal === 'weather') {
+      const ws = this.game?.weather?.status;
+      if (!ws || this.game?.weather?.roll == null) return null;
+      return `url('/assets/weather/bg-${ws.toLowerCase()}.png')`;
+    }
+    if (modal === 'location') {
+      const loc = this.game?.currentCombat?.location?.toLowerCase();
+      return loc ? `url('/assets/locations/${loc}.png')` : 'none';
+    }
+    if (modal === 'corruption') {
+      return `url('/assets/corruption/corrupted.png')`;
+    }
+    if (modal === 'bite') {
+      return `url('/assets/corruption/bite.png')`;
+    }
+    return 'none';
+  }
+
+  // chemin de l'icône météo
+  weatherIconSrc(ws?: string | null): string {
+    if (!ws) return '';
+    return `/assets/weather/icon-${ws.toLowerCase()}.png`;
+  }
+
+  actionIconSrc(p?: SPlayer): string {
+    if (!p) return '/assets/icons/action-hunter-icon.png';
+    return p.role === 'VAMPIRE'
+      ? '/assets/icons/action-vampire-icon.png'
+      : '/assets/icons/action-hunter-icon.png';
+  }
 
   // --- HP helpers (pour une jauge plus tard) ---
-  maxHpOf(p: Player): number {
+  maxHpOf(p: SPlayer): number {
     if (p.role === 'VAMPIRE') {
       const hunters = (this.game?.players ?? []).filter(x => x.role === 'HUNTER').length;
       return 20 + hunters * 10;
     }
     return 20;
   }
-  hpPercent(p: Player): number {
+  hpPercent(p: SPlayer): number {
     const max = this.maxHpOf(p);
     const cur = Math.max(0, Math.min(p.hp ?? 0, max));
     return Math.round((cur / max) * 100);
   }
 
   // Helpers (lecture via players[])
-  get me(): Player | undefined {
+  get me(): SPlayer | undefined {
     return this.game?.players.find(p => p.id === this.meId);
   }
   get isVampire(): boolean {
@@ -1631,10 +1894,10 @@ export class GameComponent {
   get hasVampire(): boolean {
     return !!this.game && this.game.players.some(p => p.role === 'VAMPIRE');
   }
-  get vampirePlayer(): Player {
+  get vampirePlayer(): SPlayer {
     return this.game!.players.find(p => p.role === 'VAMPIRE')!;
   }
-  get hunterPlayers(): Player[] {
+  get hunterPlayers(): SPlayer[] {
     const list = (this.game?.players ?? []).filter(
       p => (p.role === 'HUNTER' || p.role === 'SERVANT') && p.id !== this.meId
     );
@@ -1650,6 +1913,10 @@ export class GameComponent {
     return false;
   }
 
+  isMeVampire(): boolean {
+    return this.me?.role === 'VAMPIRE';
+  }
+
   usernameOf(id: string): string {
     if (!this.game) return id;
     const p = this.game.players.find(x => x.id === id);
@@ -1659,7 +1926,7 @@ export class GameComponent {
     // (plus tard, on pourra faire une vraie map id->username côté back si besoin)
   }
 
-  isCurrent(_p: Player){ return false; } // on branchera plus tard
+  isCurrent(_p: SPlayer){ return false; } // on branchera plus tard
 
   labelLocation(c: string){
     switch(c){
@@ -1671,190 +1938,503 @@ export class GameComponent {
     }
   }
 
+  /** INIT
+   * fait 1 refresh au montage, puis s'abonne au WebSocket.
+   */
   ngOnInit() {
-    this.gameId = this.route.snapshot.paramMap.get('id') || '';
-    this.refresh();
-    this.timer = setInterval(() => this.refresh(), 2000);
-  }
-  ngOnDestroy(){ 
-    if(this.timer) clearInterval(this.timer);
-    if(this.weatherTimer) clearTimeout(this.weatherTimer);
-    if(this.weatherPostTimer) clearTimeout(this.weatherPostTimer);
+    this.route.paramMap.subscribe(pm => {
+      const id = pm.get('id'); if (!id) { this.showError('Identifiant...'); return; }
+
+      this.unsubscribeGameTopic?.();
+      this.gameId = id;
+
+      // 1) D’abord WS
+      this.unsubscribeGameTopic = this.live.subscribeGame(this.gameId, ev => this.onLiveEvent(ev));
+
+      // 2) Puis snapshot initial (autorité)
+      this.api.getGame(this.gameId).subscribe({
+        next: snap => {
+          this.game = snap;
+          this.handleWeatherReveal(snap); // ok même si roll=null
+        },
+        error: err => { /* idem ton code */ }
+      });
+    });
   }
 
+  /** DESTROY
+   * on se désabonne du WS et on nettoie les timeouts météo.
+   */
+  ngOnDestroy(){
+    this.unsubscribeGameTopic?.(); // <-- à la place du clearInterval
+    if (this.weatherWaitTimer) clearTimeout(this.weatherWaitTimer);
+    if(this.weatherTimer) clearTimeout(this.weatherTimer);
+    if(this.weatherPostTimer) clearTimeout(this.weatherPostTimer);
+    this.stopPrephaseTimer();
+
+  }
+
+  /** onLiveEvent
+   *  Reçoit les événements pushés par le backend.
+   *  - WEATHER_ROLLED: on fait 1 GET (pour récupérer roll + messages) puis on lance la séquence météo côté front.
+   *  - PHASE_CHANGED: on fait 1 GET pour refléter la nouvelle phase.
+   *  - MESSAGE: on pousse le texte dans le flux local.
+   *
+   * l’info arrive en temps réel → 1 GET ponctuel → rendu UI.
+   */
+  private onLiveEvent(event: GameEvent) {
+    // (optionnel) anti-doublon
+  const key = this.stableEventKey(event);
+  if (this.seenEventKeys.has(key)) return;
+  this.seenEventKeys.add(key);
+
+    switch (event.type) {
+      case 'WEATHER_ROLLED': {
+        const w = {
+          roll: event.payload.roll,
+          status: event.payload.status,
+          nameFr: event.payload.nameFr,
+          descFr: event.payload.descFr,
+        };
+
+        if (!this.game) {
+          // Pas encore de snapshot → récupère tout et lance l’anim proprement
+          this.api.getGame(this.gameId).subscribe({
+            next: g => { 
+              this.game = g;
+              // (optionnel) sécurité si le back a poussé WEATHER_ROLLED une micro-seconde avant d’écrire le roll
+              if (!g.weather || g.weather.roll == null) {
+                this.game = { ...g, weather: w } as GameSnapshot;
+              }
+              this.handleWeatherReveal(this.game!);
+              this.bumpHistoryScroll();
+            },
+            error: e => this.showError(e)
+          });
+        } else {
+          // Snapshot déjà présent → patch léger + anim
+          this.game = { ...(this.game as any), weather: w } as GameSnapshot;
+          this.handleWeatherReveal(this.game!);
+
+          // Sync propre un peu après pour récupérer mods/messages exacts
+          setTimeout(() => {
+            this.api.getGame(this.gameId).subscribe({
+              next: g => { this.game = g; this.bumpHistoryScroll(); },
+              error: e => this.showError(e)
+            });
+          }, 200);
+        }
+        break;
+      }
+
+      case 'PHASE_CHANGED': {
+        const next = (event?.payload?.phase as Phase | undefined) ?? undefined;
+
+        // Timer local pour PREPHASE3
+        if (next === 'PREPHASE3') { 
+          this.prephase3AdvanceSent = false; 
+          this.startPrephaseTimer(); 
+        } else {
+          this.stopPrephaseTimer();
+        }
+
+        this.api.getGame(this.gameId).subscribe({
+          next: g => {
+            this.game = g;
+
+            // ⚠️ important : recalculer les choix instables à partir du snapshot
+            this.recomputeUnstableChoices();
+
+            if (g.phase !== 'PHASE1') this.phase2AdvanceSent = false;
+
+            // Début de raid → réarme météo et resets usuels
+            if (g.phase === 'PHASE0') {
+              this.weatherBgActive = false;
+              this.weatherModalHold = false;
+              this.lastWeatherRollSeen = null;
+              this.weatherAdvanceSent = false;
+              this.hasSkipped = false;
+              this.prephase3AdvanceSent = false;
+              this.phase4AdvanceSent = false;
+              this.toPhase0AdvanceSent = false;
+              this.game.currentBite = null;
+
+              this.handleWeatherReveal(g);
+            } else {
+              this.weatherModalHold = false; // ferme si on n’est plus en PHASE0
+            }
+
+            // Robustesse si 'next' manquait
+            if (!next) {
+              if (g.phase === 'PREPHASE3') { 
+                this.prephase3AdvanceSent = false; 
+                this.startPrephaseTimer(); 
+              } else {
+                this.stopPrephaseTimer();
+              }
+              if (g.phase !== 'PHASE3') this.game.currentBite = null;
+            }
+
+            // Enchaînement combats / maintenance
+            if (g.phase === 'PHASE3') this.maybeAdvanceToPhase4EndOfRaid();
+            if (g.phase === 'PHASE4') { 
+              this.toPhase0AdvanceSent = false; 
+              this.maybeAdvanceToPhase0AfterPhase4(); 
+            }
+
+            this.bumpHistoryScroll();
+          },
+          error: e => this.showError(e)
+        });
+        break;
+      }
+
+      case 'MESSAGE': {
+        this.game?.messages?.push(event.payload.text);
+        this.bumpHistoryScroll();
+        break;
+      }
+
+      case 'LOCATION_SELECTED': {
+        this.api.getGame(this.gameId).subscribe({
+          next: g => {
+            this.game = g;
+            this.bumpHistoryScroll();
+          },
+          error: e => this.showError(e)
+        });
+        break;
+      }
+
+      case 'READY_UPDATED': {
+        const g: any = this.game || {};
+        g.readyForPhase3 = Array.isArray(g.readyForPhase3) ? g.readyForPhase3 : [];
+        const pid = event.payload.playerId;
+        if (!g.readyForPhase3.includes(pid)) g.readyForPhase3.push(pid);
+        (g as any).readyCount = event.payload.ready;
+        (g as any).readyTotal = event.payload.total;
+        this.game = { ...(g as GameSnapshot) };
+
+        this.maybeAutoAdvanceToPhase3();
+        break;
+      }
+
+      case 'RAID_MODS_UPDATED': {
+        // Simple: resynchronise l’état complet
+        this.api.getGame(this.gameId).subscribe({
+          next: g => this.game = g,
+          error: e => this.showError(e)
+        });
+        break;
+      }
+
+      case 'LOBBY_UPDATED': {
+        // si status == CREATED, refresh pour voir les pseudos/players en live
+        this.api.getGame(this.gameId).subscribe({
+          next: g => this.game = g,
+          error: e => this.showError(e)
+        });
+        break;
+      }
+
+      case 'CENTER_REVEALED': {
+        // 1) Flip local immédiat (animation)
+        this.flipCenterFaceUpLocally();
+
+        // 2) Petit hold UX, puis sync complète
+        setTimeout(() => {
+          this.api.getGame(this.gameId).subscribe({
+            next: g => this.game = g,
+            error: e => this.showError(e)
+          });
+        }, this.CENTER_FLIP_HOLD_MS);
+
+        break;
+      }
+
+      case 'DICE_ROLLED': {
+        // patch léger si le roll concerne le round courant; sinon GET
+        const r = this.game?.currentCombat;
+        if (!this.game || !r || r.id !== event.payload.roundId) {
+          this.api.getGame(this.gameId).subscribe({
+            next: g => this.game = g,
+            error: e => this.showError(e)
+          });
+          break;
+        }
+        const side = event.payload.side; // "ATTACK"|"DEFENSE"
+        const val  = event.payload.roll as number;
+        const patched = { ...(this.game as any) };
+        if (side === 'ATTACK') patched.currentCombat.attackerRoll = val;
+        if (side === 'DEFENSE') patched.currentCombat.defenderRoll = val;
+        this.game = patched as GameSnapshot;
+        break;
+      }
+
+      case 'COMBAT_RESOLVED': {
+        if (this.game) {
+          const def = this.game.players.find(p => p.id === event.payload.defenderId);
+          if (def) def.hp = event.payload.defenderHp;
+          const r = (this.game as any).currentCombat;
+          if (r) r.breakdownLines = event.payload.breakdown || [];
+          this.game = { ...(this.game as GameSnapshot) };
+        }
+        setTimeout(() => {
+          this.api.combatContinue(this.gameId).subscribe({
+            next: _ => {
+              // Resync propre :
+              this.api.getGame(this.gameId).subscribe({
+                next: g => {
+                  this.game = g;
+                  this.bumpHistoryScroll();
+                  this.maybeAdvanceToPhase4EndOfRaid();
+                },
+                error: e => this.showError(e)
+              });
+            },
+            error: e => this.showError(e)
+          });
+        }, this.SPECTATE_HOLD_MS);
+        break;
+      }
+
+      case 'BITE_STARTED': {
+        // petit délai de lecture avant d’ouvrir la modale
+        this.biteNotBeforeMillis = Date.now() + this.SPECTATE_HOLD_MS;
+        // récupère currentBite depuis le snapshot
+        this.api.getGame(this.gameId).subscribe({
+          next: g => this.game = g,
+          error: e => this.showError(e)
+        });
+        break;
+      }
+
+      case 'BITE_ROLLED': {
+        // 1) refresh pour voir roll/resolvedAtMillis dans le snapshot
+        this.api.getGame(this.gameId).subscribe({
+          next: g => this.game = g,
+          error: e => this.showError(e)
+        });
+        // 2) laisse le résultat affiché, puis enchaîne
+        setTimeout(() => {
+          this.api.combatContinue(this.gameId).subscribe({
+            error: e => this.showError(e)
+          });
+        }, this.SPECTATE_HOLD_MS);
+        break;
+      }
+
+      case 'BITE_RESOLVED': {
+        // le back a déjà remis currentBite = null ; on resynchronise
+        this.api.getGame(this.gameId).subscribe({
+          next: g => this.game = g,
+          error: e => this.showError(e)
+        });
+        break;
+      }
+
+      case 'UNSTABLE_ASSIGNED': {
+        const kind = event?.payload?.kind as string;   // "TARGET" | "HARVEST" | "NOTHING"
+        const unstableId = event?.payload?.unstableId as string | undefined;
+
+        // Stratégie simple et robuste : on resynchronise entièrement
+        this.api.getGame(this.gameId).subscribe({
+          next: g => {
+            this.game = g;
+            this.recomputeUnstableChoices(); // met à jour la modale
+            // Optionnel: si plus aucun choix restant, la modale se ferme automatiquement via showUnstableModal()
+          },
+          error: e => this.showError(e)
+        });
+
+        break;
+      }
+    }
+  }
+  
+
   refresh(){
-    if(!this.gameId) return;
+    if (!this.gameId) return;
+
     this.api.getGame(this.gameId).subscribe({
       next: g => {
+        const prevPhase = this.game?.phase;
+
         this.game = g;
+        if (this.game?.phase === 'PREPHASE3') {
+          // Si on arrive “en cours de route”, on ne connaît pas le début réel serveur.
+          // On démarre un 30s local “optimiste”. Le serveur reste maître et corrigera via PHASE_CHANGED.
+          if (!this.prephaseEndsAtMillis) this.startPrephaseTimer();
+        } else {
+          this.stopPrephaseTimer();
+        }
         this.handleWeatherReveal(g);
         this.bumpHistoryScroll();
         this.recomputeUnstableChoices();
-        // PREPHASE3: calcule le compte à rebours
-        if (this.game?.phase === 'PREPHASE3' && this.game.prePhaseDeadlineMillis) {
-          const msLeft = this.game.prePhaseDeadlineMillis - Date.now();
-          this.remainingPrePhaseSeconds = Math.max(0, Math.ceil(msLeft / 1000));
-        } else {
-          this.remainingPrePhaseSeconds = 0;
-          this.hasSkipped = false; // reset si on change de phase
+
+        // Plus de deadline serveur en PREPHASE3 → pas de countdown
+        if (prevPhase && prevPhase !== g.phase) {
+          this.hasSkipped = false;      // reset si on change de phase
         }
+        this.remainingPrePhaseSeconds = 0; // toujours 0 (cosmétique)
       },
       error: e => this.showError(e)
     });
   }
 
+  //====== Select location ======/
   selectLocation(c: string){ this.selectedLocation = c; }
 
-  playSelected(){
+  /** Remplace/ajoute la carte au centre pour un joueur donné (patch local rapide). */
+  private upsertCenter(playerId: string, card: string, faceUp: boolean = false) {
+    if (!this.game) return;
+    const i = this.game.center.findIndex(c => c.playerId === playerId);
+    if (i >= 0) {
+      this.game.center[i] = { playerId, card, faceUp };
+    } else {
+      this.game.center.push({ playerId, card, faceUp });
+    }
+    // trigger change detection
+    this.game = { ...(this.game as any) };
+  }
+
+  playSelected() {
     if (!this.game || !this.selectedLocation) return;
+    if (!this.game) return;
     this.api.selectLocation(this.game.id, this.selectedLocation).subscribe({
-      next: g => { this.game = g; this.selectedLocation = null; },
+      // on ne touche PAS à this.game ici : l’event LOCATION_SELECTED fait foi
       error: e => this.showError(e)
     });
   }
 
-  skipNow(){
-    if (!this.game) return;
+  skipNow() {
+    if (!this.game || this.hasSkipped) return; // évite le spam
     this.hasSkipped = true;
+
     this.api.skipPrePhase3(this.game.id).subscribe({
-      next: g => { this.game = g; /* eventuellement on recalcule timer */ },
-      error: e => this.showError(e)
+      // on ne touche PAS à this.game ici : READY_UPDATED fait foi
+      error: e => {
+        this.hasSkipped = false;     // on relâche le garde-fou si erreur
+        this.showError(e);
+      }
     });
   }
 
-  chipOf(m: StatMod): string {
-    if (m.labelFr) return m.labelFr;
-    if (m.stat === 'MULTIPLE') return 'affaibli'; // fallback
-    if (m.stat === 'INSTABLE') return 'instable'; // fallback
-
-    const short = m.stat === 'ATTACK' ? 'ATK' : 'DEF';
-    const sign = m.amount > 0 ? `+${m.amount}` : `${m.amount}`;
-    return `${short}${sign}`;
-  }
-
-  back(){ this.router.navigate(['/lobby']); }
-
-  private showError(e:any){
-    try{ this.errorMsg = e?.error?.message || 'Erreur'; } catch { this.errorMsg='Erreur'; }
-    setTimeout(()=>this.errorMsg='', 4000);
-  }
-
-  // Meteo
-  isMeVampire(): boolean {
-    return this.me?.role === 'VAMPIRE';
-  }
-
-  canShowWeatherModal(): boolean {
-    const g = this.game;
+  isUnstableAlreadyDecided(unstableId: string): boolean {
+    const g: any = this.game;
     if (!g) return false;
-    const notBefore = g.weatherModalNotBeforeMillis || 0;
-
-    // Visible si: (a) on est encore en PHASE0 ET après notBefore
-    //          OU (b) on a un hold client actif (pré ou post fond)
-    const showByPhase = (g.phase === 'PHASE0' && Date.now() >= notBefore);
-    return showByPhase || this.weatherModalHold;
+    const chosenT = g.unstableTargetByPlayer || {};
+    const chosenH = g.unstableHarvestLocByPlayer || {};
+    return !!(chosenT[unstableId] || chosenH[unstableId]);
   }
 
-  rollWeather(){
-    if (!this.game) return;
-    this.api.rollWeather(this.game.id).subscribe({
-      next: g => {this.game = g; this.handleWeatherReveal(g);},
+  //====== Météo ======/
+  canShowWeatherModal(): boolean {
+    // La modale n’existe que pendant PHASE0 et uniquement quand on a activé le hold local
+    return this.game?.phase === 'PHASE0' && this.weatherModalHold === true;
+  }
+
+  rollWeather() {
+    this.api.rollWeather(this.gameId).subscribe({
       error: e => this.showError(e)
     });
   }
 
-  // Image de fond une fois la météo tirée
-  setImageBackground(modal:'weather'|'location'|'bite'|'corruption'): string | null {
+  /** handleWeatherReveal
+   * Rôle :
+   *  - Piloter l'animation météo côté front : petite attente (PRE_BG), activer le fond,
+   *    éventuellement un post-hold (POST_BG), puis relâcher la modale.
+   *
+   *  À la fin de l'animation locale, on appelle explicitement advance(PHASE1).
+   *  On ajoute un flag local (weatherAdvanceSent) pour éviter d'appeler /advance plusieurs fois
+   *  si plusieurs onglets sont ouverts.
+   */
+  private handleWeatherReveal(g: GameSnapshot){
+    const roll = g.weather?.roll ?? null;
 
-    if (modal === 'weather') {
-      const ws = this.game?.weatherStatus;
-      if (!ws || this.game?.weatherRoll == null) return null;
-      return `url('/assets/weather/bg-${ws.toLowerCase()}.png')`;
+    // ---- RESET si pas (encore) de tirage
+    if (roll == null){
+      this.lastWeatherRollSeen = null;
+      this.weatherBgActive = false;
+
+      if (g.phase === 'PHASE0') {
+        // Petit teaser avant d’ouvrir la modale “En attente du tirage…”
+        if (!this.weatherWaitTimer) {
+          this.weatherModalHold = false; // masquée pendant le teaser
+          this.weatherWaitTimer = setTimeout(() => {
+            this.weatherModalHold = true; // ouverture “En attente du tirage…”
+            this.weatherWaitTimer = undefined;
+          }, GameComponent.WEATHER_WAIT_BEFORE_MODAL_MS);
+        }
+      } else {
+        this.weatherModalHold = false;
+      }
+
+      // nouveau cycle autorisé
+      this.weatherAdvanceSent = false;
+
+      // cleanup timers
+      if (this.weatherTimer)     { clearTimeout(this.weatherTimer);     this.weatherTimer = undefined; }
+      if (this.weatherPostTimer) { clearTimeout(this.weatherPostTimer); this.weatherPostTimer = undefined; }
+      return;
     }
-    if (modal === 'location') {
-      const loc = this.game?.currentCombat?.location?.toLowerCase();
-                console.log("loc", `url('/assets/locations/${loc}.png')`)
-      return loc ? `url('/assets/locations/${loc}.png')` : 'none';
+
+    // ---- NOUVEAU TIRAGE détecté → lance l’animation locale
+    if (this.lastWeatherRollSeen !== roll){
+      if (this.weatherWaitTimer) { clearTimeout(this.weatherWaitTimer); this.weatherWaitTimer = undefined; }
+
+      this.lastWeatherRollSeen = roll;
+      this.weatherAdvanceSent = false; // nouveau cycle météo → on réautorise 1 avance
+
+      this.weatherModalHold = true;    // on garde la modale ouverte le temps de l’anim
+      this.weatherBgActive  = false;
+
+      if (this.weatherTimer) clearTimeout(this.weatherTimer);
+      if (this.weatherPostTimer) clearTimeout(this.weatherPostTimer);
+
+      // 1) roue/teaser
+      this.weatherTimer = setTimeout(() => {
+        this.weatherBgActive = true; // active le fond/visuel principal
+
+        // 2) petit “hold de lecture”
+        const post = this.WEATHER_HOLD_MS;
+        if (post > 0){
+          this.weatherPostTimer = setTimeout(() => {
+            this.weatherModalHold = false;       // on ferme la modale…
+            this.advanceToPhase1IfNeeded();      // …et on avance PHASE1 exactement ici (une seule fois)
+          }, post);
+        } else {
+          this.weatherModalHold = false;
+          this.advanceToPhase1IfNeeded();
+        }
+      }, this.WEATHER_WHEEL_MS);
     }
-    if (modal === 'corruption') {
-      return `url('/assets/corruption/corrupted.png')`;
-    }
-    if (modal === 'bite') {
-      return `url('/assets/corruption/bite.png')`;
-    }
-    return 'none';
   }
 
   // on reste sur la roue tant qu'on n'a pas activé le bg météo
   isWeatherPreReveal(): boolean {
-    const hasRoll = this.game?.weatherRoll != null;
+    const hasRoll = this.game?.weather?.roll != null;
     return !hasRoll || !this.weatherBgActive;
   }
 
   // calculer la transform pour poser l'icône sur la pale correspondante
   weatherIconTransform(): string {
-    const roll = Math.max(1, Math.min(12, this.game?.weatherRoll ?? 1));
+    const roll = Math.max(1, Math.min(12, this.game?.weather?.roll ?? 1));
     const angle = (roll - 1) * GameComponent.WHEEL_DEG_PER_FACE + GameComponent.WHEEL_BASE_OFFSET;
     const r = GameComponent.WEATHER_ICON_RADIUS;
     // centre ➜ rotation vers la pale ➜ translation radiale ➜ remise à l'horizontale
     return `translate(-50%, -50%) rotate(${angle}deg) translate(0, -${r}px) rotate(${-angle}deg)`;
   }
 
-  // chemin de l'icône météo
-  weatherIconSrc(ws?: string | null): string {
-    if (!ws) return '';
-    return `/assets/weather/icon-${ws.toLowerCase()}.png`;
-  }
 
-  // pilote le délai: quand on "voit" un nouveau résultat, attente 4s avant d'activer le bg
-  private handleWeatherReveal(g: Game){
-    const roll = g.weatherRoll ?? null;
 
-    // reset si pas de tirage
-    if (roll == null){
-      this.lastWeatherRollSeen = null;
-      this.weatherBgActive = false;
-      this.weatherModalHold = false;
-      if (this.weatherTimer)     { clearTimeout(this.weatherTimer);     this.weatherTimer = undefined; }
-      if (this.weatherPostTimer) { clearTimeout(this.weatherPostTimer); this.weatherPostTimer = undefined; }
-      return;
-    }
-
-    // nouveau tirage détecté
-    if (this.lastWeatherRollSeen !== roll){
-      this.lastWeatherRollSeen = roll;
-
-      // on force l'affichage de la modale (même si PHASE0 se termine)
-      this.weatherModalHold = true;
-      this.weatherBgActive  = false;
-
-      if (this.weatherTimer) clearTimeout(this.weatherTimer);
-      if (this.weatherPostTimer) clearTimeout(this.weatherPostTimer);
-
-      // délai avant d'activer le fond météo
-      this.weatherTimer = setTimeout(() => {
-        this.weatherBgActive = true;
-
-        // (facultatif) petit hold après fond pour être sûr qu'on le voit
-        if (GameComponent.WEATHER_POST_BG_MS > 0){
-          this.weatherPostTimer = setTimeout(() => {
-            this.weatherModalHold = false;
-          }, GameComponent.WEATHER_POST_BG_MS);
-        } else {
-          // sinon, on relâche tout de suite le hold:
-          this.weatherModalHold = false;
-        }
-      }, GameComponent.WEATHER_PRE_BG_MS);
-    }
-  }
-
-  //actions & potions
+  //====== Action & potion ======/
   // afficher mes potions (IDs)
   myPotions(): string[] {
     const g = this.game;
     if (!g) return [];
-    const map = (g as any).potionsByPlayer || {};
-    return map[this.meId] || [];
+    const me = g.players.find(p => p.id === this.meId);
+    return me?.potions ?? [];
   }
 
   canUsePotionNow(_pot: string): boolean {
@@ -1871,36 +2451,41 @@ export class GameComponent {
   }
 
   // Suis-je (moi) sur un lieu face-up où il y aura un combat (ennemi = vampire OU serviteur) ?
-  private imInUpcomingCombat(): boolean {
+  imInUpcomingCombat(): boolean {
     const game = this.game;
     if (!game) return false;
 
-    // On ne se base que sur les cartes révélées
     const faceUp = (game.center || []).filter(cb => cb.faceUp);
     if (faceUp.length === 0) return false;
 
-    // Lieux où il y a au moins un ennemi (VAMPIRE/SERVANT) et au moins un HUNTER
-    const combatLocs = new Set<string>();
+    const harvestMap: Record<string,string> = (game as any).unstableHarvestLocByPlayer || {};
+
     const allLocs = Array.from(new Set(faceUp.map(cb => cb.card)));
+    const combatLocs = new Set<string>();
 
     for (const loc of allLocs) {
       const idsOnLoc = faceUp.filter(cb => cb.card === loc).map(cb => cb.playerId);
       const playersOnLoc = idsOnLoc
         .map(id => game.players.find(p => p.id === id))
-        .filter((p): p is Player => !!p);
+        .filter((p): p is SPlayer => !!p);
 
       const hasEnemy  = playersOnLoc.some(p => this.isEnemy(p));
-      const hasHunter = playersOnLoc.some(p => p.role === 'HUNTER');
+      const hasHunter = playersOnLoc.some(p =>
+        p.role === 'HUNTER' && p.hp > 0 && !harvestMap[p.id]   // <-- exclusion récolteur
+      );
 
       if (hasEnemy && hasHunter) combatLocs.add(loc);
     }
 
-    // Est-ce que moi (this.meId) je suis sur un de ces lieux ?
     const myFaceUpCard = faceUp.find(cb => cb.playerId === this.meId)?.card;
+    // si je suis récolteur, jamais combat pour moi
+    if (harvestMap[this.meId]) return false;
+
     return !!myFaceUpCard && combatLocs.has(myFaceUpCard);
   }
 
-  private isEnemy(p?: Player): boolean {
+
+  private isEnemy(p?: SPlayer): boolean {
     return p?.role === 'VAMPIRE' || p?.role === 'SERVANT';
   }
 
@@ -1913,19 +2498,11 @@ export class GameComponent {
     }
   }
 
-  usePotion(id: string){
+  usePotion(type: string) {
     if (!this.game) return;
-    this.api.usePotion(this.game.id, id).subscribe({
-      next: g => this.game = g,
+    this.api.usePotion(this.game.id, type).subscribe({
       error: e => this.showError(e)
     });
-  }
-
-  actionIconSrc(p?: Player): string {
-    if (!p) return '/assets/icons/action-hunter-icon.png';
-    return p.role === 'VAMPIRE'
-      ? '/assets/icons/action-vampire-icon.png'
-      : '/assets/icons/action-hunter-icon.png';
   }
 
   onPotionClick(pot: string){
@@ -1933,34 +2510,38 @@ export class GameComponent {
     this.usePotion(pot);
   }
 
-  // Corruption
+  //====== Corruption ======/
   get showBiteModal(): boolean {
-    const g: any = this.game;
-    const b = g?.currentBite;
-    if (!b || b.resolvedAtMillis) return false;
-
-    // Respecte le délai posé par le back pour laisser lire les breakdownLines
-    const notBefore: number = g.currentBiteNextAdvanceAtMillis || 0;
-    if (notBefore && Date.now() < notBefore) return false;
-
-    return true;
+    const g = this.game as any;
+    return g?.phase === 'PHASE3' && !!g?.currentBite && Date.now() >= this.biteNotBeforeMillis;
   }
-  biteAttacker(): Player | undefined {
-    const id = this.game?.currentBite?.attackerId; return id ? this.getPlayer(id) : undefined;
+
+  biteAttacker(): SPlayer | undefined {
+    const id = (this.game as any)?.currentBite?.attackerId;
+    return id ? this.getPlayer(id) : undefined;
   }
-  biteTarget(): Player | undefined {
-    const id = this.game?.currentBite?.targetId; return id ? this.getPlayer(id) : undefined;
+  biteTarget(): SPlayer | undefined {
+    const id = (this.game as any)?.currentBite?.targetId;
+    return id ? this.getPlayer(id) : undefined;
   }
   rollBiteNow() {
     if (!this.game) return;
     this.api.rollCorruption(this.game.id).subscribe({
-      next: g => this.game = g,
       error: e => this.showError(e)
     });
   }
-  biteTitle(): string {
-    const a = this.biteAttacker(); const d = this.biteTarget();
-    return `Morsure — ${(a?.username ?? 'Vampire')} → ${(d?.username ?? 'Chasseur')}`;
+  biteResultText(): string {
+    const g: any = this.game;
+    const b = g?.currentBite;
+    if (!b || b.roll == null) return '';
+
+    const attacker = this.getPlayer?.(b.attackerId)?.username ?? 'Le vampire';
+    const target   = this.getPlayer?.(b.targetId)?.username   ?? 'le chasseur';
+
+    // règle simple : > 3 = morsure réussie
+    return (b.roll > 3)
+      ? `${target} est mordu.`
+      : `${attacker} échoue sa tentative de morsure.`;
   }
   // Conditions d’ouverture de la modale (seulement vampire + PREPHASE3 + choix restants)
   showUnstableModal(): boolean {
@@ -1988,33 +2569,62 @@ export class GameComponent {
     const l = g.unstableEligibleLocations || {};
     return Object.keys(t).length > 0 || Object.keys(l).length > 0;
   }
-  assignTarget(uId: string, tId: string) {
-    if (!this.game) return;
-    this.api.assignUnstableTarget(this.game.id, uId, tId).subscribe({
-      next: g => { this.game = g; this.recomputeUnstableChoices(); },
+
+  assignUnstableTarget(unstableId: string, targetId: string) {
+    if (!this.isMeVampire() || this.isUnstableLocked(unstableId)) return;
+
+    this.lockUnstable(unstableId);
+    this.api.assignUnstableTarget(this.gameId, unstableId, targetId).subscribe({
+      next: () => {},
+      error: e => {
+        // 409 "no pending unstable choice" => le serveur a déjà pris une décision : on laisse lock
+        if (!(e?.status === 409 || e?.error?.message === 'no pending unstable choice')) {
+          this.unlockUnstable(unstableId); // vraie erreur -> permettre un retry
+        }
+        this.showError(e);
+      }
+    });
+  }
+
+  assignUnstableHarvest(unstableId: string, loc: string) {
+    if (!this.isMeVampire() || this.isUnstableLocked(unstableId)) return;
+
+    this.lockUnstable(unstableId);
+    this.api.assignUnstableHarvest(this.gameId, unstableId, loc).subscribe({
+      next: () => {},
+      error: e => {
+        if (!(e?.status === 409 || e?.error?.message === 'no pending unstable choice')) {
+          this.unlockUnstable(unstableId);
+        }
+        this.showError(e);
+      }
+    });
+  }
+
+  assignUnstableNothing(unstableId: string) {
+    if (!this.isMeVampire() || !this.isPendingUnstable(unstableId)) return;
+
+    this.api.assignUnstableNothing(this.gameId, unstableId).subscribe({
+      next: _ => {
+        // Resync — garantit que la modale se met à jour tout de suite
+        this.api.getGame(this.gameId).subscribe({
+          next: g => { this.game = g; this.recomputeUnstableChoices(); },
+          error: e => this.showError(e)
+        });
+      },
       error: e => this.showError(e)
     });
   }
-  assignHarvest(uId: string, loc: string) {
-    if (!this.game) return;
-    this.api.assignUnstableHarvest(this.game.id, uId, loc).subscribe({
-      next: g => { this.game = g; this.recomputeUnstableChoices(); },
-      error: e => this.showError(e)
-    });
-  }
-  canShowBiteModal(): boolean {
-    const g = this.game;
-    return !!g && g.phase === 'PHASE3' && !!(g as any).currentBite; // aligné avec ton back
-  }
+
   canRollBite(): boolean {
     const g: any = this.game;
-    if (!g?.currentBite) return false;
-    return g.currentBite.attackerId === this.meId && (g.currentBite.roll == null);
+    const b = g?.currentBite;
+    if (!b) return false;
+    return b.attackerId === this.meId && (b.roll == null);
   }
   rollCorruption(){
     if (!this.game) return;
     this.api.rollCorruption(this.game.id).subscribe({
-      next: g => this.game = g,
       error: e => this.showError(e)
     });
   }
@@ -2043,10 +2653,67 @@ export class GameComponent {
     if (JSON.stringify(this.unstableChoices) !== JSON.stringify(next)) {
       this.unstableChoices = next;
     }
+
+      // ➜ purge des locks pour les IDs qui ne sont plus éligibles (ou déjà décidés)
+    const present = new Set(this.unstableChoices.map(x => x.unstableId));
+    const decidedIds = new Set<string>([
+      ...Object.keys(g.unstableTargetByPlayer || {}),
+      ...Object.keys(g.unstableHarvestLocByPlayer || {}),
+    ]);
+    for (const id of Array.from(this.unstableLockedIds)) {
+      if (!present.has(id) || decidedIds.has(id)) this.unstableLockedIds.delete(id);
+    }
   }
 
   vampireName(): string {
     const v = this.game?.players.find(p => p.role === 'VAMPIRE');
     return v?.username || v?.id || 'vampire';
+  }
+
+  // Texte d’avertissement si l’instable va combattre par défaut (même lieu qu’un ennemi)
+  // Retourne null sinon (aucun avertissement à afficher)
+  getUnstableDefaultFight(unstableId: string): DefaultFightInfo {
+    const g = this.game;
+    if (!g || g.phase !== 'PREPHASE3') return { willFight: false };
+
+    const unstable = g.players.find(p => p.id === unstableId);
+    if (!unstable || unstable.role !== 'HUNTER' || unstable.hp <= 0) return { willFight: false };
+
+    // lieu face-up de l’instable
+    const cb = (g.center || []).find(c => c.playerId === unstableId && c.faceUp);
+    if (!cb) return { willFight: false };
+    const loc = cb.card;
+
+    // joueurs présents (face-up) sur ce lieu
+    const idsOnLoc = (g.center || []).filter(c => c.faceUp && c.card === loc).map(c => c.playerId);
+    const ppl = idsOnLoc
+      .map(id => g.players.find(p => p.id === id))
+      .filter((p): p is SPlayer => !!p);
+
+    // adversaire prioritaire : vampire, sinon 1er serviteur
+    const opponent = ppl.find(p => p.role === 'VAMPIRE') || ppl.find(p => p.role === 'SERVANT');
+    if (!opponent) return { willFight: false };
+
+    const opponentName = opponent.username || (opponent.role === 'VAMPIRE' ? 'vampire' : 'serviteur');
+    return { willFight: true, loc, opponentName };
+  }
+
+  unstableHarvestWarning(unstableId: string): string | null {
+    const info = this.getUnstableDefaultFight(unstableId);
+    if (!info.willFight) return null;
+
+    const unstableName = this.usernameOf(unstableId);
+    const locName = this.labelLocation(info.loc!);
+
+    return `${unstableName} va bientôt combattre sur ${locName} contre ${info.opponentName}. ` +
+          `Si vous lui ordonnez une récolte, cela annulera son combat !`;
+  }
+
+  // encore éligible ? (présent dans l’un des deux maps serveur)
+  isPendingUnstable(id: string): boolean {
+    const g: any = this.game; if (!g) return false;
+    const t = g.unstableEligibleTargets || {};
+    const l = g.unstableEligibleLocations || {};
+    return !!(t[id] || l[id]);
   }
 }

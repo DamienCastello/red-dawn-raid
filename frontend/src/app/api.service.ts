@@ -1,5 +1,46 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
+import { map } from 'rxjs/operators';
+
+// === Types du snapshot (côté back) ===
+export type GameSnapshot = {
+  id: string; status: string; raid: number; phase: Phase;
+  weather: { roll: number|null; status: string|null; nameFr: string|null; descFr: string|null } | null;
+
+  players: Array<{
+    id: string; username: string; role: Player['role'];
+    hp: number; corruption: number; potions: string[];
+    attackDice: string; defenseDice: string;
+    wood: number; herbs: number; stone: number; iron: number;
+    water: number; gold: number; souls: number; silver: number;
+    hand: string[];
+  }>;
+
+  center: Array<{ playerId: string; card: string; faceUp: boolean }>;
+  raidMods: Record<string, RawStatMod[]>;
+  hasUpcomingCombat: boolean;
+  readyForPhase3: string[];
+
+  decks?: {
+    actionsVamp:   { left: number; discard: number };
+    actionsHunters:{ left: number; discard: number };
+    potions:       { left: number; discard: number };
+  };
+
+  currentBite?: { attackerId: string; targetId: string; location: string; roll: number|null; resolvedAtMillis: number|null } | null;
+
+  combatsQueue: Array<{
+    id: string; location: string; attackerId: string; defenderId: string;
+    attackerRoll: number|null; defenderRoll: number|null;
+    resolvedAtMillis: number|null; breakdownLines: string[];
+  }>;
+  currentCombatIndex: number|null;
+  currentCombat: GameSnapshot['combatsQueue'][number] | null;
+
+  history: Array<{ ts: number; raid: number; phase: Phase; text: string }>;
+  messages: string[];
+  ts: number; whoami: string;
+};
 
 export interface HistoryItem {
   raid: number;
@@ -71,7 +112,7 @@ export type Game = {
   potionsLeft: number;    potionsDiscard: number;
   // --- Step 3 ---
   messages: string[];
-  prePhaseDeadlineMillis: number;  // fin de fenêtre PREPHASE3 (ms epoch)
+  prePhaseDeadlineMillis: number;                       // fin de fenêtre PREPHASE3 (ms epoch)
     // --- PHASE3 Combats ---
   combatsQueue?: RoundFight[];
   currentCombatIndex?: number | null;
@@ -85,7 +126,7 @@ export type Game = {
   weatherDescriptionFr?: string|null;
   weatherPhaseDeadlineMillis?: number;
   weatherShowUntilMillis?: number;
-  raidMods?: Record<string, StatMod[]>;  // buffs/debuffs par joueur (affichage)
+  raidMods: Record<string, RawStatMod[]>;               // buffs/debuffs par joueur (affichage)
   unstableEligibleTargets?: Record<string, string[]>;   // instableId -> [targetIds]
   unstableTargetByPlayer?: Record<string, string>;      // instableId -> chosenTargetId
   currentBite?: Bite | null;                            // morsure en cours (après dégâts)
@@ -93,20 +134,18 @@ export type Game = {
 
 export type BiteAttempt = {
   id: string;
-  attackerId: string; // vampire
-  targetId: string;   // chasseur
+  attackerId: string;
+  targetId: string;
   location: string;
   roll?: number|null;
   resolvedAtMillis?: number|null;
 };
 
-export type StatMod = { 
+export type RawStatMod = {
   stat: 'ATTACK'|'DEFENSE'|'MULTIPLE'|'INSTABLE'|'SERVITEUR';
   amount: number;
   source: string;
-  labelFr: string,
-  displayOnly?: boolean;
- };
+};
 
 export type JoinResponse = { game: Game; playerId: string; playerToken: string };
 
@@ -143,7 +182,11 @@ export class ApiService {
   health()             { return this.http.get<Health>(`${this.base}/health`); }
   listGames()          { return this.http.get<Game[]>(`${this.base}/games`); }
   createGame()         { return this.http.post<Game>(`${this.base}/games`, {}); }
-  getGame(id: string)  { return this.http.get<Game>(`${this.base}/games/${id}`); }
+  
+  getGame(id: string) {
+    return this.http.get<GameSnapshot>(`${this.base}/games/${id}`);
+  }
+
   joinGame(id: string) {
     return this.http.post<JoinResponse>(`${this.base}/games/${id}/join`, {});
   }
@@ -152,40 +195,54 @@ export class ApiService {
   }
 
   selectLocation(id: string, card: string) {
-    return this.http.post<Game>(`${this.base}/games/${id}/select-location`, { card });
+    return this.http.post<void>(`${this.base}/games/${id}/select-location`, { card });
   }
+  
   skipPrePhase3(id: string) {
-    return this.http.post<Game>(`${this.base}/games/${id}/skip`, {});
+    return this.http.post<void>(`${this.base}/games/${id}/skip`, {});
   }
 
   rollDice(gameId: string) {
-    return this.http.post<Game>(`${this.base}/games/${gameId}/roll`, {});
+    return this.http.post<void>(`${this.base}/games/${gameId}/roll`, {});
+  }
+
+  combatContinue(gameId: string) {
+    return this.http.post<void>(`${this.base}/games/${gameId}/combat/continue`, {});
   }
 
   rollWeather(id: string){
-    return this.http.post<Game>(`${this.base}/games/${id}/weather/roll`, {});
+    return this.http.post<void>(`${this.base}/games/${id}/weather/roll`, {});
   }
 
   usePotion(gameId: string, type: string){
-    return this.http.post<Game>(`${this.base}/games/${gameId}/potions/use`, { type });
+    return this.http.post<void>(`${this.base}/games/${gameId}/potions/use`, { type });
   }
 
   rollCorruption(gameId: string){
-    return this.http.post<Game>(`${this.base}/games/${gameId}/corruption/roll`, {});
+    return this.http.post<void>(`${this.base}/games/${gameId}/corruption/roll`, {});
   }
 
   assignUnstableTarget(gameId: string, unstableId: string, targetId: string) {
     const params = new HttpParams()
       .set('unstableId', unstableId)
       .set('targetId', targetId);
-    return this.http.post<Game>(`${this.base}/games/${gameId}/unstable/assign-target`, null, { params });
+    return this.http.post<void>(`${this.base}/games/${gameId}/unstable/assign-target`, null, { params });
   }
 
   assignUnstableHarvest(gameId: string, unstableId: string, loc: string) {
     const params = new HttpParams()
       .set('unstableId', unstableId)
       .set('loc', loc);
-    return this.http.post<Game>(`${this.base}/games/${gameId}/unstable/assign-harvest`, null, { params });
+    return this.http.post<void>(`${this.base}/games/${gameId}/unstable/assign-harvest`, null, { params });
+  }
+
+  assignUnstableNothing(gameId: string, unstableId: string) {
+    const params = new HttpParams().set('unstableId', unstableId);
+    return this.http.post<void>(`${this.base}/games/${gameId}/unstable/assign-nothing`, null, { params });
+  }
+
+  advancePhase(id: string, to: 'PHASE0'|'PHASE1'|'PHASE2'|'PREPHASE3'|'PHASE3'|'PHASE4') {
+    return this.http.post<void>(`${this.base}/games/${id}/advance?to=${to}`, {});
   }
 
 

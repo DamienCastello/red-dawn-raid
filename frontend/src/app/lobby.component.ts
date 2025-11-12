@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ApiService, Game } from './api.service';
+import { LiveService, GameEvent } from './live.service';
 
 @Component({
   standalone: true,
@@ -69,55 +70,29 @@ import { ApiService, Game } from './api.service';
 export class LobbyComponent {
   private api = inject(ApiService);
   private router = inject(Router);
+    private live = inject(LiveService);
 
   games: Game[] = [];
   selected?: Game;
   username = '';
   errorMsg = '';
 
-  private lastSelectedStatus?: string;
-  private poll?: any;
+  private lastSelectedStatus: string | undefined;
 
-  ngOnInit(){
-    this.list();
-    this.username = sessionStorage.getItem('username') ?? '';
+  private unsubscribeLobby?: () => void;
+  private unsubscribeSelectedGame?: () => void;
 
-    // Auto-sélection UNE FOIS (si j'avais déjà une partie)
-    const myGameId = this.currentGameId;
-    if (myGameId) {
-      this.api.getGame(myGameId).subscribe({
-        next: g => {
-          this.selected = g;
-          this.lastSelectedStatus = g.status; // mémorise le statut pour détecter CREATED->ACTIVE
+  ngOnInit() {
+    this.list(); // hydrate la liste une fois
 
-          // ➜ CHANGEMENT : on NE redirige PAS ici même si ACTIVE.
-          // La redirection automatique reste gérée uniquement par le polling CREATED->ACTIVE.
-        },
-        error: () => {}
-      });
-    }
-
-    // Polling: rafraîchit la partie sélectionnée et NE redirige que lors du passage CREATED->ACTIVE
-    this.poll = setInterval(() => {
-      if (!this.selected) return;
-      this.api.getGame(this.selected.id).subscribe({
-        next: g => {
-          const wasActive = this.lastSelectedStatus === 'ACTIVE';
-          const nowActive = g.status === 'ACTIVE';
-
-          this.selected = g;
-
-          // Redirection automatique UNIQUEMENT quand ça vient de démarrer
-          if (!wasActive && nowActive && this.alreadyInSelected) {
-            this.router.navigate(['/game', g.id]);
-          }
-          this.lastSelectedStatus = g.status;
-        }
-      });
-    }, 2000);
+    // WS global lobby
+    this.unsubscribeLobby = this.live.subscribeLobby((e) => this.onLobbyEvent(e));
   }
 
-  ngOnDestroy(){ if(this.poll) clearInterval(this.poll); }
+  ngOnDestroy(){
+    this.unsubscribeLobby?.();
+    this.unsubscribeSelectedGame?.();
+  }
 
   private showError(e:any){
     try{ this.errorMsg = e?.error?.message || 'Erreur'; }catch{ this.errorMsg='Erreur'; }
@@ -128,6 +103,63 @@ export class LobbyComponent {
   private get myUserId(): string {
     return sessionStorage.getItem('userId') ?? '';
   }
+
+  onSelect(g: Game){ // ou ta méthode équivalente
+    this.selected = g;
+    this.lastSelectedStatus = g.status;
+
+    // (re)abonnement au topic de la partie sélectionnée
+    this.unsubscribeSelectedGame?.();
+    this.unsubscribeSelectedGame = this.live.subscribeGame(g.id, (ev) => {
+      if (ev.type === 'PHASE_CHANGED') {
+        // Si je suis DÉJÀ joueur de cette partie et qu’elle vient de démarrer, je redirige
+        if (this.alreadyInSelected && this.lastSelectedStatus !== 'ACTIVE') {
+          this.router.navigate(['/game', g.id]);
+        }
+        // même si je ne redirige pas, je mets le statut local à jour
+        this.lastSelectedStatus = 'ACTIVE';
+        // et j’update la tuile
+        if (this.selected?.id === g.id) this.selected = { ...this.selected, status: 'ACTIVE' } as any;
+      }
+    });
+  }
+
+  private onLobbyEvent(e: GameEvent){
+    if (e.type === 'GAME_CREATED') {
+      // insère/rafraîchit l’entrée dans la liste
+      const g = this.asListItem(e);
+      this.upsertInList(g);
+      return;
+    }
+
+    if (e.type === 'LOBBY_UPDATED') {
+      const g = this.asListItem(e);
+      this.upsertInList(g);
+
+      // si c’est la partie actuellement sélectionnée, mets à jour le panneau de droite
+      if (this.selected?.id === g.id) {
+        this.selected = { ...this.selected, status: g.status, players: g.players } as any;
+        this.lastSelectedStatus = g.status;
+      }
+      return;
+    }
+  }
+
+  private asListItem(e: Extract<GameEvent, {type:'GAME_CREATED'|'LOBBY_UPDATED'}>) {
+    return {
+      id: e.payload.gameId,
+      status: e.payload.status,
+      players: e.payload.players // adapte à ton type (compte, usernames…)
+    } as any; // GameListItem
+  }
+
+  private upsertInList(item: any){
+    const i = this.games.findIndex(x => x.id === item.id);
+    if (i >= 0) this.games[i] = { ...this.games[i], ...item };
+    else this.games.unshift(item);
+    this.games = [...this.games];
+  }
+
 
   // ➜ AMÉLIORATION : on s’appuie sur la vérité serveur (players[]) plutôt que sur le storage
   isInGame(g?: Game): boolean {
@@ -144,15 +176,9 @@ export class LobbyComponent {
         if (!this.selected) {
           const mine = gs.find(g => this.isInGame(g));
           if (mine) {
-            this.selected = mine;
-            this.lastSelectedStatus = mine.status;
-
-            // (optionnel) synchro du storage tant qu’on l’utilise encore
+            this.onSelect(mine); // ✅ crée l’abonnement WS de suite
             sessionStorage.setItem('gameId', mine.id);
             sessionStorage.setItem('playerId', this.myUserId);
-
-            // ➜ CHANGEMENT : on NE redirige PAS ici même si la game est déjà ACTIVE.
-            // La navigation se fera au clic “Reprendre la partie” ou via le polling CREATED->ACTIVE.
           }
         }
       },
@@ -160,18 +186,13 @@ export class LobbyComponent {
     });
   }
 
-  // Sélection d'une game dans la liste (ne navigue PAS)
   pick(g: Game){
-    this.selected = g;
-    this.lastSelectedStatus = g.status;
-
-    // ➜ CHANGEMENT : pas de navigation automatique même si je suis dedans et ACTIVE.
-    // L’utilisateur doit cliquer “Reprendre la partie”.
+    this.onSelect(g);  // s’abonner au /topic/games/{id} de la sélection
   }
 
   create(){
     this.api.createGame().subscribe({
-      next: g => { this.selected = g; this.lastSelectedStatus = g.status; this.list(); },
+      next: g => { this.onSelect(g); this.list(); }, // abonné au topic de la partie créée
       error: e => this.showError(e)
     });
   }
@@ -200,26 +221,32 @@ export class LobbyComponent {
   }
 
   // Rejoindre la game sélectionnée (si autorisé)
-  join() {
-    if (!this.selected) return;
+  join(){
+    const sel = this.selected;
+    if (!sel) return;
+    const selId = sel.id;
 
-    // Si je suis déjà dans cette partie -> goToGame
-    if (this.alreadyInSelected) { this.goToGame(); return; }
+    this.api.joinGame(selId).subscribe({
+      next: () => {
+        // Mise à jour locale optimiste
+        const me = { id: this.myUserId, username: this.currentUsername };
 
-    // Si j'ai déjà une autre partie -> bloqué par l'UI (détection serveur + fallback storage)
-    if (this.inOtherGameSelected) { this.showError('Vous avez déjà rejoint une autre partie.'); return; }
+        // on part de l'état le plus frais dispo (si quelqu'un a mis à jour entre-temps)
+        const current = this.selected?.players ?? sel.players ?? [];
+        const already = current.some(p => p.id === me.id);
 
-    this.api.joinGame(this.selected.id).subscribe({
-      next: r => {
-        this.selected = r.game;
-        this.lastSelectedStatus = r.game.status;
+        if (!already) {
+          const updated = {
+            ...(this.selected ?? sel),
+            players: [...current, me]
+          } as any;
 
-        // (optionnel) synchro storage pour compat avec l’existant
-        sessionStorage.setItem('playerId', r.playerId);
-        sessionStorage.setItem('username', this.currentUsername);
-        sessionStorage.setItem('gameId', this.selected!.id);
+          this.selected = updated;
+          this.upsertInList({ id: updated.id, players: updated.players });
+        }
 
-        this.list();
+        // storage tant qu’on garde ce fallback
+        sessionStorage.setItem('gameId', selId);
       },
       error: e => this.showError(e)
     });
@@ -227,24 +254,7 @@ export class LobbyComponent {
 
   start(){
     if (!this.selected) return;
-
-    // On mémorise l'ancien statut (normalement 'CREATED')
-    const prev = this.lastSelectedStatus;
-
-    this.api.startGame(this.selected.id).subscribe({
-      next: g => {
-        // La partie est maintenant ACTIVE côté serveur
-        this.selected = g;
-
-        // Point clé : NE PAS écraser lastSelectedStatus avec 'ACTIVE'
-        // On le laisse à l'état précédent pour que le polling détecte
-        // la transition CREATED -> ACTIVE et redirige tout le monde.
-        this.lastSelectedStatus = prev ?? 'CREATED';
-
-        //rafraîchir la liste
-        this.list();
-      },
-      error: e => this.showError(e)
-    });
+    this.api.startGame(this.selected.id).subscribe({ error: e => this.showError(e) });
+    // pas de navigate() ici : on laisse l’event WS piloter pour tous les onglets
   }
 }

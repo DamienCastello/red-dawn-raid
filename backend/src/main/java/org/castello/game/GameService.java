@@ -9,6 +9,13 @@ import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import org.castello.web.dto.GameSnapshot;
+import org.springframework.scheduling.TaskScheduler;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.castello.persistence.GameEntity;
 import org.castello.persistence.GameRepository;
@@ -18,14 +25,24 @@ import java.util.*;
 @Service
 public class GameService {
 
+    private final TaskScheduler raidScheduler;
+    private final TransactionTemplate tx;
+
 // ----- PERSISTENCE -----
     private final GameRepository repo;
     private final ObjectMapper mapper; // Jackson fourni par Spring Boot
+    private final org.castello.live.LiveEvents live;
 
-    public GameService(GameRepository repo, ObjectMapper mapper) {
+    public GameService(GameRepository repo, @Qualifier("raidTaskScheduler") TaskScheduler raidScheduler, PlatformTransactionManager tm, ObjectMapper mapper,
+                       org.castello.live.LiveEvents live) {
         this.repo = repo;
+        this.raidScheduler = raidScheduler;
+        this.tx = new TransactionTemplate(tm);
         this.mapper = mapper;
+        this.live = live;
     }
+    private static final Logger log = LoggerFactory.getLogger(GameService.class);
+
 
     private String toJson(Game g) {
         try { return mapper.writeValueAsString(g); }
@@ -43,6 +60,203 @@ public class GameService {
         return fromJson(e.getStateJson());
     }
 
+    private void afterCommit(Runnable r) {
+        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager
+                    .registerSynchronization(new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override public void afterCommit() { r.run(); }
+                    });
+        } else {
+            // au cas où on l’appelle hors transaction (no-op de tx) : on exécute quand même
+            r.run();
+        }
+    }
+
+    public GameSnapshot viewSnapshot(String gameId, String userId) {
+        Game g = findOr404(gameId);
+
+        boolean isVamp = g.getPlayers().stream()
+                .anyMatch(p -> userId.equals(p.getId()) && "VAMPIRE".equals(p.getRole()));
+
+        // Wrappers null-safe (raccourcis locaux)
+        List<Player> playersSrc                      = (g.getPlayers()               != null) ? g.getPlayers()               : java.util.Collections.emptyList();
+        List<CenterBoard> centerSrc                  = (g.getCenter()                != null) ? g.getCenter()                : java.util.Collections.emptyList();
+        Map<String, List<StatMod>> raidModsSrc       = (g.getRaidMods()              != null) ? g.getRaidMods()              : java.util.Collections.emptyMap();
+        java.util.Set<String> readySet               = (g.getReadyForPhase3()        != null) ? g.getReadyForPhase3()        : java.util.Collections.emptySet();
+        List<Game.HistoryItem> historySrc            = (g.getHistory()               != null) ? g.getHistory()               : java.util.Collections.emptyList();
+        List<RoundFight> combatsQueueSrc             = (g.getCombatsQueue()          != null) ? g.getCombatsQueue()          : java.util.Collections.emptyList();
+        List<String> messagesSrc                     = (g.getMessages()              != null) ? g.getMessages()              : java.util.Collections.emptyList();
+
+        Map<String, List<String>> uTargets =
+                isVamp && g.getUnstableEligibleTargets()!=null
+                        ? new java.util.HashMap<>(g.getUnstableEligibleTargets())
+                        : java.util.Collections.emptyMap();
+
+        Map<String, List<String>> uLocs =
+                isVamp && g.getUnstableEligibleLocations()!=null
+                        ? new java.util.HashMap<>(g.getUnstableEligibleLocations())
+                        : java.util.Collections.emptyMap();
+
+        Map<String, String> uChosenTargets =
+                isVamp && g.getUnstableTargetByPlayer()!=null
+                        ? new java.util.HashMap<>(g.getUnstableTargetByPlayer())
+                        : java.util.Collections.emptyMap();
+
+        Map<String, String> uChosenHarvests =
+                isVamp && g.getUnstableHarvestLocByPlayer()!=null
+                        ? new java.util.HashMap<>(g.getUnstableHarvestLocByPlayer())
+                        : java.util.Collections.emptyMap();
+
+        // Weather
+        var weather = new GameSnapshot.WeatherView(
+                g.getWeatherRoll(),
+                (g.getWeatherStatus() != null ? g.getWeatherStatus().name() : null),
+                g.getWeatherStatusNameFr(),
+                g.getWeatherDescriptionFr()
+        );
+
+        // Players
+        List<GameSnapshot.PlayerView> players = g.getPlayers().stream().map(p -> {
+            List<String> potions = g.potionsOf(p.getId());
+            if (potions == null) potions = java.util.List.of(); // null-safe
+
+            return new GameSnapshot.PlayerView(
+                    p.getId(),
+                    p.getUsername(),
+                    p.getRole(),
+                    p.getHp(),
+                    p.getCorruption(),
+                    potions,
+                    p.getAttackDice() != null ? p.getAttackDice() : "D6",
+                    p.getDefenseDice() != null ? p.getDefenseDice() : "D6",
+                    p.getWood(), p.getHerbs(), p.getStone(), p.getIron(),
+                    p.getWater(), p.getGold(), p.getSouls(), p.getSilver(),
+                    p.getId().equals(userId) ? (p.getHand() != null ? p.getHand() : java.util.List.of())
+                            : java.util.List.of()
+            );
+        }).toList();
+
+        // Center
+        List<GameSnapshot.CenterView> center = centerSrc.stream()
+                .map(cb -> new GameSnapshot.CenterView(cb.getPlayerId(), cb.getCard(), cb.isFaceUp()))
+                .toList();
+
+        // Raid mods
+        Map<String, List<GameSnapshot.StatModView>> raidMods = new java.util.HashMap<>();
+        for (var e : raidModsSrc.entrySet()) {
+            var list = (e.getValue() != null) ? e.getValue() : java.util.Collections.<StatMod>emptyList();
+            List<GameSnapshot.StatModView> mapped = list.stream()
+                    .map(m -> new GameSnapshot.StatModView(m.getStat(), m.getAmount(), m.getSource()))
+                    .toList();
+            raidMods.put(e.getKey(), mapped);
+        }
+
+        // Decks
+        var decks = new GameSnapshot.DecksView(
+                new GameSnapshot.DecksView.Pile(g.getVampActionsLeft(),   g.getVampActionsDiscard()),
+                new GameSnapshot.DecksView.Pile(g.getHunterActionsLeft(), g.getHunterActionsDiscard()),
+                new GameSnapshot.DecksView.Pile(g.getPotionsLeft(),       g.getPotionsDiscard())
+        );
+
+        // Bite
+        GameSnapshot.BiteView bite = null;
+        if (g.getCurrentBite() != null) {
+            var b = g.getCurrentBite();
+            bite = new GameSnapshot.BiteView(
+                    b.getAttackerId(), b.getTargetId(), b.getLocation(),
+                    b.getRoll(), b.getResolvedAtMillis()
+            );
+        }
+
+        // Combats queue + current
+        List<GameSnapshot.RoundFightView> combatsQueue = combatsQueueSrc.stream().map(r ->
+                new GameSnapshot.RoundFightView(
+                        r.getId(), r.getLocation(),
+                        r.getAttackerId(), r.getDefenderId(),
+                        r.getAttackerRoll(), r.getDefenderRoll(),
+                        r.getResolvedAtMillis(),
+                        (r.getBreakdownLines() != null ? r.getBreakdownLines() : java.util.List.of())
+                )
+        ).toList();
+
+        GameSnapshot.RoundFightView currentCombat = null;
+        if (g.getCurrentCombat() != null) {
+            var r = g.getCurrentCombat();
+            currentCombat = new GameSnapshot.RoundFightView(
+                    r.getId(), r.getLocation(),
+                    r.getAttackerId(), r.getDefenderId(),
+                    r.getAttackerRoll(), r.getDefenderRoll(),
+                    r.getResolvedAtMillis(),
+                    (r.getBreakdownLines() != null ? r.getBreakdownLines() : java.util.List.of())
+            );
+        }
+
+        // History
+        List<GameSnapshot.HistoryItemView> history = historySrc.stream().map(h ->
+                new GameSnapshot.HistoryItemView(
+                        h.getTs(),
+                        h.getRaid(),
+                        (h.getPhase() != null ? h.getPhase().name() : null),
+                        h.getText()
+                )
+        ).toList();
+
+        // Ready → liste (copie) pour ne pas exposer la Set interne
+        java.util.List<String> readyList = new java.util.ArrayList<>(readySet);
+
+        return new GameSnapshot(
+                g.getId(),
+                (g.getStatus() != null ? g.getStatus().name() : "CREATED"),
+                g.getRaid(),
+                (g.getPhase()  != null ? g.getPhase().name()  : "PHASE0"),
+                weather,
+                players,
+                center,
+                raidMods,
+                g.isHasUpcomingCombat(),
+                readyList,
+                decks,
+                bite,
+                combatsQueue,
+                g.getCurrentCombatIndex(),
+                currentCombat,
+                uTargets,
+                uLocs,
+                uChosenTargets,
+                uChosenHarvests,
+                history,
+                messagesSrc,
+                System.currentTimeMillis(),
+                userId
+        );
+    }
+
+    private void initPhase0Structures(Game g) {
+        if (g.getRaidMods() == null)             g.setRaidMods(new java.util.HashMap<>());
+        if (g.getRaidEffects() == null)          g.setRaidEffects(new java.util.HashMap<>());
+        if (g.getMessages() == null)             g.setMessages(new java.util.ArrayList<>());
+        if (g.getHistory() == null)              g.setHistory(new java.util.ArrayList<>());
+        g.getReadyForPhase3().clear();
+        if (g.getUnstableEligibleTargets() == null)   g.setUnstableEligibleTargets(new java.util.HashMap<>());
+        if (g.getUnstableTargetByPlayer() == null)    g.setUnstableTargetByPlayer(new java.util.HashMap<>());
+        if (g.getUnstableEligibleLocations() == null) g.setUnstableEligibleLocations(new java.util.HashMap<>());
+        if (g.getUnstableHarvestLocByPlayer() == null)g.setUnstableHarvestLocByPlayer(new java.util.HashMap<>());
+        if (g.getCombatsQueue() == null)         g.setCombatsQueue(new java.util.ArrayList<>());
+        if (g.getCenter() == null)               g.setCenter(new java.util.ArrayList<>());
+        if (g.getPotionsByPlayer() == null)      g.setPotionsByPlayer(new java.util.HashMap<>());
+        // Bite/combat reset explicite
+        g.setCurrentBite(null);
+        g.setCurrentCombatIndex(null);
+        g.setCurrentCombat(null);
+        g.setHasUpcomingCombat(false);
+        // Pour chaque joueur, on s'assure que la main est non nulle
+        for (var p : g.getPlayers()) {
+            if (p.getHand() == null) p.setHand(new java.util.ArrayList<>());
+            if (p.getAttackDice() == null)  p.setAttackDice("D6");
+            if (p.getDefenseDice() == null) p.setDefenseDice("D6");
+        }
+    }
+
     /** Sauvegarde en préservant la version (évite les inserts involontaires). */
     private void save(@NonNull Game g) {
         repo.findById(g.getId()).ifPresentOrElse(existing -> {
@@ -56,25 +270,52 @@ public class GameService {
         });
     }
 
-// ----------------------------------------------------------
-
-    private static final long PHASE_DELAY_MS = 5000L;   // 5 s (fenêtre “actions” quand tout le monde a joué)
-    private static final long PREPHASE3_WINDOW_MS = 30_000L; // 20 s avant PHASE3
 
 // ---------- utilitaires ----------
     private static final Random RND = new Random();
 
-    private boolean computeHasUpcomingCombat(@NonNull Game g) {
-        var vampOpt = getVamp(g);
-        if (vampOpt.isEmpty()) return false;
-        var vamp = vampOpt.get();
-        var groups = groupPlayersByLocation(g);
-        for (var e : groups.entrySet()) {
-            var onLoc = e.getValue();
-            boolean enemyHere = onLoc.stream().anyMatch(p -> "VAMPIRE".equals(p.getRole()) || "SERVANT".equals(p.getRole()));
-            boolean hunterHere = onLoc.stream().anyMatch(p -> "HUNTER".equals(p.getRole()));
-            if (enemyHere && hunterHere) return true;
+    private boolean computeHasUpcomingCombat(Game g) {
+        // Face-up uniquement
+        var faceUp = (g.getCenter() != null ? g.getCenter() : java.util.List.<CenterBoard>of())
+                .stream()
+                .filter(CenterBoard::isFaceUp)
+                .toList();
+        if (faceUp.isEmpty()) return false;
+
+        // Instables affectés à la récolte => NE COMBATTENT PAS ce raid
+        java.util.Set<String> harvesters = (g.getUnstableHarvestLocByPlayer() != null)
+                ? g.getUnstableHarvestLocByPlayer().keySet()
+                : java.util.Set.of();
+
+        // Parcourt les lieux révélés
+        java.util.Set<String> locs = new java.util.HashSet<>();
+        for (var cb : faceUp) locs.add(cb.getCard());
+
+        for (String loc : locs) {
+            var idsOnLoc = faceUp.stream()
+                    .filter(cb -> loc.equals(cb.getCard()))
+                    .map(CenterBoard::getPlayerId)
+                    .toList();
+
+            var playersOnLoc = idsOnLoc.stream()
+                    .map(pid -> g.getPlayers().stream().filter(p -> p.getId().equals(pid)).findFirst().orElse(null))
+                    .filter(java.util.Objects::nonNull)
+                    .toList();
+
+            boolean hasEnemy = playersOnLoc.stream()
+                    .anyMatch(p -> "VAMPIRE".equals(p.getRole()) || "SERVANT".equals(p.getRole()));
+
+            boolean hasEligibleHunter = playersOnLoc.stream()
+                    .anyMatch(p -> "HUNTER".equals(p.getRole())
+                            && p.getHp() > 0
+                            && !harvesters.contains(p.getId())); // <-- exclusion clé
+
+            if (hasEnemy && hasEligibleHunter) return true;
         }
+
+        // (optionnel : si un instable a été explicitement assigné sur une cible, il y aura combat)
+        if (g.getUnstableTargetByPlayer() != null && !g.getUnstableTargetByPlayer().isEmpty()) return true;
+
         return false;
     }
 
@@ -292,6 +533,7 @@ public class GameService {
                 );
 
         save(g);
+        live.lobbyUpdated(g);
         return g;
     }
 
@@ -303,84 +545,86 @@ public class GameService {
         if (g.getPlayers().size() < 2)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "need at least 2 players");
 
+        // === Etat global ===
         g.setStatus(GameStatus.ACTIVE);
         g.setRaid(1);
-
-        // === PHASE0 : météo ===
         g.setPhase(Phase.PHASE0);
-        g.setPhaseStartMillis(System.currentTimeMillis());
+
+        // === PHASE0 : météo (reset complet, sans push d’events) ===
         g.setWeatherRoll(null);
         g.setWeatherStatus(null);
         g.setWeatherStatusNameFr(null);
         g.setWeatherDescriptionFr(null);
-        g.setWeatherShowUntilMillis(0L);
 
-        // petit timeout confort player : on laisse 3s avant d’ouvrir la modale
-        g.setWeatherModalNotBeforeMillis(System.currentTimeMillis() + 5_000L);
+        // Messages persistés (le feed "live" sera émis après commit)
+        g.setMessages(new ArrayList<>(List.of("Tirage météo ...")));
 
-
-        // PHASE1 (chasseurs)
-        //Le passage en PHASE1 est planifié par applyWeatherRoll(...)
-
-        // rôles + mains
+        // --- Rôles + mains (répartition initiale) ---
         int vampIndex = RND.nextInt(g.getPlayers().size());
         for (int i = 0; i < g.getPlayers().size(); i++) {
             Player p = g.getPlayers().get(i);
             p.setRole(i == vampIndex ? "VAMPIRE" : "HUNTER");
             p.setHand(new ArrayList<>(List.of("forest", "quarry", "lake", "manor")));
+
+            // dés de base
+            p.setAttackDice("D6");
+            p.setDefenseDice("D6");
         }
 
-        // actions & potions // dev -> a supprimer a la fin
-        // Donner 1 potion de chaque aux chasseurs pour tester
+        // PV init (vamp = 20 + 10 * nb chasseurs)
+        int huntersCount = (int) g.getPlayers().stream().filter(p -> !"VAMPIRE".equals(p.getRole())).count();
+        for (var p : g.getPlayers()) {
+            p.setHp("VAMPIRE".equals(p.getRole()) ? 20 + huntersCount * 10 : 20);
+        }
+
+        // --- Inventaire potions (dev/test) ---
+        /*
         for (var p : g.getPlayers()) {
             g.getPotionsByPlayer().computeIfAbsent(p.getId(), __ -> new ArrayList<>());
             if ("HUNTER".equals(p.getRole())) {
-                g.getPotionsByPlayer().get(p.getId()).addAll(List.of("FORCE","ENDURANCE","VIE"));
+                g.getPotionsByPlayer().get(p.getId()).addAll(List.of("FORCE", "ENDURANCE", "VIE"));
             }
         }
+        */
 
-        // init hp & dices
-        int huntersCount = (int) g.getPlayers().stream().filter(p -> !"VAMPIRE".equals(p.getRole())).count();
-        for (var p : g.getPlayers()) {
-            // Dés de base
-            p.setAttackDice("D6");
-            p.setDefenseDice("D6");
-            // PV
-            if ("VAMPIRE".equals(p.getRole())) {
-                p.setHp(20 + huntersCount * 10); // ex: 2 chasseurs -> 40 PV
-            } else {
-                p.setHp(20);
-            }
-        }
-
-        // compteurs + centre
+        // --- Compteurs / centre ---
         g.setVampActionsLeft(20);    g.setVampActionsDiscard(0);
         g.setHunterActionsLeft(35);  g.setHunterActionsDiscard(0);
         g.setPotionsLeft(22);        g.setPotionsDiscard(0);
         g.setCenter(new ArrayList<>());
 
-        // clear auto-advance
-        g.setPendingNextPhase(null);
-        g.setNextAutoAdvanceAtMillis(0);
+        // --- Structures de raid (vides, prêtes) ---
+        if (g.getRaidMods() == null) g.setRaidMods(new HashMap<>());
+        else g.getRaidMods().clear();
 
-        save(g);
-        return g;
-    }
-
-    // ---------- TICK ----------
-    @Transactional
-    public Game tickAndGet(String gameId) {
-        Game g = findOr404(gameId);
-
-        String before = toJson(g);
-
-        maybeAutoAdvance(g);
-
-        String after = toJson(g);
-
-        if (!after.equals(before)) {
-            save(g);
+        if (g.getRaidEffects() == null) g.setRaidEffects(new HashMap<>());
+        g.getRaidEffects().clear();
+        for (var p : g.getPlayers()) {
+            g.getRaidEffects().put(p.getId(), new RaidEffects());
         }
+
+        g.setHarvestedRaid(null);
+        g.setHasUpcomingCombat(false);
+        g.getReadyForPhase3().clear();
+
+        // ====== COMMIT des changements ======
+        save(g);
+
+        // ====== EVENTS APRÈS COMMIT ======
+        afterCommit(() -> {
+            // (1) Notifier le lobby (si tu l’utilises)
+            live.gameCreated(g);
+
+            // (2) Petite ligne de feed (indépendante des messages persistés)
+            pushLive(g, "Préparation du tirage météo…");
+
+            // (3) Optionnel mais propre: informer le front que les mods sont (ré)initialisés
+            live.raidModsUpdated(g);
+
+            // (4) Phase visible côté clients → ils feront un GET propre après cet event
+            live.phaseChanged(g);
+        });
+
         return g;
     }
 
@@ -398,50 +642,36 @@ public class GameService {
         return vamp.isPresent() && hasPlayed(g, vamp.get().getId());
     }
 
-    private void planNextPhase(@NonNull Game g, Phase next) {
-        g.setPendingNextPhase(next);
-        g.setNextAutoAdvanceAtMillis(System.currentTimeMillis() + PHASE_DELAY_MS);
+    private boolean allVampSideSelected(Game g) {
+        // le vampire doit toujours avoir joué (même s'il y a 0 servant)
+        var vamp = getVamp(g).orElseThrow();
+
+        boolean vampireOk = hasPlayed(g, vamp.getId());
+
+        boolean allServantsOk = g.getPlayers().stream()
+                .filter(p -> "SERVANT".equals(p.getRole()))
+                .filter(p -> p.getHp() > 0) // on ignore les servants KO pour ne pas bloquer
+                .allMatch(p -> hasPlayed(g, p.getId()));
+
+        return vampireOk && allServantsOk;
     }
 
-    private void planNextPhaseWithDelay(@NonNull Game g, Phase next, long delayMs) {
-        g.setPendingNextPhase(next);
-        g.setNextAutoAdvanceAtMillis(System.currentTimeMillis() + delayMs);
-    }
-
-    /**
-     * Applique, si nécessaire, une auto-avance de phase préprogrammée.
-     *
-     * Principe :
-     * - Certaines transitions sont planifiées (pendingNextPhase + nextAutoAdvanceAtMillis).
-     * - Si la date butoir est atteinte, on bascule dans la phase suivante en appliquant
-     *   les effets d’entrée/sortie de phase (logs/historiques, timers, etc.).
-     * - Cette méthode est appelée en “tick” sur la plupart des lectures/commandes afin de
-     *   garantir que l’état de partie reflète les auto-avances prévues.
-     *
-     * In:  Game g (muté si auto-avance)
-     * Out: void (mais g peut changer de phase et enrichir ses historiques)
-     */
-    private void applyPendingPhase(@NonNull Game g) {
-        // applique le passage de phase planifié (PHASE_DELAY_MS) et réinitialise le timer de phase
-        Phase to = g.getPendingNextPhase();
+    private void applyPhaseEntry(@NonNull Game g, @NonNull Phase to) {
         g.setPhase(to);
-        g.setPendingNextPhase(null);
-        g.setNextAutoAdvanceAtMillis(0);
-        g.setPhaseStartMillis(System.currentTimeMillis());
 
         switch (to) {
             case PHASE0 -> {
+                initPhase0Structures(g);
+
+                // Reset météo + messages de démarrage de raid
                 g.setWeatherRoll(null);
                 g.setWeatherStatus(null);
                 g.setWeatherStatusNameFr(null);
                 g.setWeatherDescriptionFr(null);
-                g.setWeatherShowUntilMillis(0L);
-                g.setPhaseStartMillis(System.currentTimeMillis());
-                g.setMessages(new ArrayList<>(java.util.List.of("Tirage météo ...")));
+                g.setMessages(new ArrayList<>(List.of("Tirage météo ...")));
 
+                // Purges/rafs “début de raid”
                 if (g.getRaidMods() == null) g.setRaidMods(new HashMap<>());
-
-                // purge des effets transitoires (potions/actions) du raid précédent
                 for (var list : g.getRaidMods().values()) {
                     if (list != null) {
                         list.removeIf(m -> {
@@ -451,48 +681,45 @@ public class GameService {
                     }
                 }
 
+                // ⚠️ mutation OK ici (aucun event) :
                 rebuildCorruptionMods(g);
                 rebuildWeatherMods(g);
 
-                // raidEffects safe
                 if (g.getRaidEffects() == null) g.setRaidEffects(new HashMap<>());
                 g.getRaidEffects().clear();
                 for (var p : g.getPlayers()) {
                     g.getRaidEffects().put(p.getId(), new RaidEffects());
                 }
 
-                // récolte reset
                 g.setHarvestedRaid(null);
-
-                // petit timeout confort player : 3s avant la modale
-                g.setWeatherModalNotBeforeMillis(System.currentTimeMillis() + 3_000L);
             }
+
             case PHASE1 -> {
                 g.setMessages(new ArrayList<>(List.of("Les chasseurs planifient un raid…")));
             }
+
             case PHASE2 -> {
                 g.setMessages(new ArrayList<>(List.of("Le vampire s’éveille…")));
             }
+
             case PREPHASE3 -> {
-                // 1) Révéler toutes les cartes maintenant (mais ne pas encore construire les messages)
+                // 1) Révéler
                 for (var cb : g.getCenter()) cb.setFaceUp(true);
 
-                // 2) (Ré)initialiser les structures d’“instable”
+                // 2) Réinit "instable"
                 g.getUnstableTargetByPlayer().clear();
                 g.getUnstableEligibleTargets().clear();
                 g.getUnstableHarvestLocByPlayer().clear();
                 g.getUnstableEligibleLocations().clear();
 
-                // 3) Tirage instable pour chaque chasseur corruption=2
-                List<String> center = new ArrayList<>();
-                List<String> history = new ArrayList<>();
-
+                // 3) Tirage "instable" + messages
+                var center = new ArrayList<String>();
+                var history = new ArrayList<String>();
                 for (var p : getHunters(g)) {
                     if (p.getCorruption() == 2) {
                         int roll = 1 + RND.nextInt(6);
                         addHistory(g, nameOf(g, p.getId()) + " — Corruption (instable) jet de d6 = " + roll + ".");
                         if (roll <= 3) {
-                            // cibles possibles (autres chasseurs vivants)
                             var eligibleHunters = getHunters(g).stream()
                                     .filter(h -> !h.getId().equals(p.getId()))
                                     .filter(h -> h.getHp() > 0)
@@ -500,16 +727,12 @@ public class GameService {
                             if (!eligibleHunters.isEmpty()) {
                                 g.getUnstableEligibleTargets().put(p.getId(), new ArrayList<>(eligibleHunters));
                             }
-                            // lieux toujours possibles
                             g.getUnstableEligibleLocations().put(p.getId(),
                                     new ArrayList<>(List.of("forest","quarry","lake","manor")));
 
-                            String infoA = nameOf(g, p.getId()) + " succombe à la corruption.";
-                            String infoB = nameOf(g, p.getId()) + " est sous contrôle du vampire ...";
-                            // On n’écrit PAS encore dans l’historique ici (sinon doublons à cause du poll)
-                            history.add(infoA);
-                            history.add(infoB);
-                            center.add(infoB);
+                            history.add(nameOf(g, p.getId()) + " succombe à la corruption.");
+                            history.add(nameOf(g, p.getId()) + " est sous contrôle du vampire ...");
+                            center.add(nameOf(g, p.getId()) + " est sous contrôle du vampire ...");
                         } else {
                             String infoC = nameOf(g, p.getId()) + " résiste à la corruption.";
                             history.add(infoC);
@@ -518,48 +741,44 @@ public class GameService {
                     }
                 }
 
-                // 4) Maintenant que l’on sait qui est instable, on peut construire
-                //    les messages de révélation (récoltes/combat), en MASQUANT la récolte
-                //    des chasseurs instables (elle sera remplacée par leur redirection/choix).
                 center.addAll(buildRevealMessages(g));
                 g.setMessages(center);
                 for (var m : history) addHistory(g, m);
 
-                // 5) Fenêtre PREPHASE3
-                g.getReadyForPhase3().clear();
-                long now = System.currentTimeMillis();
-                long window = g.isHasUpcomingCombat() ? PREPHASE3_WINDOW_MS : 4000L;
-                g.setPrePhaseDeadlineMillis(now + window);
-
-                // 6) Verrou : s'il reste un choix instable, on n’auto-planifie pas PHASE3
+                // 4) Flags et liste des participants
                 boolean hasPendingUnstable =
-                        !g.getUnstableEligibleTargets().isEmpty() || !g.getUnstableEligibleLocations().isEmpty();
-                if (!hasPendingUnstable) {
-                    planNextPhaseWithDelay(g, Phase.PHASE3, window);
+                        !(g.getUnstableEligibleTargets().isEmpty() && g.getUnstableEligibleLocations().isEmpty());
+                boolean upcoming = computeHasUpcomingCombat(g); // <-- déjà corrigé pour ignorer les récolteurs
+                g.setHasUpcomingCombat(upcoming);
+
+                // 5) "Prêt" pour non-participants (Vampire/Serviteurs/Chasseurs hors combat)
+                g.getReadyForPhase3().clear();
+                if (g.isHasUpcomingCombat()) {
+                    var participants = participantsOfUpcomingCombat(g); // <-- version corrigée ci-dessus
+                    for (var p : g.getPlayers()) {
+                        if (!participants.contains(p.getId())) {
+                            g.getReadyForPhase3().add(p.getId()); // auto-prêt si hors combat
+                        }
+                    }
+                }
+
+                // 6) Cadence : long si instables en attente OU combats ; sinon avance courte
+                if (hasPendingUnstable || g.isHasUpcomingCombat()) {
+                    schedulePrephaseTimeout(g.getId(), 30_000);
                 } else {
-                    g.setPendingNextPhase(null);
-                    g.setNextAutoAdvanceAtMillis(0L);
+                    scheduleAdvance(g.getId(), Phase.PREPHASE3, Phase.PHASE3, 4000);
                 }
             }
+
             case PHASE3 -> {
-                // 0) Récoltes (une seule fois par raid)
                 if (g.getHarvestedRaid() == null || !g.getHarvestedRaid().equals(g.getRaid())) {
                     applyHarvests(g);
                     g.setHarvestedRaid(g.getRaid());
                 }
-
-                // 1) Construire la file de combats
                 buildCombatsQueue(g);
-
-                // 2) Si aucun combat : message + passage maintenance
-                if (g.getCurrentCombat() == null) {
-                    if (g.getMessages() == null) g.setMessages(new ArrayList<>());
-                    g.getMessages().add("Aucun combat ce raid.");
-                    planNextPhaseWithDelay(g, Phase.PHASE4, 1500L);
-                }
             }
+
             case PHASE4 -> {
-                // Maintenance : on rend les cartes aux propriétaires et on vide le centre
                 for (var cb : g.getCenter()) {
                     var p = g.getPlayers().stream().filter(pp -> pp.getId().equals(cb.getPlayerId())).findFirst().orElse(null);
                     if (p != null) {
@@ -570,230 +789,178 @@ public class GameService {
                 g.getCenter().clear();
                 g.setMessages(new ArrayList<>(List.of("Maintenance…")));
                 addHistory(g, "Maintenance…");
-                // Préparer le raid suivant : retour PHASE0 (météo) → PHASE1
                 g.setRaid(g.getRaid() + 1);
-                planNextPhase(g, Phase.PHASE0);
             }
-            default -> { /* rien de particulier */ }
+
+            default -> { /* rien */ }
         }
     }
 
-    /**
-     * Démarre / cadence le moteur de phase :
-     * - applique une phase planifiée quand l’échéance est atteinte,
-     * - montre les messages météo au centre,
-     * - en PHASE3, gère la succession des duels ET la fenêtre post-morsure.
-     */
-    private void maybeAutoAdvance(@NonNull Game g) {
-        long now = System.currentTimeMillis();
+    public Game advancePhase(String gameId, String userId, Phase to) {
+        if (userId == null || userId.isBlank())
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "missing user id");
 
-        // 1) appliquer une phase planifiée si l’heure est venue
-        if (g.getPendingNextPhase() != null &&
-                g.getNextAutoAdvanceAtMillis() != 0 &&
-                now >= g.getNextAutoAdvanceAtMillis()) {
-            applyPendingPhase(g);
-            return;
-        }
+        tx.execute(status -> {
+            Game g = findOr404(gameId);
 
-        /*
-        // PHASE0 : après la modale (5s), on affiche la météo au centre pendant 5s avant PHASE1
-        if (g.getPhase() == Phase.PHASE0 && g.getWeatherRoll() != null) {
-            boolean modalOver = now >= g.getWeatherShowUntilMillis();
-            boolean centerEmpty = g.getMessages() == null || g.getMessages().isEmpty();
+            Phase cur = g.getPhase();
+            if (cur == null) throw new ResponseStatusException(HttpStatus.CONFLICT, "no current phase");
 
-            if (modalOver && centerEmpty) {
-                // On injecte le message "Météo ..." au centre (sera visible ~5s jusqu'au passage en PHASE1)
-                List<String> msgs = new ArrayList<>();
-                msgs.add("Météo — " + (g.getWeatherStatusNameFr() != null ? g.getWeatherStatusNameFr() : ""));
-                if (g.getWeatherDescriptionFr() != null && !g.getWeatherDescriptionFr().isBlank()) {
-                    msgs.add(g.getWeatherDescriptionFr());
-                }
-                g.setMessages(msgs);
-                // NB : pas de return, on laisse tourner les autres règles; le passage PHASE1 est déjà planifié à +10s total
-            }
-        }
-        */
-
-        // PHASE3 — gestion de la fenêtre post-morsure
-        if (g.getPhase() == Phase.PHASE3 && g.getCurrentBite() != null) {
-            if (g.getCurrentBite().getRoll() != null &&
-                    g.getCurrentBiteNextAdvanceAtMillis() > 0 &&
-                    now >= g.getCurrentBiteNextAdvanceAtMillis()) {
-
-                // on nettoie l’état morsure
-                g.setCurrentBite(null);
-                g.setCurrentBiteNextAdvanceAtMillis(0L);
-
-                // puis on enchaîne comme si on était au "2.b" (duel suivant)
-                int nextIdx = g.getCurrentCombatIndex() + 1;
-                if (nextIdx < g.getCombatsQueue().size()) {
-                    g.setCurrentCombatIndex(nextIdx);
-                    g.setCurrentCombat(g.getCombatsQueue().get(nextIdx));
-                    g.setCurrentCombatNextAdvanceAtMillis(0L);
-                } else {
-                    g.setCurrentCombat(null);
-                    g.setCurrentCombatIndex(null);
-                    g.setCurrentCombatNextAdvanceAtMillis(0L);
-                    planNextPhase(g, Phase.PHASE4);
-                }
-                return;
-            }
-            // Pare-chocs: tant qu'une morsure est ouverte (avec ou sans jet),
-            // on NE recalcule pas le duel courant (sinon dégâts en boucle).
-            return;
-        }
-
-        // 2) Cadencer les combats (PHASE3)
-        if (g.getPhase() == Phase.PHASE3) {
-
-            // ⛳ Garde-fou : si aucun combat n'est prévu, on évite le blocage.
-            if (g.getCurrentCombat() == null) {
-                if (g.getPendingNextPhase() == null) {
-                    if (g.getMessages() == null) g.setMessages(new ArrayList<>());
-                    g.getMessages().add("Aucun combat ce raid.");
-                    addHistory(g, "Aucun combat ce raid.");
-                    // petit délai possible : planNextPhaseWithDelay(g, Phase.PHASE4, 1500L);
-                    planNextPhase(g, Phase.PHASE4);
-                }
-
-                return; // rien à faire d'autre ce tick
+            if (cur == to) {
+                // no-op idempotent: on est déjà à la phase demandée
+                save(g);
+                return g;
             }
 
-            var r = g.getCurrentCombat();
-            boolean bothRolled = r.getAttackerRoll() != null && r.getDefenderRoll() != null;
-
-            // 2.a) Quand les 2 ont jeté le dé → appliquer dégâts + planifier +4s vers "duel suivant"
-            if (bothRolled
-                    && g.getCurrentCombatNextAdvanceAtMillis() == 0L
-                    && (r.getResolvedAtMillis() == null || r.getResolvedAtMillis() == 0L)) {
-                int atk = r.getAttackerRoll();
-                int def = r.getDefenderRoll();
-
-                addHistory(g, nameOf(g, r.getAttackerId()) + " — jet d'attaque = " + atk + ".");
-                addHistory(g, nameOf(g, r.getDefenderId()) + " — jet de défense = " + def + ".");
-
-                // Ajoute les mods meteo (et plus tard cartes), avec exceptions lieu
-                int atkMod = totalModFor(g, r.getAttackerId(), "ATTACK");
-                int defMod = totalModFor(g, r.getDefenderId(), "DEFENSE");
-
-                int dmg = Math.max(0, (atk + atkMod) - (def + defMod));
-
-                // dégâts sur le défenseur (jamais négatif)
-                var defPlayer = g.getPlayers().stream()
-                        .filter(p -> p.getId().equals(r.getDefenderId()))
-                        .findFirst().orElse(null);
-                if (defPlayer != null && dmg > 0) {
-                    defPlayer.setHp(Math.max(0, defPlayer.getHp() - dmg));
+            switch (cur) {
+                case PHASE0 -> {
+                    if (to != Phase.PHASE1) throw new ResponseStatusException(HttpStatus.CONFLICT, "illegal advance");
+                    if (g.getWeatherRoll() == null) throw new ResponseStatusException(HttpStatus.CONFLICT, "weather not rolled");
+                    applyPhaseEntry(g, Phase.PHASE1);
                 }
-
-                String theftLine = null;
-
-                // VOL du vampire
-                var atkPlayer = g.getPlayers().stream()
-                        .filter(p -> p.getId().equals(r.getAttackerId()))
-                        .findFirst().orElse(null);
-                if (atkPlayer != null && "VAMPIRE".equals(atkPlayer.getRole()) &&
-                        defPlayer != null && "HUNTER".equals(defPlayer.getRole()) && dmg > 0) {
-                    theftLine = vampStealOne(g, atkPlayer, defPlayer);
+                case PHASE1 -> {
+                    if (to != Phase.PHASE2) throw new ResponseStatusException(HttpStatus.CONFLICT, "illegal advance");
+                    if (!allHuntersSelected(g)) throw new ResponseStatusException(HttpStatus.CONFLICT, "hunters not all selected");
+                    applyPhaseEntry(g, Phase.PHASE2);
                 }
-
-                // messages lisibles
-                // breakdown poussé en history
-                List<String> atkBk = buildModBreakdownLines(g, r.getAttackerId(), "ATTACK",  r.getAttackerRoll());
-                List<String> defBk = buildModBreakdownLines(g, r.getDefenderId(), "DEFENSE", r.getDefenderRoll());
-
-                for (String ln : atkBk) addHistory(g, ln);
-                for (String ln : defBk) addHistory(g, ln);
-
-                if (r.getBreakdownLines() == null) r.setBreakdownLines(new ArrayList<>());
-                r.getBreakdownLines().clear();
-                r.getBreakdownLines().addAll(atkBk);
-                r.getBreakdownLines().addAll(defBk);
-
-                // résultat du fight
-                String an = nameOf(g, r.getAttackerId());
-                String dn = nameOf(g, r.getDefenderId());
-
-                // history
-                if (dmg > 0) { addHistory(g, an + " inflige " + dmg + " dégâts à " + dn); }
-                else         { addHistory(g, dn + " pare l'attaque de " + an); }
-
-                // Si c’est un duel "instable -> cible"
-                if (g.getUnstableTargetByPlayer().containsKey(r.getAttackerId())
-                        && java.util.Objects.equals(g.getUnstableTargetByPlayer().get(r.getAttackerId()), r.getDefenderId())) {
-                    String backLine = nameOf(g, r.getAttackerId()) + " revient à lui ...";
-                    addHistory(g, backLine);
+                case PHASE2 -> {
+                    if (to != Phase.PREPHASE3) throw new ResponseStatusException(HttpStatus.CONFLICT, "illegal advance");
+                    if (!allVampSideSelected(g)) throw new ResponseStatusException(HttpStatus.CONFLICT, "vamp/servants not all selected");
+                    g.setHasUpcomingCombat(computeHasUpcomingCombat(g));
+                    applyPhaseEntry(g, Phase.PREPHASE3);
                 }
-
-                // larcin en breakdownLines
-                if (theftLine != null) {
-                    r.getBreakdownLines().add(theftLine);
+                case PREPHASE3 -> {
+                    if (to != Phase.PHASE3) throw new ResponseStatusException(HttpStatus.CONFLICT, "illegal advance");
+                    boolean hasPendingUnstable =
+                            !(g.getUnstableEligibleTargets().isEmpty() && g.getUnstableEligibleLocations().isEmpty());
+                    if (hasPendingUnstable) throw new ResponseStatusException(HttpStatus.CONFLICT, "unstable choices pending");
+                    if (!allReadyForPhase3(g)) throw new ResponseStatusException(HttpStatus.CONFLICT, "players not ready");
+                    applyPhaseEntry(g, Phase.PHASE3);
                 }
-
-                boolean vampInflicted = false;
-
-                if (atkPlayer != null && "VAMPIRE".equals(atkPlayer.getRole()) && defPlayer != null && "HUNTER".equals(defPlayer.getRole()) && dmg > 0) {
-                    vampInflicted = true;
+                case PHASE3 -> {
+                    if (to != Phase.PHASE4) throw new ResponseStatusException(HttpStatus.CONFLICT, "illegal advance");
+                    applyPhaseEntry(g, Phase.PHASE4);
                 }
-
-                if (vampInflicted) {
-                    Game.BiteAttempt b = new Game.BiteAttempt();
-                    b.setId(UUID.randomUUID().toString());
-                    b.setAttackerId(atkPlayer.getId());
-                    b.setTargetId(defPlayer.getId());
-                    b.setLocation(r.getLocation());
-                    g.setCurrentBite(b);
-                    g.setCurrentBiteNextAdvanceAtMillis(0L); // on attend le jet du vampire
-                    r.setResolvedAtMillis(now);
-                    return; // on sort : l’UI va afficher la modale morsure
+                case PHASE4 -> {
+                    if (to != Phase.PHASE0) throw new ResponseStatusException(HttpStatus.CONFLICT, "illegal advance");
+                    applyPhaseEntry(g, Phase.PHASE0);
                 }
-
-                r.setResolvedAtMillis(now);
-                g.setCurrentCombatNextAdvanceAtMillis(now + 5000L); // attend 5s avant d’enchaîner
-                return; // on attend un prochain tick
+                default -> throw new ResponseStatusException(HttpStatus.CONFLICT, "illegal advance");
             }
 
+            save(g);
 
-            // 2.b) Après le délai de 4s, passer au duel suivant OU planifier PHASE4 si c’était le dernier
-            if (bothRolled && g.getCurrentCombatNextAdvanceAtMillis() > 0L && now >= g.getCurrentCombatNextAdvanceAtMillis()) {
-                int nextIdx = g.getCurrentCombatIndex() + 1;
-                if (nextIdx < g.getCombatsQueue().size()) {
-                    g.setCurrentCombatIndex(nextIdx);
-                    g.setCurrentCombat(g.getCombatsQueue().get(nextIdx));
-                    g.setCurrentCombatNextAdvanceAtMillis(0L);
-                } else {
-                    // Fin des combats → planifie PHASE4 ET nettoie l’état de combat
-                    g.setCurrentCombat(null);
-                    g.setCurrentCombatIndex(null);
-                    g.setCurrentCombatNextAdvanceAtMillis(0L);
-                    planNextPhase(g, Phase.PHASE4);
+            // Variables capturées pour le post-commit
+            final boolean flipCenter = (to == Phase.PREPHASE3);
+
+            afterCommit(() -> {
+                Game fresh = findOr404(gameId);
+                if (flipCenter) {
+                    // si tu utilises encore cet event pour l’anim de flip
+                    live.centerRevealed(fresh);
                 }
-                return;
-            }
-        }
+                // heartbeat pour forcer un GET propre chez tous les clients
+                live.phaseChanged(fresh);
+            });
+
+            return null;
+        });
+
+        // Renvoie un état frais (optionnel, mais pratique côté API REST)
+        return findOr404(gameId);
     }
 
-// ---------- Sélection lieu ----------
+    private void scheduleAdvance(String gameId, Phase expected, Phase target, long delayMs) {
+        raidScheduler.schedule(() ->
+                        tx.execute(status -> {
+                            Game g = findOr404(gameId);
+
+                            // Garde-fous
+                            if (g.getStatus() != GameStatus.ACTIVE) return null;
+                            if (g.getPhase() != expected)           return null;
+
+                            // Mutation + persist
+                            applyPhaseEntry(g, target);
+                            save(g);
+
+                            // Tous les events APRÈS COMMIT
+                            afterCommit(() -> {
+                                Game fresh = findOr404(gameId);
+
+                                if (target == Phase.PREPHASE3) {
+                                    // d'abord le flip
+                                    live.centerRevealed(fresh);
+                                }
+                                if (target == Phase.PHASE0) {
+                                    // on vient de purger les mods météo (weather=null)
+                                    live.raidModsUpdated(fresh);
+                                }
+
+                                // heartbeat pour déclencher le GET coté front
+                                live.phaseChanged(fresh);
+                            });
+
+                            return null;
+                        })
+                , java.time.Instant.now().plusMillis(delayMs));
+    }
+
+    private void schedulePrephaseTimeout(String gameId, long millis) {
+        raidScheduler.schedule(() ->
+                        tx.execute(status -> {
+                            Game g2 = findOr404(gameId);
+
+                            // Garde-fous : partie active + toujours en PREPHASE3 ?
+                            if (g2.getStatus() != GameStatus.ACTIVE || g2.getPhase() != Phase.PREPHASE3) {
+                                return null; // rien à faire
+                            }
+
+                            // Si des choix "instable" restent en attente, on NE force pas
+                            boolean hasPendingUnstable =
+                                    !(g2.getUnstableEligibleTargets().isEmpty() && g2.getUnstableEligibleLocations().isEmpty());
+                            if (hasPendingUnstable) {
+                                return null;
+                            }
+
+                            // OK, on avance vers PHASE3
+                            applyPhaseEntry(g2, Phase.PHASE3);
+                            save(g2);
+
+                            // Tous les events après COMMIT uniquement
+                            afterCommit(() -> {
+                                Game fresh = findOr404(gameId);    // état frais et commité
+                                live.phaseChanged(fresh);
+                            });
+
+                            return null;
+                        })
+                , java.time.Instant.now().plusMillis(millis));
+    }
+
+    // ---------- Sélection lieu ----------
     @Transactional
     public Game selectLocation(String gameId, String playerId, String card) {
         Game g = findOr404(gameId);
-        maybeAutoAdvance(g); // au cas où une bascule planifiée arrive juste maintenant
 
         if (g.getStatus() != GameStatus.ACTIVE)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "game not active");
 
-        var p = g.getPlayers().stream().filter(pp -> pp.getId().equals(playerId)).findFirst()
+        var p = g.getPlayers().stream()
+                .filter(pp -> pp.getId().equals(playerId))
+                .findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "not a player of this game"));
 
+        // Phase/roles
         switch (g.getPhase()) {
             case PHASE0 -> throw new ResponseStatusException(HttpStatus.CONFLICT, "weather selection in progress");
-            case PHASE1 -> { if (!"HUNTER".equals(p.getRole()))
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "hunters phase"); }
+            case PHASE1 -> {
+                if (!"HUNTER".equals(p.getRole()))
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "hunters phase");
+            }
             case PHASE2 -> {
                 String role = p.getRole();
-                if (!"VAMPIRE".equals(role) && !"SERVANT".equals(role)) {
+                if (!"VAMPIRE".equals(role) && !"SERVANT".equals(role))
                     throw new ResponseStatusException(HttpStatus.FORBIDDEN, "vampire/servant phase");
-                }
             }
             default -> throw new ResponseStatusException(HttpStatus.CONFLICT, "not a selection phase");
         }
@@ -805,17 +972,36 @@ public class GameService {
         if (hand == null || !hand.remove(card))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "card not in hand");
 
-        g.getCenter().add(new CenterBoard(playerId, card, false));
+        // Pose au centre (face cachée)
+        g.getCenter().add(new CenterBoard(playerId, card, /*faceUp=*/false));
 
-        // Fenêtre d’actions : si tout le monde a joué, on **planifie** la phase suivante dans 5s
-        if (g.getPhase() == Phase.PHASE1 && allHuntersSelected(g) && g.getPendingNextPhase() == null) {
-            planNextPhase(g, Phase.PHASE2);
-        } else if (g.getPhase() == Phase.PHASE2 && vampireSelected(g) && g.getPendingNextPhase() == null) {
+        // Flags d’auto-advance (calculés AVANT le commit)
+        boolean advanceToP2   = (g.getPhase() == Phase.PHASE1) && allHuntersSelected(g);
+        boolean advanceToPre3 = (g.getPhase() == Phase.PHASE2) && allVampSideSelected(g);
+
+        if (advanceToPre3) {
             g.setHasUpcomingCombat(computeHasUpcomingCombat(g));
-            planNextPhase(g, Phase.PREPHASE3);
+            scheduleAdvance(g.getId(), Phase.PHASE2, Phase.PREPHASE3, 2500);
         }
 
+        // ----- COMMIT des changements -----
         save(g);
+
+        // ----- EVENTS APRÈS COMMIT -----
+        final String gid = g.getId();
+        afterCommit(() -> {
+            // 1) informer le front que la grille "center" a bougé
+            live.locationSelected(g, playerId, card);
+            // (pas d’autres events ici : la bascule de phase viendra du scheduler ci-dessous)
+        });
+
+        // ----- AUTO-ADVANCE planifié (séparé, transactionnel + afterCommit à l’intérieur) -----
+        if (advanceToP2) {
+            scheduleAdvance(gid, Phase.PHASE1, Phase.PHASE2, 2500);
+        } else if (advanceToPre3) {
+            scheduleAdvance(gid, Phase.PHASE2, Phase.PREPHASE3, 2500);
+        }
+
         return g;
     }
 
@@ -921,45 +1107,57 @@ public class GameService {
 
     // Tout le monde prêt pour PHASE3 ?
     private boolean allReadyForPhase3(@NonNull Game g) {
-        // ici on exige que TOUS les joueurs de la partie aient cliqué "J’ai fini".
-        // plus tard possible restreindre aux joueurs concernés par un combat.
-        return g.getReadyForPhase3().containsAll(
-                g.getPlayers().stream().map(Player::getId).toList()
-        );
+        if (!g.isHasUpcomingCombat()) return true;
+        var needed = participantsOfUpcomingCombat(g);
+        return g.getReadyForPhase3().containsAll(needed);
     }
 
     @Transactional
     public Game skipAction(String gameId, String playerId) {
         Game g = findOr404(gameId);
-        maybeAutoAdvance(g);
 
         if (g.getPhase() != Phase.PREPHASE3)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PREPHASE3");
 
-        var present = g.getPlayers().stream().anyMatch(p -> p.getId().equals(playerId));
+        boolean present = g.getPlayers().stream().anyMatch(p -> p.getId().equals(playerId));
         if (!present)
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not a player of this game");
 
+        // 1) Marque le joueur comme "prêt"
         g.getReadyForPhase3().add(playerId);
+        int ready = g.getReadyForPhase3().size();
+        int total = g.getPlayers().size();
 
-        if (allReadyForPhase3(g)) {
-            boolean stillPending =
-                    !g.getUnstableEligibleTargets().isEmpty() || !g.getUnstableEligibleLocations().isEmpty();
+        // 2) Décide si on avance maintenant (dans CETTE transaction)
+        boolean hasPendingUnstable =
+                !(g.getUnstableEligibleTargets().isEmpty() && g.getUnstableEligibleLocations().isEmpty());
 
-            if (!stillPending) {
-                // tout le monde a cliqué et plus aucun choix instable -> on passe en PHASE3
-                g.setPendingNextPhase(Phase.PHASE3);
-                g.setNextAutoAdvanceAtMillis(System.currentTimeMillis());
-                maybeAutoAdvance(g);
-            } else {
-                // on NE bascule PAS : on attend la décision du vampire
-                if (g.getMessages() == null) g.setMessages(new java.util.ArrayList<>());
-                String line = "Chasseur instable ... En attente du contrôle par le vampire.";
-                g.getMessages().add(line);
-                addHistory(g, line);
-            }
+        boolean advanceNow =
+                (g.getPhase() == Phase.PREPHASE3) && !hasPendingUnstable && allReadyForPhase3(g);
+
+        if (advanceNow) {
+            // Mutation uniquement (pas d'event ici)
+            applyPhaseEntry(g, Phase.PHASE3);
         }
+
+        // 3) Commit de l'état
         save(g);
+
+        // 4) Events APRÈS COMMIT (zéro course avec les GET côté front)
+        final int fReady = ready, fTotal = total;
+        final String fPid = playerId;
+        final boolean fAdvance = advanceNow;
+
+        afterCommit(() -> {
+            // Notifie le compteur (utile même si déjà prêt, pour resync robuste)
+            live.readyUpdated(g, fPid, fReady, fTotal);
+
+            // Si tout le monde était prêt, on vient d'entrer en PHASE3 → push
+            if (fAdvance) {
+                live.phaseChanged(g);
+            }
+        });
+
         return g;
     }
 
@@ -973,36 +1171,24 @@ public class GameService {
     private void buildCombatsQueue(Game g) {
         g.getCombatsQueue().clear();
 
-        // A) Chasseurs instables réaffectés "à l'attaque"
-        var unstableAttackers = new java.util.HashSet<>(g.getUnstableTargetByPlayer().keySet());
-
-        // B) Chasseurs instables réaffectés "à la récolte"
-        var unstableHarvesters = new java.util.HashSet<>(
-                g.getUnstableHarvestLocByPlayer() != null
-                        ? g.getUnstableHarvestLocByPlayer().keySet()
-                        : java.util.Collections.<String>emptySet()
-        );
-
-        // Union pour exclure des combats par défaut
+        // Ensemble des joueurs instables déjà réaffectés (attaque ou récolte)
         var unstableAssigned = new java.util.HashSet<>(g.getUnstableTargetByPlayer().keySet());
         unstableAssigned.addAll(g.getUnstableHarvestLocByPlayer().keySet());
 
         var groups = groupPlayersByLocation(g);
 
-        // 1) Combats par défaut : (ennemi ∈ {VAMPIRE,SERVANT}) × (HUNTER non instable-réaffecté)
+        // 1) Combats par défaut : (ennemi ∈ {VAMPIRE,SERVANT}) × (HUNTER non réaffecté)
         for (var e : groups.entrySet()) {
             String loc = e.getKey();
             java.util.List<Player> onLoc = e.getValue();
 
-            // Ennemis = vampire(s) + serviteur(s) (ils ne se battent pas entre eux ici)
             var enemies = onLoc.stream()
                     .filter(p -> "VAMPIRE".equals(p.getRole()) || "SERVANT".equals(p.getRole()))
                     .toList();
 
-            // Chasseurs qui restent disponibles pour les combats classiques
             var huntersForDefault = onLoc.stream()
                     .filter(p -> "HUNTER".equals(p.getRole()))
-                    .filter(p -> !unstableAssigned.contains(p.getId())) // exclut instable->attaque ET instable->récolte
+                    .filter(p -> !unstableAssigned.contains(p.getId()))
                     .toList();
 
             for (var enemy : enemies) {
@@ -1019,38 +1205,35 @@ public class GameService {
             }
         }
 
-        // 2) Duels "instable -> cible" (ajoutés après la boucle)
+        // 2) Duels "instable -> cible"
         for (var entry : g.getUnstableTargetByPlayer().entrySet()) {
             String unstableId = entry.getKey();
             String targetId   = entry.getValue();
 
-            // Lieu courant de la cible (après redirection)
             String loc = g.getCenter().stream()
                     .filter(cb -> cb.getPlayerId().equals(targetId))
                     .map(CenterBoard::getCard)
                     .findFirst()
-                    .orElse("forest"); // fallback
+                    .orElse("forest");
 
             g.getCombatsQueue().add(new RoundFight(
                     java.util.UUID.randomUUID().toString(), loc, unstableId, targetId
             ));
 
-            // Message "info"
-            String line = "Combat — " + nameOf(g, unstableId) + " VS " + nameOf(g, targetId) + " à " + labelLieuFr(loc);
+            // Message lisible
+            String info = "Combat — " + nameOf(g, unstableId) + " VS " + nameOf(g, targetId) + " à " + labelLieuFr(loc);
             if (g.getMessages() == null) g.setMessages(new java.util.ArrayList<>());
-            g.getMessages().add(line);
-            addHistory(g, line);
+            g.getMessages().add(info);
+            addHistory(g, info);
         }
 
-        // 3) Initialiser le pointeur de combat courant
+        // 3) Pointeur sur le combat courant (plus aucun nextAdvanceAt/timer côté serveur)
         if (!g.getCombatsQueue().isEmpty()) {
             g.setCurrentCombatIndex(0);
             g.setCurrentCombat(g.getCombatsQueue().get(0));
-            g.setCurrentCombatNextAdvanceAtMillis(0L);
         } else {
             g.setCurrentCombatIndex(null);
             g.setCurrentCombat(null);
-            g.setCurrentCombatNextAdvanceAtMillis(0L);
         }
     }
 
@@ -1058,48 +1241,224 @@ public class GameService {
     public Game rollDice(String gameId, String userId) {
         Game g = findOr404(gameId);
 
-        // important pour évacuer une transition de phase/duel
-        maybeAutoAdvance(g);
-
         if (g.getStatus() != GameStatus.ACTIVE || g.getPhase() != Phase.PHASE3 || g.getCurrentCombat() == null) {
-            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.CONFLICT, "not in combat");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "not in combat");
+        }
+        if (g.getCurrentBite() != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "bite pending");
         }
 
         var r = g.getCurrentCombat();
 
-        // Le joueur doit être soit l'attaquant sans jet, soit le défenseur sans jet
+        // ---- Payloads d’événements à émettre APRÈS commit
+        final class Ev {
+            boolean sendAtk, sendDef, sendResolved, startBite;
+            String roundId, atkId, defId, biteAtt, biteTgt, biteLoc;
+            Integer atkRoll, defRoll, dmg, defenderHp;
+            java.util.List<String> breakdown = java.util.List.of();
+        }
+        Ev ev = new Ev();
+        ev.roundId = r.getId();
+
+        // --- Pose du jet (attacker OU defender)
         if (userId.equals(r.getAttackerId()) && r.getAttackerRoll() == null) {
             var p = g.getPlayers().stream().filter(pp -> pp.getId().equals(userId)).findFirst().orElseThrow();
             int sides = diceSides(p.getAttackDice());
-
-            r.setAttackerRoll(1 + RND.nextInt(sides));
+            int roll = 1 + RND.nextInt(sides);
+            r.setAttackerRoll(roll);
+            addHistory(g, nameOf(g, r.getAttackerId()) + " — jet d'attaque = " + roll + ".");
+            ev.sendAtk = true; ev.atkId = r.getAttackerId(); ev.atkRoll = roll;
 
         } else if (userId.equals(r.getDefenderId()) && r.getDefenderRoll() == null) {
             var p = g.getPlayers().stream().filter(pp -> pp.getId().equals(userId)).findFirst().orElseThrow();
             int sides = diceSides(p.getDefenseDice());
-            r.setDefenderRoll(1 + RND.nextInt(sides));
+            int roll = 1 + RND.nextInt(sides);
+            r.setDefenderRoll(roll);
+            addHistory(g, nameOf(g, r.getDefenderId()) + " — jet de défense = " + roll + ".");
+            ev.sendDef = true; ev.defId = r.getDefenderId(); ev.defRoll = roll;
+
         } else {
-            throw new org.springframework.web.server.ResponseStatusException(HttpStatus.CONFLICT, "no roll expected from you now");
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "no roll expected from you now");
         }
 
+        // --- Résolution si les 2 jets sont posés (et pas encore résolu)
+        if (r.getAttackerRoll() != null && r.getDefenderRoll() != null && combatNotResolved(r)) {
+            int atk = r.getAttackerRoll();
+            int def = r.getDefenderRoll();
+            int atkMod = totalModFor(g, r.getAttackerId(), "ATTACK");
+            int defMod = totalModFor(g, r.getDefenderId(), "DEFENSE");
+            int dmg    = Math.max(0, (atk + atkMod) - (def + defMod));
+
+            var defPlayer = g.getPlayers().stream().filter(p -> p.getId().equals(r.getDefenderId())).findFirst().orElse(null);
+            if (defPlayer != null && dmg > 0) {
+                defPlayer.setHp(Math.max(0, defPlayer.getHp() - dmg));
+            }
+
+            String theftLine = null;
+            var atkPlayer = g.getPlayers().stream().filter(p -> p.getId().equals(r.getAttackerId())).findFirst().orElse(null);
+            if (atkPlayer != null && "VAMPIRE".equals(atkPlayer.getRole())
+                    && defPlayer != null && "HUNTER".equals(defPlayer.getRole()) && dmg > 0) {
+                theftLine = vampStealOne(g, atkPlayer, defPlayer);
+            }
+
+            var atkBk = buildModBreakdownLines(g, r.getAttackerId(), "ATTACK",  r.getAttackerRoll());
+            var defBk = buildModBreakdownLines(g, r.getDefenderId(), "DEFENSE", r.getDefenderRoll());
+            for (String ln : atkBk) addHistory(g, ln);
+            for (String ln : defBk) addHistory(g, ln);
+
+            if (r.getBreakdownLines() == null) r.setBreakdownLines(new java.util.ArrayList<>());
+            r.getBreakdownLines().clear();
+            r.getBreakdownLines().addAll(atkBk);
+            r.getBreakdownLines().addAll(defBk);
+            if (theftLine != null) r.getBreakdownLines().add(theftLine);
+
+            String an = nameOf(g, r.getAttackerId());
+            String dn = nameOf(g, r.getDefenderId());
+            if (dmg > 0) addHistory(g, an + " inflige " + dmg + " dégâts à " + dn);
+            else         addHistory(g, dn + " pare l'attaque de " + an);
+
+            if (g.getUnstableTargetByPlayer().containsKey(r.getAttackerId())
+                    && java.util.Objects.equals(g.getUnstableTargetByPlayer().get(r.getAttackerId()), r.getDefenderId())) {
+                addHistory(g, nameOf(g, r.getAttackerId()) + " revient à lui ...");
+            }
+
+            ev.sendResolved = true;
+            ev.dmg = dmg;
+            ev.defId = r.getDefenderId();
+            ev.defenderHp = (defPlayer != null) ? defPlayer.getHp() : 0;
+            ev.breakdown = new java.util.ArrayList<>(r.getBreakdownLines());
+
+            boolean vampInflicted = (atkPlayer != null && "VAMPIRE".equals(atkPlayer.getRole())
+                    && defPlayer != null && "HUNTER".equals(defPlayer.getRole()) && dmg > 0);
+            if (vampInflicted) {
+                Game.BiteAttempt b = new Game.BiteAttempt();
+                b.setId(java.util.UUID.randomUUID().toString());
+                b.setAttackerId(atkPlayer.getId());
+                b.setTargetId(defPlayer.getId());
+                b.setLocation(r.getLocation());
+                g.setCurrentBite(b);
+
+                ev.startBite = true;
+                ev.biteAtt = atkPlayer.getId();
+                ev.biteTgt = defPlayer.getId();
+                ev.biteLoc = r.getLocation();
+            }
+
+            r.setResolvedAtMillis(System.currentTimeMillis());
+        }
+
+        // --- Commit
         save(g);
+
+        // --- Events APRÈS COMMIT (ordre garanti)
+        afterCommit(() -> {
+            if (ev.sendAtk)      live.diceRolled(g, ev.roundId, ev.atkId, "ATTACK",  ev.atkRoll);
+            if (ev.sendDef)      live.diceRolled(g, ev.roundId, ev.defId, "DEFENSE", ev.defRoll);
+            if (ev.sendResolved) live.combatResolved(g, ev.roundId, ev.dmg, ev.defId, ev.defenderHp, ev.breakdown);
+            if (ev.startBite)    live.biteStarted(g, ev.biteAtt, ev.biteTgt, ev.biteLoc);
+
+            // “heartbeat” minimal pour forcer un GET propre chez tous (si tu veux le garder)
+            live.phaseChanged(g);
+        });
+
         return g;
+    }
+
+
+    private static boolean combatNotResolved(RoundFight r) {
+        return r == null || r.getResolvedAtMillis() == null || r.getResolvedAtMillis() == 0L;
+    }
+
+    private static boolean biteResolved(Game.BiteAttempt b) {
+        return b != null
+                && b.getRoll() != null
+                && b.getResolvedAtMillis() != null
+                && b.getResolvedAtMillis() != 0L;
+    }
+
+    public Game combatContinue(String gameId, String userId) {
+        class Ev { boolean biteResolved; boolean advanced; String att, tgt, loc; }
+
+        Ev ev = tx.execute(status -> {
+            Game g = findOr404(gameId);
+            if (g.getPhase() != Phase.PHASE3)
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE3");
+
+            Ev out = new Ev();
+
+            // 1) S'il y a une morsure en cours :
+            if (g.getCurrentBite() != null) {
+                var b = g.getCurrentBite();
+                if (!biteResolved(b)) {
+                    save(g);
+                    return out;
+                }
+                out.biteResolved = true;
+                out.att = b.getAttackerId();
+                out.tgt = b.getTargetId();
+                out.loc = b.getLocation();
+                g.setCurrentBite(null);
+            } else {
+                // 2) Sinon on est sur un duel : s’il n’est pas encore résolu
+                var r = g.getCurrentCombat();
+                if (r == null) { save(g); return out; }
+                if (combatNotResolved(r)) {
+                    save(g);
+                    return out;
+                }
+            }
+
+            // 3) Avancer la file uniquement quand c’est safe (morsure close ou duel résolu)
+            Integer idx = g.getCurrentCombatIndex();
+            if (idx == null) idx = 0;
+            int next = idx + 1;
+
+            if (g.getCombatsQueue() != null && next < g.getCombatsQueue().size()) {
+                g.setCurrentCombatIndex(next);
+                g.setCurrentCombat(g.getCombatsQueue().get(next));
+            } else {
+                g.setCurrentCombatIndex(null);
+                g.setCurrentCombat(null);
+            }
+            out.advanced = true;
+
+            save(g);
+            return out;
+        });
+
+        Game gAfter = findOr404(gameId);
+
+        // Events après commit, seulement si quelque chose a changé
+        if (ev.biteResolved) {
+            live.biteResolved(gAfter, ev.att, ev.tgt, ev.loc);
+        }
+        if (ev.advanced) {
+            // heartbeat pour faire faire un GET propre côté front
+            live.phaseChanged(gAfter);
+        }
+
+        return gAfter;
     }
 
 // Météo
     // alimente raidMods
     private void rebuildWeatherMods(Game g){
-        // 1) retire les mods existants de type WEATHER, en gardant les autres (cartes etc.)
+        // Sécurité : map toujours présente
+        if (g.getRaidMods() == null) g.setRaidMods(new java.util.HashMap<>());
+
+        // 1) retirer tous les effets météo précédents
         for (var entry : g.getRaidMods().entrySet()) {
             var list = entry.getValue();
             if (list == null) continue;
             list.removeIf(m -> m.getSource() != null && m.getSource().startsWith("WEATHER:"));
         }
 
+        // 2) si pas de météo active (PHASE0 juste avant tirage) => on s’arrête là
         if (g.getWeatherStatus() == null) return;
 
-        // 2) s'assurer que chaque joueur a une liste
-        for (var p : g.getPlayers()) g.getRaidMods().computeIfAbsent(p.getId(), __ -> new java.util.ArrayList<>());
+        // 3) s'assurer qu'il y a une liste pour chaque joueur
+        for (var p : g.getPlayers())
+            g.getRaidMods().computeIfAbsent(p.getId(), __ -> new java.util.ArrayList<>());
 
         WeatherStatus ws = g.getWeatherStatus();
         switch (ws) {
@@ -1121,21 +1480,12 @@ public class GameService {
                     if ("VAMPIRE".equals(p.getRole()) || "SERVANT".equals(p.getRole()))
                         g.getRaidMods().get(p.getId()).add(new StatMod("DEFENSE", -1, "WEATHER:AURORA"));
             }
-            case WIND -> { /* effet construction pas géré -> pas de mod de combat */ }
-            case CLOUDY -> { /* aucun mod */ }
-            case STORM -> {
-                for (var p : g.getPlayers())
-                    g.getRaidMods().get(p.getId()).add(new StatMod("DEFENSE", -2, "WEATHER:STORM"));
-            }
-            case RAIN -> {
-                for (var p : g.getPlayers())
-                    g.getRaidMods().get(p.getId()).add(new StatMod("ATTACK", -2, "WEATHER:RAIN"));
-            }
-            case BLIZZARD -> {
-                for (var p : g.getPlayers())
-                    g.getRaidMods().get(p.getId()).add(new StatMod("ATTACK", -1, "WEATHER:BLIZZARD"));
-            }
-            case DUSK -> {
+            case WIND     -> { /* pas de mod de combat */ }
+            case CLOUDY   -> { /* aucun mod */ }
+            case STORM    -> { for (var p : g.getPlayers()) g.getRaidMods().get(p.getId()).add(new StatMod("DEFENSE", -2, "WEATHER:STORM")); }
+            case RAIN     -> { for (var p : g.getPlayers()) g.getRaidMods().get(p.getId()).add(new StatMod("ATTACK", -2, "WEATHER:RAIN")); }
+            case BLIZZARD -> { for (var p : g.getPlayers()) g.getRaidMods().get(p.getId()).add(new StatMod("ATTACK", -1, "WEATHER:BLIZZARD")); }
+            case DUSK     -> {
                 for (var p : g.getPlayers())
                     if ("VAMPIRE".equals(p.getRole()) || "SERVANT".equals(p.getRole()))
                         g.getRaidMods().get(p.getId()).add(new StatMod("DEFENSE", +1, "WEATHER:DUSK"));
@@ -1165,58 +1515,62 @@ public class GameService {
     public Game rollWeather(String gameId, String userId) {
         Game g = findOr404(gameId);
 
-        if (userId == null || userId.isBlank()) {
+        if (userId == null || userId.isBlank())
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "missing user id");
-        }
-        if (g.getPhase() != Phase.PHASE0) {
+        if (g.getPhase() != Phase.PHASE0)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "not in weather phase");
-        }
 
         var vamp = getVamp(g).orElseThrow(() ->
                 new ResponseStatusException(HttpStatus.CONFLICT, "no vampire")
         );
-        if (!vamp.getId().equals(userId)) {
+        if (!vamp.getId().equals(userId))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "only vampire can roll weather");
-        }
-        if (g.getWeatherRoll() != null) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "weather already rolled");
-        }
 
-        // safety: structures non-null
+        if (g.getWeatherRoll() != null)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "weather already rolled");
+
+        // Sécurité : structures non-null
         if (g.getRaidMods() == null) g.setRaidMods(new HashMap<>());
 
+        // 1) Mutations PURES (aucun save / aucun event ici)
         int roll = 1 + RND.nextInt(12);
-        applyWeatherRoll(g, roll);
+        applyWeatherRollMut(g, roll);
 
+        // 2) Commit
         save(g);
+
+        // 3) Events APRÈS COMMIT (aucune course avec les GET)
+        afterCommit(() -> {
+            live.weatherRolled(g);      // payload construit depuis g (déjà commité)
+            live.raidModsUpdated(g);    // pour rafraîchir les puces météo côté UI
+        });
+
         return g;
     }
 
-    private void applyWeatherRoll(@NonNull Game g, int roll){
+    private void applyWeatherRollMut(@NonNull Game g, int roll) {
         g.setWeatherRoll(roll);
         WeatherStatus ws = mapRollToWeather(roll);
         g.setWeatherStatus(ws);
         g.setWeatherStatusNameFr(weatherNameFr(ws));
         g.setWeatherDescriptionFr(weatherDescFr(ws));
 
-        // (re)calcule les mods météo (affichage/combat)
+        // Recalcule les mods météo (affichage/combat)
         rebuildWeatherMods(g);
 
-        // add in history
+        // Historique
         addHistory(g, "Météo — " + g.getWeatherStatusNameFr());
-        if (g.getWeatherDescriptionFr() != null && !g.getWeatherDescriptionFr().isBlank())
+        if (g.getWeatherDescriptionFr() != null && !g.getWeatherDescriptionFr().isBlank()) {
             addHistory(g, g.getWeatherDescriptionFr());
+        }
 
-        long now = System.currentTimeMillis();
-
-        // 1) Pendant la modale : NE RIEN AFFICHER au centre
-        g.setMessages(new ArrayList<>()); // centre vide tant que la modale est ouverte
-
-        // 2) La modale reste visible 5s
-        g.setWeatherShowUntilMillis(now + 5_000L);
-
-        // 3) Planifie le passage en PHASE1 dans 10s total (5s modale + 5s centre)
-        planNextPhaseWithDelay(g, Phase.PHASE1, 10_000L);
+        // Messages au centre (utilisés par le front)
+        List<String> msgs = new ArrayList<>();
+        msgs.add("Météo — " + (g.getWeatherStatusNameFr() != null ? g.getWeatherStatusNameFr() : ""));
+        if (g.getWeatherDescriptionFr() != null && !g.getWeatherDescriptionFr().isBlank()) {
+            msgs.add(g.getWeatherDescriptionFr());
+        }
+        g.setMessages(msgs);
     }
 
 // ressources
@@ -1273,12 +1627,16 @@ public class GameService {
             String loc = e.getKey();
             var onLoc = e.getValue();
 
-            boolean vampHere   = (vamp != null) && onLoc.stream().anyMatch(p -> p.getId().equals(vamp.getId()));
-            //on EXCLUT les instables-récolteurs
+            // y a-t-il un ennemi (VAMPIRE ou SERVANT) vivant sur le lieu ?
+            boolean enemyHere = onLoc.stream()
+                    .anyMatch(p -> ("VAMPIRE".equals(p.getRole()) || "SERVANT".equals(p.getRole()))
+                              && p.getHp() > 0);
+            // un chasseur vivant (non assigné à la récolte instable) sur le lieu ?
             boolean hunterCausingCombatHere = onLoc.stream()
-                    .anyMatch(p -> "HUNTER".equals(p.getRole()) && !unstableHarvesters.contains(p.getId()));
-
-            boolean combatHere = vampHere && hunterCausingCombatHere;
+                    .anyMatch(p -> "HUNTER".equals(p.getRole())
+                              && p.getHp() > 0
+                              && !unstableHarvesters.contains(p.getId()));
+            boolean combatHere = enemyHere && hunterCausingCombatHere;
 
             for (var p : onLoc) {
                 boolean harvestForVamp = g.getUnstableHarvestLocByPlayer() != null
@@ -1382,17 +1740,26 @@ public class GameService {
     private Set<String> participantsOfUpcomingCombat(Game g) {
         Set<String> ids = new HashSet<>();
 
-        // 1) Duels par défaut : (ennemis ∈ {VAMPIRE,SERVANT}) × CHASSEURS au même lieu
+        // Instables affectés à la RÉCOLTE => ne combattent pas
+        Set<String> unstableHarvesters = (g.getUnstableHarvestLocByPlayer() != null)
+                ? g.getUnstableHarvestLocByPlayer().keySet()
+                : java.util.Set.of();
+
         var groups = groupPlayersByLocation(g);
+
+        // (A) Combats "par défaut" : (ennemi ∈ {VAMPIRE, SERVANT}) × (HUNTER non-récolteur) au même lieu
         for (var e : groups.entrySet()) {
             var onLoc = e.getValue();
 
             var enemiesHere = onLoc.stream()
-                    .filter(p -> "VAMPIRE".equals(p.getRole()) || "SERVANT".equals(p.getRole()))
+                    .filter(p -> ("VAMPIRE".equals(p.getRole()) || "SERVANT".equals(p.getRole())))
+                    .filter(p -> p.getHp() > 0)  // KO exclus
                     .toList();
 
             var huntersHere = onLoc.stream()
                     .filter(p -> "HUNTER".equals(p.getRole()))
+                    .filter(p -> p.getHp() > 0)  // KO exclus
+                    .filter(p -> !unstableHarvesters.contains(p.getId())) // récolteurs exclus
                     .toList();
 
             if (!enemiesHere.isEmpty() && !huntersHere.isEmpty()) {
@@ -1401,11 +1768,15 @@ public class GameService {
             }
         }
 
-        // 2) Duels instable → cible : ajouter explicitement les 2 protagonistes
-        g.getUnstableTargetByPlayer().forEach((unstableId, targetId) -> {
-            if (unstableId != null) ids.add(unstableId);
-            if (targetId   != null) ids.add(targetId);
-        });
+        // (B) Duels "instable -> cible" explicites
+        if (g.getUnstableTargetByPlayer() != null) {
+            g.getUnstableTargetByPlayer().forEach((unstableId, targetId) -> {
+                var u = g.getPlayers().stream().filter(p -> p.getId().equals(unstableId)).findFirst().orElse(null);
+                var t = g.getPlayers().stream().filter(p -> p.getId().equals(targetId)).findFirst().orElse(null);
+                if (u != null && u.getHp() > 0) ids.add(u.getId());
+                if (t != null && t.getHp() > 0) ids.add(t.getId());
+            });
+        }
 
         return ids;
     }
@@ -1413,7 +1784,6 @@ public class GameService {
     @Transactional
     public Game usePotion(String gameId, String userId, Potion type) {
         Game g = findOr404(gameId);
-        maybeAutoAdvance(g);
 
         if (g.getStatus() != GameStatus.ACTIVE)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "game not active");
@@ -1431,21 +1801,26 @@ public class GameService {
         if (inv == null || !inv.contains(type.name()))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "potion not in inventory");
 
-        // appliquer l’effet + message
+        // --- mutations + historique (PAS d'events ici)
+        String feedText;               // message pour le flux (envoyé après commit)
+        boolean touchMods = false;     // est-ce qu'on a modifié des mods (FORCE/ENDURANCE)
+
         switch (type) {
             case FORCE -> {
                 if (g.getRaidMods() == null) g.setRaidMods(new HashMap<>());
                 g.getRaidMods().computeIfAbsent(userId, __ -> new ArrayList<>())
                         .add(new StatMod("ATTACK", +1, "POTION:FORCE"));
                 addHistory(g, nameOf(g, userId) + " utilise une Potion de force (+1 attaque ce raid).");
-                pushLive(g, nameOf(g, userId) + " boit une Potion de force !");
+                feedText = nameOf(g, userId) + " boit une Potion de force !";
+                touchMods = true;
             }
             case ENDURANCE -> {
                 if (g.getRaidMods() == null) g.setRaidMods(new HashMap<>());
                 g.getRaidMods().computeIfAbsent(userId, __ -> new ArrayList<>())
                         .add(new StatMod("DEFENSE", +1, "POTION:ENDURANCE"));
                 addHistory(g, nameOf(g, userId) + " utilise une Potion d’endurance (+1 défense ce raid).");
-                pushLive(g, nameOf(g, userId) + " boit une Potion d’endurance !");
+                feedText = nameOf(g, userId) + " boit une Potion d’endurance !";
+                touchMods = true;
             }
             case VIE -> {
                 var p = g.getPlayers().stream().filter(pp -> pp.getId().equals(userId)).findFirst().orElseThrow();
@@ -1456,21 +1831,41 @@ public class GameService {
                 p.setHp(Math.min(max, p.getHp() + 10));
                 int healed = p.getHp() - before;
                 addHistory(g, nameOf(g, userId) + " utilise une Potion de vie (+" + healed + " PV).");
-                pushLive(g, nameOf(g, userId) + " boit une Potion de vie !");
+                feedText = nameOf(g, userId) + " boit une Potion de vie !";
+                // touchMods reste false, mais on forcera quand même un refresh côté front (voir events ci-dessous)
             }
+            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "unknown potion");
         }
 
-        // consommer et sauver
+        // consommer l’item
         inv.remove(type.name());
         if (inv.isEmpty()) g.getPotionsByPlayer().remove(userId);
 
+        // --- commit
         save(g);
+
+        // --- events APRÈS COMMIT (ordre maîtrisé)
+        afterCommit(() -> {
+            // 1) petit feed texte
+            pushLive(g, feedText);
+
+            // 2) event sémantique (si tu l’utilises côté front)
+            live.potionUsed(g, userId, type.name());
+
+            // 3) forcer un refresh complet côté UI (tu fais déjà un GET sur RAID_MODS_UPDATED)
+            //    - utile pour FORCE/ENDURANCE (mods)
+            //    - utile aussi pour VIE (HP) vu que ton handler resynchronise tout le snapshot
+            live.raidModsUpdated(g);
+        });
+
         return g;
     }
 
     private void pushLive(Game g, String msg){
         if (g.getMessages() == null) g.setMessages(new ArrayList<>());
         g.getMessages().add(msg);
+        // notifie le front (déjà géré dans onLiveEvent: MESSAGE)
+        live.message(g, msg);
     }
 
 // Corruption
@@ -1525,7 +1920,6 @@ public class GameService {
     @Transactional
     public Game assignUnstableTarget(String gameId, String userId, String unstableId, String targetId) {
         Game g = findOr404(gameId);
-        maybeAutoAdvance(g);
 
         if (g.getPhase() != Phase.PREPHASE3)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PREPHASE3");
@@ -1534,7 +1928,6 @@ public class GameService {
         if (!vamp.getId().equals(userId))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "only vampire can assign");
 
-        // Si cet instable n'est plus éligible (déjà choisi), on refuse
         boolean eligibleNow = g.getUnstableEligibleTargets().containsKey(unstableId)
                 || g.getUnstableEligibleLocations().containsKey(unstableId);
         if (!eligibleNow)
@@ -1544,11 +1937,12 @@ public class GameService {
         if (elig == null || !elig.contains(targetId))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid target");
 
-        // 1) Enregistre la cible et invalide l’autre choix (harvest)
+        // --- Mutations (aucun event ici) ---
+        // 1) Enregistre la cible et invalide l’autre choix
         g.getUnstableTargetByPlayer().put(unstableId, targetId);
         g.getUnstableHarvestLocByPlayer().remove(unstableId);
 
-        // 2) Redirige la carte (rendre l’ancienne, retirer UNE occurrence de la nouvelle)
+        // 2) Redirige la carte de l’instable vers la localisation de la cible
         String targetLoc = g.getCenter().stream()
                 .filter(cb -> cb.getPlayerId().equals(targetId))
                 .map(CenterBoard::getCard).findFirst()
@@ -1573,43 +1967,53 @@ public class GameService {
                         }
                     });
 
-            addHistory(g, nameOf(g, unstableId) + " est redirigé vers " + labelLieuFr(targetLoc) + " par le vampire.");
-        }
-
-        // 2.b) Remplacer la récolte du chasseur ciblé par un message de combat (PREPHASE3)
-        if (targetLoc != null) {
-            String targetName = nameOf(g, targetId);
+            String targetName   = nameOf(g, targetId);
             String unstableName = nameOf(g, unstableId);
-            String locLabel = labelLieuFr(targetLoc);
+            String locLabel     = labelLieuFr(targetLoc);
 
             String interruptionLine = "Récolte de " + targetName + " interrompue par " + unstableName + ".";
-            String combatLine = "Combat — " + unstableName + " VS " + targetName + " à " + locLabel + ".";
+            String combatLine       = "Combat — " + unstableName + " VS " + targetName + " à " + locLabel + ".";
 
+            if (g.getMessages() == null) g.setMessages(new ArrayList<>());
             g.getMessages().add(combatLine);
             addHistory(g, interruptionLine);
             addHistory(g, combatLine);
         }
 
-        // 3) Consomme TOUTE l’éligibilité pour CET instable (on ferme ce cas)
+        // 3) Consomme toute l’éligibilité pour cet instable
         g.getUnstableEligibleTargets().remove(unstableId);
         g.getUnstableEligibleLocations().remove(unstableId);
 
-        // 4) S’il ne reste aucun instable en attente, on planifie PHASE3
-        boolean anyPending = !(g.getUnstableEligibleTargets().isEmpty() && g.getUnstableEligibleLocations().isEmpty());
-        if (!anyPending && g.getPendingNextPhase() == null) {
-            long window = g.isHasUpcomingCombat() ? PREPHASE3_WINDOW_MS : 4000L;
-            g.setPrePhaseDeadlineMillis(System.currentTimeMillis() + window);
-            planNextPhaseWithDelay(g, Phase.PHASE3, window);
-        }
+        // 4) (RE)calcule APRÈS mutation
+        boolean hasPendingAfter = !(g.getUnstableEligibleTargets().isEmpty() && g.getUnstableEligibleLocations().isEmpty());
+        boolean upcomingAfter   = computeHasUpcomingCombat(g);
+        g.setHasUpcomingCombat(upcomingAfter);
 
+        // --- Commit
         save(g);
+
+        // --- Events APRÈS COMMIT
+        afterCommit(() -> {
+            live.unstableAssigned(g, unstableId, "TARGET", targetId);
+
+            // S’il n’y a PLUS de choix instables ET PAS de combat → avance rapide (4s)
+            if (!hasPendingAfter && !upcomingAfter) {
+                scheduleAdvance(g.getId(), Phase.PREPHASE3, Phase.PHASE3, 4000);
+            } else {
+                // sinon, on laisse vivre la fenêtre (potions, autres instables…) / ou timer long déjà en place
+                live.phaseChanged(g); // petit heartbeat pour rafraîchir les onglets
+            }
+        });
+
         return g;
     }
 
     @Transactional
     public Game assignUnstableHarvest(String gameId, String userId, String unstableId, String loc) {
         Game g = findOr404(gameId);
-        maybeAutoAdvance(g);
+
+        log.info("[{}] assign-harvest ENTER unstableId={}", gameId, unstableId);
+
 
         if (g.getPhase() != Phase.PREPHASE3)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PREPHASE3");
@@ -1627,11 +2031,12 @@ public class GameService {
         if (eligLocs == null || !eligLocs.contains(loc))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid location");
 
-        // 1) Enregistre le lieu de récolte et invalide l’autre choix (target)
+        // --- Mutations (aucun event ici) ---
+        // 1) Enregistre le lieu et invalide l’autre choix
         g.getUnstableHarvestLocByPlayer().put(unstableId, loc);
         g.getUnstableTargetByPlayer().remove(unstableId);
 
-        // 2) Redirige la carte (rendre l’ancienne, retirer UNE occurrence de la nouvelle)
+        // 2) Redirige la carte au centre (et rend l’ancienne)
         g.getCenter().stream()
                 .filter(cb -> cb.getPlayerId().equals(unstableId))
                 .findFirst()
@@ -1650,22 +2055,96 @@ public class GameService {
                     }
                 });
 
-        g.getMessages().add(nameOf(g, unstableId) + " récoltera à " + labelLieuFr(loc) + " pour " + nameOf(g, vamp.getId()) + ".");
-        addHistory(g, nameOf(g, unstableId) + " récoltera à " + labelLieuFr(loc) + " pour " + nameOf(g, vamp.getId()) + ".");
+        String line = nameOf(g, unstableId) + " récoltera à " + labelLieuFr(loc) + " pour " + nameOf(g, vamp.getId()) + ".";
+        if (g.getMessages() == null) g.setMessages(new ArrayList<>());
+        g.getMessages().add(line);
+        addHistory(g, line);
 
-        // 3) Consomme TOUTE l’éligibilité pour CET instable
+        // 3) Consomme l’éligibilité
         g.getUnstableEligibleTargets().remove(unstableId);
         g.getUnstableEligibleLocations().remove(unstableId);
 
-        // 4) Passage vers PHASE3 s’il ne reste plus rien en attente
-        boolean anyPending = !(g.getUnstableEligibleTargets().isEmpty() && g.getUnstableEligibleLocations().isEmpty());
-        if (!anyPending && g.getPendingNextPhase() == null) {
-            long window = g.isHasUpcomingCombat() ? PREPHASE3_WINDOW_MS : 4000L;
-            g.setPrePhaseDeadlineMillis(System.currentTimeMillis() + window);
-            planNextPhaseWithDelay(g, Phase.PHASE3, window);
+        // 4) (RE)calcule APRÈS mutation
+        boolean hasPendingAfter = !(g.getUnstableEligibleTargets().isEmpty() && g.getUnstableEligibleLocations().isEmpty());
+        boolean upcomingAfter   = computeHasUpcomingCombat(g);
+        g.setHasUpcomingCombat(upcomingAfter);
+
+        // --- Commit
+        save(g);
+
+        // --- Events APRÈS COMMIT
+        afterCommit(() -> {
+            live.unstableAssigned(g, unstableId, "HARVEST", loc);
+
+            if (!hasPendingAfter && !upcomingAfter) {
+                // pas d’autres choix, pas de combat → passe en PHASE3 rapidement (récoltes)
+                scheduleAdvance(g.getId(), Phase.PREPHASE3, Phase.PHASE3, 4000);
+            } else {
+                live.phaseChanged(g);
+            }
+        });
+
+        return g;
+    }
+
+    @Transactional
+    public Game assignUnstableNothing(String gameId, String userId, String unstableId) {
+        Game g = findOr404(gameId);
+
+        log.info("[{}] assign-nothing ENTER unstableId={}", gameId, unstableId);
+
+        if (g.getPhase() != Phase.PREPHASE3)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PREPHASE3");
+
+        var vamp = getVamp(g).orElseThrow();
+        if (!vamp.getId().equals(userId))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "only vampire can assign");
+
+        // --- Debug précis : ce qu’on a au moment T
+        var eligT = g.getUnstableEligibleTargets();
+        var eligL = g.getUnstableEligibleLocations();
+        boolean inTargets  = eligT != null && eligT.containsKey(unstableId);
+        boolean inLocations= eligL != null && eligL.containsKey(unstableId);
+        log.info("[{}] assign-nothing check: inTargets={}, inLocations={}, keysT={}, keysL={}",
+                g.getId(), inTargets, inLocations,
+                (eligT!=null? eligT.keySet() : java.util.Set.of()),
+                (eligL!=null? eligL.keySet() : java.util.Set.of()));
+
+        boolean eligibleNow = inTargets || inLocations;
+
+        // --- Idempotence : si déjà consommé/expiré, on répond OK et on force juste un refresh
+        if (!eligibleNow) {
+            log.info("[{}] assign-nothing NOOP (already decided or expired) for {}", g.getId(), unstableId);
+            save(g);
+            afterCommit(() -> live.phaseChanged(g));
+            return g;
         }
 
+        // --- Mutations : consomme l’option sans target/harvest
+        g.getUnstableEligibleTargets().remove(unstableId);
+        g.getUnstableEligibleLocations().remove(unstableId);
+        g.getUnstableTargetByPlayer().remove(unstableId);       // sécurité
+        g.getUnstableHarvestLocByPlayer().remove(unstableId);   // sécurité
+
+        boolean hasPendingAfter =
+                !(g.getUnstableEligibleTargets().isEmpty() && g.getUnstableEligibleLocations().isEmpty());
+        boolean upcomingAfter = computeHasUpcomingCombat(g);
+        g.setHasUpcomingCombat(upcomingAfter);
+
+        addHistory(g, nameOf(g, unstableId) + " n’a reçu aucun ordre du vampire.");
+
         save(g);
+
+        afterCommit(() -> {
+            // AVANT: live.unstableAssigned(g, unstableId, "NOTHING", null);
+            live.unstableAssigned(g, unstableId, "NOTHING", "");
+            if (!hasPendingAfter && !upcomingAfter) {
+                scheduleAdvance(g.getId(), Phase.PREPHASE3, Phase.PHASE3, 4000);
+            } else {
+                live.phaseChanged(g);
+            }
+        });
+
         return g;
     }
 
@@ -1678,8 +2157,6 @@ public class GameService {
     @Transactional
     public Game rollCorruption(String gameId, String userId) {
         Game g = findOr404(gameId);
-        maybeAutoAdvance(g);
-
         if (g.getPhase() != Phase.PHASE3 || g.getCurrentBite() == null)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "no bite to resolve");
 
@@ -1687,47 +2164,51 @@ public class GameService {
         if (!userId.equals(b.getAttackerId()))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "only vampire can roll the bite");
 
-        if (b.getRoll() != null)
-            return g; // déjà lancé
+        if (b.getRoll() != null) return g; // déjà lancé
 
         int roll = 1 + RND.nextInt(6);
         b.setRoll(roll);
+        addHistory(g, nameOf(g, b.getAttackerId()) + " — jet de morsure = " + roll + ".");
 
-        var target = g.getPlayers().stream().filter(p -> p.getId().equals(b.getTargetId())).findFirst().orElse(null);
-        var vamp   = g.getPlayers().stream().filter(p -> p.getId().equals(b.getAttackerId())).findFirst().orElse(null);
+        var target = g.getPlayers().stream()
+                .filter(p -> p.getId().equals(b.getTargetId()))
+                .findFirst().orElse(null);
 
+        boolean sendMods = false;
         if (target != null && roll > 3) {
             int before = target.getCorruption();
             int after  = Math.min(3, before + 1);
             target.setCorruption(after);
-
-            String line = nameOf(g, target.getId()) + " se fait mordre… son niveau de corruption passe à " + after + ".";
-            addHistory(g, line);
-
+            addHistory(g, nameOf(g, target.getId()) + " se fait mordre... sa corruption passe de " + before + " à " + after + ".");
             if (after == 3) {
-                target.setCorruption(after);
-                // Passage SERVANT
                 target.setRole("SERVANT");
-                // or -> âmes
                 target.setSouls(target.getSouls() + target.getGold());
                 target.setGold(0);
-
-                // défausser ses cartes actions chasseur si tu les stockes (à faire ici si présent)
-                // TODO: purgeInventaireActionsChasseur(target)
-
-                // Les mods de corruption : on retirera le chip au prochain début de raid.
             }
-
-            // Met à jour les mods d'affichage pour CE raid
             rebuildCorruptionMods(g);
+            sendMods = true;
         } else {
-            String line = nameOf(g, vamp != null ? vamp.getId() : "???") + " échoue sa tentative de morsure.";
-            addHistory(g, line);
+            addHistory(g, nameOf(g, b.getAttackerId()) + " échoue sa tentative de morsure.");
         }
 
         b.setResolvedAtMillis(System.currentTimeMillis());
-        g.setCurrentBiteNextAdvanceAtMillis(System.currentTimeMillis() + 5000L); // 5s d’affichage
         save(g);
+
+        // --- figer tout ce que le lambda va capturer ---
+        final boolean sendModsF       = sendMods;
+        final int rollF               = roll;
+        final String attF             = b.getAttackerId();
+        final String tgtF             = b.getTargetId();
+        final Integer newCF           = (target != null) ? target.getCorruption() : null;
+        final boolean becameServantF  = (target != null && "SERVANT".equals(target.getRole()));
+
+        afterCommit(() -> {
+            if (sendModsF) {
+                live.raidModsUpdated(g);
+            }
+            live.biteRolled(g, rollF, attF, tgtF, newCF, becameServantF);
+        });
+
         return g;
     }
 

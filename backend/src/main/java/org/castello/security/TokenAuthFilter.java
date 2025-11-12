@@ -27,6 +27,13 @@ public class TokenAuthFilter extends OncePerRequestFilter {
     }
 
     @Override
+    protected boolean shouldNotFilter(jakarta.servlet.http.HttpServletRequest request) {
+        String path = request.getRequestURI();
+        // Ne pas filtrer le handshake WebSocket
+        return path.equals("/ws") || path.startsWith("/ws/");
+    }
+
+    @Override
     protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain)
             throws ServletException, IOException {
 
