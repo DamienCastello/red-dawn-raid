@@ -124,6 +124,58 @@ public class Game {
     // Pour afficher une modale de choix au vampire
     private Map<String, List<String>> unstableEligibleTargets = new HashMap<>();
 
+    // Maintenance
+    // --- Deck potions (composition) ---
+    private Map<String, Integer> potionsPool = new HashMap<>();
+
+    // --- Phase4: "j'ai fini" (finishTrade) ---
+    private final Set<String> readyForNextRaid = new HashSet<>();
+
+    // --- Optionnel pour un vrai compte à rebours côté front ---
+    private Long phase4DeadlineMillis;
+
+    // --- Échanges ---
+    public static class Trade {
+        private String id;
+        private String side; // "HUNTERS" | "VAMP_SIDE"
+        private String aId;
+        private String bId;
+        private Map<String,Integer> offerA = new HashMap<>();
+        private Map<String,Integer> offerB = new HashMap<>();
+        private String statusA = "PENDING"; // PENDING/CONFIRMED/REFUSED/CANCELLED
+        private String statusB = "PENDING";
+        private long updatedAt;
+
+        public String getId() { return id; }
+        public void setId(String id) { this.id = id; }
+
+        public String getSide() { return side; }
+        public void setSide(String side) { this.side = side; }
+
+        public String getAId() { return aId; }
+        public void setAId(String aId) { this.aId = aId; }
+
+        public String getBId() { return bId; }
+        public void setBId(String bId) { this.bId = bId; }
+
+        public Map<String,Integer> getOfferA() { return offerA; }
+        public void setOfferA(Map<String,Integer> offerA) { this.offerA = (offerA!=null?offerA:new HashMap<>()); }
+
+        public Map<String,Integer> getOfferB() { return offerB; }
+        public void setOfferB(Map<String,Integer> offerB) { this.offerB = (offerB!=null?offerB:new HashMap<>()); }
+
+        public String getStatusA() { return statusA; }
+        public void setStatusA(String statusA) { this.statusA = statusA; }
+
+        public String getStatusB() { return statusB; }
+        public void setStatusB(String statusB) { this.statusB = statusB; }
+
+        public long getUpdatedAt() { return updatedAt; }
+        public void setUpdatedAt(long updatedAt) { this.updatedAt = updatedAt; }
+    }
+
+    private List<Trade> trades = new ArrayList<>();
+
     public Game() {}
 
     public Game(String id, GameStatus status, int raid) {
@@ -249,4 +301,15 @@ public class Game {
 
     public Map<String, String> getUnstableHarvestLocByPlayer() { return unstableHarvestLocByPlayer; }
     public void setUnstableHarvestLocByPlayer(Map<String, String> m) { this.unstableHarvestLocByPlayer = m; }
+
+    public Map<String,Integer> getPotionsPool() { return potionsPool; }
+    public void setPotionsPool(Map<String,Integer> m) { this.potionsPool = m; }
+
+    public Set<String> getReadyForNextRaid() { return readyForNextRaid; }
+
+    public Long getPhase4DeadlineMillis() { return phase4DeadlineMillis; }
+    public void setPhase4DeadlineMillis(Long v) { this.phase4DeadlineMillis = v; }
+
+    public List<Trade> getTrades(){ return trades; }
+    public void setTrades(List<Trade> t){ this.trades = t; }
 }

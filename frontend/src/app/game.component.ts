@@ -1,12 +1,19 @@
 import { Component, inject, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { ApiService, GameSnapshot, RawStatMod, Phase } from './api.service';
+import { ApiService, GameSnapshot, RawStatMod, Phase, TradeView } from './api.service';
 import { LiveService, GameEvent } from './live.service';
 
 type SPlayer = GameSnapshot['players'][number];
 type UiStatMod = RawStatMod & { labelFr?: string; displayOnly?: boolean };
 type DefaultFightInfo = { willFight: boolean; loc?: string; opponentName?: string };
+type TradeStatus = 'PENDING'|'CONFIRMED'|'REFUSED'|'CANCELLED';
+type TradeSide = 'HUNTERS'|'VAMP_SIDE';
+interface STrade {
+  id: string; side: TradeSide; aId: string; bId: string;
+  offerA: Record<string,number>; offerB: Record<string,number>;
+  statusA: TradeStatus; statusB: TradeStatus; updatedAt: number;
+}
 
 @Component({
   standalone: true,
@@ -215,7 +222,7 @@ type DefaultFightInfo = { willFight: boolean; loc?: string; opponentName?: strin
           <span class="hp-value">{{ me.hp }}</span>
         </div>
       </div>
-      <div class="res-board" *ngIf="me as m" style="display:flex;gap:.5rem;align-items:center;margin:.25rem 0;">
+      <div class="res-board" *ngIf="me as m" style="display:flex;gap:.5rem;align-items:center;justify-content:center;margin:.25rem 0;">
         <span>Ressources&nbsp;:</span>
         <span title="Bois">🪵 {{ m.wood || 0 }}</span>
         <span title="Herbe médicinale">🌿 {{ m.herbs || 0 }}</span>
@@ -655,6 +662,181 @@ type DefaultFightInfo = { willFight: boolean; loc?: string; opponentName?: strin
           </ng-container>
         </div>
       </div>
+    </div>
+  </div>
+  <!-- ===== MODALE BOUTIQUE / TRANSMUTATION (Phase 4) ===== -->
+  <div *ngIf="shopOpen" class="modal-backdrop">
+    <div class="modal trade-modal"
+        [class.hunters]="isHunter"
+        [class.vampires]="isVampireSide">
+      <header class="modal-head">
+        <h3 *ngIf="isHunter">Boutique</h3>
+        <h3 *ngIf="isVampireSide">Transmutation</h3>
+
+          <div class="inventory" *ngIf="me as m">
+            <span class="inv">🪵 {{ m.wood }}</span>
+            <span class="inv">🌿 {{ m.herbs }}</span>
+            <span class="inv">🪨 {{ m.stone }}</span>
+            <span class="inv">⛓️ {{ m.iron }}</span>
+            <span class="inv">💧 {{ m.water }}</span>
+            <span *ngIf="m.role==='HUNTER'" class="inv">🪙 {{ m.gold }}</span>
+            <span *ngIf="m.role==='HUNTER'" class="inv">🥈 {{ m.silver }}</span>
+            <span *ngIf="m.role==='VAMPIRE' || m.role==='SERVANT'" class="inv">🕯️ {{ m.souls }}</span>
+          </div>
+
+        <div class="timer" *ngIf="phase4LeftSec>0">⏱ {{ phase4LeftSec }}s</div>
+      </header>
+
+      <section class="modal-body">
+        <div class="col">
+          <div class="card">
+            <h4>Potions</h4>
+            <p>Coût : 4 eaux pures + 3 herbes médicinales</p>
+            <p>Pioche restante : {{ game?.decks?.potions?.left ?? 0 }}</p>
+            <button (click)="onBuyPotion()" [disabled]="!canBuyPotion">Acheter une potion aléatoire</button>
+          </div>
+
+          <div class="card" *ngIf="isHunter">
+            <h4>Acheter de l’argent</h4>
+            <p>50 or → 1 argent</p>
+            <div class="row">
+              <button (click)="onBuySilver(1)" [disabled]="!canBuySilver">+1</button>
+              <button (click)="onBuySilver(5)" [disabled]="me?.gold! < 250">+5</button>
+            </div>
+          </div>
+
+          <div class="card" *ngIf="isHunter">
+            <h4>Vendre des ressources</h4>
+            <p>1 ressource → +10 or</p>
+            <div class="grid">
+              <div class="sell" *ngFor="let r of sellableResources">
+                <div class="label">
+                  {{ r }} <small>(x{{ resOf(me, r) }})</small>
+                </div>
+                <div class="actions">
+                  <button (click)="onSell(r, 1)" [disabled]="resOf(me, r) < 1">-1</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card" *ngIf="isVampireSide">
+            <h4>Recettes de transmutation</h4>
+            <ul class="recipes">
+              <li>
+                <span>2 bois + 1 eau → +2 fer</span>
+                <button (click)="onTransmute('WOOD_TO_IRON')" [disabled]="me?.wood!<2 || me?.water!<1">Transmuter</button>
+              </li>
+              <li>
+                <span>2 fer + 1 eau → +2 bois</span>
+                <button (click)="onTransmute('IRON_TO_WOOD')" [disabled]="me?.iron!<2 || me?.water!<1">Transmuter</button>
+              </li>
+              <li>
+                <span>1 bois + 1 fer + 1 eau → +20 âmes</span>
+                <button (click)="onTransmute('TRINITY_TO_SOULS')" [disabled]="me?.wood!<1 || me?.iron!<1 || me?.water!<1">Transmuter</button>
+              </li>
+            </ul>
+          </div>
+          <div class="card">
+            <h4>Statut</h4>
+            <div *ngIf="!waitingDone; else waitingTpl">
+              <button class="finish" (click)="onFinishPhase4()">Ne rien faire</button>
+            </div>
+            <ng-template #waitingTpl>
+              <div class="muted">En attente des autres joueurs…</div>
+            </ng-template>
+          </div>
+        </div>
+
+        <div class="col">
+          <div class="card">
+            <h4>Proposer un échange</h4>
+            <div class="targets">
+              <button *ngFor="let p of eligibleTradeTargets"
+                      (click)="selectTradeTarget(p.id)"
+                      [class.active]="p.id===selectedTradeTargetId">
+                {{ p.username }}
+              </button>
+            </div>
+
+            <div *ngIf="selectedTradeTargetId as tgtId" class="trade-area">
+              <div class="card">
+                <h5>Mes ressources</h5>
+                <div class="grid">
+                  <div class="res" *ngFor="let r of allResources">
+                    <div class="label">{{ r }} <small>(x{{ resOf(me, r) }})</small></div>
+                    <div class="actions" *ngIf="r !== 'gold'; else goldActions">
+                      <button (click)="bumpOffer(r, +1)" [disabled]="resOf(me, r) < (offerQty(r)+1)">+1</button>
+                      <button (click)="bumpOffer(r, -1)" [disabled]="offerQty(r) <= 0">-1</button>
+                    </div>
+
+                    <ng-template #goldActions>
+                      <div class="actions">
+                        <button (click)="bumpOffer(r, +10)" [disabled]="resOf(me, r) < (offerQty(r)+10)">+10</button>
+                        <button (click)="bumpOffer(r, -10)" [disabled]="offerQty(r) < 10">-10</button>
+                      </div>
+                    </ng-template>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <h4>Échanges en cours</h4>
+
+              <div class="trade-toast"
+                  *ngFor="let f of activeFlashes()"
+                  [class.ok]="f.kind==='ok'"
+                  [class.ko]="f.kind==='ko'">
+                {{ f.text }}
+              </div>
+
+              <div class="trade-list">
+                <div class="trade-block"
+                    *ngFor="let T of myTradesSorted()"
+                    [class.active]="otherIdFromTrade(T)===selectedTradeTargetId"
+                    [class.closing]="isClosing(T.id)"
+                    [class.closing-ok]="isClosingOk(T.id)"
+                    [class.closing-ko]="isClosingKo(T.id)">
+
+                  <div class="row" style="justify-content:space-between">
+                    <strong>{{ usernameOf(otherIdFromTrade(T)) }}</strong>
+                    <small class="muted">maj {{ T.updatedAt | date:'shortTime' }}</small>
+                  </div>
+
+                  <!-- Sa proposition -->
+                  <div class="card sub"
+                      [class.ok]="statusClassFrom(otherStatus(T))==='ok'"
+                      [class.ko]="statusClassFrom(otherStatus(T))==='ko'">
+                    <h5>Proposition d’échange de {{ usernameOf(T.aId===me?.id ? T.bId : T.aId) }}</h5>
+                    <div class="pill" *ngFor="let k of ((iAmA(T)?T.offerB:T.offerA) | keyvalue)">
+                      {{k.key}} x{{k.value}}
+                    </div>
+                    <div *ngIf="!((iAmA(T)?T.offerB:T.offerA) | keyvalue).length" class="muted">En attente…</div>
+                  </div>
+
+                  <!-- Ta proposition -->
+                  <div class="card sub"
+                      [class.ok]="statusClassFrom(myStatus(T))==='ok'"
+                      [class.ko]="statusClassFrom(myStatus(T))==='ko'">
+                    <h5>Proposition d’échange pour {{ usernameOf(otherIdFromTrade(T)) }}</h5>
+                    <div class="pill" *ngFor="let k of ((iAmA(T)?T.offerA:T.offerB) | keyvalue)">
+                      {{k.key}} x{{k.value}}
+                    </div>
+                    <div *ngIf="!((iAmA(T)?T.offerA:T.offerB) | keyvalue).length" class="muted">Rien.</div>
+                  </div>
+
+                  <div class="row buttons">
+                    <button class="confirm" (click)="onTradeActionFor('confirm', otherIdFromTrade(T))" [disabled]="isClosing(T.id)">Confirmer</button>
+                    <button class="refuse"  (click)="onTradeActionFor('refuse',  otherIdFromTrade(T))" [disabled]="isClosing(T.id)">Refuser</button>
+                    <button class="cancel"  (click)="onTradeActionFor('cancel',  otherIdFromTrade(T))" [disabled]="isClosing(T.id)">Annuler</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   </div>
   `,
@@ -1329,6 +1511,130 @@ type DefaultFightInfo = { willFight: boolean; loc?: string; opponentName?: strin
   .weather-footer{color: white; font-weight: bold;}
   .wheel{ width: 400px; height:auto; opacity:.95; }
   .btn-primary{ padding:.5rem 1rem; font-weight:600; }
+
+  /* Trade modale */
+  .modal.trade-modal{
+    background:#fff;
+    max-width:1000px;
+    width:90vw;
+    height:90vh;
+    overflow:auto;
+    border-radius:12px;
+    padding:1rem;
+  }
+  .modal-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem;border-bottom:1px solid #eee;padding-bottom:.5rem;margin-bottom:1rem;color: #eee;}
+  .modal-body{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+  .card{border:1px solid #eee;border-radius:8px;padding:.75rem;margin-bottom:.75rem;}
+  .row{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;}
+  .grid{display:grid;grid-template-columns:repeat(2, minmax(0,1fr));gap:.5rem;}
+  .targets button.active{outline:2px solid #333;}
+  .trade-area .pill{display:inline-block;border:1px solid #ddd;border-radius:999px;padding:.15rem .5rem;margin:.15rem;}
+  .ok{background:rgba(0,160,0,.08);}
+  .ko{background:rgba(200,0,0,.08);}
+  .finish{width:100%;}
+  .muted{opacity:.7;}
+  .timer{font-weight:600;}
+  .recipes li{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin:.25rem 0;}
+  .sell .actions button{min-width:3rem;}
+  .modal.trade-modal .modal-head .inventory{
+    margin: 0 auto;                 /* pousse au centre entre titre et timer */
+    display: flex; gap: .35rem; flex-wrap: wrap;
+  }
+  .modal.trade-modal .modal-head .inv{
+    border:1px solid rgba(255,255,255,.35);
+    background:rgba(0,0,0,.25);
+    border-radius:999px;
+    padding:.1rem .5rem;
+    font-weight:600;
+  }
+
+  .trade-list{
+    max-height:32vh;
+    overflow-y:auto;
+    padding-right:.25rem;
+  }
+
+  .trade-block{
+    border:1px solid #eee;
+    border-radius:8px;
+    padding:.5rem;
+    margin-bottom:.5rem;
+  }
+  .card.sub{ margin:.5rem 0; }
+  .trade-block.active{ outline:2px solid #333; }
+
+  .modal.trade-modal{
+    position:relative;
+    overflow:hidden;
+    background:transparent;
+  }
+  .modal.trade-modal::before{
+    content:"";
+    position:absolute; inset:0;
+    background-size: cover;
+    background-position:center;
+    pointer-events:none;
+    z-index:0;
+  }
+  .modal.trade-modal.hunters::before{   background-image:url('/assets/locations/bg-trade-hunters.png'); }
+  .modal.trade-modal.vampires::before{  background-image:url('/assets/locations/bg-trade-vampires.png'); }
+  .modal.trade-modal > *{ position:relative; z-index:1; }
+
+  .modal.trade-modal .card{
+    background:rgba(32,32,32,.35);
+    border-color:rgba(255,255,255,.25);
+    color:#fff;
+  }
+
+  .modal.trade-modal .card .muted{
+    opacity:1;
+    color:rgba(255,255,255,.75);
+  }
+
+  .modal.trade-modal .pill{
+    border:1px solid rgba(255,255,255,.35);
+    background:rgba(255,255,255,.14);
+    color:#fff;
+  }
+
+  .modal.trade-modal .ok{ background:rgba(0,160,0,.18); }
+  .modal.trade-modal .ko{ background:rgba(200,0,0,.18); }
+
+  .modal.trade-modal .targets button.active{ outline-color:#fff; }
+
+  /* Petits toasts (remplacent le bloc supprimé pendant 2.5s) */
+  .trade-toast{
+    border:1px solid transparent;
+    border-radius:6px;
+    padding:.5rem .75rem;
+    margin-bottom:.5rem;
+    font-weight:600;
+    color:#fff;
+  }
+  .trade-toast.ok{
+    background: rgba(0,160,0,.18);
+    border-color: rgba(0,160,0,.35);
+  }
+  .trade-toast.ko{
+    background: rgba(200,0,0,.18);
+    border-color: rgba(200,0,0,.35);
+  }
+
+  /* Pendant la fermeture, force le fond sur les deux sous-cards,
+   même si elles portent déjà .ok/.ko */
+  .modal.trade-modal .trade-block.closing-ok .card.sub {
+    background: rgba(0,160,0,.16) !important;
+    outline: 2px solid rgba(0,160,0,.6) !important;
+  }
+  .modal.trade-modal .trade-block.closing-ko .card.sub {
+    background: rgba(200,0,0,.16) !important;
+    outline: 2px solid rgba(200,0,0,.6) !important;
+  }
+
+  /* Verrou des boutons inchangé */
+  .trade-block.closing .buttons button {
+    opacity: .6; pointer-events: none;
+  }
 `]
 })
 export class GameComponent {
@@ -1422,6 +1728,28 @@ export class GameComponent {
   private static readonly WHEEL_DEG_PER_FACE = 30;
   private static readonly WHEEL_BASE_OFFSET = 15;
   private static readonly WEATHER_ICON_RADIUS = 120;
+  
+  // --- SHOP (modale Phase 4) --- //
+  shopOpen = false;
+  waitingDone = false;      // vrai après clic "Ne rien faire"
+  phase4LeftSec = 0;
+  private phase4TimerId: any = null;
+
+  // Echanges
+  selectedTradeTargetId: string | null = null;
+  myOffersByTarget: Record<string, Record<string, number>> = {};
+  myOffer: Record<string, number> = {};
+
+  private closingUntil: Record<string, number> = {};
+  private closingKind:  Record<string, 'ok'|'ko'> = {};
+
+  // Ressources vendables à la boutique (typage littéral)
+  readonly sellableResources: ReadonlyArray<'wood'|'herbs'|'stone'|'iron'|'water'> =
+    ['wood','herbs','stone','iron','water'] as const;
+
+  // Ressources complètes pour la zone "Mes ressources" de l’échange
+  readonly allResources: ReadonlyArray<'gold'|'silver'|'souls'|'wood'|'herbs'|'stone'|'iron'|'water'> =
+    ['gold','silver','souls','wood','herbs','stone','iron','water'] as const;
 
   back(){ this.router.navigate(['/lobby']); }
 
@@ -1492,6 +1820,21 @@ export class GameComponent {
     this.remainingPrePhaseSeconds = 0;
   }
 
+  private startPhase4Timer(deadlineMillis?: number | null) {
+    this.stopPhase4Timer();
+    const deadline = deadlineMillis ?? (Date.now() + 120000); // fallback robuste
+    this.phase4TimerId = setInterval(() => {
+      const ms = Math.max(0, deadline - Date.now());
+      this.phase4LeftSec = Math.ceil(ms / 1000);
+      if (ms <= 0) this.stopPhase4Timer();
+    }, 1000);
+  }
+
+  private stopPhase4Timer() {
+    if (this.phase4TimerId) { clearInterval(this.phase4TimerId); this.phase4TimerId = null; }
+    this.phase4LeftSec = 0;
+  }
+
   /** Déclenche automatiquement l'avance vers PHASE3 si tout le monde est prêt. */
   private maybeAutoAdvanceToPhase3(): void {
     if (!this.game) return;
@@ -1531,25 +1874,6 @@ export class GameComponent {
         });
       }, this.SPECTATE_HOLD_MS); // petit temps de lecture du dernier breakdown
     }
-  }
-
-  /** Passe automatiquement en PHASE0 après PHASE4 (début du raid suivant). */
-  private maybeAdvanceToPhase0AfterPhase4() {
-    const g = this.game;
-    if (!g || g.phase !== 'PHASE4') return;
-    if (this.toPhase0AdvanceSent) return;
-
-    this.toPhase0AdvanceSent = true;
-    setTimeout(() => {
-      // petit hold UX si tu veux afficher un message de fin de raid
-      this.api.advancePhase(this.gameId, 'PHASE0').subscribe({
-        error: e => {
-          if (e?.status === 409 || e?.error?.message === 'illegal advance') return;
-          this.toPhase0AdvanceSent = false;
-          this.showError(e);
-        }
-      });
-    }, 2000);
   }
 
   /** Patch “flip” local des cartes (utilisé quand on reçoit CENTER_REVEALED). */
@@ -1822,6 +2146,27 @@ export class GameComponent {
     return dmg > 0 ? `${an} inflige ${dmg} dégâts à ${dn}` : `${dn} pare l’attaque de ${an}`;
   }
 
+  // quantité d'une ressource 'res' pour un joueur p
+  resOf(p: SPlayer | undefined, res: string): number {
+    if (!p) return 0;
+    switch (res) {
+      case 'gold':   return p.gold;
+      case 'silver': return p.silver;
+      case 'souls':  return p.souls;
+      case 'wood':   return p.wood;
+      case 'herbs':  return p.herbs;
+      case 'stone':  return p.stone;
+      case 'iron':   return p.iron;
+      case 'water':  return p.water;
+      default:       return 0;
+    }
+  }
+
+  // quantité déjà proposée dans mon offre pour 'res'
+  offerQty(res: string): number {
+    return this.myOffer && this.myOffer[res] ? this.myOffer[res] : 0;
+  }
+
   rollNow(){
     if (!this.game) return;
     this.api.rollDice(this.game.id).subscribe({
@@ -1888,9 +2233,10 @@ export class GameComponent {
   get me(): SPlayer | undefined {
     return this.game?.players.find(p => p.id === this.meId);
   }
-  get isVampire(): boolean {
+  get isVampireSide(): boolean {
     return this.me?.role === 'VAMPIRE' || this.me?.role === 'SERVANT';
   }
+  get isHunter() { return this.me?.role === 'HUNTER'; }
   get hasVampire(): boolean {
     return !!this.game && this.game.players.some(p => p.role === 'VAMPIRE');
   }
@@ -1955,9 +2301,11 @@ export class GameComponent {
       this.api.getGame(this.gameId).subscribe({
         next: snap => {
           this.game = snap;
-          this.handleWeatherReveal(snap); // ok même si roll=null
+          this.handleWeatherReveal(snap);
+          // ouvrir/fermer la modale + timer si on arrive en PHASE4
+          this.syncShopVisibilityFromSnapshot();
         },
-        error: err => { /* idem ton code */ }
+        error: err => { /* ton code d’erreur habituel */ }
       });
     });
   }
@@ -2077,10 +2425,9 @@ export class GameComponent {
 
             // Enchaînement combats / maintenance
             if (g.phase === 'PHASE3') this.maybeAdvanceToPhase4EndOfRaid();
-            if (g.phase === 'PHASE4') { 
-              this.toPhase0AdvanceSent = false; 
-              this.maybeAdvanceToPhase0AfterPhase4(); 
-            }
+
+            // Ouvrir/fermer la modale + timer si on bascule vers/depuis PHASE4
+            this.syncShopVisibilityFromSnapshot();
 
             this.bumpHistoryScroll();
           },
@@ -2247,6 +2594,102 @@ export class GameComponent {
           error: e => this.showError(e)
         });
 
+        break;
+      }
+      case 'POTION_BOUGHT':
+      case 'SILVER_BOUGHT':
+      case 'RESOURCE_SOLD':
+      case 'TRANSMUTED': {
+        // stratégie simple: GET de synchro
+        this.api.getGame(this.gameId).subscribe({
+          next: g => {
+            this.game = g;
+            // si on est en phase 4, s’assurer que la modale est bien ouverte et timer à jour
+            this.syncShopVisibilityFromSnapshot();
+          },
+          error: e => this.showError(e)
+        });
+        break;
+      }
+
+      case 'TRADE_SYNC': {
+        const t = event.payload as STrade;
+
+        // upsert
+        const arr = (this.game as any).trades as STrade[] | undefined;
+        if (!arr) (this.game as any).trades = [t];
+        else {
+          const i = arr.findIndex(x => x.id === t.id);
+          if (i >= 0) arr[i] = t; else arr.push(t);
+        }
+
+        // auto-open si utile
+        const meInvolved = t.aId === this.me?.id || t.bId === this.me?.id;
+        const mySt = this.myStatus(t);
+        const hasAnyOffer =
+          (t.offerA && Object.keys(t.offerA).length > 0) ||
+          (t.offerB && Object.keys(t.offerB).length > 0);
+
+        if (meInvolved && this.shopOpen && !this.selectedTradeTargetId &&
+            mySt !== 'CANCELLED' && mySt !== 'REFUSED' && hasAnyOffer) {
+          const otherId = this.otherIdFromTrade(t);
+          this.selectedTradeTargetId = otherId;
+          this.myOffer = { ...(this.myOffersByTarget[otherId] || {}) };
+        }
+
+        this.game = { ...(this.game as GameSnapshot) };
+        break;
+      }
+
+      case 'TRADE_DELETED': {
+        const payload: any = event.payload || {};
+        const id      = payload.id as string | undefined;
+        const aId     = payload.aId as string | undefined;
+        const bId     = payload.bId as string | undefined;
+        const result  = payload.result as ('SUCCESS'|'CLOSED'|undefined);
+        if (!id || !aId || !bId) break;
+
+        const meId    = this.me?.id;
+        const otherId = meId === aId ? bId : aId;
+
+        const offerA = (payload.offerA || {}) as Record<string, number>;
+        const offerB = (payload.offerB || {}) as Record<string, number>;
+
+        const success = (result === 'SUCCESS');
+
+        this.closingUntil[id] = Date.now() + 1500;
+        this.closingKind[id]  = success ? 'ok' : 'ko';
+        this.game = { ...(this.game as GameSnapshot) };
+
+        setTimeout(() => {
+          if (this.game?.trades)
+            this.game.trades = this.game.trades.filter((x: STrade) => x.id !== id);
+
+          if (otherId) delete this.myOffersByTarget[otherId];
+          if (this.selectedTradeTargetId === otherId) {
+            this.selectedTradeTargetId = null;
+            this.myOffer = {};
+          }
+
+          if (success) {
+            const iAmA = (meId === aId);
+            const give = iAmA ? offerA : offerB;
+            const recv = iAmA ? offerB : offerA;
+            const txt  = `Vous avez échangé ${this.packToText(give)} contre ${this.packToText(recv)} avec ${this.usernameOf(otherId)}.`;
+            this.setFlashFor(otherId, txt, 'ok', 2500);
+            this.api.getGame(this.gameId).subscribe({ next: g => this.game = g, error: e => this.showError(e) });
+          } else {
+            this.setFlashFor(otherId, `Échange annulé avec ${this.usernameOf(otherId)}.`, 'ko', 2500);
+            this.game = { ...(this.game as GameSnapshot) };
+          }
+        }, 1500);
+
+        break;
+      }
+
+      case 'PHASE4_READY_UPDATED': {
+        const pid = event?.payload?.playerId as string | undefined;
+        if (pid && pid === this.meId) this.waitingDone = true;
         break;
       }
     }
@@ -2715,5 +3158,247 @@ export class GameComponent {
     const t = g.unstableEligibleTargets || {};
     const l = g.unstableEligibleLocations || {};
     return !!(t[id] || l[id]);
+  }
+
+  //====== Maintenance ======/
+  // Helpers Maintenance:
+  private openShop() {
+    this.shopOpen = true;
+    this.waitingDone = false;
+    this.myOffer = {};
+  }
+
+  private closeShop() {
+    this.shopOpen = false;
+    this.waitingDone = false;
+    this.stopPhase4Timer();
+  }
+
+  private syncShopVisibilityFromSnapshot(): void {
+    const inPhase4 = this.game?.phase === 'PHASE4';
+
+    // ouvrir/fermer la modale
+    if (inPhase4 && !this.shopOpen) this.openShop();
+    if (!inPhase4 && this.shopOpen) this.closeShop();
+
+    // (re)lancer le timer local (comme pour préphase)
+    const deadline = (this.game as any)?.phase4DeadlineMillis as number | undefined;
+    if (inPhase4) this.startPhase4Timer(deadline ?? null);
+
+    // IMPORTANT : garder l’état “En attente…” après reload
+    const ready = (this.game as any)?.readyForNextRaid as string[] | undefined;
+    this.waitingDone = Array.isArray(ready) ? ready.includes(this.meId) : false;
+  }
+
+  // Retourne MON statut (A ou B selon que je suis aId ou bId)
+  public myStatus(t: STrade): TradeStatus {
+    const iAmA = (t.aId === this.me?.id);
+    return iAmA ? t.statusA : t.statusB;
+  }
+
+  // Retourne le statut de l’AUTRE
+  public otherStatus(t: STrade): TradeStatus {
+    const iAmA = (t.aId === this.me?.id);
+    return iAmA ? t.statusB : t.statusA;
+  }
+
+  statusClassFrom(st: TradeStatus): string {
+    if (st === 'CONFIRMED') return 'ok';
+    if (st === 'REFUSED' || st === 'CANCELLED') return 'ko';
+    return ''; // PENDING
+  }
+
+  get canBuyPotion() {
+    const me = this.me; 
+    const snapshot = this.game;
+    if (!me || !snapshot) return false;
+    if ((snapshot.decks?.potions?.left ?? 0) <= 0) return false;
+    return me.water >= 4 && me.herbs >= 3;
+  }
+
+  get canBuySilver() {
+    const me = this.me;
+    return !!me && me.role === 'HUNTER' && me.gold >= 50;
+  }
+
+  iAmA(t: STrade): boolean { return t.aId === this.me?.id; }
+  otherIdFromTrade(t: STrade): string { return this.iAmA(t) ? t.bId : t.aId; }
+
+
+  // UI Maintenance actions
+  // --- Boutique --- //
+  onBuyPotion() { 
+    this.api.buyPotion(this.gameId).subscribe({ 
+      next: () => {},
+      error: e => this.showError(e) 
+    }); 
+  }
+  onBuySilver(qty: number) {
+    this.api.buySilver(this.gameId, qty).subscribe({ 
+      next: () => {},
+      error: e => this.showError(e) 
+    }); 
+  }
+  onSell(res: 'wood'|'herbs'|'stone'|'iron'|'water', qty: number) { 
+    this.api.sellResource(this.gameId, res, qty).subscribe({ 
+      next: () => {}, 
+      error: e => this.showError(e) 
+    }); 
+  }
+  onTransmute(recipe: 'WOOD_TO_IRON'|'IRON_TO_WOOD'|'TRINITY_TO_SOULS') { 
+    this.api.transmute(this.gameId, recipe).subscribe({ 
+      next: () => {}, 
+      error: e => this.showError(e) 
+    }); 
+  }
+  onFinishPhase4() {
+    this.waitingDone = true;
+    this.api.finishPhase4(this.gameId).subscribe({ 
+      next: () => {}, 
+      error: e => this.showError(e) 
+    });
+  }
+
+  // --- Échanges --- //
+  get eligibleTradeTargets(): SPlayer[] {
+    if (!this.game || !this.me) return [];
+    if (this.isHunter) {
+      return this.game.players.filter((p: SPlayer) => p.role === 'HUNTER' && p.id !== this.me!.id);
+    }
+    if (this.me!.role === 'VAMPIRE') {
+      return this.game.players.filter((p: SPlayer) => p.role === 'SERVANT');
+    }
+    return this.game.players.filter((p: SPlayer) => p.role === 'VAMPIRE');
+  }
+
+  // quand tu changes de cible : sauvegarde l’ancienne, recharge la nouvelle
+  selectTradeTarget(targetId: string): void {
+    if (this.selectedTradeTargetId) {
+      this.myOffersByTarget[this.selectedTradeTargetId] = { ...this.myOffer };
+    }
+    this.selectedTradeTargetId = targetId;
+    this.myOffer = { ...(this.myOffersByTarget[targetId] || {}) };
+  }
+
+
+
+  // quand on modifie l’offre, maj aussi de la mémoire et push au back
+  bumpOffer(res: string, delta: number): void {
+    const cur = this.myOffer[res] ?? 0;
+    const next = Math.max(0, cur + delta);
+    if (next === 0) delete this.myOffer[res];
+    else this.myOffer[res] = next;
+
+    if (this.selectedTradeTargetId) {
+      this.myOffersByTarget[this.selectedTradeTargetId] = { ...this.myOffer };
+      this.api.tradeOffer(this.gameId, this.selectedTradeTargetId, this.myOffer).subscribe({
+        next: () => {},
+        error: e => this.showError(e)
+      });
+    }
+  }
+
+  tradeForSelected(): STrade | undefined {
+    if (!this.game?.trades || !this.selectedTradeTargetId || !this.me) return undefined;
+    const meId = this.me.id;
+    return this.game.trades.find((t: STrade) =>
+      (t.aId === meId && t.bId === this.selectedTradeTargetId) ||
+      (t.bId === meId && t.aId === this.selectedTradeTargetId)
+    );
+  }
+
+  myTradesSorted(): STrade[] {
+    if (!this.game?.trades || !this.me) return [];
+    const meId = this.me.id;
+
+    return this.game.trades
+      .filter(t => t.aId === meId || t.bId === meId)
+      // ⬇️ (REMIS) je ne montre pas un trade si MON statut est cancel/refuse
+      .filter(t => {
+        const st = this.myStatus(t);
+        return st !== 'CANCELLED' && st !== 'REFUSED';
+      })
+      .sort((a,b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  }
+
+  onTradeAction(action: 'confirm'|'refuse'|'cancel'): void {
+    const targetId = this.selectedTradeTargetId; // capture
+    if (!targetId) return;
+
+    if (action === 'cancel') {
+      this.selectedTradeTargetId = null; // UI immédiate locale
+      this.myOffer = {};
+    }
+
+    this.api.tradeAction(this.gameId, action, targetId).subscribe({
+      next: () => {},
+      error: e => this.showError(e)
+    });
+  }
+
+  onTradeActionFor(action: 'confirm'|'refuse'|'cancel', targetId: string): void {
+    if (action === 'cancel') {
+      // 2.1 ferme "Mes ressources"
+      if (this.selectedTradeTargetId === targetId) {
+        delete this.myOffersByTarget[targetId];
+        this.selectedTradeTargetId = null;
+        this.myOffer = {};
+      }
+
+      // 2.2 pose MON statut à CANCELLED en local => le filtre ci-dessus masquera le bloc tout de suite
+      const meId = this.me?.id;
+      if (this.game?.trades && meId) {
+        const t = this.game.trades.find(x =>
+          (x.aId === meId && x.bId === targetId) ||
+          (x.bId === meId && x.aId === targetId)
+        );
+        if (t) {
+          if (t.aId === meId) t.statusA = 'CANCELLED';
+          else                t.statusB = 'CANCELLED';
+          t.updatedAt = Date.now();
+        }
+      }
+
+      // tick UI
+      this.game = { ...(this.game as GameSnapshot) };
+    }
+
+    // appel serveur (confirmera l’état et/ou supprimera plus tard)
+    this.api.tradeAction(this.gameId, action, targetId).subscribe({
+      next: () => {},
+      error: e => this.showError(e)
+    });
+  }
+
+  isClosing(id: string): boolean { return Date.now() < (this.closingUntil[id] || 0); }
+  isClosingOk(id: string): boolean { return this.isClosing(id) && this.closingKind[id] === 'ok'; }
+  isClosingKo(id: string): boolean { return this.isClosing(id) && this.closingKind[id] === 'ko'; }
+
+  // --- Toasts (2,5 s) par cible ---
+  private flashByTarget: Record<string, { text: string; kind: 'ok'|'ko'; until: number }> = {};
+
+  activeFlashes() {
+    const now = Date.now();
+    return Object.entries(this.flashByTarget)
+      .filter(([,v]) => v.until > now)
+      .map(([targetId, v]) => ({ targetId, ...v }));
+  }
+  private setFlashFor(targetId: string, text: string, kind: 'ok'|'ko', ms = 2500) {
+    this.flashByTarget[targetId] = { text, kind, until: Date.now() + ms };
+  }
+
+  // --- Format ressources pour le message succès ---
+  private labelFr(k: string): string {
+    switch (k) {
+      case 'wood': return 'bois'; case 'herbs': return 'herbes'; case 'stone': return 'pierre';
+      case 'iron': return 'fer';  case 'water': return 'eau';    case 'gold':  return 'or';
+      case 'souls':return 'âmes'; case 'silver':return 'argent'; default: return k;
+    }
+  }
+  private packToText(pack?: Record<string, number>): string {
+    if (!pack) return 'rien';
+    const entries = Object.entries(pack).filter(([_,q]) => (q||0) > 0);
+    if (!entries.length) return 'rien';
+    return entries.map(([k,q]) => `${this.labelFr(k)} x${q}`).join(', ');
   }
 }

@@ -193,4 +193,81 @@ public class GameController {
         playerService.requireInGame(user.getId(), id);
         games.rollCorruption(id, user.getId());
     }
+
+    // Maintenance
+    // --- Phase4: "ne rien faire" (finishTrade)
+    @PostMapping("/{id}/phase4/finish")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void finishTrade(@PathVariable String id,
+                            @RequestHeader("Authorization") String authorization){
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+        games.finishTrade(id, user.getId());
+    }
+
+    // --- Boutique / Transmutation ---
+    @PostMapping("/{id}/shop/buy-potion")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void buyPotion(@PathVariable String id,
+                          @RequestHeader("Authorization") String authorization){
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+        games.buyPotion(id, user.getId());
+    }
+
+    @PostMapping("/{id}/shop/buy-silver")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void buySilver(@PathVariable String id,
+                          @RequestParam(defaultValue="1") int qty,
+                          @RequestHeader("Authorization") String authorization){
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+        games.buySilver(id, user.getId(), qty);
+    }
+
+    public static class SellReq { public String res; public Integer qty; }
+    @PostMapping("/{id}/shop/sell")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void sell(@PathVariable String id,
+                     @RequestBody SellReq body,
+                     @RequestHeader("Authorization") String authorization){
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+        games.sellResource(id, user.getId(), body.res, body.qty!=null?body.qty:1);
+    }
+
+    public static class TransmuteReq { public String recipe; }
+    @PostMapping("/{id}/transmutation/do")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void transmute(@PathVariable String id,
+                          @RequestBody TransmuteReq body,
+                          @RequestHeader("Authorization") String authorization){
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+        games.transmute(id, user.getId(), body.recipe);
+    }
+
+    // --- Trades ---
+    public static class OfferReq { public String targetId; public java.util.Map<String,Integer> offer; }
+
+    @PostMapping("/{id}/trade/offer")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void tradeOffer(@PathVariable String id,
+                           @RequestBody OfferReq body,
+                           @RequestHeader("Authorization") String authorization){
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+        games.tradeSetMyOffer(id, user.getId(), body.targetId, body.offer);
+    }
+
+    @PostMapping("/{id}/trade/{action}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void tradeAction(@PathVariable String id,
+                            @PathVariable String action,     // confirm | refuse | cancel
+                            @RequestParam String targetId,
+                            @RequestHeader("Authorization") String authorization){
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+        games.tradeAction(id, user.getId(), targetId, action);
+    }
 }

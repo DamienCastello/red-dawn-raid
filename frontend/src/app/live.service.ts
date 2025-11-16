@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Client, IMessage, IFrame, StompHeaders } from '@stomp/stompjs';
+import { TradeView } from './api.service';
 
 export type GameEvent =
   | { type: 'LOBBY_UPDATED'; gameId: string; payload: { gameId: string; status: string; players: {id:string; username:string}[] }; ts: number }
@@ -17,7 +18,14 @@ export type GameEvent =
   | { type: 'COMBAT_RESOLVED'; gameId: string; payload: { roundId: string; dmg: number; defenderId: string; defenderHp: number; breakdown: string[] }; ts: number }
   | { type: 'BITE_STARTED'; gameId: string; payload: { attackerId: string; targetId: string; location: string }; ts: number }
   | { type: 'BITE_ROLLED'; gameId: string; payload: { roll: number; attackerId: string; targetId: string; newCorruption?: number|null; becameServant: boolean }; ts: number }
-  | { type: 'BITE_RESOLVED';      gameId: string; payload: { attackerId: string; targetId: string; location: string }; ts: number };
+  | { type: 'BITE_RESOLVED';      gameId: string; payload: { attackerId: string; targetId: string; location: string }; ts: number } 
+  | { type: 'POTION_BOUGHT';  gameId: string; payload: { playerId: string; type: string; left: number }; ts: number }
+  | { type: 'SILVER_BOUGHT';  gameId: string; payload: { playerId: string; qty: number; cost: number }; ts: number }
+  | { type: 'RESOURCE_SOLD';  gameId: string; payload: { playerId: string; res: string; qty: number; gain: number }; ts: number }
+  | { type: 'TRANSMUTED';     gameId: string; payload: { playerId: string; recipe: 'WOOD_TO_IRON'|'IRON_TO_WOOD'|'TRINITY_TO_SOULS' }; ts: number }
+  | { type: 'TRADE_SYNC';     gameId: string; payload: TradeView; ts: number }
+  | { type: 'TRADE_DELETED';  gameId: string; payload: { id: string }; ts: number }
+  | { type: 'PHASE4_READY_UPDATED';gameId: string; payload: { playerId: string; ready: number; total: number }; ts: number };
 
   type AnyEvent = GameEvent & { ts?: number };
 

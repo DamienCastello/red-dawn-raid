@@ -21,11 +21,18 @@ export type GameSnapshot = {
   hasUpcomingCombat: boolean;
   readyForPhase3: string[];
 
+  /*
   decks?: {
     actionsVamp:   { left: number; discard: number };
     actionsHunters:{ left: number; discard: number };
     potions:       { left: number; discard: number };
   };
+  */
+
+  decks: DecksView;
+  phase4DeadlineMillis?: number|null;
+  readyForNextRaid?: string[];
+  trades?: TradeView[];
 
   currentBite?: { attackerId: string; targetId: string; location: string; roll: number|null; resolvedAtMillis: number|null } | null;
 
@@ -96,6 +103,28 @@ export type CenterBoard = {
   card: string;
   faceUp: boolean;
 };
+
+// --- Types Phase 4 --- //
+export type TradeStatus = 'PENDING'|'CONFIRMED'|'REFUSED'|'CANCELLED';
+export type TradeSide   = 'HUNTERS'|'VAMP_SIDE';
+
+export interface TradeView {
+  id: string;
+  side: TradeSide;
+  aId: string;
+  bId: string;
+  offerA: Record<string, number>;
+  offerB: Record<string, number>;
+  statusA: TradeStatus;
+  statusB: TradeStatus;
+  updatedAt: number;
+}
+
+export interface DecksView {
+  potions: { left: number; discard?: number };
+  actionsVamp:   { left: number; discard: number };
+  actionsHunters:{ left: number; discard: number };
+}
 
 export type Game = {
   id: string;
@@ -243,6 +272,36 @@ export class ApiService {
 
   advancePhase(id: string, to: 'PHASE0'|'PHASE1'|'PHASE2'|'PREPHASE3'|'PHASE3'|'PHASE4') {
     return this.http.post<void>(`${this.base}/games/${id}/advance?to=${to}`, {});
+  }
+
+  // -------- Phase 4: actions joueur --------
+  buyPotion(gameId: string) {
+    return this.http.post<void>(`${this.base}/games/${gameId}/shop/buy-potion`, {});
+  }
+
+  buySilver(gameId: string, qty = 1) {
+    return this.http.post<void>(`${this.base}/games/${gameId}/shop/buy-silver?qty=${qty}`, {});
+  }
+
+  sellResource(gameId: string, res: 'wood'|'herbs'|'stone'|'iron'|'water', qty = 1) {
+    return this.http.post<void>(`${this.base}/games/${gameId}/shop/sell`, { res, qty });
+  }
+
+  finishPhase4(gameId: string) {
+    return this.http.post<void>(`${this.base}/games/${gameId}/phase4/finish`, {});
+  }
+
+  transmute(gameId: string, recipe: 'WOOD_TO_IRON'|'IRON_TO_WOOD'|'TRINITY_TO_SOULS') {
+    return this.http.post<void>(`${this.base}/games/${gameId}/transmutation/do`, { recipe });
+  }
+
+  // -------- Trades --------
+  tradeOffer(gameId: string, targetId: string, offer: Record<string, number>) {
+    return this.http.post<void>(`${this.base}/games/${gameId}/trade/offer`, { targetId, offer });
+  }
+
+  tradeAction(gameId: string, action: 'confirm'|'refuse'|'cancel', targetId: string) {
+    return this.http.post<void>(`${this.base}/games/${gameId}/trade/${action}?targetId=${targetId}`, {});
   }
 
 

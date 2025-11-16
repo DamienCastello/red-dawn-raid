@@ -15,6 +15,10 @@ public record GameSnapshot(
         boolean hasUpcomingCombat,
         List<String> readyForPhase3,
 
+        Long phase4DeadlineMillis,
+        List<String> readyForNextRaid,
+        List<TradeView> trades,
+
         DecksView decks,
         BiteView currentBite,
 
@@ -60,4 +64,10 @@ public record GameSnapshot(
             List<String> breakdownLines
     ) {}
     public record HistoryItemView(long ts, int raid, String phase, String text) {}
+
+    public record TradeView(
+            String id, String side, String aId, String bId,
+            Map<String,Integer> offerA, Map<String,Integer> offerB,
+            String statusA, String statusB, long updatedAt
+    ) {}
 }

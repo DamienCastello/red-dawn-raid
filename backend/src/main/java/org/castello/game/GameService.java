@@ -72,6 +72,10 @@ public class GameService {
         }
     }
 
+    private static Map<String,Integer> copyMap(Map<String,Integer> m){
+        return (m == null) ? new java.util.HashMap<>() : new java.util.HashMap<>(m);
+    }
+
     public GameSnapshot viewSnapshot(String gameId, String userId) {
         Game g = findOr404(gameId);
 
@@ -83,6 +87,7 @@ public class GameService {
         List<CenterBoard> centerSrc                  = (g.getCenter()                != null) ? g.getCenter()                : java.util.Collections.emptyList();
         Map<String, List<StatMod>> raidModsSrc       = (g.getRaidMods()              != null) ? g.getRaidMods()              : java.util.Collections.emptyMap();
         java.util.Set<String> readySet               = (g.getReadyForPhase3()        != null) ? g.getReadyForPhase3()        : java.util.Collections.emptySet();
+        List<String> readyForNextRaid                = new java.util.ArrayList<>(g.getReadyForNextRaid());
         List<Game.HistoryItem> historySrc            = (g.getHistory()               != null) ? g.getHistory()               : java.util.Collections.emptyList();
         List<RoundFight> combatsQueueSrc             = (g.getCombatsQueue()          != null) ? g.getCombatsQueue()          : java.util.Collections.emptyList();
         List<String> messagesSrc                     = (g.getMessages()              != null) ? g.getMessages()              : java.util.Collections.emptyList();
@@ -191,6 +196,25 @@ public class GameService {
             );
         }
 
+        List<GameSnapshot.TradeView> trades =
+                (g.getTrades() == null ? java.util.List.<Game.Trade>of() : g.getTrades())
+                        .stream()
+                        .filter(t -> java.util.Objects.equals(t.getAId(), userId) || java.util.Objects.equals(t.getBId(), userId))
+                        .map(t -> new GameSnapshot.TradeView(
+                                t.getId(),
+                                t.getSide(),
+                                t.getAId(),
+                                t.getBId(),
+                                copyMap(t.getOfferA()),
+                                copyMap(t.getOfferB()),
+                                t.getStatusA(),
+                                t.getStatusB(),
+                                t.getUpdatedAt()         // <- primitive long
+                        ))
+                        // tri du plus récent au plus ancien (pas de null-check sur un long)
+                        .sorted((x, y) -> Long.compare(y.updatedAt(), x.updatedAt()))
+                        .toList();
+
         // History
         List<GameSnapshot.HistoryItemView> history = historySrc.stream().map(h ->
                 new GameSnapshot.HistoryItemView(
@@ -215,6 +239,9 @@ public class GameService {
                 raidMods,
                 g.isHasUpcomingCombat(),
                 readyList,
+                g.getPhase4DeadlineMillis(),
+                readyForNextRaid,
+                trades,
                 decks,
                 bite,
                 combatsQueue,
@@ -237,6 +264,9 @@ public class GameService {
         if (g.getMessages() == null)             g.setMessages(new java.util.ArrayList<>());
         if (g.getHistory() == null)              g.setHistory(new java.util.ArrayList<>());
         g.getReadyForPhase3().clear();
+        g.getReadyForNextRaid().clear();
+        if (g.getTrades()!=null) g.getTrades().clear();
+        g.setPhase4DeadlineMillis(null);
         if (g.getUnstableEligibleTargets() == null)   g.setUnstableEligibleTargets(new java.util.HashMap<>());
         if (g.getUnstableTargetByPlayer() == null)    g.setUnstableTargetByPlayer(new java.util.HashMap<>());
         if (g.getUnstableEligibleLocations() == null) g.setUnstableEligibleLocations(new java.util.HashMap<>());
@@ -418,6 +448,23 @@ public class GameService {
     }
 
     /**
+     * Ajoute (ou remplace par source) un mod de raid pour un joueur.
+     * Idempotent par 'source' : si un mod avec la même source existe, il est retiré avant ajout.
+     */
+    private void addRaidMod(Game g, String playerId, String stat, int amount, String source) {
+        if (g.getRaidMods() == null) g.setRaidMods(new HashMap<>());
+        var list = g.getRaidMods().computeIfAbsent(playerId, __ -> new ArrayList<>());
+
+        // On remplace toute entrée existante portant la même source (idempotent)
+        if (source != null && stat != null) {
+            list.removeIf(m -> source.equals(m.getSource()) && stat.equals(m.getStat()));
+        } else if (source != null) {
+            list.removeIf(m -> source.equals(m.getSource()));
+        }
+        list.add(new StatMod(stat, amount, source));
+    }
+
+    /**
      * Construit la liste des modificateurs “moteur” d’un joueur pour le raid courant.
      *
      * Sources possibles (exemples) :
@@ -590,7 +637,16 @@ public class GameService {
         // --- Compteurs / centre ---
         g.setVampActionsLeft(20);    g.setVampActionsDiscard(0);
         g.setHunterActionsLeft(35);  g.setHunterActionsDiscard(0);
-        g.setPotionsLeft(22);        g.setPotionsDiscard(0);
+
+        // Pioche potions: 3 FORCE, 3 ENDURANCE, 4 VIE
+        g.setPotionsLeft(10);
+        g.setPotionsDiscard(0);
+        Map<String,Integer> pool = new HashMap<>();
+        pool.put("FORCE", 3);
+        pool.put("ENDURANCE", 3);
+        pool.put("VIE", 4);
+        g.setPotionsPool(pool);
+
         g.setCenter(new ArrayList<>());
 
         // --- Structures de raid (vides, prêtes) ---
@@ -789,7 +845,13 @@ public class GameService {
                 g.getCenter().clear();
                 g.setMessages(new ArrayList<>(List.of("Maintenance…")));
                 addHistory(g, "Maintenance…");
-                g.setRaid(g.getRaid() + 1);
+
+                // reset modale
+                g.getReadyForNextRaid().clear();
+                long deadline = System.currentTimeMillis() + 120_000L;
+                g.setPhase4DeadlineMillis(deadline);
+
+                schedulePhase4Timeout(g.getId(), 120_000L);
             }
 
             default -> { /* rien */ }
@@ -929,6 +991,30 @@ public class GameService {
                             // Tous les events après COMMIT uniquement
                             afterCommit(() -> {
                                 Game fresh = findOr404(gameId);    // état frais et commité
+                                live.phaseChanged(fresh);
+                            });
+
+                            return null;
+                        })
+                , java.time.Instant.now().plusMillis(millis));
+    }
+
+    private void schedulePhase4Timeout(String gameId, long millis) {
+        raidScheduler.schedule(() ->
+                        tx.execute(status -> {
+                            Game g2 = findOr404(gameId);
+
+                            if (g2.getStatus() != GameStatus.ACTIVE || g2.getPhase() != Phase.PHASE4) {
+                                return null; // plus la peine
+                            }
+
+                            // On avance vers PHASE0 (début de nouveau raid)
+                            g2.setRaid(g2.getRaid() + 1);
+                            applyPhaseEntry(g2, Phase.PHASE0);
+                            save(g2);
+
+                            afterCommit(() -> {
+                                Game fresh = findOr404(gameId);
                                 live.phaseChanged(fresh);
                             });
 
@@ -1156,6 +1242,73 @@ public class GameService {
             if (fAdvance) {
                 live.phaseChanged(g);
             }
+        });
+
+        return g;
+    }
+
+    @Transactional
+    public Game finishTrade(String gameId, String userId) {
+        Game g = findOr404(gameId);
+        if (g.getPhase() != Phase.PHASE4)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE4");
+
+        // 1) Marquer le joueur prêt (pas de setter, on ajoute dans le set final)
+        g.getReadyForNextRaid().add(userId);
+
+        // 2) Annuler TOUTES les propositions où je suis impliqué
+        var toDelete = new java.util.ArrayList<Game.Trade>();
+        record DeletedTrade(String id, String aId, String bId) {}
+        var deleted = new java.util.ArrayList<DeletedTrade>();
+
+        for (var t : new java.util.ArrayList<>(g.getTrades())) {
+            boolean iAmA = userId.equals(t.getAId());
+            boolean iAmB = userId.equals(t.getBId());
+            if (!iAmA && !iAmB) continue;
+
+            if (iAmA) t.setStatusA("CANCELLED"); else t.setStatusB("CANCELLED");
+            t.setUpdatedAt(System.currentTimeMillis());
+
+            boolean aFinal = isFinal(t.getStatusA());
+            boolean bFinal = isFinal(t.getStatusB());
+            if (aFinal && bFinal) {
+                deleted.add(new DeletedTrade(t.getId(), t.getAId(), t.getBId()));
+                toDelete.add(t);
+            }
+        }
+        g.getTrades().removeAll(toDelete);
+
+        // 3) Tout le monde est prêt → on déclenche la phase suivante immédiatement
+        boolean everyone = g.getReadyForNextRaid().size() >= g.getPlayers().size();
+        if (everyone) {
+            applyPhaseEntry(g, Phase.PHASE0); // ta logique standard de réinit de raid
+        }
+
+        // 4) Commit
+        save(g);
+
+        // 5) Lives après commit
+        final boolean fEveryone = everyone;
+        afterCommit(() -> {
+            // informer les paires touchées encore présentes (CANCELLED d'un seul côté)
+            for (var t : g.getTrades()) {
+                if (userId.equals(t.getAId()) || userId.equals(t.getBId())) {
+                    live.tradeSync(g, t);
+                }
+            }
+            // informer des suppressions (les 2 côtés finals)
+            for (var dt : deleted) {
+                live.tradeDeleted(
+                        g, dt.id(), dt.aId(), dt.bId(),
+                        "FINISH_PHASE4",
+                        "CLOSED",
+                        Map.of()
+                );
+            }
+            // notifier “prêt” pour PHASE4 (évènement distinct de la préphase)
+            live.phase4ReadyUpdated(g, userId, g.getReadyForNextRaid().size(), g.getPlayers().size());
+
+            if (fEveryone) live.phaseChanged(g);
         });
 
         return g;
@@ -2212,20 +2365,391 @@ public class GameService {
         return g;
     }
 
-    /**
-     * Ajoute (ou remplace par source) un mod de raid pour un joueur.
-     * Idempotent par 'source' : si un mod avec la même source existe, il est retiré avant ajout.
-     */
-    private void addRaidMod(Game g, String playerId, String stat, int amount, String source) {
-        if (g.getRaidMods() == null) g.setRaidMods(new HashMap<>());
-        var list = g.getRaidMods().computeIfAbsent(playerId, __ -> new ArrayList<>());
+    // Maintenance
+    @Nullable
+    private Player findPlayer(Game g, String id){
+        return g.getPlayers().stream().filter(p -> p.getId().equals(id)).findFirst().orElse(null);
+    }
 
-        // On remplace toute entrée existante portant la même source (idempotent)
-        if (source != null && stat != null) {
-            list.removeIf(m -> source.equals(m.getSource()) && stat.equals(m.getStat()));
-        } else if (source != null) {
-            list.removeIf(m -> source.equals(m.getSource()));
+    private int poolLeft(Map<String,Integer> pool){
+        return pool.values().stream().mapToInt(Integer::intValue).sum();
+    }
+
+    // tirage pondéré en fonction du pool
+    private String drawPotion(Game g){
+        var pool = g.getPotionsPool();
+        if (pool == null || poolLeft(pool) <= 0) return null;
+
+        int total = poolLeft(pool);
+        int r = RND.nextInt(total) + 1;
+        for (var e : pool.entrySet()) {
+            r -= e.getValue();
+            if (r <= 0) {
+                pool.put(e.getKey(), e.getValue() - 1);
+                g.setPotionsLeft(Math.max(0, g.getPotionsLeft() - 1));
+                return e.getKey();
+            }
         }
-        list.add(new StatMod(stat, amount, source));
+        return null;
+    }
+
+    private void addPotionTo(Game g, String playerId, String type){
+        g.getPotionsByPlayer().computeIfAbsent(playerId, __ -> new ArrayList<>()).add(type);
+    }
+
+    @Transactional
+    public Game buyPotion(String gameId, String userId) {
+        Game g = findOr404(gameId);
+        if (g.getPhase() != Phase.PHASE4)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE4");
+
+        var p = findPlayer(g, userId);
+        if (p == null) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
+
+        if (g.getPotionsLeft() <= 0) throw new ResponseStatusException(HttpStatus.CONFLICT, "no potions left");
+        if (p.getWater() < 4 || p.getHerbs() < 3) throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
+
+        p.setWater(p.getWater() - 4);
+        p.setHerbs(p.getHerbs() - 3);
+
+        String type = drawPotion(g);
+        if (type == null) throw new ResponseStatusException(HttpStatus.CONFLICT, "no potions left");
+
+        addPotionTo(g, userId, type);
+        addHistory(g, nameOf(g, userId) + " achète une potion.");
+
+        save(g);
+        afterCommit(() -> live.potionBought(g, userId, type, g.getPotionsLeft()));
+        return g;
+    }
+
+    @Transactional
+    public Game buySilver(String gameId, String userId, int qty) {
+        if (qty <= 0) qty = 1;
+
+        Game g = findOr404(gameId);
+        if (g.getPhase() != Phase.PHASE4)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE4");
+
+        var p = findPlayer(g, userId);
+        if (p == null) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
+        if (!"HUNTER".equals(p.getRole()))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "hunters only");
+
+        int cost = 50 * qty;
+        if (p.getGold() < cost)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "not enough gold");
+
+        p.setGold(p.getGold() - cost);
+        p.setSilver(p.getSilver() + qty);
+        addHistory(g, nameOf(g, userId) + " achète " + qty + " argent (" + cost + " or).");
+
+        save(g);
+
+        final int fQty  = qty;
+        final int fCost = cost;
+
+        afterCommit(() -> live.silverBought(g, userId, fQty, fCost));
+        return g;
+    }
+
+    @Transactional
+    public Game sellResource(String gameId, String userId, String res, int qty) {
+        if (qty <= 0) qty = 1;
+        Game g = findOr404(gameId);
+        if (g.getPhase() != Phase.PHASE4)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE4");
+
+        var p = findPlayer(g, userId);
+        if (p == null) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
+        if (!"HUNTER".equals(p.getRole()))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "hunters only");
+
+        Set<String> allowed = Set.of("wood","herbs","stone","iron","water");
+        if (!allowed.contains(res)) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid resource");
+
+        // vérifier stock
+        int have = switch(res) {
+            case "wood" -> p.getWood();
+            case "herbs"-> p.getHerbs();
+            case "stone"-> p.getStone();
+            case "iron" -> p.getIron();
+            case "water"-> p.getWater();
+            default -> 0;
+        };
+        if (have < qty) throw new ResponseStatusException(HttpStatus.CONFLICT, "not enough resource");
+
+        // débiter
+        switch(res) {
+            case "wood" -> p.setWood(have - qty);
+            case "herbs"-> p.setHerbs(have - qty);
+            case "stone"-> p.setStone(have - qty);
+            case "iron" -> p.setIron(have - qty);
+            case "water"-> p.setWater(have - qty);
+        }
+
+        int gain = 10 * qty;
+        p.setGold(p.getGold() + gain);
+        addHistory(g, nameOf(g, userId) + " vend " + qty + " " + resLabelFr(res) + " (+" + gain + " or).");
+
+        save(g);
+
+        final String fRes = res;
+        final int fQty = qty;
+        final int fGain = gain;
+
+        afterCommit(() -> live.resourceSold(g, userId, fRes, fQty, fGain));
+        return g;
+    }
+
+    @Transactional
+    public Game transmute(String gameId, String userId, String recipe) {
+        Game g = findOr404(gameId);
+        if (g.getPhase() != Phase.PHASE4)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE4");
+
+        var p = findPlayer(g, userId);
+        if (p == null) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
+        if (!"VAMPIRE".equals(p.getRole()) && !"SERVANT".equals(p.getRole()))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "vampire/servants only");
+
+        switch (recipe) {
+            case "WOOD_TO_IRON" -> { // 2 bois + 1 eau → +2 fer
+                if (p.getWood() < 2 || p.getWater() < 1) throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
+                p.setWood(p.getWood() - 2);
+                p.setWater(p.getWater() - 1);
+                p.setIron(p.getIron() + 2);
+                addHistory(g, nameOf(g, userId) + " transmute: 2 bois + 1 eau → +2 fer.");
+            }
+            case "IRON_TO_WOOD" -> { // 2 fer + 1 eau → +2 bois
+                if (p.getIron() < 2 || p.getWater() < 1) throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
+                p.setIron(p.getIron() - 2);
+                p.setWater(p.getWater() - 1);
+                p.setWood(p.getWood() + 2);
+                addHistory(g, nameOf(g, userId) + " transmute: 2 fer + 1 eau → +2 bois.");
+            }
+            case "TRINITY_TO_SOULS" -> { // 1 bois + 1 fer + 1 eau → +20 âmes
+                if (p.getWood() < 1 || p.getIron() < 1 || p.getWater() < 1) throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
+                p.setWood(p.getWood() - 1);
+                p.setIron(p.getIron() - 1);
+                p.setWater(p.getWater() - 1);
+                p.setSouls(p.getSouls() + 20);
+                addHistory(g, nameOf(g, userId) + " transmute: 1 bois + 1 fer + 1 eau → +20 âmes.");
+            }
+            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "unknown recipe");
+        }
+
+        save(g);
+        afterCommit(() -> live.transmuted(g, userId, recipe));
+        return g;
+    }
+
+    private boolean sameSideCanTrade(Player a, Player b){
+        if ("HUNTER".equals(a.getRole()) && "HUNTER".equals(b.getRole())) return true;
+        // vamp side: vamp <-> servant uniquement
+        if ("VAMPIRE".equals(a.getRole()) && "SERVANT".equals(b.getRole())) return true;
+        if ("SERVANT".equals(a.getRole()) && "VAMPIRE".equals(b.getRole())) return true;
+        return false;
+    }
+
+    private String sideOf(Player a, Player b){
+        return "HUNTER".equals(a.getRole()) && "HUNTER".equals(b.getRole()) ? "HUNTERS" : "VAMP_SIDE";
+    }
+
+    private Game.Trade getOrCreateTrade(Game g, String aId, String bId){
+        String lo = aId.compareTo(bId) <= 0 ? aId : bId;
+        String hi = aId.compareTo(bId) <= 0 ? bId : aId;
+
+        for (var t : g.getTrades()) {
+            if ((t.getAId().equals(lo) && t.getBId().equals(hi))) return t;
+        }
+        var t = new Game.Trade();
+        t.setId(java.util.UUID.randomUUID().toString());
+        t.setAId(lo); t.setBId(hi);
+        var pa = findPlayer(g, lo);
+        var pb = findPlayer(g, hi);
+        t.setSide(sideOf(pa, pb));
+        g.getTrades().add(t);
+        return t;
+    }
+
+    @Transactional
+    public Game tradeSetMyOffer(String gameId, String userId, String targetId, Map<String,Integer> offer) {
+        Game g = findOr404(gameId);
+        if (g.getPhase() != Phase.PHASE4)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE4");
+
+        var me = findPlayer(g, userId);
+        var you = findPlayer(g, targetId);
+        if (me == null || you == null) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "player not found");
+        if (!sameSideCanTrade(me, you)) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "pair not eligible");
+
+        var t = getOrCreateTrade(g, userId, targetId);
+
+        // sanitize
+        Map<String,Integer> sanitized = new java.util.HashMap<>();
+        if (offer != null) {
+            for (var e : offer.entrySet()) {
+                int q = Math.max(0, e.getValue()==null?0:e.getValue());
+                if (q > 0) sanitized.put(e.getKey(), q);
+            }
+        }
+
+        boolean iAmA = userId.equals(t.getAId());
+        if (iAmA) t.setOfferA(sanitized); else t.setOfferB(sanitized);
+
+        // UX : toute modif remet les deux côtés à PENDING
+        t.setStatusA("PENDING");
+        t.setStatusB("PENDING");
+        t.setUpdatedAt(System.currentTimeMillis());
+
+        save(g);
+        afterCommit(() -> live.tradeSync(g, t));
+        return g;
+    }
+
+    @Transactional
+    public Game tradeAction(String gameId, String userId, String targetId, String action) {
+        Game g = findOr404(gameId);
+        if (g.getPhase() != Phase.PHASE4)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE4");
+
+        var me = findPlayer(g, userId);
+        var you = findPlayer(g, targetId);
+        if (me == null || you == null) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "player not found");
+        if (!sameSideCanTrade(me, you)) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "pair not eligible");
+
+        var t = getOrCreateTrade(g, userId, targetId);
+        boolean iAmA = userId.equals(t.getAId());
+
+        String st = switch (action) {
+            case "confirm" -> "CONFIRMED";
+            case "refuse"  -> "REFUSED";
+            case "cancel"  -> "CANCELLED";
+            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid action");
+        };
+
+        if (iAmA) t.setStatusA(st); else t.setStatusB(st);
+        t.setUpdatedAt(System.currentTimeMillis());
+
+        String tId = t.getId();
+        String aId = t.getAId();
+        String bId = t.getBId();
+        Map<String,Integer> offerA = t.getOfferA()==null? java.util.Map.of() : new java.util.HashMap<>(t.getOfferA());
+        Map<String,Integer> offerB = t.getOfferB()==null? java.util.Map.of() : new java.util.HashMap<>(t.getOfferB());
+
+        boolean deleted = false;
+        boolean success  = false;
+
+        if ("CONFIRMED".equals(t.getStatusA()) && "CONFIRMED".equals(t.getStatusB())) {
+            success = true;
+            applyTradeExchange(g, t);
+            g.getTrades().remove(t);
+            deleted = true;
+        } else if (isFinal(t.getStatusA()) && isFinal(t.getStatusB())) {
+            g.getTrades().remove(t);
+            deleted = true;
+        }
+
+        save(g);
+        if (deleted) {
+            final boolean fSuccess = success;
+            final var fOfferA = offerA;
+            final var fOfferB = offerB;
+
+            final String fResult = fSuccess ? "SUCCESS" : "CLOSED";
+            final java.util.Map<String,Object> extra = fSuccess
+                    ? new java.util.HashMap<>(java.util.Map.of(
+                    "offerA", fOfferA,
+                    "offerB", fOfferB
+            ))
+                    : java.util.Map.of();
+
+            afterCommit(() -> {
+                live.tradeDeleted(
+                        g, tId, aId, bId,
+                        "FINAL",
+                        fResult,
+                        extra
+                );
+            });
+        } else {
+            afterCommit(() -> live.tradeSync(g, t));
+        }
+        return g;
+    }
+
+    private boolean isFinal(String s){ return "REFUSED".equals(s) || "CANCELLED".equals(s); }
+
+    // Exécution de l'échange (débits puis crédits)
+    private void applyTradeExchange(Game g, Game.Trade t){
+        var a = findPlayer(g, t.getAId());
+        var b = findPlayer(g, t.getBId());
+        if (a==null || b==null) return;
+
+        // vérif stocks côté A et B
+        if (!hasAll(a, t.getOfferA()) || !hasAll(b, t.getOfferB()))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "insufficient resources");
+
+        debit(a, t.getOfferA()); debit(b, t.getOfferB());
+        credit(a, t.getOfferB()); credit(b, t.getOfferA());
+
+        addHistory(g, nameOf(g, a.getId()) + " et " + nameOf(g, b.getId()) + " concluent un échange.");
+    }
+
+    // helpers
+    private boolean hasAll(Player p, Map<String,Integer> pack){
+        if (pack==null) return true;
+        for (var e : pack.entrySet()){
+            int need = Math.max(0, e.getValue()==null?0:e.getValue());
+            switch (e.getKey()) {
+                case "wood"  -> { if (p.getWood()  < need) return false; }
+                case "herbs" -> { if (p.getHerbs() < need) return false; }
+                case "stone" -> { if (p.getStone() < need) return false; }
+                case "iron"  -> { if (p.getIron()  < need) return false; }
+                case "water" -> { if (p.getWater() < need) return false; }
+                case "gold"  -> { if (p.getGold()  < need) return false; }          // boutique dit or permis côté hunters
+                case "souls" -> { if (p.getSouls() < need) return false; }         // transmutation côté vamp
+                case "silver"-> { if (p.getSilver()< need) return false; }
+                default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid resource: " + e.getKey());
+            }
+        }
+        return true;
+    }
+
+    private void debit(Player p, Map<String,Integer> pack){
+        if (pack == null) return;
+        for (var e : pack.entrySet()){
+            int q = Math.max(0, e.getValue()==null ? 0 : e.getValue());
+            switch (e.getKey()){
+                case "wood"   -> p.setWood(p.getWood() - q);
+                case "herbs"  -> p.setHerbs(p.getHerbs() - q);
+                case "stone"  -> p.setStone(p.getStone() - q);
+                case "iron"   -> p.setIron(p.getIron() - q);
+                case "water"  -> p.setWater(p.getWater() - q);
+                case "gold"   -> p.setGold(p.getGold() - q);
+                case "souls"  -> p.setSouls(p.getSouls() - q);
+                case "silver" -> p.setSilver(p.getSilver() - q);
+                default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid resource: " + e.getKey());
+            }
+        }
+    }
+
+    private void credit(Player p, Map<String,Integer> pack){
+        if (pack == null) return;
+        for (var e : pack.entrySet()){
+            int q = Math.max(0, e.getValue()==null ? 0 : e.getValue());
+            switch (e.getKey()){
+                case "wood"   -> p.setWood(p.getWood() + q);
+                case "herbs"  -> p.setHerbs(p.getHerbs() + q);
+                case "stone"  -> p.setStone(p.getStone() + q);
+                case "iron"   -> p.setIron(p.getIron() + q);
+                case "water"  -> p.setWater(p.getWater() + q);
+                case "gold"   -> p.setGold(p.getGold() + q);
+                case "souls"  -> p.setSouls(p.getSouls() + q);
+                case "silver" -> p.setSilver(p.getSilver() + q);
+                default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid resource: " + e.getKey());
+            }
+        }
     }
 }
