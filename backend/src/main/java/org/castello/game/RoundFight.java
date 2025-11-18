@@ -9,6 +9,12 @@ public class RoundFight {
     private Integer defenderRoll; // jet (null tant que pas lancé)
     private Long resolvedAtMillis;// quand les dégâts ont été appliqués (info)
     private java.util.List<String> breakdownLines = new java.util.ArrayList<>();
+    // Premier jet (pour la Potion de focalisation)
+    private Integer attackerFirstRoll;
+    private Integer defenderFirstRoll;
+    private Integer attackerReroll;
+    private Integer defenderReroll;
+    private boolean rapidExtra;
 
     public RoundFight() {}
 
@@ -43,4 +49,19 @@ public class RoundFight {
 
     public java.util.List<String> getBreakdownLines() { return breakdownLines; }
     public void setBreakdownLines(java.util.List<String> breakdownLines) { this.breakdownLines = breakdownLines; }
+
+    public Integer getAttackerFirstRoll() { return attackerFirstRoll; }
+    public void setAttackerFirstRoll(Integer attackerFirstRoll) { this.attackerFirstRoll = attackerFirstRoll; }
+
+    public Integer getDefenderFirstRoll() { return defenderFirstRoll; }
+    public void setDefenderFirstRoll(Integer defenderFirstRoll) { this.defenderFirstRoll = defenderFirstRoll; }
+
+    public Integer getAttackerReroll() { return attackerReroll; }
+    public void setAttackerReroll(Integer attackerReroll) { this.attackerReroll = attackerReroll; }
+
+    public Integer getDefenderReroll() { return defenderReroll; }
+    public void setDefenderReroll(Integer defenderReroll) { this.defenderReroll = defenderReroll; }
+
+    public boolean isRapidExtra() { return rapidExtra; }
+    public void setRapidExtra(boolean rapidExtra) { this.rapidExtra = rapidExtra;}
 }

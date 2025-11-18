@@ -17,6 +17,7 @@ export type GameSnapshot = {
   }>;
 
   center: Array<{ playerId: string; card: string; faceUp: boolean }>;
+  raidEffects: { [playerId: string]: RaidEffectsView };
   raidMods: Record<string, RawStatMod[]>;
   hasUpcomingCombat: boolean;
   readyForPhase3: string[];
@@ -36,13 +37,14 @@ export type GameSnapshot = {
 
   currentBite?: { attackerId: string; targetId: string; location: string; roll: number|null; resolvedAtMillis: number|null } | null;
 
-  combatsQueue: Array<{
-    id: string; location: string; attackerId: string; defenderId: string;
-    attackerRoll: number|null; defenderRoll: number|null;
-    resolvedAtMillis: number|null; breakdownLines: string[];
-  }>;
-  currentCombatIndex: number|null;
-  currentCombat: GameSnapshot['combatsQueue'][number] | null;
+  combatsQueue: RoundFight[];
+  currentCombatIndex: number | null;
+  currentCombat: RoundFight | null;
+
+  unstableEligibleTargets?: Record<string, string[]>;
+  unstableEligibleLocations?: Record<string, string[]>;
+  unstableTargetByPlayer?: Record<string, string>;
+  unstableHarvestLocByPlayer?: Record<string, string>;
 
   history: Array<{ ts: number; raid: number; phase: Phase; text: string }>;
   messages: string[];
@@ -68,15 +70,24 @@ type Health = { status: string };
 
 export type Phase = 'PHASE0'|'PHASE1'|'PHASE2'| 'PREPHASE3' | 'PHASE3'|'PHASE4';
 
+export interface RaidEffectsView {
+  focus: boolean;
+  leech: boolean;
+}
+
 export type RoundFight = {
   id: string;
   location: string;
   attackerId: string;
   defenderId: string;
-  attackerRoll?: number | null;
-  defenderRoll?: number | null;
-  resolvedAtMillis?: number | null;
-  breakdownLines?: string[];
+  attackerRoll: number | null;
+  defenderRoll: number | null;
+  attackerFirstRoll: number | null;
+  defenderFirstRoll: number | null;
+  attackerReroll?: number | null;
+  defenderReroll?: number | null;
+  resolvedAtMillis: number | null;
+  breakdownLines: string[];
 };
 
 export type Player = {
@@ -171,7 +182,7 @@ export type BiteAttempt = {
 };
 
 export type RawStatMod = {
-  stat: 'ATTACK'|'DEFENSE'|'MULTIPLE'|'INSTABLE'|'SERVITEUR';
+  stat: 'ATTACK'|'DEFENSE'|'MULTIPLE'|'INSTABLE'|'SERVITEUR'|'FOCALISATION';
   amount: number;
   source: string;
 };

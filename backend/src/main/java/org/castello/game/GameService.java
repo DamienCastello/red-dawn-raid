@@ -156,6 +156,28 @@ public class GameService {
             raidMods.put(e.getKey(), mapped);
         }
 
+        // Raid effects
+        Map<String, GameSnapshot.RaidEffectsView> raidEffects = new java.util.HashMap<>();
+        if (g.getRaidEffects() != null) {
+            for (var e : g.getRaidEffects().entrySet()) {
+                String playerId = e.getKey();
+                RaidEffects fx  = e.getValue();
+                if (fx == null) continue;
+
+                raidEffects.put(playerId,
+                        new GameSnapshot.RaidEffectsView(
+                                fx.isFocus(),
+                                fx.isLeech(),
+                                fx.isInvulnerable(),
+                                fx.isDoubleAttack(),
+                                fx.isDoubleDefense(),
+                                fx.isInvisible(),
+                                fx.isRapid()
+                        )
+                );
+            }
+        }
+
         // Decks
         var decks = new GameSnapshot.DecksView(
                 new GameSnapshot.DecksView.Pile(g.getVampActionsLeft(),   g.getVampActionsDiscard()),
@@ -179,6 +201,8 @@ public class GameService {
                         r.getId(), r.getLocation(),
                         r.getAttackerId(), r.getDefenderId(),
                         r.getAttackerRoll(), r.getDefenderRoll(),
+                        r.getAttackerFirstRoll(), r.getDefenderFirstRoll(),
+                        r.getAttackerReroll(), r.getDefenderReroll(),
                         r.getResolvedAtMillis(),
                         (r.getBreakdownLines() != null ? r.getBreakdownLines() : java.util.List.of())
                 )
@@ -191,6 +215,8 @@ public class GameService {
                     r.getId(), r.getLocation(),
                     r.getAttackerId(), r.getDefenderId(),
                     r.getAttackerRoll(), r.getDefenderRoll(),
+                    r.getAttackerFirstRoll(), r.getDefenderFirstRoll(),
+                    r.getAttackerReroll(), r.getDefenderReroll(),
                     r.getResolvedAtMillis(),
                     (r.getBreakdownLines() != null ? r.getBreakdownLines() : java.util.List.of())
             );
@@ -236,6 +262,7 @@ public class GameService {
                 weather,
                 players,
                 center,
+                raidEffects,
                 raidMods,
                 g.isHasUpcomingCombat(),
                 readyList,
@@ -624,27 +651,31 @@ public class GameService {
             p.setHp("VAMPIRE".equals(p.getRole()) ? 20 + huntersCount * 10 : 20);
         }
 
+
         // --- Inventaire potions (dev/test) ---
-        /*
         for (var p : g.getPlayers()) {
             g.getPotionsByPlayer().computeIfAbsent(p.getId(), __ -> new ArrayList<>());
             if ("HUNTER".equals(p.getRole())) {
-                g.getPotionsByPlayer().get(p.getId()).addAll(List.of("FORCE", "ENDURANCE", "VIE"));
+                g.getPotionsByPlayer().get(p.getId()).addAll(List.of("FOCALISATION", "RESILIENCE", "RAGE", "RAPIDITE", "INVISIBILITE", "INVULNERABILITE"));
+            }
+            if ("VAMPIRE".equals(p.getRole())) {
+                g.getPotionsByPlayer().get(p.getId()).addAll(List.of("FOCALISATION", "RESILIENCE", "RAGE", "RAPIDITE", "INVISIBILITE", "INVULNERABILITE"));
             }
         }
-        */
+
 
         // --- Compteurs / centre ---
         g.setVampActionsLeft(20);    g.setVampActionsDiscard(0);
         g.setHunterActionsLeft(35);  g.setHunterActionsDiscard(0);
 
         // Pioche potions: 3 FORCE, 3 ENDURANCE, 4 VIE
-        g.setPotionsLeft(10);
+        g.setPotionsLeft(12);
         g.setPotionsDiscard(0);
         Map<String,Integer> pool = new HashMap<>();
         pool.put("FORCE", 3);
         pool.put("ENDURANCE", 3);
         pool.put("VIE", 4);
+        pool.put("FOCALISATION", 2);
         g.setPotionsPool(pool);
 
         g.setCenter(new ArrayList<>());
@@ -1325,8 +1356,13 @@ public class GameService {
         g.getCombatsQueue().clear();
 
         // Ensemble des joueurs instables déjà réaffectés (attaque ou récolte)
-        var unstableAssigned = new java.util.HashSet<>(g.getUnstableTargetByPlayer().keySet());
-        unstableAssigned.addAll(g.getUnstableHarvestLocByPlayer().keySet());
+        var unstableAssigned = new java.util.HashSet<String>();
+        if (g.getUnstableTargetByPlayer() != null) {
+            unstableAssigned.addAll(g.getUnstableTargetByPlayer().keySet());
+        }
+        if (g.getUnstableHarvestLocByPlayer() != null) {
+            unstableAssigned.addAll(g.getUnstableHarvestLocByPlayer().keySet());
+        }
 
         var groups = groupPlayersByLocation(g);
 
@@ -1346,41 +1382,113 @@ public class GameService {
 
             for (var enemy : enemies) {
                 for (var h : huntersForDefault) {
-                    // Round 1 : chasseur attaque
-                    g.getCombatsQueue().add(new RoundFight(
-                            java.util.UUID.randomUUID().toString(), loc, h.getId(), enemy.getId()
-                    ));
-                    // Round 2 : ennemi attaque
-                    g.getCombatsQueue().add(new RoundFight(
-                            java.util.UUID.randomUUID().toString(), loc, enemy.getId(), h.getId()
-                    ));
+
+                    boolean hunterInvisible = hasInvisibility(g, h.getId());
+                    boolean enemyInvisible  = hasInvisibility(g, enemy.getId());
+
+                    if (hunterInvisible && !enemyInvisible) {
+                        // Le chasseur est invisible : il attaque, mais l’ennemi
+                        // n’aura PAS de round inverse en tant qu’attaquant.
+                        RoundFight r1 = new RoundFight(
+                                java.util.UUID.randomUUID().toString(), loc, h.getId(), enemy.getId()
+                        );
+                        r1.setDefenderRoll(0); // l’ennemi ne lance pas de dé de défense
+                        g.getCombatsQueue().add(r1);
+
+                    } else if (enemyInvisible && !hunterInvisible) {
+                        // L’ennemi est invisible : il attaque, mais le chasseur
+                        // n’aura PAS de round inverse en tant qu’attaquant.
+                        RoundFight r2 = new RoundFight(
+                                java.util.UUID.randomUUID().toString(), loc, enemy.getId(), h.getId()
+                        );
+                        r2.setDefenderRoll(0); // le chasseur ne lance pas de dé de défense
+                        g.getCombatsQueue().add(r2);
+
+                    } else {
+                        // Cas "classique" (personne ou les deux invisibles) :
+                        // on garde les deux rounds aller/retour comme avant.
+                        RoundFight r1 = new RoundFight(
+                                java.util.UUID.randomUUID().toString(), loc, h.getId(), enemy.getId()
+                        );
+                        if (hunterInvisible) {
+                            r1.setDefenderRoll(0);
+                        }
+                        g.getCombatsQueue().add(r1);
+
+                        RoundFight r2 = new RoundFight(
+                                java.util.UUID.randomUUID().toString(), loc, enemy.getId(), h.getId()
+                        );
+                        if (enemyInvisible) {
+                            r2.setDefenderRoll(0);
+                        }
+                        g.getCombatsQueue().add(r2);
+                    }
                 }
             }
         }
 
         // 2) Duels "instable -> cible"
-        for (var entry : g.getUnstableTargetByPlayer().entrySet()) {
-            String unstableId = entry.getKey();
-            String targetId   = entry.getValue();
+        if (g.getUnstableTargetByPlayer() != null) {
+            for (var entry : g.getUnstableTargetByPlayer().entrySet()) {
+                String unstableId = entry.getKey();
+                String targetId   = entry.getValue();
 
-            String loc = g.getCenter().stream()
-                    .filter(cb -> cb.getPlayerId().equals(targetId))
-                    .map(CenterBoard::getCard)
-                    .findFirst()
-                    .orElse("forest");
+                String loc = g.getCenter().stream()
+                        .filter(cb -> cb.getPlayerId().equals(targetId))
+                        .map(CenterBoard::getCard)
+                        .findFirst()
+                        .orElse("forest");
 
-            g.getCombatsQueue().add(new RoundFight(
-                    java.util.UUID.randomUUID().toString(), loc, unstableId, targetId
-            ));
+                RoundFight duel = new RoundFight(
+                        java.util.UUID.randomUUID().toString(), loc, unstableId, targetId
+                );
+                // Si l’instable a bu Invisibilité, sa cible ne lancera pas de dé
+                if (hasInvisibility(g, unstableId)) {
+                    duel.setDefenderRoll(0);
+                }
+                g.getCombatsQueue().add(duel);
 
-            // Message lisible
-            String info = "Combat — " + nameOf(g, unstableId) + " VS " + nameOf(g, targetId) + " à " + labelLieuFr(loc);
-            if (g.getMessages() == null) g.setMessages(new java.util.ArrayList<>());
-            g.getMessages().add(info);
-            addHistory(g, info);
+                // Message lisible
+                String info = "Combat — " + nameOf(g, unstableId) + " VS "
+                        + nameOf(g, targetId) + " à " + labelLieuFr(loc);
+                if (g.getMessages() == null) g.setMessages(new java.util.ArrayList<>());
+                g.getMessages().add(info);
+                addHistory(g, info);
+            }
         }
 
-        // 3) Pointeur sur le combat courant (plus aucun nextAdvanceAt/timer côté serveur)
+// 3) appliquer Potion de rapidité
+        if (g.getRaidEffects() != null && !g.getRaidEffects().isEmpty()) {
+            java.util.List<RoundFight> expanded = new java.util.ArrayList<>();
+            for (RoundFight rf : g.getCombatsQueue()) {
+                // round original inchangé
+                expanded.add(rf);
+
+                RaidEffects fx = g.getRaidEffects().get(rf.getAttackerId());
+                if (fx != null && fx.isRapid()) {
+                    // on duplique le round pour cet attaquant
+                    RoundFight extra = new RoundFight(
+                            java.util.UUID.randomUUID().toString(),
+                            rf.getLocation(),
+                            rf.getAttackerId(),
+                            rf.getDefenderId()
+                    );
+                    // Marquer que c’est la 2ᵉ attaque (Potion de rapidité)
+                    extra.setRapidExtra(true);
+
+                    // Si l’attaquant a aussi Invisibilité, le round dupliqué
+                    // a lui aussi un défenseur qui ne lance pas de dé
+                    if (fx.isInvisible()) {
+                        extra.setDefenderRoll(0);
+                    }
+                    expanded.add(extra);
+                }
+            }
+            g.setCombatsQueue(expanded);
+        }
+
+
+        // 4) Pointeur sur le combat courant (plus aucun nextAdvanceAt/timer côté serveur)
         if (!g.getCombatsQueue().isEmpty()) {
             g.setCurrentCombatIndex(0);
             g.setCurrentCombat(g.getCombatsQueue().get(0));
@@ -1403,6 +1511,10 @@ public class GameService {
 
         var r = g.getCurrentCombat();
 
+        // Effets de raid pour ce joueur (dont Potion de focalisation)
+        RaidEffects fx = (g.getRaidEffects() != null) ? g.getRaidEffects().get(userId) : null;
+        boolean hasFocus = (fx != null && fx.isFocus());
+
         // ---- Payloads d’événements à émettre APRÈS commit
         final class Ev {
             boolean sendAtk, sendDef, sendResolved, startBite;
@@ -1413,22 +1525,106 @@ public class GameService {
         Ev ev = new Ev();
         ev.roundId = r.getId();
 
-        // --- Pose du jet (attacker OU defender)
-        if (userId.equals(r.getAttackerId()) && r.getAttackerRoll() == null) {
+        // --- Pose du jet (attacker OU defender) avec gestion FOCALISATION
+        if (userId.equals(r.getAttackerId())) {
             var p = g.getPlayers().stream().filter(pp -> pp.getId().equals(userId)).findFirst().orElseThrow();
             int sides = diceSides(p.getAttackDice());
-            int roll = 1 + RND.nextInt(sides);
-            r.setAttackerRoll(roll);
-            addHistory(g, nameOf(g, r.getAttackerId()) + " — jet d'attaque = " + roll + ".");
-            ev.sendAtk = true; ev.atkId = r.getAttackerId(); ev.atkRoll = roll;
 
-        } else if (userId.equals(r.getDefenderId()) && r.getDefenderRoll() == null) {
+            if (hasFocus) {
+                // Potion de focalisation : 2 appels possibles
+
+                if (r.getAttackerFirstRoll() == null && r.getAttackerRoll() == null) {
+                    // 1er appel : on stocke le 1er résultat, mais PAS de roll final
+                    int roll1 = 1 + RND.nextInt(sides);
+                    r.setAttackerFirstRoll(roll1);
+
+                    addHistory(g, nameOf(g, r.getAttackerId())
+                            + " — jet d'attaque (Potion de focalisation, premier dé) = " + roll1 + ".");
+
+                    // on envoie quand même un event pour afficher ce 1er dé
+                    ev.sendAtk = true; ev.atkId = r.getAttackerId(); ev.atkRoll = roll1;
+
+                    // NOTE : pas de r.setAttackerRoll(...) ici -> pas de résolution possible
+                }
+                else if (r.getAttackerFirstRoll() != null && r.getAttackerRoll() == null) {
+                    // 2e appel : on lance un 2e dé, on garde le meilleur, et C'EST le jet final
+                    int roll2 = 1 + RND.nextInt(sides);
+                    int first = r.getAttackerFirstRoll();
+                    int best  = Math.max(first, roll2);
+
+                    r.setAttackerReroll(roll2);
+                    r.setAttackerRoll(best);
+
+                    addHistory(g, nameOf(g, r.getAttackerId())
+                            + " — relance d'attaque grâce à la Potion de focalisation : "
+                            + first + " → " + roll2 + " (garde " + best + ").");
+
+                    ev.sendAtk = true; ev.atkId = r.getAttackerId(); ev.atkRoll = best;
+                }
+                else {
+                    // on a déjà un jet final => plus rien à lancer
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "no roll expected from you now");
+                }
+
+            } else {
+                // Pas de potion de focalisation : comportement identique à avant
+                if (r.getAttackerRoll() == null) {
+                    int roll = 1 + RND.nextInt(sides);
+                    r.setAttackerRoll(roll);
+                    addHistory(g, nameOf(g, r.getAttackerId()) + " — jet d'attaque = " + roll + ".");
+                    ev.sendAtk = true; ev.atkId = r.getAttackerId(); ev.atkRoll = roll;
+
+                } else {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "no roll expected from you now");
+                }
+            }
+
+        } else if (userId.equals(r.getDefenderId())) {
             var p = g.getPlayers().stream().filter(pp -> pp.getId().equals(userId)).findFirst().orElseThrow();
             int sides = diceSides(p.getDefenseDice());
-            int roll = 1 + RND.nextInt(sides);
-            r.setDefenderRoll(roll);
-            addHistory(g, nameOf(g, r.getDefenderId()) + " — jet de défense = " + roll + ".");
-            ev.sendDef = true; ev.defId = r.getDefenderId(); ev.defRoll = roll;
+
+            if (hasFocus) {
+                if (r.getDefenderFirstRoll() == null && r.getDefenderRoll() == null) {
+                    // 1er jet de défense, uniquement stocké comme "premier dé"
+                    int roll1 = 1 + RND.nextInt(sides);
+                    r.setDefenderFirstRoll(roll1);
+
+                    addHistory(g, nameOf(g, r.getDefenderId())
+                            + " — jet de défense (Potion de focalisation, premier dé) = " + roll1 + ".");
+
+                    ev.sendDef = true; ev.defId = r.getDefenderId(); ev.defRoll = roll1;
+
+                } else if (r.getDefenderFirstRoll() != null && r.getDefenderRoll() == null) {
+                    // 2e appel : on fixe le jet final (meilleur des deux)
+                    int roll2 = 1 + RND.nextInt(sides);
+                    int first = r.getDefenderFirstRoll();
+                    int best  = Math.max(first, roll2);
+
+                    r.setDefenderReroll(roll2);
+                    r.setDefenderRoll(best);
+
+                    addHistory(g, nameOf(g, r.getDefenderId())
+                            + " — relance de défense grâce à la Potion de focalisation : "
+                            + first + " → " + roll2 + " (garde " + best + ").");
+
+                    ev.sendDef = true; ev.defId = r.getDefenderId(); ev.defRoll = best;
+
+                } else {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "no roll expected from you now");
+                }
+
+            } else {
+                // Pas de potion : comportement initial
+                if (r.getDefenderRoll() == null) {
+                    int roll = 1 + RND.nextInt(sides);
+                    r.setDefenderRoll(roll);
+                    addHistory(g, nameOf(g, r.getDefenderId()) + " — jet de défense = " + roll + ".");
+                    ev.sendDef = true; ev.defId = r.getDefenderId(); ev.defRoll = roll;
+
+                } else {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "no roll expected from you now");
+                }
+            }
 
         } else {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "no roll expected from you now");
@@ -1436,26 +1632,131 @@ public class GameService {
 
         // --- Résolution si les 2 jets sont posés (et pas encore résolu)
         if (r.getAttackerRoll() != null && r.getDefenderRoll() != null && combatNotResolved(r)) {
-            int atk = r.getAttackerRoll();
-            int def = r.getDefenderRoll();
+            int rawAtk = r.getAttackerRoll();
+            int rawDef = r.getDefenderRoll();   // 0 d’emblée si Invisibilité a joué lors de la création du duel
+
             int atkMod = totalModFor(g, r.getAttackerId(), "ATTACK");
             int defMod = totalModFor(g, r.getDefenderId(), "DEFENSE");
-            int dmg    = Math.max(0, (atk + atkMod) - (def + defMod));
 
-            var defPlayer = g.getPlayers().stream().filter(p -> p.getId().equals(r.getDefenderId())).findFirst().orElse(null);
+            // Effets de raid (potions) pour attaquant et défenseur
+            RaidEffects atkFx = (g.getRaidEffects() != null)
+                    ? g.getRaidEffects().get(r.getAttackerId())
+                    : null;
+
+            RaidEffects defFx = (g.getRaidEffects() != null)
+                    ? g.getRaidEffects().get(r.getDefenderId())
+                    : null;
+
+            int atkScoreBeforeMul = rawAtk + atkMod;
+            int defScoreBeforeMul = rawDef + defMod;
+
+            int atkScore = atkScoreBeforeMul;
+            int defScore = defScoreBeforeMul;
+
+            // Rage : x2 attaque
+            if (atkFx != null && atkFx.isDoubleAttack()) {
+                atkScore *= 2;
+            }
+            // Résilience : x2 défense
+            if (defFx != null && defFx.isDoubleDefense()) {
+                defScore *= 2;
+            }
+
+            int dmg = Math.max(0, atkScore - defScore);
+
+            // Invulnérabilité : annule les dégâts
+            boolean preventedByInvuln = false;
+            if (defFx != null && defFx.isInvulnerable() && dmg > 0) {
+                preventedByInvuln = true;
+                dmg = 0;
+            }
+
+            var defPlayer = g.getPlayers().stream()
+                    .filter(p -> p.getId().equals(r.getDefenderId()))
+                    .findFirst().orElse(null);
             if (defPlayer != null && dmg > 0) {
                 defPlayer.setHp(Math.max(0, defPlayer.getHp() - dmg));
             }
 
+            var atkPlayer = g.getPlayers().stream()
+                    .filter(p -> p.getId().equals(r.getAttackerId()))
+                    .findFirst().orElse(null);
+
+            // Sangsue : se soigne des dégâts infligés (après invulnérabilité)
+            int healedByLeech = 0;
+            if (atkPlayer != null && atkFx != null && atkFx.isLeech() && dmg > 0) {
+                int beforeHp = atkPlayer.getHp();
+                int maxHp    = maxHpFor(g, atkPlayer);
+                atkPlayer.setHp(Math.min(maxHp, atkPlayer.getHp() + dmg));
+                healedByLeech = atkPlayer.getHp() - beforeHp;
+            }
+
+            // Vol d’objet par le vampire (si dégâts finaux > 0)
             String theftLine = null;
-            var atkPlayer = g.getPlayers().stream().filter(p -> p.getId().equals(r.getAttackerId())).findFirst().orElse(null);
             if (atkPlayer != null && "VAMPIRE".equals(atkPlayer.getRole())
                     && defPlayer != null && "HUNTER".equals(defPlayer.getRole()) && dmg > 0) {
                 theftLine = vampStealOne(g, atkPlayer, defPlayer);
             }
 
-            var atkBk = buildModBreakdownLines(g, r.getAttackerId(), "ATTACK",  r.getAttackerRoll());
-            var defBk = buildModBreakdownLines(g, r.getDefenderId(), "DEFENSE", r.getDefenderRoll());
+            int defRollForBreakdown = rawDef;
+
+            var atkBk = buildModBreakdownLines(g, r.getAttackerId(), "ATTACK", rawAtk);
+            var defBk = buildModBreakdownLines(g, r.getDefenderId(), "DEFENSE", defRollForBreakdown);
+
+            // --- Bonus de la Potion de focalisation (inchangé) ---
+            if (atkFx != null && atkFx.isFocus()
+                    && r.getAttackerFirstRoll() != null
+                    && r.getAttackerRoll() != null
+                    && r.getAttackerRoll() > r.getAttackerFirstRoll()) {
+
+                int diff = r.getAttackerRoll() - r.getAttackerFirstRoll();
+                atkBk.add(nameOf(g, r.getAttackerId())
+                        + " a gagné " + diff + " de stat par l'effet Potion de focalisation.");
+            }
+
+            if (defFx != null && defFx.isFocus()
+                    && r.getDefenderFirstRoll() != null
+                    && r.getDefenderRoll() != null
+                    && r.getDefenderRoll() > r.getDefenderFirstRoll()) {
+
+                int diff = r.getDefenderRoll() - r.getDefenderFirstRoll();
+                defBk.add(nameOf(g, r.getDefenderId())
+                        + " a gagné " + diff + " de stat par l'effet Potion de focalisation.");
+            }
+
+            // --- Lignes supplémentaires pour les nouvelles potions ---
+            if (atkFx != null && atkFx.isDoubleAttack()) {
+                atkBk.add(nameOf(g, r.getAttackerId())
+                        + " voit son score d'attaque doublé par la Potion de rage : "
+                        + atkScoreBeforeMul + " → " + atkScore + ".");
+            }
+            if (defFx != null && defFx.isDoubleDefense()) {
+                defBk.add(nameOf(g, r.getDefenderId())
+                        + " voit son score de défense doublé par la Potion de résilience : "
+                        + defScoreBeforeMul + " → " + defScore + ".");
+            }
+            if (atkFx != null && atkFx.isInvisible()) {
+                atkBk.add(nameOf(g, r.getAttackerId())
+                        + " est invisible : "
+                        + nameOf(g, r.getDefenderId())
+                        + " ne lance pas de dé de défense (0).");
+            }
+            if (preventedByInvuln && defPlayer != null) {
+                defBk.add(nameOf(g, r.getDefenderId())
+                        + " est protégé par une Potion d'invulnérabilité : les dégâts sont annulés.");
+            }
+            if (healedByLeech > 0 && atkPlayer != null) {
+                atkBk.add(nameOf(g, r.getAttackerId())
+                        + " récupère " + healedByLeech + " PV grâce à la Potion de sangsue.");
+            }
+            if (atkFx != null && atkFx.isRapid() && r.isRapidExtra()) {
+                atkBk.add(
+                        nameOf(g, r.getAttackerId())
+                                + " attaque une deuxième fois par l'effet de la Potion de rapidité."
+                );
+            }
+
+            // Historique détaillé
             for (String ln : atkBk) addHistory(g, ln);
             for (String ln : defBk) addHistory(g, ln);
 
@@ -1499,6 +1800,7 @@ public class GameService {
 
             r.setResolvedAtMillis(System.currentTimeMillis());
         }
+
 
         // --- Commit
         save(g);
@@ -1956,24 +2258,21 @@ public class GameService {
 
         // --- mutations + historique (PAS d'events ici)
         String feedText;               // message pour le flux (envoyé après commit)
-        boolean touchMods = false;     // est-ce qu'on a modifié des mods (FORCE/ENDURANCE)
 
         switch (type) {
             case FORCE -> {
                 if (g.getRaidMods() == null) g.setRaidMods(new HashMap<>());
                 g.getRaidMods().computeIfAbsent(userId, __ -> new ArrayList<>())
                         .add(new StatMod("ATTACK", +1, "POTION:FORCE"));
-                addHistory(g, nameOf(g, userId) + " utilise une Potion de force (+1 attaque ce raid).");
+                addHistory(g, nameOf(g, userId) + " utilise une Potion de force.");
                 feedText = nameOf(g, userId) + " boit une Potion de force !";
-                touchMods = true;
             }
             case ENDURANCE -> {
                 if (g.getRaidMods() == null) g.setRaidMods(new HashMap<>());
                 g.getRaidMods().computeIfAbsent(userId, __ -> new ArrayList<>())
                         .add(new StatMod("DEFENSE", +1, "POTION:ENDURANCE"));
-                addHistory(g, nameOf(g, userId) + " utilise une Potion d’endurance (+1 défense ce raid).");
+                addHistory(g, nameOf(g, userId) + " utilise une Potion d’endurance.");
                 feedText = nameOf(g, userId) + " boit une Potion d’endurance !";
-                touchMods = true;
             }
             case VIE -> {
                 var p = g.getPlayers().stream().filter(pp -> pp.getId().equals(userId)).findFirst().orElseThrow();
@@ -1983,9 +2282,83 @@ public class GameService {
                         : 20;
                 p.setHp(Math.min(max, p.getHp() + 10));
                 int healed = p.getHp() - before;
-                addHistory(g, nameOf(g, userId) + " utilise une Potion de vie (+" + healed + " PV).");
+                addHistory(g, nameOf(g, userId) + " utilise une Potion de vie.");
                 feedText = nameOf(g, userId) + " boit une Potion de vie !";
-                // touchMods reste false, mais on forcera quand même un refresh côté front (voir events ci-dessous)
+            }
+            case FOCALISATION -> {
+                var fx = raidFx(g, userId);
+                fx.setFocus(true);
+
+                g.getRaidMods().computeIfAbsent(userId, __ -> new ArrayList<>())
+                        .add(new StatMod("FOCALISATION", 0, "POTION:FOCALISATION:DSP"));
+                addHistory(g, nameOf(g, userId)
+                        + " utilise une Potion de focalisation.");
+                feedText = nameOf(g, userId) + " boit une Potion de focalisation !";
+            }
+            case SANGSUE -> {
+                var fx = raidFx(g, userId);
+                fx.setLeech(true);
+
+                g.getRaidMods().computeIfAbsent(userId, __ -> new ArrayList<>())
+                        .add(new StatMod("SANGSUE", 0, "POTION:SANGSUE:DSP"));
+                addHistory(g, nameOf(g, userId) +
+                        " utilise une Potion de sangsue.");
+                feedText = nameOf(g, userId) + " boit une Potion de sangsue !";
+            }
+            case RAGE -> {
+                var fx = raidFx(g, userId);
+                fx.setDoubleAttack(true);
+
+                g.getRaidMods().computeIfAbsent(userId, __ -> new ArrayList<>())
+                        .add(new StatMod("RAGE", 0, "POTION:RAGE:DSP"));
+
+                addHistory(g, nameOf(g, userId)
+                        + " utilise une Potion de rage.");
+                feedText = nameOf(g, userId) + " boit une Potion de rage !";
+            }
+            case RESILIENCE -> {
+                var fx = raidFx(g, userId);
+                fx.setDoubleDefense(true);
+
+                g.getRaidMods().computeIfAbsent(userId, __ -> new ArrayList<>())
+                        .add(new StatMod("RESILIENCE", 0, "POTION:RESILIENCE:DSP"));
+
+                addHistory(g, nameOf(g, userId)
+                        + " utilise une Potion de résilience.");
+                feedText = nameOf(g, userId) + " boit une Potion de résilience !";
+            }
+            case RAPIDITE -> {
+                var fx = raidFx(g, userId);
+                fx.setRapid(true);
+
+                g.getRaidMods().computeIfAbsent(userId, __ -> new ArrayList<>())
+                        .add(new StatMod("RAPIDITE", 0, "POTION:RAPIDITE:DSP"));
+
+                addHistory(g, nameOf(g, userId)
+                        + " utilise une Potion de rapidité.");
+                feedText = nameOf(g, userId) + " boit une Potion de rapidité !";
+            }
+            case INVISIBILITE -> {
+                var fx = raidFx(g, userId);
+                fx.setInvisible(true);
+
+                g.getRaidMods().computeIfAbsent(userId, __ -> new ArrayList<>())
+                        .add(new StatMod("INVISIBILITE", 0, "POTION:INVISIBILITE:DSP"));
+
+                addHistory(g, nameOf(g, userId)
+                        + " utilise une Potion d’invisibilité.");
+                feedText = nameOf(g, userId) + " boit une Potion d’invisibilité !";
+            }
+            case INVULNERABILITE -> {
+                var fx = raidFx(g, userId);
+                fx.setInvulnerable(true);
+
+                g.getRaidMods().computeIfAbsent(userId, __ -> new ArrayList<>())
+                        .add(new StatMod("INVULNERABILITE", 0, "POTION:INVULNERABILITE:DSP"));
+
+                addHistory(g, nameOf(g, userId)
+                        + " utilise une Potion d’invulnérabilité.");
+                feedText = nameOf(g, userId) + " boit une Potion d’invulnérabilité !";
             }
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "unknown potion");
         }
@@ -2012,6 +2385,22 @@ public class GameService {
         });
 
         return g;
+    }
+
+    private int maxHpFor(Game g, Player p){
+        if ("VAMPIRE".equals(p.getRole())) {
+            long hunters = g.getPlayers().stream()
+                    .filter(x -> "HUNTER".equals(x.getRole()))
+                    .count();
+            return 20 + (int) hunters * 10;
+        }
+        return 20;
+    }
+
+    private boolean hasInvisibility(Game g, String playerId) {
+        if (g.getRaidEffects() == null) return false;
+        RaidEffects fx = g.getRaidEffects().get(playerId);
+        return fx != null && fx.isInvisible();
     }
 
     private void pushLive(Game g, String msg){

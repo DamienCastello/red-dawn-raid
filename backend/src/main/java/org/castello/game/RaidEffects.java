@@ -1,23 +1,21 @@
 package org.castello.game;
 
 public class RaidEffects {
-    // “+1 dé” = avantage : on jette 2 dés et on garde le meilleur
-    private boolean attackAdvantage;
-    private boolean defenseAdvantage;
-
     // pour d’autres potions plus tard
-    private boolean invulnerable;         // (rare) ignore les dégâts ce raid
-    private boolean doubleAttack;         // (rare) x2 attaque ce raid
-    private boolean doubleDefense;        // (rare) x2 défense ce raid
-    private boolean ignoreCorruption;     // Lucidité ce raid
-    private boolean ignoreWeatherPenalties; // Chaleur ce tour (rain/blizzard/wind)
+    private boolean invulnerable;
+    private boolean doubleAttack;
+    private boolean doubleDefense;
+    private boolean focus;
+    private boolean leech;
+    private boolean invisible;
+    private boolean rapid;
 
     // getters/setters…
-    public boolean isAttackAdvantage() { return attackAdvantage; }
-    public void setAttackAdvantage(boolean b) { this.attackAdvantage = b; }
+    public boolean isFocus() { return focus; }
+    public void setFocus(boolean focus) { this.focus = focus; }
 
-    public boolean isDefenseAdvantage() { return defenseAdvantage; }
-    public void setDefenseAdvantage(boolean b) { this.defenseAdvantage = b; }
+    public boolean isLeech() { return leech; }
+    public void setLeech(boolean leech) { this.leech = leech; }
 
     public boolean isInvulnerable() { return invulnerable; }
     public void setInvulnerable(boolean invulnerable) { this.invulnerable = invulnerable; }
@@ -28,9 +26,9 @@ public class RaidEffects {
     public boolean isDoubleDefense() { return doubleDefense; }
     public void setDoubleDefense(boolean doubleDefense) { this.doubleDefense = doubleDefense; }
 
-    public boolean isIgnoreCorruption() { return ignoreCorruption; }
-    public void setIgnoreCorruption(boolean ignoreCorruption) { this.ignoreCorruption = ignoreCorruption; }
+    public boolean isInvisible() { return invisible; }
+    public void setInvisible(boolean invisible) { this.invisible = invisible; }
 
-    public boolean isIgnoreWeatherPenalties() { return ignoreWeatherPenalties; }
-    public void setIgnoreWeatherPenalties(boolean b) { this.ignoreWeatherPenalties = b; }
+    public boolean isRapid() { return rapid; }
+    public void setRapid(boolean rapid) { this.rapid = rapid; }
 }

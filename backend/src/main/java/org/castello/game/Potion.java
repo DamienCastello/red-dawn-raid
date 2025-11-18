@@ -4,5 +4,11 @@ public enum Potion {
     FORCE,
     ENDURANCE,
     VIE,
-    // LUCIDITE, CHALEUR, etc. plus tard
+    FOCALISATION,
+    SANGSUE,
+    RESILIENCE,
+    RAGE,
+    RAPIDITE,
+    INVISIBILITE,
+    INVULNERABILITE
 }

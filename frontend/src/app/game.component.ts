@@ -384,23 +384,57 @@ interface STrade {
       <h3 style="margin-top:0" class="bg-badge">
         {{ modalTitle(r) }}
       </h3>
-
+          <div class="bg-badge" *ngIf="isMyFocusFirstStep">
+            Potion de focalisation : vous pouvez relancer ce dé et garder le meilleur.
+          </div>
       <div class="content action">
         <!-- On affiche le dé du joueur courant, avec icône -->
+        
         <ng-container *ngIf="waitingForMyRoll as side">
           <ng-container *ngIf="side==='ATTACK'; else defenseSide">
             <!-- ATTAQUANT -->
-            <div class="icon-bubble oval">
-              <div class="icon-halo" [ngClass]="(getPlayer(r.attackerId)?.role==='VAMPIRE') ? 'round' : 'oval'">
-                <img class="icon-side" [src]="roleIcon(getRole(getPlayer(r.attackerId)),'sword')" alt="attaque"/>
+            <div class="roll-row">
+              <!-- Icône (à gauche) -->
+              <div class="icon-bubble oval">
+                <div class="icon-halo" [ngClass]="(getPlayer(r.attackerId)?.role==='VAMPIRE') ? 'round' : 'oval'">
+                  <img class="icon-side"
+                      [src]="roleIcon(getRole(getPlayer(r.attackerId)),'sword')"
+                      alt="attaque"/>
+                </div>
+              </div>
+
+              <!-- Gros dé principal -->
+              <div class="dice-wrap">
+                <img class="dice-big"
+                    [src]="diceAsset(getPlayer(r.attackerId)?.attackDice,
+                                    roleColorOf(getPlayer(r.attackerId)))"
+                    alt="dice"/>
+                <div class="dice-overlay" *ngIf="r.attackerRoll != null">
+                  {{ r.attackerReroll }}
+                </div>
+              </div>
+
+              <!-- Colonne "Premier jet" (uniquement en focalisation, entre 1er et 2e dé) -->
+              <div class="focus-column"
+                  *ngIf="hasFocus(r.attackerId)
+                          && r.attackerId === meId
+                          && r.attackerFirstRoll != null
+                          && r.attackerRoll == null">
+                <div class="bg-badge focus-label">
+                  Premier jet d'attaque
+                </div>
+                <div class="dice-wrap focus-small">
+                  <img class="dice"
+                      [src]="diceAsset(getPlayer(r.attackerId)?.attackDice,
+                                        roleColorOf(getPlayer(r.attackerId)))"
+                      alt="premier dé"/>
+                  <div class="dice-overlay">
+                    {{ r.attackerFirstRoll }}
+                  </div>
+                </div>
               </div>
             </div>
-            <div class="dice-wrap">
-              <img class="dice-big"
-                  [src]="diceAsset(getPlayer(r.attackerId)?.attackDice, roleColorOf(getPlayer(r.attackerId)))"
-                  alt="dice"/>
-              <div class="dice-overlay" *ngIf="r.attackerRoll != null">{{ r.attackerRoll }}</div>
-            </div>
+
             <ng-container *ngIf="modsForStat(getPlayer(r.attackerId), 'ATTACK') as atkMods">
               <div class="mods-row" *ngIf="atkMods.length">
                 <span class="mod-chip" *ngFor="let m of atkMods" [title]="titleFor(m)">
@@ -427,17 +461,48 @@ interface STrade {
           </ng-container>
           <ng-template #defenseSide>
             <!-- DEFENSEUR -->
-            <div class="icon-bubble oval">
-              <div class="icon-halo oval">
-                <img class="icon-side" [src]="roleIcon(getRole(getPlayer(r.defenderId)),'armor')" alt="défense"/>
+            <div class="roll-row">
+              <!-- Icône à gauche -->
+              <div class="icon-bubble oval">
+                <div class="icon-halo oval">
+                  <img class="icon-side"
+                      [src]="roleIcon(getRole(getPlayer(r.defenderId)),'armor')"
+                      alt="défense"/>
+                </div>
+              </div>
+
+              <!-- Gros dé principal -->
+              <div class="dice-wrap">
+                <img class="dice-big"
+                    [src]="diceAsset(getPlayer(r.defenderId)?.defenseDice,
+                                    roleColorOf(getPlayer(r.defenderId)))"
+                    alt="dice"/>
+                <div class="dice-overlay" *ngIf="r.defenderRoll != null">
+                  {{ r.defenderReroll }}
+                </div>
+              </div>
+
+              <!-- Colonne "Premier jet" pour la défense -->
+              <div class="focus-column"
+                  *ngIf="hasFocus(r.defenderId)
+                          && r.defenderId === meId
+                          && r.defenderFirstRoll != null
+                          && r.defenderRoll == null">
+                <div class="bg-badge focus-label">
+                  Premier jet de défense
+                </div>
+                <div class="dice-wrap focus-small">
+                  <img class="dice"
+                      [src]="diceAsset(getPlayer(r.defenderId)?.defenseDice,
+                                        roleColorOf(getPlayer(r.defenderId)))"
+                      alt="premier dé"/>
+                  <div class="dice-overlay">
+                    {{ r.defenderFirstRoll }}
+                  </div>
+                </div>
               </div>
             </div>
-            <div class="dice-wrap">
-              <img class="dice-big"
-                  [src]="diceAsset(getPlayer(r.defenderId)?.defenseDice, roleColorOf(getPlayer(r.defenderId)))"
-                  alt="dice"/>
-              <div class="dice-overlay" *ngIf="r.defenderRoll != null">{{ r.defenderRoll }}</div>
-            </div>
+
             <ng-container *ngIf="modsForStat(getPlayer(r.defenderId), 'DEFENSE') as defMods">
               <div class="mods-row" *ngIf="defMods.length">
                 <span class="mod-chip" *ngFor="let m of defMods" [title]="titleFor(m)">
@@ -466,19 +531,24 @@ interface STrade {
       </div>
 
       <div class="footer">
-        <button (click)="rollNow()">Jeter le dé</button>
+        <button (click)="rollNow()" [disabled]="!waitingForMyRoll || isRolling">
+          {{ rollButtonLabel }}
+        </button>
       </div>
     </div>
   </div>
 
   <!-- === MODALE SPECTATEUR === -->
   <div *ngIf="showSpectatorModal && currentCombat as r" class="modal-backdrop">
-    <div class="modal location-modal spectate" [style.backgroundImage]="setImageBackground('location')">
+    <div class="modal location-modal spectate" 
+        [class.has-focus]="hasFocus(r.attackerId) || hasFocus(r.defenderId)"
+        [class.bite-active]="!!game?.currentBite && !isBeforeBiteModal"
+        [style.backgroundImage]="setImageBackground('location')">
       <h3 style="margin-top:0" class="bg-badge">
         {{ modalTitle(r) }}
       </h3>
 
-      <div class="content spect">
+      <div class="content spectate">
         <!-- Côté attaquant -->
         <div class="side">
           <!-- Colonne mods à GAUCHE -->
@@ -508,14 +578,50 @@ interface STrade {
             </div>
           </ng-container>
 
-          <div class="icon-halo oval" [ngClass]="(getPlayer(r.attackerId)?.role==='VAMPIRE') ? 'round' : 'oval'">
-            <img class="icon-side" [src]="roleIcon(getRole(getPlayer(r.attackerId)),'sword')" alt="attaque"/>
+          <div class="icon-halo oval"
+              [ngClass]="(getPlayer(r.attackerId)?.role==='VAMPIRE') ? 'round' : 'oval'">
+            <img class="icon-side"
+                [src]="roleIcon(getRole(getPlayer(r.attackerId)),'sword')"
+                alt="attaque"/>
           </div>
-          <div class="dice-wrap">
-            <img class="dice"
-                [src]="diceAsset(getPlayer(r.attackerId)?.attackDice, roleColorOf(getPlayer(r.attackerId)))"
-                alt="dice"/>
-            <div class="dice-overlay" *ngIf="r.attackerRoll != null">{{ r.attackerRoll }}</div>
+
+          <div class="dice-row">
+            <ng-container *ngIf="showFocusSpectate(r.attackerId); else attackerSingleDie">
+              <!-- Layout 2 dés (FOCA) AVANT la morsure -->
+              <div class="dice-wrap">
+                <img class="dice"
+                    [src]="diceAsset(getPlayer(r.attackerId)?.attackDice,
+                                      roleColorOf(getPlayer(r.attackerId)))"
+                    alt="premier dé"/>
+                <div class="dice-overlay" *ngIf="r.attackerFirstRoll != null">
+                  {{ r.attackerFirstRoll }}
+                </div>
+              </div>
+
+              <div class="dice-wrap">
+                <img class="dice"
+                    [src]="diceAsset(getPlayer(r.attackerId)?.attackDice,
+                                      roleColorOf(getPlayer(r.attackerId)))"
+                    alt="dé de focalisation"/>
+                <div class="dice-overlay" *ngIf="r.attackerRoll != null">
+                  {{ r.attackerReroll }}
+                </div>
+              </div>
+            </ng-container>
+
+            <!-- Layout classique : un seul dé (utilisé dès que currentBite existe) -->
+            <ng-template #attackerSingleDie>
+              <div class="dice-wrap">
+                <img class="dice"
+                    [src]="diceAsset(getPlayer(r.attackerId)?.attackDice,
+                                      roleColorOf(getPlayer(r.attackerId)))"
+                    alt="dice"/>
+                <div class="dice-overlay"
+                    *ngIf="(r.attackerRoll ?? r.attackerFirstRoll) != null">
+                  {{ r.attackerRoll ?? r.attackerFirstRoll }}
+                </div>
+              </div>
+            </ng-template>
           </div>
         </div>
 
@@ -549,13 +655,48 @@ interface STrade {
           </ng-container>
 
           <div class="icon-halo oval">
-            <img class="icon-side" [src]="roleIcon(getRole(getPlayer(r.defenderId)),'armor')" alt="défense"/>
+            <img class="icon-side"
+                [src]="roleIcon(getRole(getPlayer(r.defenderId)),'armor')"
+                alt="défense"/>
           </div>
-          <div class="dice-wrap">
-            <img class="dice"
-                [src]="diceAsset(getPlayer(r.defenderId)?.defenseDice, roleColorOf(getPlayer(r.defenderId)))"
-                alt="dice"/>
-            <div class="dice-overlay" *ngIf="r.defenderRoll != null">{{ r.defenderRoll }}</div>
+
+          <div class="dice-row">
+            <ng-container *ngIf="showFocusSpectate(r.defenderId); else defenderSingleDie">
+              <!-- 2 dés FOCA AVANT la morsure -->
+              <div class="dice-wrap">
+                <img class="dice"
+                    [src]="diceAsset(getPlayer(r.defenderId)?.defenseDice,
+                                      roleColorOf(getPlayer(r.defenderId)))"
+                    alt="premier dé"/>
+                <div class="dice-overlay" *ngIf="r.defenderFirstRoll != null">
+                  {{ r.defenderFirstRoll }}
+                </div>
+              </div>
+
+              <div class="dice-wrap">
+                <img class="dice"
+                    [src]="diceAsset(getPlayer(r.defenderId)?.defenseDice,
+                                      roleColorOf(getPlayer(r.defenderId)))"
+                    alt="dé de focalisation"/>
+                <div class="dice-overlay" *ngIf="r.defenderRoll != null">
+                  {{ r.defenderReroll }}
+                </div>
+              </div>
+            </ng-container>
+
+            <!-- Layout classique : un seul dé -->
+            <ng-template #defenderSingleDie>
+              <div class="dice-wrap">
+                <img class="dice"
+                    [src]="diceAsset(getPlayer(r.defenderId)?.defenseDice,
+                                      roleColorOf(getPlayer(r.defenderId)))"
+                    alt="dice"/>
+                <div class="dice-overlay"
+                    *ngIf="(r.defenderRoll ?? r.defenderFirstRoll) != null">
+                  {{ r.defenderRoll ?? r.defenderFirstRoll }}
+                </div>
+              </div>
+            </ng-template>
           </div>
         </div>
       </div>
@@ -1046,11 +1187,10 @@ interface STrade {
     background: #fff; padding: 1rem; border-radius: 8px; width: min(680px, 95vw);
     box-shadow: 0 10px 30px rgba(0,0,0,.2);
   }
-  .content.spect{
+  .content.spectate{
     position: relative;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 1rem;
     align-items: center;
     justify-items: center;
   }
@@ -1103,6 +1243,21 @@ interface STrade {
   /* Ancrages gauche/droite */
   .mods-col.left{  left:  -72px; align-items: flex-start; }
   .mods-col.right{ right: -72px; align-items: flex-end;   }
+
+  .modal.location-modal.spectate.has-focus .mods-col.left{
+    left: -100px;
+  }
+
+  .modal.location-modal.spectate.has-focus .mods-col.right{
+    right: -100px;
+  }
+
+  .modal.location-modal.spectate.has-focus.bite-active .mods-col.left{
+    left: -72px;
+  }
+  .modal.location-modal.spectate.has-focus.bite-active .mods-col.right{
+    right: -72px;
+  }
 
   /* Les chips en colonne */
   .mods-col .mod-chip{
@@ -1207,6 +1362,36 @@ interface STrade {
       0 6px 16px rgba(0,0,0,.25);
   }
 
+  /* Ligne principale de la modale action : icône + gros dé + colonne premier jet */
+  .roll-row{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+  }
+
+  /* Colonne à droite qui contient "Premier jet" + petit dé */
+  .focus-column{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .25rem;
+  }
+
+  /* Petit label dans la colonne */
+  .focus-column .focus-label{
+    font-weight: 600;
+    font-size: 13px;
+    line-height: 1.2;
+    padding-inline: .6rem;
+  }
+
+  /* Le petit dé de premier jet (plus petit que le gros) */
+  .focus-small .dice{
+    width: 90px;
+    height: auto;
+  }
+
   /* L'image passe au-dessus du halo */
   .modal.location-modal .icon-halo .icon-side, modal.bite-modal .icon-halo .icon-side{
     position: relative;
@@ -1245,6 +1430,16 @@ interface STrade {
     background-position: center 50%;
     display: flex;
     flex-direction: column;
+  }
+
+  .modal.location-modal.spectate.has-focus{
+    width: min(1000px, 95vw);
+    min-height: 700px;
+  }
+
+  .modal.location-modal.spectate.has-focus.bite-active{
+    width: min(780px, 95vw);
+    min-height: 540px;
   }
 
   /* Spectateur : chips identiques aux boards */
@@ -1290,7 +1485,20 @@ interface STrade {
     --halo-dx: 0px;
   }
 
+  .modal.location-modal.spectate .dice-row{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .75rem;
+  }
 
+  .modal.location-modal.spectate.has-focus .content.spectate .dice{
+    width: 150px;
+  }
+
+  .modal.location-modal.spectate.has-focus.bite-active .content.spectate .dice{
+    width: 180px;
+  }
 
   /* AJOUT WEATHER */
   .modal.weather-modal{
@@ -1376,6 +1584,7 @@ interface STrade {
   .modal.location-modal.spectate .mods-col .mods-row{
     display:flex;
     flex-direction:column;
+    align-items: flex-start;
     gap:6px;
   }
 
@@ -1527,6 +1736,7 @@ interface STrade {
   .card{border:1px solid #eee;border-radius:8px;padding:.75rem;margin-bottom:.75rem;}
   .row{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;}
   .grid{display:grid;grid-template-columns:repeat(2, minmax(0,1fr));gap:.5rem;}
+  .targets{}
   .targets button.active{outline:2px solid #333;}
   .trade-area .pill{display:inline-block;border:1px solid #ddd;border-radius:999px;padding:.15rem .5rem;margin:.15rem;}
   .ok{background:rgba(0,160,0,.08);}
@@ -1699,6 +1909,7 @@ export class GameComponent {
   private static readonly PREPHASE_MS = 30_000;
 
   // --- Morsure : état purement UI (pas dans GameSnapshot)
+  isRolling = false;
   private biteNotBeforeMillis = 0; // petit délai de lecture avant d'ouvrir la modale
   unstableLockedIds: Set<string> = new Set();
 
@@ -1936,7 +2147,7 @@ export class GameComponent {
       !(m.source?.includes(':ENG') && m.source?.startsWith('CORRUPTION'))
     );
 
-    // 1) Si le back a déjà posé une DSP (MULTIPLE/INSTABLE/SERVITEUR), on l’affiche
+    // 1) Corruption DSP : puce d’état
     const dsp = list.filter(mm =>
       mm.source?.startsWith('CORRUPTION:') && mm.source?.includes(':DSP')
     );
@@ -1947,8 +2158,45 @@ export class GameComponent {
       const statusChip = this.corruptionDisplayChip(p);
       if (statusChip) out.push(statusChip);
     }
+
+    // 3) Potions DSP (FOCALISATION + nouvelles)
+    const dspPotions = list.filter(mm =>
+      mm.source?.startsWith('POTION:') &&
+      mm.source?.includes(':DSP')
+    );
+
+    for (const pm of dspPotions) {
+      const src = (pm as any).source as string;
+
+      const isFoca  = src.includes('FOCALISATION');
+      const isLeech = src.includes('SANGSUE');
+      const isRage  = src.includes('RAGE');
+      const isResi  = src.includes('RESILIENCE');
+      const isRap   = src.includes('RAPIDITE');
+      const isInv   = src.includes('INVISIBILITE');
+      const isInvul = src.includes('INVULNERABILITE');
+
+      let shouldShow = false;
+
+      if (isFoca) {
+        // Focalisation : visible sur ATTACK + DEFENSE
+        shouldShow = true;
+      } else if (stat === 'ATTACK' && (isLeech || isRage || isRap)) {
+        // Effets d’attaque
+        shouldShow = true;
+      } else if (stat === 'DEFENSE' && (isResi || isInv || isInvul)) {
+        // Effets de défense
+        shouldShow = true;
+      }
+
+      if (shouldShow && !out.includes(pm)) {
+        out.push(pm);
+      }
+    }
+
     return out;
   }
+
 
   chipOf(m: UiStatMod): string {
     if (m.labelFr) return m.labelFr;
@@ -2014,6 +2262,8 @@ export class GameComponent {
 
   labelOrChip(m: RawStatMod): string {
     const s = (m as any).source || '';
+
+    // DSP Corruption
     if (s.startsWith('CORRUPTION:') && s.includes(':DSP')) {
       switch ((m as any).stat) {
         case 'MULTIPLE':  return 'affaibli';
@@ -2021,13 +2271,28 @@ export class GameComponent {
         case 'SERVITEUR': return 'serviteur';
       }
     }
+
+    // Potions DSP
+    if (s.startsWith('POTION:') && s.includes(':DSP')) {
+      const type = (s.split(':')[1] || '').toUpperCase();
+      switch (type) {
+        case 'FOCALISATION':    return 'focalisation';
+        case 'SANGSUE':         return 'sangsue';
+        case 'RESILIENCE':      return 'résilience';
+        case 'RAGE':            return 'rage';
+        case 'RAPIDITE':        return 'rapidité';
+        case 'INVISIBILITE':    return 'invisibilité';
+        case 'INVULNERABILITE': return 'invulnérabilité';
+      }
+    }
+
     return (m as any).labelFr || this.chipOf(m);
   }
 
   titleFor(m: RawStatMod): string | null {
     const s = (m as any).source || '';
 
-    // Corruption (DSP) — tu as déjà ce bloc, garde-le tel quel
+    // Corruption (DSP)
     if (s.startsWith('CORRUPTION:') && s.endsWith(':DSP')) {
       if (s.includes(':L1:')) return 'Attaque et défense diminuées de 1 (persiste entre les raids).';
       if (s.includes(':L2:')) return 'Peut se retourner contre ses alliés sur un jet défavorable.';
@@ -2046,16 +2311,16 @@ export class GameComponent {
     if (s.startsWith('POTION:')) {
       const type = (s.split(':')[1] || '').toUpperCase();
       const tooltips: Record<string, string> = {
-        FORCE:           'augmente de +1 le dé d’attaque.',
-        ENDURANCE:       'augmente de +1 le dé de défense.',
-        VIE:             'se soigner de +10 PV.',
-        FOCALISATION:    'lancer 2 dés lors du combat et garder le meilleur.',
-        CHALEUR:         'se soigner d’un montant égal aux dégats infligés.',
-        RESILIENCE:      'double la défense ce raid',
-        RAGE:            'double l’attaque ce raid',
-        RAPIDITE:        'attaque x2 ce raid',
-        INVISIBILITE:    'surprise — le défenseur ne jette pas de dé de défense.',
-        INVULNERABILITE: 'insensible aux dégâts.',
+        FORCE:           'augmente de +1 le dé d’attaque',
+        ENDURANCE:       'augmente de +1 le dé de défense',
+        VIE:             'se soigner de +10 PV',
+        FOCALISATION:    'lancer 2 dés lors des combat et garder le meilleur',
+        SANGSUE:         'se soigner d’un montant égal aux dégats infligés',
+        RESILIENCE:      'double la défense',
+        RAGE:            'double l’attaque',
+        RAPIDITE:        'attaque x2',
+        INVISIBILITE:    'l\'adversaire ne jette pas de dé de défense',
+        INVULNERABILITE: 'insensible aux dégâts',
       };
       return tooltips[type] ?? null;
     }
@@ -2168,9 +2433,28 @@ export class GameComponent {
   }
 
   rollNow(){
+    if (!this.waitingForMyRoll || this.isRolling) return;
+
+    this.isRolling = true;
+
     if (!this.game) return;
     this.api.rollDice(this.game.id).subscribe({
-      error: e => this.showError(e)
+      next: () => this.isRolling = false,
+      error: e => {
+        this.isRolling = false;
+
+        const msg = e?.error?.message || e?.message || '';
+        if (msg === 'bite pending') {
+
+          this.api.getGame(this.gameId).subscribe({
+            next: g => this.game = g,
+            error: err => this.showError(err)
+          });
+          return;
+        }
+
+        this.showError(e);
+      }
     });
   }
 
@@ -2499,6 +2783,7 @@ export class GameComponent {
         break;
       }
 
+      /*
       case 'DICE_ROLLED': {
         // patch léger si le roll concerne le round courant; sinon GET
         const r = this.game?.currentCombat;
@@ -2515,6 +2800,16 @@ export class GameComponent {
         if (side === 'ATTACK') patched.currentCombat.attackerRoll = val;
         if (side === 'DEFENSE') patched.currentCombat.defenderRoll = val;
         this.game = patched as GameSnapshot;
+        break;
+      }
+      */
+
+      case 'DICE_ROLLED': {
+        // Toujours un GET : on récupère attackerFirstRoll / defenderFirstRoll / rolls finaux proprement
+        this.api.getGame(this.gameId).subscribe({
+          next: g => this.game = g,
+          error: e => this.showError(e)
+        });
         break;
       }
 
@@ -2951,6 +3246,59 @@ export class GameComponent {
   onPotionClick(pot: string){
     if (!this.canUsePotionNow(pot)) return;
     this.usePotion(pot);
+  }
+
+    /** Est-ce que ce joueur a un effet de focalisation actif ce raid ? */
+  hasFocus(playerId?: string | null): boolean {
+    if (!playerId || !this.game?.raidMods) return false;
+    const list = this.game.raidMods[playerId] || [];
+    return list.some(m =>
+      m.source?.startsWith('POTION:FOCALISATION') &&
+      m.source?.includes(':DSP')
+    );
+  }
+
+  /** Suis-je entre le 1er et le 2e dé de focalisation ? */
+  get isMyFocusFirstStep(): boolean {
+    const r    = this.currentCombat;
+    const side = this.waitingForMyRoll;
+    if (!r || !side) return false;
+    if (!this.hasFocus(this.meId)) return false;
+
+    if (side === 'ATTACK' && r.attackerId === this.meId) {
+      // J’ai déjà un premier jet, mais pas encore le jet final
+      return r.attackerFirstRoll != null && r.attackerRoll == null;
+    }
+    if (side === 'DEFENSE' && r.defenderId === this.meId) {
+      return r.defenderFirstRoll != null && r.defenderRoll == null;
+    }
+    return false;
+  }
+
+  /** Label du bouton dans la modale action (Lancer / Relancer) */
+  get rollButtonLabel(): string {
+    return this.isMyFocusFirstStep ? 'Relancer le dé' : 'Lancer le dé';
+  }
+
+  showFocusSpectate(playerId?: string): boolean {
+    if (!playerId) return false;
+    if (!this.hasFocus(playerId)) return false;
+
+    // Tant qu'on est AVANT l'ouverture de la modale morsure,
+    // on garde l'affichage focalisation (2 dés).
+    return this.isBeforeBiteModal;
+  }
+
+  get isBeforeBiteModal(): boolean {
+    // Pas de morsure en cours => on considère qu'on est "avant" la morsure
+    if (!this.game?.currentBite) return true;
+
+    // Morsure posée mais pas de délai configuré => on est après
+    if (this.biteNotBeforeMillis == null) return false;
+
+    // Si l'heure actuelle est encore avant biteNotBeforeMillis,
+    // on est toujours dans la fenêtre "spectate" avant affichage de la modale morsure
+    return Date.now() < this.biteNotBeforeMillis;
   }
 
   //====== Corruption ======/

@@ -11,6 +11,7 @@ public record GameSnapshot(
         WeatherView weather,
         List<PlayerView> players,
         List<CenterView> center,
+        Map<String, RaidEffectsView> raidEffects,
         Map<String, List<StatModView>> raidMods,
         boolean hasUpcomingCombat,
         List<String> readyForPhase3,
@@ -56,10 +57,22 @@ public record GameSnapshot(
     public record CenterView(String playerId, String card, boolean faceUp) {}
     public record StatModView(String stat, int amount, String source) {}
 
+    public record RaidEffectsView(
+            boolean invulnerable,
+            boolean doubleAttack,
+            boolean doubleDefense,
+            boolean focus,
+            boolean leech,
+            boolean invisible,
+            boolean rapid
+    ) {}
+
     public record RoundFightView(
             String id, String location,
             String attackerId, String defenderId,
             Integer attackerRoll, Integer defenderRoll,
+            Integer attackerFirstRoll, Integer defenderFirstRoll,
+            Integer attackerReroll, Integer defenderReroll,
             Long resolvedAtMillis,
             List<String> breakdownLines
     ) {}
