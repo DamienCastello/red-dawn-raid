@@ -23,11 +23,6 @@ public class Game {
     // cartes posées au centre (face cachée/visible)
     private List<CenterBoard> center = new ArrayList<>();
 
-    // compteurs des decks/pioches
-    private int vampActionsLeft, vampActionsDiscard;
-    private int hunterActionsLeft, hunterActionsDiscard;
-    private int potionsLeft, potionsDiscard;
-
     // --- Step 3: messages & fenêtre d’actions ---
     private List<String> messages = new ArrayList<>();   // messages à afficher (préphase3 / phase3)
     private final Set<String> readyForPhase3 = new HashSet<>(); // joueurs ayant cliqué “j’ai fini”
@@ -78,13 +73,76 @@ public class Game {
     // --- Récolte ---
     private Integer harvestedRaid; // n° de raid pour lequel la récolte a déjà été appliquée (null = pas encore)
 
-    // --- actions & potions ---
-    // Inventaire de potions par joueur (liste d'IDs de potions).
-    // Ex: "FORCE", "ENDURANCE", "VIE", ...
-    private Map<String, List<String>> potionsByPlayer = new HashMap<>();
+    // Lieux protégés par une Fumigation d'ail pour le raid courant.
+    // Exemple : "forest", "quarry", ...
+    private Set<String> garlicBlockedLocations = new HashSet<>();
+
+    // Joueurs ayant joué FUMIGATION_AIL mais pas encore posé leur lieu
+    private Set<String> pendingGarlicPlayers = new HashSet<>();
+
+    // Joueurs chasseurs ayant joué PISTEUR : ils suivront le vampire en PHASE2.
+    private Set<String> trackerHunters = new HashSet<>();
+
+    // Feux de camp chasseur sur lieu
+    private Set<String> campfireLocations = new java.util.HashSet<>();
+
+    // Chasseurs ayant préparé un Filet pour ce raid (joué en PREPHASE3)
+    private java.util.Set<String> netHunters = new java.util.HashSet<>();
+
+    // Chasseurs ayant préparé une Fosse pour ce raid
+    private java.util.Set<String> pitHunters = new java.util.HashSet<>();
 
     // Effets temporaires pour le raid courant (réinitialisés en PHASE0)
     private Map<String, RaidEffects> raidEffects = new HashMap<>();
+
+    // --- Action (affichage / spectate) ---
+    public static class Action {
+        // "NET" | "PIT" ...
+        private String mode;
+        // chasseur qui a préparé / résout le piège
+        private String ownerId;
+        // lieu du piège (forest, quarry, ...)
+        private String location;
+        // cible en cours de résolution
+        private String targetId;
+        // résultat du d20 (null tant que pas lancé)
+        private Integer roll;
+        // détail du calcul (ligne par ligne, pour la modale)
+        private List<String> breakdownLines = new ArrayList<>();
+        // timestamp quand le jet a été résolu
+        private Long resolvedAtMillis;
+
+        public String getMode() { return mode; }
+        public void setMode(String mode) { this.mode = mode; }
+
+        public String getOwnerId() { return ownerId; }
+        public void setOwnerId(String ownerId) { this.ownerId = ownerId; }
+
+        public String getLocation() { return location; }
+        public void setLocation(String location) { this.location = location; }
+
+        public String getTargetId() { return targetId; }
+        public void setTargetId(String targetId) { this.targetId = targetId; }
+
+        public Integer getRoll() { return roll; }
+        public void setRoll(Integer roll) { this.roll = roll; }
+
+        public List<String> getBreakdownLines() { return breakdownLines; }
+        public void setBreakdownLines(List<String> breakdownLines) {
+            this.breakdownLines = (breakdownLines != null ? breakdownLines : new ArrayList<>());
+        }
+
+        public Long getResolvedAtMillis() { return resolvedAtMillis; }
+        public void setResolvedAtMillis(Long resolvedAtMillis) { this.resolvedAtMillis = resolvedAtMillis; }
+    }
+
+    // hunterId -> liste des victimes potentielles de sa Fosse (ids de joueurs vamp/serviteurs sur son lieu)
+    private Map<String, List<String>> pitTargetsByHunter;
+
+    // hunterId -> index courant dans la liste ci-dessus
+    private Map<String, Integer> pitIndexByHunter;
+
+    private Action currentAction;
 
     // Corruption
     public static class BiteAttempt {
@@ -127,6 +185,16 @@ public class Game {
     // Maintenance
     // --- Deck potions (composition) ---
     private Map<String, Integer> potionsPool = new HashMap<>();
+    // --- Défausse potions (pour stats / éventuel reshuffle) ---
+    private Map<String, Integer> potionsDiscardPool = new HashMap<>();
+
+    // Deck d'actions chasseurs
+    private Map<String,Integer> hunterActionsPool = new HashMap<>();
+    private Map<String,Integer> hunterActionsDiscardPool = new HashMap<>();
+
+    // Deck d'actions vampire
+    private Map<String,Integer> vampActionsPool = new HashMap<>();
+    private Map<String,Integer> vampActionsDiscardPool = new HashMap<>();
 
     // --- Phase4: "j'ai fini" (finishTrade) ---
     private final Set<String> readyForNextRaid = new HashSet<>();
@@ -206,25 +274,6 @@ public class Game {
     public List<CenterBoard> getCenter() { return center; }
     public void setCenter(List<CenterBoard> center) { this.center = center; }
 
-    // compteurs
-    public int getVampActionsLeft() { return vampActionsLeft; }
-    public void setVampActionsLeft(int v) { this.vampActionsLeft = v; }
-
-    public int getVampActionsDiscard() { return vampActionsDiscard; }
-    public void setVampActionsDiscard(int v) { this.vampActionsDiscard = v; }
-
-    public int getHunterActionsLeft() { return hunterActionsLeft; }
-    public void setHunterActionsLeft(int v) { this.hunterActionsLeft = v; }
-
-    public int getHunterActionsDiscard() { return hunterActionsDiscard; }
-    public void setHunterActionsDiscard(int v) { this.hunterActionsDiscard = v; }
-
-    public int getPotionsLeft() { return potionsLeft; }
-    public void setPotionsLeft(int v) { this.potionsLeft = v; }
-
-    public int getPotionsDiscard() { return potionsDiscard; }
-    public void setPotionsDiscard(int v) { this.potionsDiscard = v; }
-
     // messages
     public List<String> getMessages() { return messages; }
     public void setMessages(List<String> messages) { this.messages = messages; }
@@ -270,21 +319,39 @@ public class Game {
     public Integer getHarvestedRaid() { return harvestedRaid; }
     public void setHarvestedRaid(Integer v) { this.harvestedRaid = v; }
 
-    // actions & potions
-    public Map<String, List<String>> getPotionsByPlayer() { return potionsByPlayer; }
-    public void setPotionsByPlayer(Map<String, List<String>> m) { this.potionsByPlayer = m; }
-
-    public List<String> potionsOf(String playerId) {
-        var m = getPotionsByPlayer();
-        return m != null ? m.getOrDefault(playerId, java.util.List.of()) : java.util.List.of();
-    }
-
-    public boolean hasPotion(String playerId, Potion type) {
-        return potionsOf(playerId).contains(type.name());
-    }
-
     public Map<String, RaidEffects> getRaidEffects() { return raidEffects; }
     public void setRaidEffects(Map<String, RaidEffects> m) { this.raidEffects = m; }
+
+    public Set<String> getGarlicBlockedLocations() { return garlicBlockedLocations; }
+    public void setGarlicBlockedLocations(Set<String> s) { this.garlicBlockedLocations = s; }
+
+    public Set<String> getPendingGarlicPlayers() { return pendingGarlicPlayers; }
+    public void setPendingGarlicPlayers(Set<String> s) { this.pendingGarlicPlayers = s; }
+
+    public Set<String> getTrackerHunters() { return trackerHunters; }
+    public void setTrackerHunters(Set<String> s) { this.trackerHunters = s; }
+
+    public Set<String> getCampfireLocations() {
+        return campfireLocations;
+    }
+    public void setCampfireLocations(Set<String> campfireLocations) {
+        this.campfireLocations = campfireLocations;
+    }
+
+    public Set<String> getNetHunters() { return netHunters; }
+    public void setNetHunters(Set<String> s) { this.netHunters = s; }
+
+    public Set<String> getPitHunters() { return pitHunters; }
+    public void setPitHunters(Set<String> s) { this.pitHunters = s; }
+
+    public Action getCurrentAction() { return currentAction; }
+    public void setCurrentAction(Action currentAction) { this.currentAction = currentAction; }
+
+    public Map<String, List<String>> getPitTargetsByHunter() { return pitTargetsByHunter; }
+    public void setPitTargetsByHunter(Map<String, List<String>> pitTargetsByHunter) { this.pitTargetsByHunter = pitTargetsByHunter; }
+
+    public Map<String, Integer> getPitIndexByHunter() { return pitIndexByHunter; }
+    public void setPitIndexByHunter(Map<String, Integer> pitIndexByHunter) { this.pitIndexByHunter = pitIndexByHunter;}
 
     // corruption
     public Map<String, List<String>> getUnstableEligibleTargets() { return unstableEligibleTargets; }
@@ -302,8 +369,24 @@ public class Game {
     public Map<String, String> getUnstableHarvestLocByPlayer() { return unstableHarvestLocByPlayer; }
     public void setUnstableHarvestLocByPlayer(Map<String, String> m) { this.unstableHarvestLocByPlayer = m; }
 
+    //Maintenance
     public Map<String,Integer> getPotionsPool() { return potionsPool; }
     public void setPotionsPool(Map<String,Integer> m) { this.potionsPool = m; }
+
+    public Map<String,Integer> getPotionsDiscardPool() { return potionsDiscardPool; }
+    public void setPotionsDiscardPool(Map<String,Integer> m) { this.potionsDiscardPool = m; }
+
+    public Map<String,Integer> getHunterActionsPool() { return hunterActionsPool; }
+    public void setHunterActionsPool(Map<String,Integer> m) { this.hunterActionsPool = m; }
+
+    public Map<String,Integer> getHunterActionsDiscardPool() { return hunterActionsDiscardPool; }
+    public void setHunterActionsDiscardPool(Map<String,Integer> m) { this.hunterActionsDiscardPool = m; }
+
+    public Map<String,Integer> getVampActionsPool() { return vampActionsPool; }
+    public void setVampActionsPool(Map<String,Integer> m) { this.vampActionsPool = m; }
+
+    public Map<String,Integer> getVampActionsDiscardPool() { return vampActionsDiscardPool; }
+    public void setVampActionsDiscardPool(Map<String,Integer> m) { this.vampActionsDiscardPool = m; }
 
     public Set<String> getReadyForNextRaid() { return readyForNextRaid; }
 

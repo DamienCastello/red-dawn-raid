@@ -1,6 +1,5 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { map } from 'rxjs/operators';
 
 // === Types du snapshot (côté back) ===
 export type GameSnapshot = {
@@ -9,11 +8,11 @@ export type GameSnapshot = {
 
   players: Array<{
     id: string; username: string; role: Player['role'];
-    hp: number; corruption: number; potions: string[];
+    hp: number; corruption: number;
     attackDice: string; defenseDice: string;
     wood: number; herbs: number; stone: number; iron: number;
     water: number; gold: number; souls: number; silver: number;
-    hand: string[];
+    hand: Player['hand']; potions: Player['potions']; actions: Player['actions'];
   }>;
 
   center: Array<{ playerId: string; card: string; faceUp: boolean }>;
@@ -45,6 +44,21 @@ export type GameSnapshot = {
   unstableEligibleLocations?: Record<string, string[]>;
   unstableTargetByPlayer?: Record<string, string>;
   unstableHarvestLocByPlayer?: Record<string, string>;
+
+  currentAction?: {
+    mode: 'NET' | 'PIT';
+    ownerId: string;
+    location: string;
+    targetId: string | null;
+    roll: number | null;
+    breakdownLines: string[];
+    resolvedAtMillis: number | null;
+  } | null;
+
+  garlicBlockedLocations: string[];
+  campfireLocations: string[];
+  netHunters: string[];
+  pitHunters: string[];
 
   history: Array<{ ts: number; raid: number; phase: Phase; text: string }>;
   messages: string[];
@@ -95,6 +109,8 @@ export type Player = {
   username: string;
   role: 'VAMPIRE'|'HUNTER'|'SERVANT';
   hand: string[];
+  potions: string[];
+  actions: string[];
   hp: number;
   attackDice: string;
   defenseDice: string;  
@@ -131,10 +147,15 @@ export interface TradeView {
   updatedAt: number;
 }
 
+export interface Pile {
+  pool: Record<string, number>;
+  discard: Record<string, number>;
+}
+
 export interface DecksView {
-  potions: { left: number; discard?: number };
-  actionsVamp:   { left: number; discard: number };
-  actionsHunters:{ left: number; discard: number };
+  actionsVamp: Pile;
+  actionsHunters: Pile;
+  potions: Pile;
 }
 
 export type Game = {
@@ -258,6 +279,24 @@ export class ApiService {
     return this.http.post<void>(`${this.base}/games/${gameId}/potions/use`, { type });
   }
 
+  useAction(gameId: string, type: string){
+    return this.http.post<void>(`${this.base}/games/${gameId}/actions/use`, { type });
+  }
+
+  setNetTarget(gameId: string, targetId: string) {
+    const params = new HttpParams().set('targetId', targetId);
+    return this.http.post<void>(`${this.base}/games/${gameId}/actions/net/target`, null, { params });
+  }
+
+  resolveNet(gameId: string, targetId: string) {
+    const params = new HttpParams().set('targetId', targetId);
+    return this.http.post<void>(`${this.base}/games/${gameId}/actions/net/resolve`, null, { params });
+  }
+
+  resolvePit(gameId: string) {
+    return this.http.post<void>(`${this.base}/games/${gameId}/actions/pit/resolve`, null);
+  }
+
   rollCorruption(gameId: string){
     return this.http.post<void>(`${this.base}/games/${gameId}/corruption/roll`, {});
   }
@@ -288,6 +327,10 @@ export class ApiService {
   // -------- Phase 4: actions joueur --------
   buyPotion(gameId: string) {
     return this.http.post<void>(`${this.base}/games/${gameId}/shop/buy-potion`, {});
+  }
+
+  buyAction(gameId: string) {
+    return this.http.post<void>(`${this.base}/games/${gameId}/shop/buy-action`, {});
   }
 
   buySilver(gameId: string, qty = 1) {

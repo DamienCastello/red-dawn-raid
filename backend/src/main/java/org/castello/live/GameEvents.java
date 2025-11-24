@@ -19,12 +19,17 @@ public class GameEvents {
         READY_UPDATED,
         UNSTABLE_ASSIGNED,
         POTION_BOUGHT,
+        ACTION_BOUGHT,
         SILVER_BOUGHT,
         RESOURCE_SOLD,
         TRANSMUTED,
         TRADE_SYNC,
         TRADE_DELETED,
-        PHASE4_READY_UPDATED
+        PHASE4_READY_UPDATED,
+        ACTION_USED,
+        ACTION_STARTED,
+        ACTION_ROLLED,
+        ACTION_RESOLVED
     }
     private Type type; private String gameId; private Object payload; private long ts;
     public GameEvents() {}

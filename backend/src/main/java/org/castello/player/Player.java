@@ -8,7 +8,14 @@ public class Player {
     private String id;                 // userId (vient de l’auth)
     private String username;
     private String role;
+    /** Main de cartes LIEU (PHASE1/PHASE2). */
     private List<String> hand = new ArrayList<>();
+
+    /** Inventaire de potions (IDs de l'enum Potion sous forme de String). */
+    private List<String> potions = new ArrayList<>();
+
+    /** Inventaire de cartes d'action (IDs de l'enum Action sous forme de String). */
+    private List<String> actions = new ArrayList<>();
 
     // --- COMBAT ---
     private int hp;
@@ -36,13 +43,24 @@ public class Player {
     }
 
     public String getId() { return id; }
-    public String getUsername() { return username; }
-    public String getRole() { return role; }
-    public List<String> getHand() { return hand; }
 
+    public String getUsername() { return username; }
     public void setUsername(String username) { this.username = username; }
+
+    public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }
-    public void setHand(List<String> hand) { this.hand = hand; }
+
+    // --- LIEUX ---
+    public List<String> getHand() { return hand; }
+    public void setHand(List<String> hand) { this.hand = (hand != null ? hand : new ArrayList<>()); }
+
+    // --- POTIONS ---
+    public List<String> getPotions() { return potions; }
+    public void setPotions(List<String> potions) { this.potions = (potions != null ? potions : new ArrayList<>()); }
+
+    // --- ACTIONS ---
+    public List<String> getActions() { return actions; }
+    public void setActions(List<String> actions) { this.actions = (actions != null ? actions : new ArrayList<>()); }
 
     public int getHp() { return hp; }
     public String getAttackDice() { return attackDice; }

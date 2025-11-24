@@ -4,6 +4,7 @@ import org.castello.auth.AuthService;
 import org.castello.game.Game;
 import org.castello.game.GameService;
 import org.castello.game.Potion;
+import org.castello.game.Action;
 import org.castello.web.dto.GameSnapshot;
 import org.castello.player.PlayerService;
 import org.springframework.http.HttpStatus;
@@ -215,6 +216,16 @@ public class GameController {
         games.buyPotion(id, user.getId());
     }
 
+    // --- Boutique / Transmutation ---
+    @PostMapping("/{id}/shop/buy-action")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void buyAction(@PathVariable String id,
+                          @RequestHeader("Authorization") String authorization){
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+        games.buyAction(id, user.getId());
+    }
+
     @PostMapping("/{id}/shop/buy-silver")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void buySilver(@PathVariable String id,
@@ -269,5 +280,50 @@ public class GameController {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.tradeAction(id, user.getId(), targetId, action);
+    }
+
+    // --- Utiliser une carte action ---
+    public static class UseActionReq { public String type; }
+
+    @PostMapping("/{id}/actions/use")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void useAction(@PathVariable String id,
+                          @RequestBody UseActionReq body,
+                          @RequestHeader("Authorization") String authorization) {
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+        if (body == null || body.type == null || body.type.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "type required");
+        }
+        games.useAction(id, user.getId(), Action.valueOf(body.type));
+    }
+
+    @PostMapping("/{id}/actions/net/target")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void chooseNetTarget(@PathVariable String id,
+                                @RequestParam String targetId,
+                                @RequestHeader("Authorization") String authorization) {
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+        games.chooseNetTarget(id, user.getId(), targetId);
+    }
+
+    @PostMapping("/{id}/actions/net/resolve")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resolveNet(@PathVariable String id,
+                           @RequestParam String targetId,
+                           @RequestHeader("Authorization") String authorization) {
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+        games.resolveNet(id, user.getId(), targetId);
+    }
+
+    @PostMapping("/{id}/actions/pit/resolve")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resolvePit(@PathVariable String id,
+                           @RequestHeader("Authorization") String authorization) {
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+        games.resolvePit(id, user.getId());
     }
 }

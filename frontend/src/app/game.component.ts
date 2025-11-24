@@ -73,7 +73,7 @@ interface STrade {
               </div>
 
               <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
-                <img class="mod-ico" [src]="actionIconSrc(p)" alt="action"/>
+                <img class="mod-ico" [src]="actionIconSrc(m.source)" alt="action"/>
               </div>
 
               <div class="mods-badge-corruption"
@@ -136,14 +136,10 @@ interface STrade {
             </div>
 
             <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
-              <img class="mod-ico" [src]="actionIconSrc(vampirePlayer)" alt="action"/>
+              <img class="mod-ico" [src]="actionIconSrc(m.source)" alt="action"/>
             </div>
             <span class="chip-val">{{ labelOrChip(m) }}</span>
           </span>
-        </div>
-
-        <div style="margin-top:.6rem; color:#555">
-          Pioche actions: {{ game?.decks?.actionsVamp?.left }} (défausse: {{ game?.decks?.actionsVamp?.discard }})
         </div>
       </section>
 
@@ -206,8 +202,23 @@ interface STrade {
       <!-- droite: stats chasseurs + potions -->
       <section class="panel">
         <h3>Chasseurs & Potions</h3>
-        <div>Pioche actions: {{ game?.decks?.actionsHunters?.left }} (défausse: {{ game?.decks?.actionsHunters?.discard }})</div>
-        <div>Pioche potions: {{ game?.decks?.potions?.left }} (défausse: {{ game?.decks?.potions?.discard }})</div>
+        <div>
+          Pioche action chasseur :
+          {{ poolTotal(game?.decks?.actionsHunters?.pool) }}
+          (défausse : {{ poolTotal(game?.decks?.actionsHunters?.discard) }})
+        </div>
+
+        <div>
+          Pioche potions :
+          {{ poolTotal(game?.decks?.potions?.pool) }}
+          (défausse : {{ poolTotal(game?.decks?.potions?.discard) }})
+        </div>
+
+        <div>
+          Pioche action vampire :
+          {{ poolTotal(game?.decks?.actionsVamp?.pool) }}
+          (défausse : {{ poolTotal(game?.decks?.actionsVamp?.discard) }})
+        </div>
       </section>
     </div>
 
@@ -263,7 +274,7 @@ interface STrade {
             </div>
 
             <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
-              <img class="mod-ico" [src]="actionIconSrc(me)" alt="action"/>
+              <img class="mod-ico" [src]="actionIconSrc(m.source)" alt="action"/>
             </div>
 
             <div class="mods-badge-corruption"
@@ -278,42 +289,43 @@ interface STrade {
      <div class="hand">
         <!-- En-têtes sur la même ligne -->
         <div class="hand-head">
-          <div class="hand-title">Votre main (lieux)</div>
-          <div class="hand-title" *ngIf="myPotions().length > 0">Mes potions</div>
+          <div class="hand-title">Votre main</div>
         </div>
 
-        <!-- Deux colonnes : lieux | potions -->
-        <div class="hand-body">
-          <!-- Colonne LIEUX : style inchangé -->
-          <div class="hand-col">
-            <div class="hand-cards">
-              <button *ngFor="let c of (me?.hand || [])"
-                      [class.selected]="selectedLocation===c"
-                      (click)="selectLocation(c)"
-                      style="padding:.5rem 1rem; border:1px solid #ccc; cursor:pointer">
-                {{ labelLocation(c) }}
-              </button>
-            </div>
-          </div>
+        <div class="hand-cards">
+          <button *ngFor="let c of (me?.hand || [])"
+                  class="card-btn"
+                  (click)="onLocationClick(c)"
+                  [class.selected]="selectedLocation === c"
+                  [class.is-disabled]="!canPlayLocation(c)"
+                  [attr.aria-disabled]="!canPlayLocation(c) ? true : null"
+                  [title]="(!canPlayLocation(c) ? 'garlicTooltip' : null)"
+                  style="padding:.5rem 1rem; border:1px solid #ccc; cursor:pointer">
+            {{ labelLocation(c) }}
+          </button>
+          <button *ngFor="let action of myActions()"
+                  class="card-btn"
+                  [class.is-disabled]="!canUseActionNow(action)"
+                  [attr.aria-disabled]="!canUseActionNow(action) ? true : null"
+                  (click)="onActionClick(action)"
+                  [title]="canUseActionNow(action)
+                  ? 'Utiliser maintenant (préparation au combat)'
+                  : 'Disponible uniquement en PREPHASE3 si vous participez à un combat'">
+            {{ actionLabelFr(action) }}
+          </button>
+          <button *ngFor="let potion of myPotions()"
+                  class="card-btn"
+                  [class.is-disabled]="!canUsePotionNow(potion)"
+                  [attr.aria-disabled]="!canUsePotionNow(potion) ? true : null"
+                  (click)="onPotionClick(potion)"
+                  [title]="canUsePotionNow(potion)
+                  ? 'Utiliser maintenant (préparation au combat)'
+                  : 'Disponible uniquement en PREPHASE3 si vous participez à un combat'">
+            {{ potionLabelFr(potion) }}
+          </button>
+        </div>   
 
-          <!-- Colonne POTIONS : mêmes cartes/visuel que lieux + info au survol -->
-          <div class="hand-col">
-            <div class="hand-cards">
-              <button *ngFor="let pot of myPotions()"
-                      class="card-btn"
-                      [class.is-disabled]="!canUsePotionNow(pot)"
-                      [attr.aria-disabled]="!canUsePotionNow(pot) ? true : null"
-                      (click)="onPotionClick(pot)"
-                      [title]="canUsePotionNow(pot)
-                      ? 'Utiliser maintenant (préparation au combat)'
-                      : 'Disponible uniquement en PREPHASE3 si vous participez à un combat'">
-                {{ potionLabelFr(pot) }}
-              </button>
-            </div>
-          </div>
-        </div>
 
-        <!-- Bouton jouer (lieu sélectionné) -->
         <div style="margin-top:.5rem">
           <button (click)="playSelected()" [disabled]="!canPlay">Jouer cette carte</button>
         </div>
@@ -359,7 +371,7 @@ interface STrade {
         </div>
 
         <div class="footer">
-          <ng-container *ngIf="isMeVampire() && game?.weather?.roll == null; else waitWeather">
+          <ng-container *ngIf="isMeVampire && game?.weather?.roll == null; else waitWeather">
             <button (click)="rollWeather()" class="btn-primary">Jeter le dé</button>
           </ng-container>
           <ng-template #waitWeather>
@@ -378,8 +390,8 @@ interface STrade {
       </ng-template>
     </div>
   </div>
-  <!-- === MODALE ACTION (joueur concerné) — AJOUT === -->
-  <div *ngIf="showActionModal && currentCombat as r" class="modal-backdrop">
+  <!-- === MODALE ROLL (joueur concerné) === -->
+  <div *ngIf="showRollModal && currentCombat as r" class="modal-backdrop">
     <div class="modal location-modal" [style.backgroundImage]="setImageBackground('location')">
       <h3 style="margin-top:0" class="bg-badge">
         {{ modalTitle(r) }}
@@ -447,7 +459,7 @@ interface STrade {
                   </div>
 
                   <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
-                    <img class="mod-ico" [src]="actionIconSrc(getPlayer(r.attackerId))" alt="action"/>
+                    <img class="mod-ico" [src]="actionIconSrc(m.source)" alt="action"/>
                   </div>
 
                   <div class="mods-badge-corruption"
@@ -515,7 +527,7 @@ interface STrade {
                   </div>
 
                   <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
-                    <img class="mod-ico" [src]="actionIconSrc(getPlayer(r.defenderId))" alt="action"/>
+                    <img class="mod-ico" [src]="actionIconSrc(m.source)" alt="action"/>
                   </div>
 
                   <div class="mods-badge-corruption"
@@ -565,7 +577,7 @@ interface STrade {
                   </div>
 
                   <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
-                    <img class="mod-ico" [src]="actionIconSrc(getPlayer(r.attackerId))" alt="action"/>
+                    <img class="mod-ico" [src]="actionIconSrc(m.source)" alt="action"/>
                   </div>
 
                   <div class="mods-badge-corruption"
@@ -641,7 +653,7 @@ interface STrade {
                   </div>
 
                   <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
-                    <img class="mod-ico" [src]="actionIconSrc(getPlayer(r.defenderId))" alt="action"/>
+                    <img class="mod-ico" [src]="actionIconSrc(m.source)" alt="action"/>
                   </div>
 
                   <div class="mods-badge-corruption"
@@ -728,20 +740,20 @@ interface STrade {
         </div>
       </div>
 
-      <div class="footer" class="bg-badge">
+      <div class="footer">
         <!-- avant le jet -->
         <ng-container *ngIf="game?.currentBite?.roll == null; else biteResult">
           <ng-container *ngIf="canRollBite(); else waitBite">
             <button (click)="rollCorruption()" class="btn-primary">Jeter le dé</button>
           </ng-container>
           <ng-template #waitBite >
-            <span>En attente du jet…</span>
+            <span class="bg-badge">En attente du jet…</span>
           </ng-template>
         </ng-container>
 
         <!-- après le jet -->
         <ng-template #biteResult>
-          <span>{{ biteResultText() }}</span>
+          <span class="bg-badge">{{ biteResultText() }}</span>
         </ng-template>
       </div>
     </div>
@@ -773,7 +785,7 @@ interface STrade {
               <div class="choices">
                 <button *ngFor="let tid of it.targets"
                         (click)="assignUnstableTarget(it.unstableId, tid)"
-                        [disabled]="!isMeVampire() || isUnstableLocked(it.unstableId)"
+                        [disabled]="!isMeVampire || isUnstableLocked(it.unstableId)"
                         [class.is-disabled]="isUnstableAlreadyDecided(it.unstableId)"
                         [attr.aria-disabled]="isUnstableAlreadyDecided(it.unstableId) ? true : null">>
                   {{ usernameOf(tid) }}
@@ -788,14 +800,14 @@ interface STrade {
               <div class="choices">
                 <button *ngFor="let loc of it.locations"
                         (click)="assignUnstableHarvest(it.unstableId, loc)"
-                        [disabled]="!isMeVampire() || isUnstableLocked(it.unstableId)">
+                        [disabled]="!isMeVampire || isUnstableLocked(it.unstableId)">
                   {{ labelLocation(loc) }}
                 </button>
 
                 <!-- Bouton "Ne rien faire" seulement si combat par défaut ET choix encore possible -->
                 <button *ngIf="getUnstableDefaultFight(it.unstableId).willFight && isPendingUnstable(it.unstableId)"
                         (click)="assignUnstableNothing(it.unstableId)"
-                        [disabled]="!isMeVampire() || isUnstableLocked(it.unstableId)">
+                        [disabled]="!isMeVampire || isUnstableLocked(it.unstableId)">
                   Ne rien faire
                 </button>
               </div>
@@ -830,11 +842,31 @@ interface STrade {
 
       <section class="modal-body">
         <div class="col">
+          <div class="card" *ngIf="isMeVampire">
+            <h4>Actions</h4>
+            <p>Coût : 50 âmes déchues</p>
+            <p>Pioche restante : {{ poolTotal(game?.decks?.actionsVamp?.pool) }}</p>
+            <button (click)="onBuyAction()" [disabled]="!canBuyVampAction">
+              Acheter une action aléatoire
+            </button>
+          </div>
+
+          <div class="card" *ngIf="isHunter">
+            <h4>Actions</h4>
+            <p>Coût : 50 pièces d'or</p>
+            <p>Pioche restante : {{ poolTotal(game?.decks?.actionsHunters?.pool) }}</p>
+            <button (click)="onBuyAction()" [disabled]="!canBuyHunterAction">
+              Acheter une action aléatoire
+            </button>
+          </div>
+
           <div class="card">
             <h4>Potions</h4>
             <p>Coût : 4 eaux pures + 3 herbes médicinales</p>
-            <p>Pioche restante : {{ game?.decks?.potions?.left ?? 0 }}</p>
-            <button (click)="onBuyPotion()" [disabled]="!canBuyPotion">Acheter une potion aléatoire</button>
+            <p>Pioche restante : {{ poolTotal(game?.decks?.potions?.pool) }}</p>
+            <button (click)="onBuyPotion()" [disabled]="!canBuyPotion">
+              Acheter une potion aléatoire
+            </button>
           </div>
 
           <div class="card" *ngIf="isHunter">
@@ -877,15 +909,6 @@ interface STrade {
                 <button (click)="onTransmute('TRINITY_TO_SOULS')" [disabled]="me?.wood!<1 || me?.iron!<1 || me?.water!<1">Transmuter</button>
               </li>
             </ul>
-          </div>
-          <div class="card">
-            <h4>Statut</h4>
-            <div *ngIf="!waitingDone; else waitingTpl">
-              <button class="finish" (click)="onFinishPhase4()">Ne rien faire</button>
-            </div>
-            <ng-template #waitingTpl>
-              <div class="muted">En attente des autres joueurs…</div>
-            </ng-template>
           </div>
         </div>
 
@@ -975,9 +998,128 @@ interface STrade {
                 </div>
               </div>
             </div>
+            <div class="card">
+              <h4>Statut</h4>
+              <div *ngIf="!waitingDone; else waitingTpl">
+                <button class="finish" (click)="onFinishPhase4()">Ne rien faire</button>
+              </div>
+              <ng-template #waitingTpl>
+                <div class="muted">En attente des autres joueurs…</div>
+              </ng-template>
+            </div>
           </div>
         </div>
       </section>
+    </div>
+  </div>
+  <!-- ===== MODALE ACTION ===== -->
+  <div class="modal-backdrop" *ngIf="showActionModal">
+    <div
+      class="modal action-modal with-bg"
+      [ngStyle]="trapMode === 'NET'
+        ? {'background-image': 'url(/assets/actions/net.png)'}
+        : trapMode === 'PIT'
+          ? {'background-image': 'url(/assets/actions/traphole.png)'}
+          : null"
+    >
+      <div class="content action">
+        <!-- Boîte noire semi-transparente qui contient tout le texte -->
+        <div class="action-box">
+          <h2 *ngIf="trapMode === 'NET'">Filet</h2>
+          <h2 *ngIf="trapMode === 'PIT'">Fosse</h2>
+
+          <p *ngIf="trapLocation">
+            Lieu : {{ trapLocation }}
+          </p>
+
+          <!-- ========== FILET ========== -->
+          <ng-container *ngIf="trapMode === 'NET'">
+
+            <!-- Vue ACTEUR : choix de cible + bouton de dé -->
+            <ng-container *ngIf="isTrapActor; else netSpectate">
+
+              <p>Choisis une cible :</p>
+
+              <div class="trap-targets">
+                <button
+                  type="button"
+                  *ngFor="let p of trapEnemies"
+                  (click)="selectTrapTarget(p.id)"
+                  [disabled]="trapResolving || trapRoll !== null"
+                  [class.selected]="trapSelectedTargetId === p.id">
+                  {{ p.username }} ({{ p.role }})
+                </button>
+              </div>
+
+              <button
+                type="button"
+                (click)="onNetRoll()"
+                [disabled]="!trapSelectedTargetId || trapResolving || trapRoll !== null">
+                Lancer le dé
+              </button>
+            </ng-container>
+
+            <!-- Vue SPECTATEUR : on montre seulement la cible choisie / en attente -->
+            <ng-template #netSpectate>
+              <ng-container *ngIf="trapSelectedTargetId; else netWaitTarget">
+                <p>Cible : {{ trapTargetName }}</p>
+              </ng-container>
+              <ng-template #netWaitTarget>
+                <p>En attente du choix de la cible...</p>
+              </ng-template>
+            </ng-template>
+          </ng-container>
+
+          <!-- ========== FOSSE ========== -->
+          <ng-container *ngIf="trapMode === 'PIT'">
+
+            <!-- Vue ACTEUR -->
+            <ng-container *ngIf="isTrapActor; else pitSpectate">
+
+              <p *ngIf="currentPitTarget">
+                Cible : {{ currentPitTarget.username }} ({{ currentPitTarget.role }})
+              </p>
+
+              <button
+                type="button"
+                (click)="onPitRoll()"
+                [disabled]="trapResolving || trapRoll !== null || !currentPitTarget">
+                Lancer le dé
+              </button>
+            </ng-container>
+
+            <!-- Vue SPECTATEUR -->
+            <ng-template #pitSpectate>
+              <ng-container *ngIf="currentPitTarget; else pitWaitTarget">
+                <p>Cible : {{ currentPitTarget.username }} ({{ currentPitTarget.role }})</p>
+              </ng-container>
+              <ng-template #pitWaitTarget>
+                <p>En attente du jet pour la fosse...</p>
+              </ng-template>
+            </ng-template>
+          </ng-container>
+
+          <!-- ========== Résultat commun (acteurs + spectateurs) ========== -->
+          <div class="trap-result">
+
+          <!-- Dé visuel -->
+            <div class="dice-wrap">
+              <img class="dice"
+                  [src]="diceAsset('D20', trapDiceColor)"
+                  alt="dice"/>
+              <div class="dice20-overlay"
+                  *ngIf="(trapRoll) != null">
+                {{ trapRoll }}
+              </div>
+            </div>
+
+            <!-- Texte existant -->
+            <p *ngFor="let line of trapBreakdownLines">
+              {{ line }}
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
   `,
@@ -1119,15 +1261,6 @@ interface STrade {
     font: 600 14px/1.1 system-ui, sans-serif;
   }
 
-  .hand-body{
-    display:grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-    align-items: start;
-  }
-
-  .hand-col{ min-width: 0; }
-
   .hand-cards{
     display:flex;
     gap:.5rem;
@@ -1202,32 +1335,32 @@ interface STrade {
   .dice-big{ width: 240px; height: auto; }
   .icon-side{ width: 120px; height: 180px; opacity: .9; }
 
-.dice-wrap{ position: relative; display:inline-block; }
+  .dice-wrap{ position: relative; display:inline-block; }
 
-.dice-overlay{
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  font: 700 42px/1 system-ui, sans-serif;
-  color: #cc9c00;
-  pointer-events: none;
-  font-variant-numeric: tabular-nums;
-  transform: translate(var(--dx, 0px), var(--dy, 0px));
-}
+  .dice-overlay{
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font: 700 42px/1 system-ui, sans-serif;
+    color: #cc9c00;
+    pointer-events: none;
+    font-variant-numeric: tabular-nums;
+    transform: translate(var(--dx, 0px), var(--dy, 0px));
+  }
 
-/* 1 chiffre */
-.dice-wrap[data-digits="1"] .dice-overlay{
-  --dx: -2px;
-  --dy: 7px;
-}
+  /* 1 chiffre */
+  .dice-wrap[data-digits="1"] .dice-overlay{
+    --dx: -2px;
+    --dy: 7px;
+  }
 
-/* 2 chiffres */
-.dice-wrap[data-digits="2"] .dice-overlay{
-  --dx: -5px;
-  --dy:  7px;
-  letter-spacing: -0.5px;
-}
+  /* 2 chiffres */
+  .dice-wrap[data-digits="2"] .dice-overlay{
+    --dx: -5px;
+    --dy:  7px;
+    letter-spacing: -0.5px;
+  }
 
 
   .mods-col{
@@ -1268,7 +1401,7 @@ interface STrade {
   .result{ margin-top: .75rem; font-weight: 600; text-align: center; }
   .modal .footer{ margin-top: .75rem; text-align: center; color: #eeeeeeff; }
 
-  /* MODALE ACTION */
+  /* MODALE ROLL */
   .modal.location-modal{
     display: flex;
     flex-direction: column;
@@ -1301,7 +1434,7 @@ interface STrade {
     transform: translateY(-50px);
   }
 
-  /* Les chips de la modale action passent sur une nouvelle ligne et ne perturbent pas l’alignement */
+  /* Les chips de la modale roll passent sur une nouvelle ligne et ne perturbent pas l’alignement */
   .modal.location-modal .mods-row{
     width: auto;
     flex-basis: 100%;
@@ -1362,7 +1495,7 @@ interface STrade {
       0 6px 16px rgba(0,0,0,.25);
   }
 
-  /* Ligne principale de la modale action : icône + gros dé + colonne premier jet */
+  /* Ligne principale de la modale roll : icône + gros dé + colonne premier jet */
   .roll-row{
     display: flex;
     align-items: center;
@@ -1721,6 +1854,134 @@ interface STrade {
   .wheel{ width: 400px; height:auto; opacity:.95; }
   .btn-primary{ padding:.5rem 1rem; font-weight:600; }
 
+  /* === MODALE ACTION (Filet / Fosse) === */
+  .modal.action-modal{
+    position: relative;
+    width: min(780px, 95vw);  /* même largeur que spectate */
+    min-height: 640px;        /* même hauteur mini que spectate */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-position: center 40%;
+  }
+
+  .action-modal.with-bg{
+    background-color: rgba(0,0,0,.30);
+    background-size: cover;
+    background-position: center 10%;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,.6);
+  }
+
+  .action-modal .content.action{
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: .75rem;
+  }
+
+  /* Boîte lisible pour le texte et les boutons */
+  .action-box{
+    background: rgba(0,0,0,.55);
+    color: #fff;
+    border-radius: 12px;
+    padding: .75rem 1rem;
+    box-shadow:
+      inset 0 8px 24px rgba(0,0,0,.25),
+      0 6px 16px rgba(0,0,0,.25);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    max-width: 560px;
+    width: min(560px, 90vw);
+  }
+
+  /* Titres et textes */
+  .action-box h2{
+    text-align: center;
+    margin: 0 0 .5rem;
+  }
+
+  .action-box p{
+    margin: .25rem 0;
+  }
+
+  /* Liste de cibles Filet */
+  .action-box .trap-targets{
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem;
+    margin: .5rem 0;
+  }
+
+  /* Boutons dans la boîte (cibles + "Lancer le dé") */
+  .action-box .trap-targets button,
+  .action-box button{
+    padding: .4rem .75rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,.35);
+    background: rgba(255,255,255,.08);
+    color: #fff;
+    cursor: pointer;
+  }
+
+  .action-box .trap-targets button.selected{
+    background: rgba(255,255,255,.25);
+  }
+
+  .action-box button[disabled]{
+    opacity: .5;
+    cursor: not-allowed;
+  }
+
+  /* Résultat du jet */
+  .trap-result{
+    margin-top: .5rem;
+    padding-top: .5rem;
+    border-top: 1px solid rgba(255,255,255,.25);
+    text-align: center;
+  }
+  .trap-info{
+    font-size: .9rem;
+    opacity: .9;
+  }
+
+  .trap-dice-row{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .75rem;
+    margin-bottom: .5rem;
+  }
+
+  .dice20-overlay{
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font: 700 42px/1 system-ui, sans-serif;
+    color: #cc9c00;
+    pointer-events: none;
+    font-variant-numeric: tabular-nums;
+    transform: translate(var(--dx, 0px), var(--dy, 0px));
+  }
+
+  /* 1 chiffre */
+  .dice-wrap[data-digits="1"] .dice20-overlay{
+    --dx: -2px;
+    --dy: 2px;
+  }
+
+  /* 2 chiffres */
+  .dice-wrap[data-digits="2"] .dice20-overlay{
+    --dx: -5px;
+    --dy:  2px;
+    letter-spacing: -0.5px;
+  }
+
+
   /* Trade modale */
   .modal.trade-modal{
     background:#fff;
@@ -1733,7 +1994,8 @@ interface STrade {
   }
   .modal-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem;border-bottom:1px solid #eee;padding-bottom:.5rem;margin-bottom:1rem;color: #eee;}
   .modal-body{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
-  .card{border:1px solid #eee;border-radius:8px;padding:.75rem;margin-bottom:.75rem;}
+  .modal.trade-modal .card{border:1px solid #eee;border-radius:8px;padding:.50rem;margin-bottom:.75rem;}
+    .modal.trade-modal .card h4{margin: 10px 5px;}
   .row{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;}
   .grid{display:grid;grid-template-columns:repeat(2, minmax(0,1fr));gap:.5rem;}
   .targets{}
@@ -1907,6 +2169,24 @@ export class GameComponent {
   remainingPrePhaseSeconds = 0;                 // affichage "XX s"
   private prephaseTicker: any | null = null;    // setInterval handle
   private static readonly PREPHASE_MS = 30_000;
+
+  // --- Actions ---
+  // NET ou PIT, ou null si pas de piège en cours
+  trapMode: 'NET' | 'PIT' | null = null;
+  trapOwnerId: string | null = null;
+  trapLocation: string | null = null;
+  trapEnemies: SPlayer[] = [];
+  // Pour le FILET : cible choisie par le chasseur
+  trapSelectedTargetId: string | null = null;
+  // Pour la FOSSE : index de la cible en cours dans trapEnemies
+  trapCurrentIndex = 0;
+  // Résultat courant à afficher dans la modale
+  trapRoll: number | null = null;
+  trapBreakdownLines: string[] = [];
+  // Afficher / cacher la modale
+  showActionModal = false;
+  // Flag pour éviter les doubles clics pendant l'appel API
+  trapResolving = false;
 
   // --- Morsure : état purement UI (pas dans GameSnapshot)
   isRolling = false;
@@ -2139,13 +2419,30 @@ export class GameComponent {
   modsForStat(p: SPlayer | undefined, stat: 'ATTACK'|'DEFENSE'): RawStatMod[] {
     if (!p || !this.game?.raidMods) return [];
     const list = this.game.raidMods[p.id] || [];
-    const weatherActive = this.isWeatherActive();
 
-    const out: RawStatMod[] = list.filter(m =>
-      m.stat === stat &&
-      (weatherActive || !(m.source?.startsWith('WEATHER:'))) &&
-      !(m.source?.includes(':ENG') && m.source?.startsWith('CORRUPTION'))
-    );
+    const weatherActive    = this.isWeatherActive();
+    const weatherCancelled = this.isWeatherCancelledForPlayer(p);
+
+    const out: RawStatMod[] = list.filter(m => {
+      if (m.stat !== stat) return false;
+
+      const src = m.source || '';
+      const isWeather    = src.startsWith('WEATHER:');
+      const isCorruptEng = src.startsWith('CORRUPTION') && src.includes(':ENG');
+
+      // on masque les mods CORRUPTION:...:ENG (comme avant)
+      if (isCorruptEng) return false;
+
+      // on masque les mods météo :
+      // - si aucune météo active
+      // - OU si la météo est annulée pour ce joueur (Feu de camp)
+      if (isWeather) {
+        if (!weatherActive) return false;
+        if (weatherCancelled) return false;
+      }
+
+      return true;
+    });
 
     // 1) Corruption DSP : puce d’état
     const dsp = list.filter(mm =>
@@ -2197,7 +2494,6 @@ export class GameComponent {
     return out;
   }
 
-
   chipOf(m: UiStatMod): string {
     if (m.labelFr) return m.labelFr;
     if (m.stat === 'MULTIPLE') return 'affaibli'; // fallback
@@ -2212,19 +2508,39 @@ export class GameComponent {
   modsForDisplay(p?: SPlayer): RawStatMod[] {
     if (!p || !this.game?.raidMods) return [];
     const list = this.game.raidMods[p.id] || [];
-    const weatherActive = this.isWeatherActive();
+
+    const weatherActive    = this.isWeatherActive();
+    const weatherCancelled = this.isWeatherCancelledForPlayer(p);
 
     const filtered = list.filter(m => {
-      return (weatherActive || !(m.source?.startsWith('WEATHER:'))) &&
-            !(m.source?.startsWith('CORRUPTION') && m.source?.includes(':ENG'));
+      const src = m.source || '';
+      const isWeather    = src.startsWith('WEATHER:');
+      const isCorruptEng = src.startsWith('CORRUPTION') && src.includes(':ENG');
+
+      if (isCorruptEng) return false;
+
+      if (isWeather) {
+        if (!weatherActive) return false;
+        if (weatherCancelled) return false;
+      }
+
+      return true;
     });
 
     return filtered;
   }
 
   private totalModForDisplay(pId: string, stat: 'ATTACK'|'DEFENSE'): number {
-    const list = this.game?.raidMods?.[pId] || [];
-    return list.reduce((sum, m) => sum + (m.stat === stat ? m.amount : 0), 0);
+    const p = this.getPlayer(pId);
+    if (!p) return 0;
+
+    // On réutilise exactement les mêmes filtres que pour l’affichage des puces :
+    // - météo inactive -> pas de mods WEATHER
+    // - météo annulée par Feu de camp -> pas de mods WEATHER
+    // - CORRUPTION:...:ENG masqués
+    const mods = this.modsForDisplay(p);
+
+    return mods.reduce((sum, m) => sum + (m.stat === stat ? m.amount : 0), 0);
   }
 
   // Construit UN chip d’affichage : MULTIPLE (L1), INSTABLE (L2) ou SERVITEUR (L3)
@@ -2373,7 +2689,7 @@ export class GameComponent {
     if (r.defenderId === this.meId && (r.defenderRoll == null)) return 'DEFENSE';
     return null;
   }
-  get showActionModal(): boolean {
+  get showRollModal(): boolean {
     return this.game?.phase === 'PHASE3' && !!this.waitingForMyRoll && !!this.currentCombat;
   }
   get showSpectatorModal(): boolean {
@@ -2394,6 +2710,20 @@ export class GameComponent {
   }
   roleIcon(role?: 'VAMPIRE'|'HUNTER'|'SERVANT'|undefined, name?: 'sword'|'armor'): string {
     return role === 'SERVANT' ? `/assets/icons/HUNTER-${name}.png` : `/assets/icons/${role}-${name}.png`;
+  }
+
+  private locationOf(playerId?: string): string | null {
+    if (!playerId || !this.game) return null;
+
+    // this.game.center = tableau des cartes posées au centre
+    const entry = this.game.center?.find(c => c.playerId === playerId);
+    return entry ? entry.card : null;
+  }
+
+  private playersOnLocation(loc: string): SPlayer[] {
+    const g = this.game;
+    if (!g) return [];
+    return g.players.filter(p => this.locationOf(p.id) === loc);
   }
 
   getCombatResultText(): string | null {
@@ -2492,11 +2822,30 @@ export class GameComponent {
     return `/assets/weather/icon-${ws.toLowerCase()}.png`;
   }
 
-  actionIconSrc(p?: SPlayer): string {
-    if (!p) return '/assets/icons/action-hunter-icon.png';
-    return p.role === 'VAMPIRE'
-      ? '/assets/icons/action-vampire-icon.png'
-      : '/assets/icons/action-hunter-icon.png';
+  actionIconSrc(source: string): string {
+    // fallback simple
+    if (!source || !source.startsWith('ACTION:')) {
+      return '/assets/icons/action-hunter-icon.png';
+    }
+
+    // source = "ACTION:FOSSE" -> on prend "FOSSE"
+    const parts = source.split(':');
+    const code = parts[1] || '';
+
+    // Liste des actions qui sont forcément jouées par les chasseurs
+    const hunterActions = [
+      'FUMIGATION_AIL',
+      'PISTEUR',
+      'FEU_DE_CAMP',
+      'FILET',
+      'FOSSE',
+    ];
+
+    const isHunter = hunterActions.includes(code);
+
+    return isHunter
+      ? '/assets/icons/action-hunter-icon.png'
+      : '/assets/icons/action-vampire-icon.png';
   }
 
   // --- HP helpers (pour une jauge plus tard) ---
@@ -2543,7 +2892,7 @@ export class GameComponent {
     return false;
   }
 
-  isMeVampire(): boolean {
+  get isMeVampire(): boolean {
     return this.me?.role === 'VAMPIRE';
   }
 
@@ -2586,6 +2935,21 @@ export class GameComponent {
         next: snap => {
           this.game = snap;
           this.handleWeatherReveal(snap);
+
+        // Instables
+        this.recomputeUnstableChoices();
+
+        // 🔹 IMPORTANT : synchroniser la modale de piège dès le premier snapshot
+        this.syncTrapFromSnapshot(snap);
+
+        // Timer PREPHASE3 si on arrive "en cours de route"
+        if (snap.phase === 'PREPHASE3') {
+          this.prephase3AdvanceSent = false;
+          this.startPrephaseTimer();
+        } else {
+          this.stopPrephaseTimer();
+        }
+
           // ouvrir/fermer la modale + timer si on arrive en PHASE4
           this.syncShopVisibilityFromSnapshot();
         },
@@ -2674,6 +3038,8 @@ export class GameComponent {
           next: g => {
             this.game = g;
 
+            this.syncTrapFromSnapshot(g);
+
             // ⚠️ important : recalculer les choix instables à partir du snapshot
             this.recomputeUnstableChoices();
 
@@ -2707,8 +3073,13 @@ export class GameComponent {
               if (g.phase !== 'PHASE3') this.game.currentBite = null;
             }
 
-            // Enchaînement combats / maintenance
-            if (g.phase === 'PHASE3') this.maybeAdvanceToPhase4EndOfRaid();
+            if (g.phase === 'PHASE3') {
+              // Si aucun piège en cours (currentAction null),
+              // tu laisses ta logique existante décider si on enchaîne.
+              if (!g.currentAction) {
+                this.maybeAdvanceToPhase4EndOfRaid();
+              }
+            }
 
             // Ouvrir/fermer la modale + timer si on bascule vers/depuis PHASE4
             this.syncShopVisibilityFromSnapshot();
@@ -2892,6 +3263,7 @@ export class GameComponent {
         break;
       }
       case 'POTION_BOUGHT':
+      case 'ACTION_BOUGHT':
       case 'SILVER_BOUGHT':
       case 'RESOURCE_SOLD':
       case 'TRANSMUTED': {
@@ -2901,6 +3273,63 @@ export class GameComponent {
             this.game = g;
             // si on est en phase 4, s’assurer que la modale est bien ouverte et timer à jour
             this.syncShopVisibilityFromSnapshot();
+          },
+          error: e => this.showError(e)
+        });
+        break;
+      }
+
+      case 'ACTION_USED': {
+        this.api.getGame(this.gameId).subscribe({
+          next: g => {
+            this.game = g;
+            this.bumpHistoryScroll(); // optionnel, mais cohérent avec les autres
+          },
+          error: e => this.showError(e)
+        });
+        break;
+      }
+
+      case 'ACTION_STARTED': {
+        this.api.getGame(this.gameId).subscribe({
+          next: g => {
+            this.game = g;
+            // ouvre/MAJ la modale selon currentAction (NET/PIT)
+            this.syncTrapFromSnapshot(g);
+            this.bumpHistoryScroll();
+          },
+          error: e => this.showError(e)
+        });
+        break;
+      }
+
+      case 'ACTION_ROLLED': {
+        // 1) refresh pour voir roll / breakdownLines dans currentAction
+        this.api.getGame(this.gameId).subscribe({
+          next: g => {
+            this.game = g;
+            this.syncTrapFromSnapshot(g); // met à jour trapRoll + breakdown dans la modale
+            this.bumpHistoryScroll();
+          },
+          error: e => this.showError(e)
+        });
+
+        // 2) laisse le résultat affiché, puis enchaîne (comme BITE_ROLLED)
+        setTimeout(() => {
+          this.api.combatContinue(this.gameId).subscribe({
+            error: e => this.showError(e)
+          });
+        }, this.SPECTATE_HOLD_MS);
+
+        break;
+      }
+
+      case 'ACTION_RESOLVED': {
+        this.api.getGame(this.gameId).subscribe({
+          next: g => {
+            this.game = g;
+            this.syncTrapFromSnapshot(g); // currentAction null => ferme la modale
+            this.bumpHistoryScroll();
           },
           error: e => this.showError(e)
         });
@@ -2990,59 +3419,69 @@ export class GameComponent {
     }
   }
   
-
-  refresh(){
-    if (!this.gameId) return;
-
-    this.api.getGame(this.gameId).subscribe({
-      next: g => {
-        const prevPhase = this.game?.phase;
-
-        this.game = g;
-        if (this.game?.phase === 'PREPHASE3') {
-          // Si on arrive “en cours de route”, on ne connaît pas le début réel serveur.
-          // On démarre un 30s local “optimiste”. Le serveur reste maître et corrigera via PHASE_CHANGED.
-          if (!this.prephaseEndsAtMillis) this.startPrephaseTimer();
-        } else {
-          this.stopPrephaseTimer();
-        }
-        this.handleWeatherReveal(g);
-        this.bumpHistoryScroll();
-        this.recomputeUnstableChoices();
-
-        // Plus de deadline serveur en PREPHASE3 → pas de countdown
-        if (prevPhase && prevPhase !== g.phase) {
-          this.hasSkipped = false;      // reset si on change de phase
-        }
-        this.remainingPrePhaseSeconds = 0; // toujours 0 (cosmétique)
-      },
-      error: e => this.showError(e)
-    });
-  }
-
   //====== Select location ======/
-  selectLocation(c: string){ this.selectedLocation = c; }
+  canPlayLocation(c: string): boolean {
+    const g  = this.game;
+    const me = this.me;
+    if (!g || !me) return false;
 
-  /** Remplace/ajoute la carte au centre pour un joueur donné (patch local rapide). */
-  private upsertCenter(playerId: string, card: string, faceUp: boolean = false) {
-    if (!this.game) return;
-    const i = this.game.center.findIndex(c => c.playerId === playerId);
-    if (i >= 0) {
-      this.game.center[i] = { playerId, card, faceUp };
-    } else {
-      this.game.center.push({ playerId, card, faceUp });
+    const isVampSide = me.role === 'VAMPIRE' || me.role === 'SERVANT';
+
+    // On ne bloque que le camp vampire en PHASE2
+    if (g.phase === 'PHASE2' && isVampSide && this.isGarlicBlockedLocation(c)) {
+      return false;
     }
-    // trigger change detection
-    this.game = { ...(this.game as any) };
+
+    return true;
   }
+
+  onLocationClick(c: string) {
+    if (!this.canPlayLocation(c)) return;
+    this.selectedLocation = c;
+  }
+
+  preparedGarlicForThisRaid = false;
 
   playSelected() {
     if (!this.game || !this.selectedLocation) return;
-    if (!this.game) return;
-    this.api.selectLocation(this.game.id, this.selectedLocation).subscribe({
-      // on ne touche PAS à this.game ici : l’event LOCATION_SELECTED fait foi
+
+    const g  = this.game;
+    const me = this.me;
+    const hasPisteur = this.myActions().includes('PISTEUR');
+
+    const isHunterPhase1 = (me?.role === 'HUNTER' && g.phase === 'PHASE1');
+
+    // Cas spécial : combo Fumigation + Pisteur (chasseur en PHASE1)
+    if (isHunterPhase1 && this.preparedGarlicForThisRaid && hasPisteur) {
+      const useTracker = window.confirm(
+        "Voulez-vous également utiliser Pisteur pour traquer le vampire ?"
+      );
+
+      // 1) On joue le lieu dans tous les cas
+      this.api.selectLocation(g.id, this.selectedLocation).subscribe({
+        next: _ => {
+          // 2) Si le joueur a répondu OUI → on utilise Pisteur juste après
+          if (useTracker) {
+            this.api.useAction(g.id, 'PISTEUR').subscribe({
+              error: e => this.showError(e)
+            });
+          }
+        },
+        error: e => this.showError(e)
+      });
+
+      // On nettoie l’état local
+      this.preparedGarlicForThisRaid = false;
+      this.selectedLocation = null;
+      return;
+    }
+
+    // Comportement normal : juste jouer le lieu et fin de phase auto
+    this.api.selectLocation(g.id, this.selectedLocation).subscribe({
       error: e => this.showError(e)
     });
+
+    this.selectedLocation = null;
   }
 
   skipNow() {
@@ -3275,7 +3714,7 @@ export class GameComponent {
     return false;
   }
 
-  /** Label du bouton dans la modale action (Lancer / Relancer) */
+  /** Label du bouton dans la modale roll (Lancer / Relancer) */
   get rollButtonLabel(): string {
     return this.isMyFocusFirstStep ? 'Relancer le dé' : 'Lancer le dé';
   }
@@ -3299,6 +3738,238 @@ export class GameComponent {
     // Si l'heure actuelle est encore avant biteNotBeforeMillis,
     // on est toujours dans la fenêtre "spectate" avant affichage de la modale morsure
     return Date.now() < this.biteNotBeforeMillis;
+  }
+
+  myActions(): string[] {
+    const g = this.game;
+    if (!g) return [];
+    const me = g.players.find(p => p.id === this.meId);
+    return me?.actions ?? [];
+  }
+
+  canUseActionNow(_action: string): boolean {
+    const game = this.game;
+    if (!game) return false;
+        
+    const ws = game.weather?.status;
+    if(game.phase === 'PREPHASE3' && (_action === "FEU_DE_CAMP" || _action === "FILET" || _action === "FOSSE") && (ws === 'DUSK' || ws === 'NIGHT_DARK' || ws === 'NIGHT_CLEAR')) return true
+    if(game.phase === 'PREPHASE3' && (_action === "FILET" || _action === "FOSSE")) return true;
+    if(game.phase === 'PHASE1' && (_action === "FUMIGATION_AIL" || _action === "PISTEUR")) return true;
+
+    return false
+  }
+
+  actionLabelFr(id: string): string {
+    switch (id) {
+      case 'FUMIGATION_AIL': return 'Fumigation d\'ail';
+      case 'PISTEUR':        return 'Pisteur';
+      case 'FEU_DE_CAMP': return 'Feu de camp';
+      case 'FILET':        return 'Filet';
+      case 'FOSSE': return 'Fosse';
+      default: return id;
+    }
+  }
+
+  useAction(type: string) {
+    if (!this.game) return;
+    this.api.useAction(this.game.id, type).subscribe({
+      next: _g => {
+        if (type === 'FUMIGATION_AIL') {
+          // On mémorise qu’on a préparé une fumigation pour CE raid
+          this.preparedGarlicForThisRaid = true;
+        }
+      },
+      error: e => this.showError(e)
+    });
+  }
+
+  onActionClick(action: string){
+    if (!this.canUseActionNow(action)) return;
+    this.useAction(action);
+  }
+
+  isGarlicBlockedLocation(location: string): boolean {
+    return !!this.game && this.game.garlicBlockedLocations.includes(location);
+  }
+
+  garlicTooltip = "Ce lieu est protégé par une fumigation d'ail";
+
+  private isWeatherCancelledForPlayer(p?: SPlayer): boolean {
+    if (!p || !this.game || !this.game.weather) return false;
+
+    const status = this.game.weather.status;
+    const cancellable =
+      status === 'DUSK' ||
+      status === 'NIGHT_DARK' ||
+      status === 'NIGHT_CLEAR';
+
+    if (!cancellable) return false;
+
+    const loc = this.locationOf(p.id);
+    if (!loc) return false;
+
+    return this.game.campfireLocations?.includes(loc) ?? false;
+  }
+
+  onNetRoll() {
+    if (!this.game || !this.trapSelectedTargetId || this.trapMode !== 'NET') {
+      return;
+    }
+    if (!this.isTrapActor) return;
+    if (this.trapResolving) return;
+
+    this.trapResolving = true;
+
+    this.api.resolveNet(this.gameId, this.trapSelectedTargetId).subscribe({
+      next: () => {
+        this.trapResolving = false;
+      },
+      error: e => {
+        this.trapResolving = false;
+        this.showError(e);
+      }
+    });
+  }
+
+  onPitRoll() {
+    if (!this.game || this.trapMode !== 'PIT') return;
+    if (this.trapResolving) return;
+    if (!this.isTrapActor) return; // doit être la victime courante
+
+    const current = this.currentPitTarget;
+    if (!current) return;
+
+    this.trapResolving = true;
+
+    this.api.resolvePit(this.gameId).subscribe({
+      next: () => {
+        // Le résultat arrive via ACTION_ROLLED + getGame
+        this.trapResolving = false;
+      },
+      error: e => {
+        this.trapResolving = false;
+        this.showError(e);
+      }
+    });
+  }
+
+  get isTrapActor(): boolean {
+    const meId = this.me?.id;
+    if (!meId) return false;
+
+    if (this.trapMode === 'NET') {
+      // Filet : acteur = chasseur propriétaire
+      return this.trapOwnerId === meId;
+    }
+
+    if (this.trapMode === 'PIT') {
+      // Fosse : acteur = victime courante
+      const current = this.currentPitTarget;
+      return !!current && current.id === meId;
+    }
+
+    return false;
+  }
+
+  // Nom de la cible (pour tout le monde)
+  get trapTargetName(): string | null {
+    const targetId = this.trapSelectedTargetId;
+    if (!targetId || !this.game) return null;
+    const p = this.game.players.find(pl => pl.id === targetId);
+    return p?.username ?? targetId;
+  }
+
+  get currentPitTarget(): SPlayer | null {
+    if (!this.trapEnemies || !this.trapEnemies.length) return null;
+
+    // priorité à targetId venant du back
+    if (this.trapSelectedTargetId) {
+      const found = this.trapEnemies.find(p => p.id === this.trapSelectedTargetId);
+      if (found) return found;
+    }
+
+    return this.trapEnemies[this.trapCurrentIndex] ?? null;
+  }
+
+  private syncTrapFromSnapshot(g: GameSnapshot) {
+    const ts = g.currentAction;
+
+    // 1) Pas d'action ou pas un piège -> on ferme
+    if (!ts || (ts.mode !== 'NET' && ts.mode !== 'PIT')) {
+      this.trapMode = null;
+      this.trapOwnerId = null;
+      this.trapLocation = null;
+      this.trapSelectedTargetId = null;
+      this.trapRoll = null;
+      this.trapBreakdownLines = [];
+      this.trapEnemies = [];
+      this.trapCurrentIndex = 0;
+      this.showActionModal = false;
+      return;
+    }
+
+    // 2) Action de piège : synchronisation de base
+    this.trapMode = ts.mode;
+    this.trapOwnerId = ts.ownerId;
+    this.trapLocation = ts.location;
+    this.trapSelectedTargetId = ts.targetId ?? null;
+    this.trapRoll = ts.roll ?? null;
+    this.trapBreakdownLines = ts.breakdownLines ?? [];
+
+    // Recalcule les ennemis sur le lieu (pour les deux modes)
+    if (this.trapLocation && g.players) {
+      this.trapEnemies = this.playersOnLocation(this.trapLocation)
+        .filter(p => p.role === 'VAMPIRE' || p.role === 'SERVANT');
+    } else {
+      this.trapEnemies = [];
+    }
+
+    // 🔹 Pour FOSSE uniquement : index courant basé sur targetId
+    if (this.trapMode === 'PIT') {
+      if (this.trapSelectedTargetId && this.trapEnemies.length) {
+        const idx = this.trapEnemies.findIndex(p => p.id === this.trapSelectedTargetId);
+        this.trapCurrentIndex = idx >= 0 ? idx : 0;
+      } else {
+        this.trapCurrentIndex = 0;
+      }
+    } else {
+      this.trapCurrentIndex = 0;
+    }
+
+    this.showActionModal = true;
+  }
+
+  selectTrapTarget(id: string) {
+    // Filet uniquement, par design (Fosse n’a pas de ciblage manuel chez toi)
+    if (this.trapMode !== 'NET') return;
+    if (!this.isTrapActor || this.trapResolving || this.trapRoll !== null) return;
+
+    this.trapResolving = true; // on réutilise ce flag pour désactiver les boutons pendant l’appel
+
+    this.api.setNetTarget(this.gameId, id).subscribe({
+      next: () => {
+        this.trapResolving = false;
+        // On met aussi à jour localement pour feedback instantané
+        this.trapSelectedTargetId = id;
+        // Le snapshot “officiel” arrivera via l’event ACTION_STARTED
+      },
+      error: e => {
+        this.trapResolving = false;
+        this.showError(e);
+      }
+    });
+  }
+
+  get actionOwner() {
+    const g = this.game;
+    if (!g || !g.currentAction) return null;
+    return g.players.find(p => p.id === g.currentAction?.ownerId) ?? null;
+  }
+
+  get trapDiceColor(): 'red' | 'blue' {
+    if (this.trapMode === 'NET') return 'blue';
+    if (this.trapMode === 'PIT') return 'red';
+    return 'blue';
   }
 
   //====== Corruption ======/
@@ -3338,7 +4009,7 @@ export class GameComponent {
   showUnstableModal(): boolean {
     return !!this.game
       && this.game.phase === 'PREPHASE3'
-      && this.isMeVampire()
+      && this.isMeVampire
       && this.pendingUnstable();
   }
   unstableEntries() {
@@ -3362,7 +4033,7 @@ export class GameComponent {
   }
 
   assignUnstableTarget(unstableId: string, targetId: string) {
-    if (!this.isMeVampire() || this.isUnstableLocked(unstableId)) return;
+    if (!this.isMeVampire || this.isUnstableLocked(unstableId)) return;
 
     this.lockUnstable(unstableId);
     this.api.assignUnstableTarget(this.gameId, unstableId, targetId).subscribe({
@@ -3378,7 +4049,7 @@ export class GameComponent {
   }
 
   assignUnstableHarvest(unstableId: string, loc: string) {
-    if (!this.isMeVampire() || this.isUnstableLocked(unstableId)) return;
+    if (!this.isMeVampire || this.isUnstableLocked(unstableId)) return;
 
     this.lockUnstable(unstableId);
     this.api.assignUnstableHarvest(this.gameId, unstableId, loc).subscribe({
@@ -3393,7 +4064,7 @@ export class GameComponent {
   }
 
   assignUnstableNothing(unstableId: string) {
-    if (!this.isMeVampire() || !this.isPendingUnstable(unstableId)) return;
+    if (!this.isMeVampire || !this.isPendingUnstable(unstableId)) return;
 
     this.api.assignUnstableNothing(this.gameId, unstableId).subscribe({
       next: _ => {
@@ -3517,12 +4188,14 @@ export class GameComponent {
   }
 
   private closeShop() {
+    console.log('[SHOP] closeShop() – phase actuelle :', this.game?.phase, 'deadline:', (this.game as any)?.phase4DeadlineMillis);
     this.shopOpen = false;
     this.waitingDone = false;
     this.stopPhase4Timer();
   }
 
   private syncShopVisibilityFromSnapshot(): void {
+    console.log('[SHOP] sync from snapshot – phase =', this.game?.phase, 'shopOpen =', this.shopOpen);
     const inPhase4 = this.game?.phase === 'PHASE4';
 
     // ouvrir/fermer la modale
@@ -3556,12 +4229,36 @@ export class GameComponent {
     return ''; // PENDING
   }
 
+  poolTotal(pool: Record<string, number> | null | undefined): number {
+    if (!pool) return 0;
+    return Object.values(pool).reduce((sum, v) => sum + v, 0);
+  }
+
   get canBuyPotion() {
     const me = this.me; 
     const snapshot = this.game;
     if (!me || !snapshot) return false;
-    if ((snapshot.decks?.potions?.left ?? 0) <= 0) return false;
+    const left = this.poolTotal(snapshot.decks?.potions?.pool);
+    if (left <= 0) return false;
     return me.water >= 4 && me.herbs >= 3;
+  }
+
+    get canBuyVampAction() {
+    const me = this.me; 
+    const snapshot = this.game;
+    if (!me || !snapshot) return false;
+      const left = this.poolTotal(snapshot.decks?.actionsVamp?.pool);
+    if (left <= 0) return false;
+    return me.souls >= 50;
+  }
+
+    get canBuyHunterAction() {
+    const me = this.me; 
+    const snapshot = this.game;
+    if (!me || !snapshot) return false;
+    const left = this.poolTotal(snapshot.decks?.actionsHunters?.pool);
+    if (left <= 0) return false;
+    return me.gold >= 50;
   }
 
   get canBuySilver() {
@@ -3577,6 +4274,12 @@ export class GameComponent {
   // --- Boutique --- //
   onBuyPotion() { 
     this.api.buyPotion(this.gameId).subscribe({ 
+      next: () => {},
+      error: e => this.showError(e) 
+    }); 
+  }
+  onBuyAction() { 
+    this.api.buyAction(this.gameId).subscribe({ 
       next: () => {},
       error: e => this.showError(e) 
     }); 

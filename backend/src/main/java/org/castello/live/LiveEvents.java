@@ -220,6 +220,14 @@ public class LiveEvents {
         ));
     }
 
+    public void actionBought(Game g, String playerId, String type, int left) {
+        send(g.getId(), new GameEvents(
+                GameEvents.Type.ACTION_BOUGHT, g.getId(),
+                Map.of("playerId", playerId, "type", type, "left", left),
+                System.currentTimeMillis()
+        ));
+    }
+
     public void silverBought(Game g, String playerId, int qty, int cost) {
         send(g.getId(), new GameEvents(
                 GameEvents.Type.SILVER_BOUGHT, g.getId(),
@@ -289,4 +297,61 @@ public class LiveEvents {
                 GameEvents.Type.TRADE_DELETED, g.getId(), payload, System.currentTimeMillis()
         ));
     }
+
+    public void actionUsed(Game g, String playerId, String type) {
+        send(g.getId(), new GameEvents(
+                GameEvents.Type.ACTION_USED, g.getId(),
+                Map.of("playerId", playerId, "type", type),
+                System.currentTimeMillis()
+        ));
+    }
+
+    public void actionStarted(Game g, String mode, String ownerId, String location, String targetId) {
+        var payload = new HashMap<String, Object>();
+        payload.put("mode", mode);           // "NET" ou "PIT"
+        payload.put("ownerId", ownerId);
+        payload.put("location", location);
+        if (targetId != null) {
+            payload.put("targetId", targetId);
+        }
+
+        send(g.getId(), new GameEvents(
+                GameEvents.Type.ACTION_STARTED,
+                g.getId(),
+                payload,
+                System.currentTimeMillis()
+        ));
+    }
+
+    public void actionRolled(Game g, String mode, String ownerId, String targetId, int roll) {
+        var payload = new HashMap<String, Object>();
+        payload.put("mode", mode);          // "NET" ou "PIT"
+        payload.put("ownerId", ownerId);
+        payload.put("targetId", targetId);
+        payload.put("roll", roll);
+
+        send(g.getId(), new GameEvents(
+                GameEvents.Type.ACTION_ROLLED,
+                g.getId(),
+                payload,
+                System.currentTimeMillis()
+        ));
+    }
+
+    public void actionResolved(Game g, String mode, String ownerId, String targetId) {
+        var payload = new HashMap<String, Object>();
+        payload.put("mode", mode);
+        payload.put("ownerId", ownerId);
+        if (targetId != null) {
+            payload.put("targetId", targetId);
+        }
+
+        send(g.getId(), new GameEvents(
+                GameEvents.Type.ACTION_RESOLVED,
+                g.getId(),
+                payload,
+                System.currentTimeMillis()
+        ));
+    }
+
 }
