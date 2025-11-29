@@ -1,10 +1,7 @@
 package org.castello.web;
 
 import org.castello.auth.AuthService;
-import org.castello.game.Game;
-import org.castello.game.GameService;
-import org.castello.game.Potion;
-import org.castello.game.Action;
+import org.castello.game.*;
 import org.castello.web.dto.GameSnapshot;
 import org.castello.player.PlayerService;
 import org.springframework.http.HttpStatus;
@@ -326,4 +323,60 @@ public class GameController {
         playerService.requireInGame(user.getId(), id);
         games.resolvePit(id, user.getId());
     }
+
+    @PostMapping("/{id}/plan-construction")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void planConstruction(@PathVariable String id,
+                                 @RequestParam("infra") Infra infra,
+                                 @RequestHeader("Authorization") String authorization) {
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+
+        // on délègue toute la logique au service
+        games.planConstruction(id, user.getId(), infra);
+    }
+
+    @PostMapping("/{id}/location-effect")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void chooseLocationEffect(@PathVariable String id,
+                                     @RequestParam("choice") LocationEffectChoice choice,
+                                     @RequestHeader("Authorization") String authorization) {
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+
+        games.chooseLocationEffect(id, user.getId(), choice);
+    }
+
+    public record LibraryTheftRequest(String targetId, Integer slotIndex) {}
+
+    @PostMapping("/{id}/effect-theft")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resolveLocationTheft(@PathVariable String id,
+                                     @RequestBody LibraryTheftRequest body,
+                                     @RequestHeader("Authorization") String authorization) {
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+
+        if (body == null || body.targetId() == null || body.slotIndex() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid theft payload");
+        }
+
+        games.resolveLibraryTheft(id, user.getId(), body.targetId(), body.slotIndex());
+    }
+
+    public static class OmenResolvePayload {
+        public java.util.List<String> placements; // "TOP" ou "BOTTOM"
+    }
+
+    @PostMapping("/{id}/effect-omen")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resolveLocationOmen(@PathVariable String id,
+                                    @RequestBody OmenResolvePayload body,
+                                    @RequestHeader("Authorization") String authorization) {
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+
+        games.resolveLibraryOmen(id, user.getId(), body.placements);
+    }
+
 }

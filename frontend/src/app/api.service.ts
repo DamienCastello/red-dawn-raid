@@ -59,6 +59,13 @@ export type GameSnapshot = {
   campfireLocations: string[];
   netHunters: string[];
   pitHunters: string[];
+  builtInfras: ('SAWMILL' | 'MINE' | 'LIBRARY')[];
+
+  locationEffectPending: boolean;
+  locationEffectChoice: 'STUDY' | 'THEFT' | 'OMEN' | null;
+  locationEffectOwnerId: string | null;
+  locationEffectInfra: 'LIBRARY' | null;
+  libraryOmenCards: string[] | null;
 
   history: Array<{ ts: number; raid: number; phase: Phase; text: string }>;
   messages: string[];
@@ -148,8 +155,8 @@ export interface TradeView {
 }
 
 export interface Pile {
-  pool: Record<string, number>;
-  discard: Record<string, number>;
+  deck: number;
+  discard: number;
 }
 
 export interface DecksView {
@@ -358,6 +365,29 @@ export class ApiService {
     return this.http.post<void>(`${this.base}/games/${gameId}/trade/${action}?targetId=${targetId}`, {});
   }
 
+  planConstruction(gameId: string, infra: 'SAWMILL' | 'MINE' | 'LIBRARY') {
+    const params = new HttpParams().set('infra', infra);
+    return this.http.post<void>(`${this.base}/games/${gameId}/plan-construction`, null, { params });
+  }
+
+  chooseLocationEffect(gameId: string, choice: 'STUDY' | 'THEFT' | 'OMEN') {
+    const params = new HttpParams().set('choice', choice);
+    return this.http.post<void>(`${this.base}/games/${gameId}/location-effect`, null, { params });
+  }
+
+  resolveLibraryTheft(gameId: string, targetId: string, slotIndex: number) {
+    return this.http.post<void>(
+      `${this.base}/games/${gameId}/effect-theft`,
+      { targetId, slotIndex } // body JSON
+    );
+  }
+
+  resolveLibraryOmen(gameId: string, placements: ('TOP' | 'BOTTOM')[]) {
+    return this.http.post<void>(
+      `${this.base}/games/${gameId}/effect-omen`,
+      { placements }  // { placements: [...] }
+    );
+  }
 
     // Auth
   signup(username: string, password: string) {

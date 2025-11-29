@@ -15,6 +15,8 @@ public class GameEvents {
         BITE_STARTED,
         BITE_ROLLED,
         BITE_RESOLVED,
+        LOCATION_STARTED,
+        LOCATION_USED,
         POTION_USED,
         READY_UPDATED,
         UNSTABLE_ASSIGNED,

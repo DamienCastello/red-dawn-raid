@@ -1,6 +1,8 @@
 package org.castello.live;
 
 import org.castello.game.Game;
+import org.castello.game.LocationEffectChoice;
+import org.castello.player.Player;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 
@@ -185,6 +187,45 @@ public class LiveEvents {
         send(g.getId(), new GameEvents(
                 GameEvents.Type.POTION_USED, g.getId(),
                 Map.of("playerId", playerId, "type", type),
+                System.currentTimeMillis()
+        ));
+    }
+
+    public void locationEffectStarted(Game g, Game.LocationEffectInstance inst) {
+        Player owner = g.getPlayers().stream()
+                .filter(p -> p.getId().equals(inst.ownerId))
+                .findFirst().orElse(null);
+
+        send(g.getId(), new GameEvents(
+                GameEvents.Type.LOCATION_STARTED, g.getId(),
+                Map.of(
+                        "ownerId", inst.ownerId,
+                        "username", owner != null ? owner.getUsername() : "?",
+                        "infra", inst.infra.name()
+                ),
+                System.currentTimeMillis()
+        ));
+    }
+
+    public void locationEffectUsed(Game g, LocationEffectChoice choice, Player player) {
+        Game.LocationEffectInstance inst = null;
+        if (g.getLocationEffectsQueue() != null && g.getCurrentLocationEffectIndex() != null) {
+            int idx = g.getCurrentLocationEffectIndex();
+            if (idx >= 0 && idx < g.getLocationEffectsQueue().size()) {
+                inst = g.getLocationEffectsQueue().get(idx);
+            }
+        }
+
+        String infra = (inst != null ? inst.infra.name() : null);
+
+        send(g.getId(), new GameEvents(
+                GameEvents.Type.LOCATION_USED, g.getId(),
+                Map.of(
+                        "choice", choice.name(),
+                        "playerId", player.getId(),
+                        "username", player.getUsername(),
+                        "infra", infra
+                ),
                 System.currentTimeMillis()
         ));
     }

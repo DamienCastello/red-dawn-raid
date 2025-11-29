@@ -1,5 +1,7 @@
 package org.castello.web.dto;
 
+import org.castello.game.LocationEffectChoice;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -40,11 +42,19 @@ public record GameSnapshot(
         List<String> netHunters,
         List<String> pitHunters,
 
+        List<String> builtInfras,
+        boolean locationEffectPending,
+        String locationEffectChoice,   // ex: "STUDY" | "THEFT" | "OMEN" | null
+        String locationEffectOwnerId,  // id du joueur concerné ou null
+        String locationEffectInfra,    // ex: "LIBRARY" ou null
+        List<String> libraryOmenCards,
+
         List<HistoryItemView> history,
         List<String> messages,
         long ts,
         String whoami
 ) {
+
     public record WeatherView(Integer roll, String status, String nameFr, String descFr) {}
     public record PlayerView(
             String id, String username, String role,
@@ -59,7 +69,7 @@ public record GameSnapshot(
     ) {}
 
     public record DecksView(Pile actionsVamp, Pile actionsHunters, Pile potions) {
-        public record Pile(Map<String,Integer> pool, Map<String,Integer> discard) {}
+        public record Pile(int deck, int discard) {}
     }
 
     public record BiteView(String attackerId, String targetId, String location,

@@ -74,7 +74,6 @@ public class Game {
     private Integer harvestedRaid; // n° de raid pour lequel la récolte a déjà été appliquée (null = pas encore)
 
     // Lieux protégés par une Fumigation d'ail pour le raid courant.
-    // Exemple : "forest", "quarry", ...
     private Set<String> garlicBlockedLocations = new HashSet<>();
 
     // Joueurs ayant joué FUMIGATION_AIL mais pas encore posé leur lieu
@@ -183,18 +182,20 @@ public class Game {
     private Map<String, List<String>> unstableEligibleTargets = new HashMap<>();
 
     // Maintenance
-    // --- Deck potions (composition) ---
-    private Map<String, Integer> potionsPool = new HashMap<>();
-    // --- Défausse potions (pour stats / éventuel reshuffle) ---
-    private Map<String, Integer> potionsDiscardPool = new HashMap<>();
+    // --- Decks ordonnés (top/bottom) ---
 
-    // Deck d'actions chasseurs
-    private Map<String,Integer> hunterActionsPool = new HashMap<>();
-    private Map<String,Integer> hunterActionsDiscardPool = new HashMap<>();
+    // Potions (deck commun)
+    private List<String> potionDeck = new ArrayList<>();
+    private List<String> potionDiscard = new ArrayList<>();
 
-    // Deck d'actions vampire
-    private Map<String,Integer> vampActionsPool = new HashMap<>();
-    private Map<String,Integer> vampActionsDiscardPool = new HashMap<>();
+    // Actions chasseurs
+    private List<String> hunterActionsDeck = new ArrayList<>();
+    private List<String> hunterActionsDiscard = new ArrayList<>();
+
+    // Actions vampire
+    private List<String> vampActionsDeck = new ArrayList<>();
+    private List<String> vampActionsDiscard = new ArrayList<>();
+
 
     // --- Phase4: "j'ai fini" (finishTrade) ---
     private final Set<String> readyForNextRaid = new HashSet<>();
@@ -243,6 +244,39 @@ public class Game {
     }
 
     private List<Trade> trades = new ArrayList<>();
+
+    // Constructions
+    // Infrastructures déjà construites dans la partie
+    private java.util.EnumSet<Infra> builtInfras = java.util.EnumSet.noneOf(Infra.class);
+
+    // Construction en cours sur ce raid (null s'il n'y en a pas)
+    public static class PendingConstruction {
+        public Infra infra;
+        public String builderId;
+    }
+
+    private PendingConstruction pendingConstruction;
+    private boolean vampireTookDamageThisRaid;
+
+    public static class LocationEffectInstance {
+        public String ownerId;                 // joueur qui a joué le lieu
+        public Infra infra;                    // LIBRARY, etc.
+        public LocationEffectChoice choice;    // null tant qu'il n'a pas choisi
+    }
+
+    private java.util.List<LocationEffectInstance> locationEffectsQueue;
+    private Integer currentLocationEffectIndex;
+
+    private boolean locationEffectPending;          // au moins un effet de lieu en cours sur ce raid
+    private LocationEffectChoice locationEffectChoice; // choix actuel (pour l'effet en cours)
+
+    public static class LibraryOmenState {
+        public String ownerId;              // joueur qui résout l'effet
+        public String targetSide;           // "HUNTERS" ou "VAMP"
+        public java.util.List<String> cards = new java.util.ArrayList<>();
+    }
+
+    private LibraryOmenState libraryOmenState;
 
     public Game() {}
 
@@ -370,23 +404,27 @@ public class Game {
     public void setUnstableHarvestLocByPlayer(Map<String, String> m) { this.unstableHarvestLocByPlayer = m; }
 
     //Maintenance
-    public Map<String,Integer> getPotionsPool() { return potionsPool; }
-    public void setPotionsPool(Map<String,Integer> m) { this.potionsPool = m; }
+    // Potions
+    public List<String> getPotionDeck() { return potionDeck; }
+    public void setPotionDeck(List<String> deck) { this.potionDeck = deck; }
 
-    public Map<String,Integer> getPotionsDiscardPool() { return potionsDiscardPool; }
-    public void setPotionsDiscardPool(Map<String,Integer> m) { this.potionsDiscardPool = m; }
+    public List<String> getPotionDiscard() { return potionDiscard; }
+    public void setPotionDiscard(List<String> discard) { this.potionDiscard = discard; }
 
-    public Map<String,Integer> getHunterActionsPool() { return hunterActionsPool; }
-    public void setHunterActionsPool(Map<String,Integer> m) { this.hunterActionsPool = m; }
+    // Actions chasseurs
+    public List<String> getHunterActionsDeck() { return hunterActionsDeck; }
+    public void setHunterActionsDeck(List<String> deck) { this.hunterActionsDeck = deck; }
 
-    public Map<String,Integer> getHunterActionsDiscardPool() { return hunterActionsDiscardPool; }
-    public void setHunterActionsDiscardPool(Map<String,Integer> m) { this.hunterActionsDiscardPool = m; }
+    public List<String> getHunterActionsDiscard() { return hunterActionsDiscard; }
+    public void setHunterActionsDiscard(List<String> discard) { this.hunterActionsDiscard = discard; }
 
-    public Map<String,Integer> getVampActionsPool() { return vampActionsPool; }
-    public void setVampActionsPool(Map<String,Integer> m) { this.vampActionsPool = m; }
+    // Actions vampire
+    public List<String> getVampActionsDeck() { return vampActionsDeck; }
+    public void setVampActionsDeck(List<String> deck) { this.vampActionsDeck = deck; }
 
-    public Map<String,Integer> getVampActionsDiscardPool() { return vampActionsDiscardPool; }
-    public void setVampActionsDiscardPool(Map<String,Integer> m) { this.vampActionsDiscardPool = m; }
+    public List<String> getVampActionsDiscard() { return vampActionsDiscard; }
+    public void setVampActionsDiscard(List<String> discard) { this.vampActionsDiscard = discard; }
+
 
     public Set<String> getReadyForNextRaid() { return readyForNextRaid; }
 
@@ -395,4 +433,29 @@ public class Game {
 
     public List<Trade> getTrades(){ return trades; }
     public void setTrades(List<Trade> t){ this.trades = t; }
+
+    public java.util.EnumSet<Infra> getBuiltInfras() { return builtInfras; }
+    public void setBuiltInfras(java.util.EnumSet<Infra> builtInfras) { this.builtInfras = builtInfras; }
+
+    public PendingConstruction getPendingConstruction() { return pendingConstruction; }
+    public void setPendingConstruction(PendingConstruction pendingConstruction) { this.pendingConstruction = pendingConstruction; }
+
+    public boolean isVampireTookDamageThisRaid() { return vampireTookDamageThisRaid; }
+    public void setVampireTookDamageThisRaid(boolean vampireTookDamageThisRaid) { this.vampireTookDamageThisRaid = vampireTookDamageThisRaid; }
+
+    // ---- Effets de lieu ----
+    public java.util.List<LocationEffectInstance> getLocationEffectsQueue() { return locationEffectsQueue; }
+    public void setLocationEffectsQueue(java.util.List<LocationEffectInstance> locationEffectsQueue) { this.locationEffectsQueue = locationEffectsQueue; }
+
+    public Integer getCurrentLocationEffectIndex() { return currentLocationEffectIndex; }
+    public void setCurrentLocationEffectIndex(Integer currentLocationEffectIndex) { this.currentLocationEffectIndex = currentLocationEffectIndex; }
+
+    public boolean getLocationEffectPending() { return locationEffectPending; }
+    public void setLocationEffectPending(boolean locationEffectPending) { this.locationEffectPending = locationEffectPending; }
+
+    public LocationEffectChoice getLocationEffectChoice() { return locationEffectChoice; }
+    public void setLocationEffectChoice(LocationEffectChoice locationEffectChoice) { this.locationEffectChoice = locationEffectChoice; }
+
+    public LibraryOmenState getLibraryOmenState() { return libraryOmenState; }
+    public void setLibraryOmenState(LibraryOmenState s) { this.libraryOmenState = s; }
 }

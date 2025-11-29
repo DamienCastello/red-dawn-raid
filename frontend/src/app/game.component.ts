@@ -1,7 +1,7 @@
 import { Component, inject, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { ApiService, GameSnapshot, RawStatMod, Phase, TradeView } from './api.service';
+import { ApiService, GameSnapshot, RawStatMod, Phase, TradeView, Pile } from './api.service';
 import { LiveService, GameEvent } from './live.service';
 
 type SPlayer = GameSnapshot['players'][number];
@@ -199,25 +199,27 @@ interface STrade {
         </div>
       </section>
 
-      <!-- droite: stats chasseurs + potions -->
+    
+
+      <!-- droite: decks actions + potions -->
       <section class="panel">
-        <h3>Chasseurs & Potions</h3>
+        <h3>Actions & Potions</h3>
         <div>
           Pioche action chasseur :
-          {{ poolTotal(game?.decks?.actionsHunters?.pool) }}
-          (défausse : {{ poolTotal(game?.decks?.actionsHunters?.discard) }})
+          {{ deckSize(game?.decks?.actionsHunters) }}
+          (défausse : {{ discardSize(game?.decks?.actionsHunters) }})
         </div>
 
         <div>
           Pioche potions :
-          {{ poolTotal(game?.decks?.potions?.pool) }}
-          (défausse : {{ poolTotal(game?.decks?.potions?.discard) }})
+          {{ deckSize(game?.decks?.potions) }}
+          (défausse : {{ discardSize(game?.decks?.potions) }})
         </div>
 
         <div>
           Pioche action vampire :
-          {{ poolTotal(game?.decks?.actionsVamp?.pool) }}
-          (défausse : {{ poolTotal(game?.decks?.actionsVamp?.discard) }})
+          {{ deckSize(game?.decks?.actionsVamp) }}
+          (défausse : {{ discardSize(game?.decks?.actionsVamp) }})
         </div>
       </section>
     </div>
@@ -328,6 +330,14 @@ interface STrade {
 
         <div style="margin-top:.5rem">
           <button (click)="playSelected()" [disabled]="!canPlay">Jouer cette carte</button>
+          <button
+            style="margin-left:.5rem"
+            *ngIf="me?.role === 'VAMPIRE'"
+            [disabled]="game.phase !== 'PHASE2'"
+            (click)="openBuildModal()"
+          >
+            Construire un lieu
+          </button>
         </div>
       </div>
     </section>
@@ -845,7 +855,7 @@ interface STrade {
           <div class="card" *ngIf="isMeVampire">
             <h4>Actions</h4>
             <p>Coût : 50 âmes déchues</p>
-            <p>Pioche restante : {{ poolTotal(game?.decks?.actionsVamp?.pool) }}</p>
+            <p>Pioche restante : {{ deckSize(game?.decks?.actionsVamp) }}</p>
             <button (click)="onBuyAction()" [disabled]="!canBuyVampAction">
               Acheter une action aléatoire
             </button>
@@ -854,7 +864,7 @@ interface STrade {
           <div class="card" *ngIf="isHunter">
             <h4>Actions</h4>
             <p>Coût : 50 pièces d'or</p>
-            <p>Pioche restante : {{ poolTotal(game?.decks?.actionsHunters?.pool) }}</p>
+            <p>Pioche restante : {{ deckSize(game?.decks?.actionsHunters) }}</p>
             <button (click)="onBuyAction()" [disabled]="!canBuyHunterAction">
               Acheter une action aléatoire
             </button>
@@ -863,7 +873,7 @@ interface STrade {
           <div class="card">
             <h4>Potions</h4>
             <p>Coût : 4 eaux pures + 3 herbes médicinales</p>
-            <p>Pioche restante : {{ poolTotal(game?.decks?.potions?.pool) }}</p>
+            <p>Pioche restante : {{ deckSize(game?.decks?.potions) }}</p>
             <button (click)="onBuyPotion()" [disabled]="!canBuyPotion">
               Acheter une potion aléatoire
             </button>
@@ -1119,6 +1129,260 @@ interface STrade {
             </p>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+  <!-- ===== MODALE CHOIX DE CONSTRUCTION ===== -->
+  <div class="modal-backdrop" *ngIf="buildModalOpen">
+    <div class="modal construction-modal">
+        <h2>Construire un lieu</h2>
+        <p>Choisissez l’infrastructure à construire :</p>
+
+        <div class="modal-button-row">
+          <button *ngIf="!(game?.builtInfras?.includes('SAWMILL'))"
+           (click)="onChooseInfra('SAWMILL')">
+            Scierie<br />
+            <small>(Forêt · 5 pierre, 3 fer)</small>
+          </button>
+
+          <button *ngIf="!(game?.builtInfras?.includes('MINE'))"
+           (click)="onChooseInfra('MINE')">
+            Mine<br />
+            <small>(Carrière · 6 bois, 2 fer)</small>
+          </button>
+
+          <button *ngIf="!(game?.builtInfras?.includes('LIBRARY'))"
+           (click)="onChooseInfra('LIBRARY')">
+            Bibliothèque<br />
+            <small>(Carrière · 8 bois, 4 pierre, 2 fer)</small>
+          </button>
+        </div>
+
+        <button class="btn-secondary" (click)="closeBuildModal()">Annuler</button>
+    </div>
+  </div>
+  <!-- ===== MODALE CONFIRMATION CONSTRUCTION ===== -->
+  <div class="modal-backdrop" *ngIf="buildConfirmModalOpen && buildChoice">
+    <div class="modal construction-modal" [style.backgroundImage]="setImageBackground('construction')">
+      <div class="modal-overlay-content">
+        <p class="bg-badge">{{ getInfraConfirmText(buildChoice!) }}</p>
+
+        <div class="modal-button-row">
+          <button (click)="doBuild()">Oui</button>
+          <button class="btn-secondary" (click)="cancelBuild()">Annuler</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- ===== MODALE SELECTION EFFET DE LIEU ===== -->
+  <div class="modal-backdrop"
+      *ngIf="game?.locationEffectPending 
+      && game?.locationEffectInfra === 'LIBRARY'
+      && !locationActionModalOpen"
+  >
+    <div class="modal construction-modal location-effect-modal"
+        style="background-image: url('/assets/locations/library.png')">
+      <div class="modal-overlay-content">
+        <h2>Bibliothèque occulte</h2>
+
+        <p class="bg-badge">
+          <ng-container *ngIf="game?.locationEffectOwnerId as ownerId">
+            <ng-container *ngIf="ownerId === me?.id; else otherLocOwner">
+              Vous devez choisir un effet de la Bibliothèque pour ce raid.
+            </ng-container>
+            <ng-template #otherLocOwner>
+              {{ usernameOf(ownerId) }} choisit un effet de la Bibliothèque…
+            </ng-template>
+          </ng-container>
+        </p>
+
+        <div class="modal-button-row">
+          <!-- Étude des grimoires -->
+          <button
+            type="button"
+            class="effect-option"
+            (click)="onEffectOptionClick('STUDY')"
+            [disabled]="!canChooseLocationEffect"
+            [class.selected]="effectChoice === 'STUDY'">
+            Étude des grimoires<br />
+            <small>Piocher 1 carte Action.</small>
+          </button>
+
+          <!-- Subtilisation -->
+          <button
+            type="button"
+            class="effect-option"
+            (click)="onEffectOptionClick('THEFT')"
+            [disabled]="!canChooseLocationEffect"
+            [class.selected]="effectChoice === 'THEFT'">
+            Subtilisation de manuscrit<br />
+            <small>Voler 1 carte Action à l’adversaire et la mélanger dans sa pioche.</small>
+          </button>
+
+          <!-- Prédiction -->
+          <button
+            type="button"
+            class="effect-option"
+            (click)="onEffectOptionClick('OMEN')"
+            [disabled]="!canChooseLocationEffect"
+            [class.selected]="effectChoice === 'OMEN'">
+            Prédiction occulte<br />
+            <small>Regarder et réordonner secrètement les 3 prochaines cartes Action de l’adversaire.</small>
+          </button>
+        </div>
+
+        <div class="modal-button-row footer-row">
+          <button
+            type="button"
+            (click)="chooseLocationEffect()"
+            [disabled]="!canChooseLocationEffect || !effectChoice">
+            Valider
+          </button>
+
+          <!-- Annuler = juste reset local de ta sélection -->
+          <button
+            type="button"
+            class="btn-secondary"
+            *ngIf="isLocationEffectOwner && !game?.locationEffectChoice"
+            (click)="onCancelLocationEffect()">
+            Annuler
+          </button>
+        </div>
+
+        <!-- Quand le serveur a figé le choix, on l’affiche clairement -->
+        <p *ngIf="game?.locationEffectChoice"
+          class="location-effect-result">
+          Effet choisi : {{ translateLocationEffect(game?.locationEffectChoice) }}
+        </p>
+      </div>
+    </div>
+  </div>
+  <!-- ===== MODALE UTILISATION EFFET DE LIEU ===== -->
+  <div class="modal-backdrop"
+      *ngIf="locationActionModalOpen && game?.locationEffectInfra === 'LIBRARY'">
+    <div class="modal construction-modal location-effect-modal"
+        style="background-image: url('/assets/locations/library.png')">
+      <div class="modal-overlay-content">
+        <h2>Bibliothèque — Effet en cours</h2>
+
+        <p class="bg-badge">
+          <ng-container *ngIf="game?.locationEffectOwnerId as ownerId">
+            <ng-container *ngIf="ownerId === me?.id; else otherLocActionOwner">
+              Vous résolvez l’effet :
+              {{ translateLocationEffect(game?.locationEffectChoice) }}.
+            </ng-container>
+            <ng-template #otherLocActionOwner>
+              {{ usernameOf(ownerId) }} résout l’effet :
+              {{ translateLocationEffect(game?.locationEffectChoice) }}…
+            </ng-template>
+          </ng-container>
+        </p>
+
+        <ng-container [ngSwitch]="locationActionKind">
+
+          <!-- OMEN: choix TOP / BOTTOM pour chaque carte -->
+          <div *ngSwitchCase="'OMEN'" class="omen-container">
+            <p *ngIf="!isLocationEffectOwner">
+              Le joueur consulte secrètement les trois prochaines cartes d’action de l’adversaire.
+            </p>
+
+            <div class="cards-row" *ngIf="isLocationEffectOwner">
+              <div
+                class="card omen-card"
+                *ngFor="let cardId of omenCards; let i = index"
+              >
+                <div class="card-title">
+                  {{ actionLabelFr(cardId) }}
+                </div>
+
+                <div class="card-buttons">
+                  <button type="button"
+                          (click)="onOmenPlacementClick(i, 'TOP')"
+                          [disabled]="!isLocationEffectOwner"
+                          [class.selected]="omenPlacements[i] === 'TOP'">
+                    Dessus le deck
+                  </button>
+                  <button type="button"
+                          (click)="onOmenPlacementClick(i, 'BOTTOM')"
+                          [disabled]="!isLocationEffectOwner"
+                          [class.selected]="omenPlacements[i] === 'BOTTOM'">
+                    Dessous le deck
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="modal-button-row footer-row" *ngIf="isLocationEffectOwner">
+              <button type="button"
+                      (click)="confirmOmenPlacements()"
+                      [disabled]="!omenCanSubmit || omenSubmitting">
+                Valider les placements
+              </button>
+            </div>
+          </div>
+
+          <!-- THEFT: choix de cible + slot de carte -->
+          <div *ngSwitchCase="'THEFT'" class="theft-container">
+
+            <!-- Vue joueur actif -->
+            <div *ngIf="isLocationActionOwner; else theftSpectator">
+              <p>
+                Choisissez d’abord une cible, puis une carte parmi sa main d’actions.
+              </p>
+
+              <!-- Liste des cibles possibles -->
+              <div class="theft-targets" *ngIf="theftTargets.length > 0; else noTheftTargets">
+                <div
+                  class="theft-target"
+                  *ngFor="let t of theftTargets"
+                  [class.selected]="t.id === theftSelectedTargetId"
+                  (click)="onSelectTheftTarget(t.id)"
+                >
+                  <strong>{{ t.username }}</strong>
+                  <span> — {{ t.actionsCount }} carte(s) Action</span>
+                </div>
+              </div>
+
+              <ng-template #noTheftTargets>
+                <p>Aucun adversaire ne possède de carte Action à subtiliser.</p>
+              </ng-template>
+
+              <!-- Slots de cartes pour la cible sélectionnée -->
+              <div class="theft-slots" *ngIf="theftSelectedTargetId && theftSlots.length > 0">
+                <p>Choisissez une carte :</p>
+                <div class="slot-row">
+                  <button
+                    type="button"
+                    *ngFor="let idx of theftSlots"
+                    (click)="onSelectTheftSlot(idx)"
+                    [class.selected]="theftSelectedSlotIndex === idx"
+                  >
+                    Carte {{ idx + 1 }}
+                  </button>
+                </div>
+              </div>
+
+              <div class="modal-button-row footer-row">
+                <button
+                  type="button"
+                  (click)="confirmTheftSelection()"
+                  [disabled]="!theftCanSubmit || theftSubmitting"
+                >
+                  Valider le vol
+                </button>
+              </div>
+            </div>
+
+            <!-- Vue spectateurs -->
+            <ng-template #theftSpectator>
+              <p>
+                Le joueur actif choisit secrètement une carte d’action à subtiliser
+                chez son adversaire…
+              </p>
+            </ng-template>
+          </div>
+
+        </ng-container>
       </div>
     </div>
   </div>
@@ -2107,6 +2371,106 @@ interface STrade {
   .trade-block.closing .buttons button {
     opacity: .6; pointer-events: none;
   }
+
+  /* === MODALE CONSTRUCTION === */
+  /* Conteneur de la modale construction */
+  .modal.construction-modal {
+    position: relative;
+    width: min(780px, 95vw);
+    min-height: 540px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    padding: 1.5rem;
+    text-align: center;
+    background-size: cover;
+    background-position: center;
+  }
+
+  .modal.construction-modal .bg-badge{
+    display: inline-block;
+    margin: 0 auto .4rem;
+    text-align: center;
+    line-height: 1.15;
+    padding: .35rem .75rem;
+    border-radius: 999px;
+    background: rgba(0,0,0,.45);
+    color: #fff;
+  }
+
+  /* boutons */
+  .modal.construction-modal .modal-button-row {
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
+    margin: 1rem 0;
+    flex-wrap: wrap;
+  }
+
+  .modal.construction-modal button {
+    padding: 0.5rem 1rem;
+  }
+
+  .modal.construction-modal .btn-secondary {
+    background: #444;
+    color: #eee;
+    margin-top: 10px;
+  }
+
+  /* Modale Bibliothèque = même base que construction-modal */
+  .modal.location-effect-modal {
+    background-size: cover;
+    background-position: center 30%;
+  }
+
+  /* On réutilise la même overlay que construction */
+  .modal.location-effect-modal .modal-overlay-content {
+    background: rgba(0, 0, 0, 0.65);
+    padding: 1.5rem;
+    border-radius: 8px;
+    max-width: 560px;
+    width: min(560px, 90vw);
+    color: #fff;
+    text-align: center;
+  }
+
+  /* Boutons d'option d'effet (texte cliquable) */
+  .modal.location-effect-modal .modal-button-row .effect-option {
+    background: transparent;
+    border: none;
+    color: #ddd;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+  }
+
+  /* désactivés = grisés */
+  .modal.location-effect-modal .modal-button-row .effect-option[disabled] {
+    cursor: default;
+    opacity: 0.5;
+  }
+
+  /* sélectionné = blanc + souligné */
+  .modal.location-effect-modal .modal-button-row .effect-option.selected {
+    color: #fff;
+    font-weight: 600;
+    text-decoration: underline;
+    outline: none;
+    background: transparent;
+  }
+
+  /* rangée du bas de la modale (Valider / Annuler) */
+  .modal.location-effect-modal .footer-row {
+    margin-top: 0.75rem;
+  }
+
+  /* petite ligne d'info sous la modale quand un choix est figé par le serveur */
+  .location-effect-result {
+    margin-top: 0.75rem;
+    font-style: italic;
+  }
 `]
 })
 export class GameComponent {
@@ -2225,6 +2589,29 @@ export class GameComponent {
   waitingDone = false;      // vrai après clic "Ne rien faire"
   phase4LeftSec = 0;
   private phase4TimerId: any = null;
+
+  // Constructions
+  buildModalOpen = false;
+  buildConfirmModalOpen = false;
+  buildChoice: 'SAWMILL' | 'MINE' | 'LIBRARY' | null = null;
+  effectChoice: 'STUDY' | 'THEFT' | 'OMEN' | null = null;
+
+  // ----- Effet de lieu : modale d'action (Bibliothèque) -----
+  locationActionModalOpen = false;
+  locationActionKind: 'THEFT' | 'OMEN' | null = null;
+
+  // THEFT
+  theftTargets: { id: string; username: string; actionsCount: number }[] = [];
+  theftSelectedTargetId: string | null = null;
+  theftSlots: number[] = [];
+  theftSelectedSlotIndex: number | null = null;
+  theftSubmitting = false;
+
+  // OMEN
+  omenCards: string[] = [];
+  omenPlacements: ('TOP' | 'BOTTOM' | null)[] = [];
+  omenSubmitting = false;
+  
 
   // Echanges
   selectedTradeTargetId: string | null = null;
@@ -2796,7 +3183,7 @@ export class GameComponent {
   }
 
   // Image de fond une fois la météo tirée
-  setImageBackground(modal:'weather'|'location'|'bite'|'corruption'): string | null {
+  setImageBackground(modal:'weather'|'location'|'bite'|'corruption'|'construction'): string | null {
 
     if (modal === 'weather') {
       const ws = this.game?.weather?.status;
@@ -2812,6 +3199,10 @@ export class GameComponent {
     }
     if (modal === 'bite') {
       return `url('/assets/corruption/bite.png')`;
+    }
+    if(modal === 'construction') {
+      if(this.buildChoice === 'SAWMILL') return "url('/assets/locations/forest.png')";
+      if(this.buildChoice === 'MINE') return "url('/assets/locations/quarry.png')";
     }
     return 'none';
   }
@@ -2913,6 +3304,9 @@ export class GameComponent {
       case 'quarry': return 'Carrière';
       case 'lake': return 'Lac';
       case 'manor': return 'Manoir';
+      case 'sawmill': return 'Scierie';
+      case 'mine': return 'Mine';
+      case 'library': return 'Bibliothèque';
       default: return c;
     }
   }
@@ -2922,7 +3316,8 @@ export class GameComponent {
    */
   ngOnInit() {
     this.route.paramMap.subscribe(pm => {
-      const id = pm.get('id'); if (!id) { this.showError('Identifiant...'); return; }
+      const id = pm.get('id'); 
+      if (!id) { this.showError('Identifiant...'); return; }
 
       this.unsubscribeGameTopic?.();
       this.gameId = id;
@@ -2933,30 +3328,40 @@ export class GameComponent {
       // 2) Puis snapshot initial (autorité)
       this.api.getGame(this.gameId).subscribe({
         next: snap => {
+          const previous = null;
+
           this.game = snap;
           this.handleWeatherReveal(snap);
 
-        // Instables
-        this.recomputeUnstableChoices();
+          // Instables
+          this.recomputeUnstableChoices();
 
-        // 🔹 IMPORTANT : synchroniser la modale de piège dès le premier snapshot
-        this.syncTrapFromSnapshot(snap);
+          // Modale pièges
+          this.syncTrapFromSnapshot(snap);
 
-        // Timer PREPHASE3 si on arrive "en cours de route"
-        if (snap.phase === 'PREPHASE3') {
-          this.prephase3AdvanceSent = false;
-          this.startPrephaseTimer();
-        } else {
-          this.stopPrephaseTimer();
-        }
+          // Effets de lieu (Bibliothèque, etc.)
+          this.syncLocationEffectFromSnapshot(snap, previous);
+
+          // Timer PREPHASE3 si on arrive "en cours de route" ET PAS d'effet de lieu en cours
+          if (snap.phase === 'PREPHASE3') {
+            this.prephase3AdvanceSent = false;
+            if (!snap.locationEffectPending) {
+              this.startPrephaseTimer();
+            } else {
+              this.stopPrephaseTimer();
+            }
+          } else {
+            this.stopPrephaseTimer();
+          }
 
           // ouvrir/fermer la modale + timer si on arrive en PHASE4
           this.syncShopVisibilityFromSnapshot();
         },
-        error: err => { /* ton code d’erreur habituel */ }
+        error: err => { this.showError(err); }
       });
     });
   }
+
 
   /** DESTROY
    * on se désabonne du WS et on nettoie les timeouts météo.
@@ -3026,22 +3431,32 @@ export class GameComponent {
       case 'PHASE_CHANGED': {
         const next = (event?.payload?.phase as Phase | undefined) ?? undefined;
 
-        // Timer local pour PREPHASE3
-        if (next === 'PREPHASE3') { 
-          this.prephase3AdvanceSent = false; 
-          this.startPrephaseTimer(); 
+        // Gestion du timer PREPHASE3 AVANT le snapshot détaillé
+        if (next === 'PREPHASE3') {
+          // Si on est déjà dans un sous-flow "effets de lieu", on ne lance pas le timer
+          if (this.game?.locationEffectPending) {
+            this.stopPrephaseTimer();
+            this.prephase3AdvanceSent = false;
+          } else {
+            this.prephase3AdvanceSent = false;
+            this.startPrephaseTimer();
+          }
         } else {
           this.stopPrephaseTimer();
         }
 
         this.api.getGame(this.gameId).subscribe({
           next: g => {
+            const previous = this.game;
             this.game = g;
 
             this.syncTrapFromSnapshot(g);
 
-            // ⚠️ important : recalculer les choix instables à partir du snapshot
+            // recalculer les choix instables à partir du snapshot
             this.recomputeUnstableChoices();
+            
+            // Effets de lieu (Bibliothèque, etc.)
+            this.syncLocationEffectFromSnapshot(g, previous);
 
             if (g.phase !== 'PHASE1') this.phase2AdvanceSent = false;
 
@@ -3062,11 +3477,16 @@ export class GameComponent {
               this.weatherModalHold = false; // ferme si on n’est plus en PHASE0
             }
 
-            // Robustesse si 'next' manquait
+            // Robustesse si 'next' manquait dans l'event
             if (!next) {
-              if (g.phase === 'PREPHASE3') { 
-                this.prephase3AdvanceSent = false; 
-                this.startPrephaseTimer(); 
+              if (g.phase === 'PREPHASE3') {
+                if (g.locationEffectPending) {
+                  this.stopPrephaseTimer();
+                  this.prephase3AdvanceSent = false;
+                } else {
+                  this.prephase3AdvanceSent = false;
+                  this.startPrephaseTimer();
+                }
               } else {
                 this.stopPrephaseTimer();
               }
@@ -3408,6 +3828,39 @@ export class GameComponent {
           }
         }, 1500);
 
+        break;
+      }
+
+      case 'LOCATION_STARTED': {
+        if (!this.game) break;
+        const { ownerId, infra } = event.payload;
+
+        // Mise à jour minimale du snapshot local
+        this.game.locationEffectPending = true;
+        this.game.locationEffectOwnerId = ownerId;
+        this.game.locationEffectInfra = infra as any;
+        this.game.locationEffectChoice = null;
+
+        // Le joueur qui choisit repart de zéro
+        this.effectChoice = null;
+        break;
+      }
+
+      case 'LOCATION_USED': {
+        // On recharge toujours un snapshot frais après utilisation d'un effet de lieu
+        this.api.getGame(this.gameId).subscribe({
+          next: g => {
+            const previous = this.game;
+            this.game = g;
+
+            this.syncTrapFromSnapshot(g);
+            this.recomputeUnstableChoices();
+            this.syncLocationEffectFromSnapshot(g, previous);
+            this.syncShopVisibilityFromSnapshot();
+            this.bumpHistoryScroll();
+          },
+          error: e => this.showError(e),
+        });
         break;
       }
 
@@ -4229,35 +4682,44 @@ export class GameComponent {
     return ''; // PENDING
   }
 
-  poolTotal(pool: Record<string, number> | null | undefined): number {
-    if (!pool) return 0;
-    return Object.values(pool).reduce((sum, v) => sum + v, 0);
+  deckSize(pile: Pile | null | undefined): number {
+    return pile?.deck ?? 0;
+  }
+
+  discardSize(pile: Pile | null | undefined): number {
+    return pile?.discard ?? 0;
   }
 
   get canBuyPotion() {
     const me = this.me; 
     const snapshot = this.game;
     if (!me || !snapshot) return false;
-    const left = this.poolTotal(snapshot.decks?.potions?.pool);
+
+    const left = this.deckSize(snapshot.decks?.potions);
     if (left <= 0) return false;
+
     return me.water >= 4 && me.herbs >= 3;
   }
 
-    get canBuyVampAction() {
+  get canBuyVampAction() {
     const me = this.me; 
     const snapshot = this.game;
     if (!me || !snapshot) return false;
-      const left = this.poolTotal(snapshot.decks?.actionsVamp?.pool);
+
+    const left = this.deckSize(snapshot.decks?.actionsVamp);
     if (left <= 0) return false;
+
     return me.souls >= 50;
   }
 
-    get canBuyHunterAction() {
+  get canBuyHunterAction() {
     const me = this.me; 
     const snapshot = this.game;
     if (!me || !snapshot) return false;
-    const left = this.poolTotal(snapshot.decks?.actionsHunters?.pool);
+
+    const left = this.deckSize(snapshot.decks?.actionsHunters);
     if (left <= 0) return false;
+
     return me.gold >= 50;
   }
 
@@ -4452,4 +4914,348 @@ export class GameComponent {
     if (!entries.length) return 'rien';
     return entries.map(([k,q]) => `${this.labelFr(k)} x${q}`).join(', ');
   }
+
+  // Construction
+  openBuildModal() {
+    if (!this.game || !this.me) return;
+    if (this.game.phase !== 'PHASE2') return;
+    if (this.me.role !== 'VAMPIRE') return;
+
+    this.buildChoice = null;
+    this.buildConfirmModalOpen = false;
+    this.buildModalOpen = true;
+  }
+
+  closeBuildModal() {
+    this.buildModalOpen = false;
+  }
+
+  onChooseInfra(infra: 'SAWMILL' | 'MINE' | 'LIBRARY') {
+    this.buildChoice = infra;
+    this.buildModalOpen = false;
+    this.buildConfirmModalOpen = true;
+  }
+
+  cancelBuild() {
+    this.buildConfirmModalOpen = false;
+    this.buildChoice = null;
+  }
+
+  // Image de fond pour la modale de confirmation
+  getInfraImage(infra: 'SAWMILL' | 'MINE' | 'LIBRARY'): string {
+    // adapte les chemins à tes assets réels
+    return infra === 'SAWMILL'
+      ? 'assets/locations/sawmill.png'
+      : 'assets/locations/mine.png';
+  }
+
+  getInfraConfirmText(infra: 'SAWMILL' | 'MINE' | 'LIBRARY'): string {
+    if (infra === 'SAWMILL') {
+      return 'Se déplacer à la Forêt pour construire la Scierie ?';
+    } 
+    if (infra === 'MINE'){
+      return 'Se déplacer à la Carrière pour construire la Mine ?';
+    }
+    if (infra === 'LIBRARY'){
+      return 'Se déplacer au Manoir pour construire la Bibliothèque ?';
+    }
+    return '';
+  }
+
+  doBuild() {
+    if (!this.game || !this.buildChoice) return;
+
+    this.api.planConstruction(this.game.id, this.buildChoice).subscribe({
+      next: () => {
+        this.buildConfirmModalOpen = false;
+        this.buildChoice = null;
+      },
+      error: (err) => {
+        console.error('Erreur planConstruction', err);
+        alert(err.error?.message ?? 'Construction impossible');
+        // on laisse la modale ouverte pour que le joueur puisse réessayer/changer
+      },
+    });
+  }
+
+  get isLocationEffectOwner(): boolean {
+    return !!this.game && !!this.me && this.game.locationEffectOwnerId === this.me.id;
+  }
+
+  get canChooseLocationEffect(): boolean {
+    const g = this.game;
+    return !!g
+      && g.locationEffectPending
+      && this.isLocationEffectOwner
+      && !g.locationEffectChoice; // le serveur n’a pas encore figé le choix
+  }
+
+  translateLocationEffect(
+    choice: GameSnapshot['locationEffectChoice'] | undefined
+  ): string {
+    switch (choice) {
+      case 'STUDY':
+        return 'Étude des grimoires';
+      case 'THEFT':
+        return 'Subtilisation de manuscrit';
+      case 'OMEN':
+        return 'Prédiction occulte';
+      default:
+        return '';
+    }
+  }
+
+  private syncLocationEffectFromSnapshot(g: GameSnapshot, previous?: GameSnapshot | null) {
+    // Si aucun effet de lieu en cours → on reset tout
+    if (!g.locationEffectPending || !g.locationEffectInfra) {
+      this.effectChoice = null;
+      this.resetLocationActionUi();
+      return;
+    }
+
+    const prevOwner = previous?.locationEffectOwnerId;
+    const ownerChanged = !!prevOwner && prevOwner !== g.locationEffectOwnerId;
+
+    // Si le serveur a déjà un choix -> on s'aligne dessus
+    if (g.locationEffectChoice) {
+      this.effectChoice = g.locationEffectChoice;
+    } else if (ownerChanged) {
+      // Nouveau joueur en cours de résolution → on reset la sélection locale
+      this.effectChoice = null;
+    }
+
+    // On repart d'un état d'action propre (la modale de choix reste gérée par le template)
+    this.resetLocationActionUi();
+
+    // Pour l'instant : seulement LIBRARY a des effets interactifs
+    if (g.locationEffectInfra !== 'LIBRARY') {
+      return;
+    }
+
+    // --- THEFT : modale d'action pour choisir cible + slot ---
+    if (g.locationEffectChoice === 'THEFT') {
+      // La modale d'action est visible pour tout le monde (actif + spectateurs)
+      this.locationActionKind = 'THEFT';
+      this.locationActionModalOpen = true;
+
+      // Seul le propriétaire de l’effet a besoin de la liste des cibles + slots
+      if (this.isLocationEffectOwner) {
+        const targets = this.computeTheftTargets(g);
+        this.theftTargets = targets;
+      } else {
+        // Spectateurs : pas besoin de targets, ils voient juste le texte "choisit secrètement..."
+        this.theftTargets = [];
+      }
+
+      return;
+    }
+
+    // --- OMEN : on ouvre la modale d'action si des cartes sont préparées ---
+    if (g.locationEffectChoice === 'OMEN') {
+      const cards = g.libraryOmenCards ?? [];
+
+      if (cards.length > 0) {
+        this.locationActionKind = 'OMEN';
+        this.locationActionModalOpen = true;
+
+        if (this.isLocationEffectOwner) {
+          this.omenCards = cards;
+
+          // Si nouvelle séquence ou taille différente → reset des placements
+          if (!this.omenPlacements || this.omenPlacements.length !== cards.length) {
+            this.omenPlacements = cards.map(() => null);
+          }
+        } else {
+          // Observateurs : ils ne voient pas le détail des cartes
+          this.omenCards = [];
+          this.omenPlacements = [];
+        }
+      }
+
+      return;
+    }
+
+    // STUDY ou autres effets futurs non interactifs : rien à faire ici.
+  }
+
+  onEffectOptionClick(choice: 'STUDY' | 'THEFT' | 'OMEN') {
+    if (!this.canChooseLocationEffect) return;
+    this.effectChoice = choice;
+  }
+
+  chooseLocationEffect() {
+    if (!this.game || !this.effectChoice || !this.canChooseLocationEffect) return;
+
+    this.api.chooseLocationEffect(this.game.id, this.effectChoice).subscribe({
+      next: () => {
+        // On ne ferme pas la modale :
+        // - le serveur mettra à jour locationEffectChoice
+        // - puis enchaînera l’effet suivant ou passera en PHASE3.
+        // La vue se resynchronise via events + snapshot.
+      },
+      error: (err) => {
+        console.error('Erreur chooseLocationEffect', err);
+        alert(err.error?.message ?? 'Erreur Bibliothèque');
+      },
+    });
+  }
+
+  onCancelLocationEffect() {
+    // Annule juste la sélection locale, l’effet reste en attente côté serveur
+    this.effectChoice = null;
+  }
+
+  get isLocationActionOwner(): boolean {
+    return this.isLocationEffectOwner; // même logique que pour la modale de choix
+  }
+
+  get theftCanSubmit(): boolean {
+    return this.locationActionKind === 'THEFT'
+      && this.isLocationActionOwner
+      && !!this.theftSelectedTargetId
+      && this.theftSelectedSlotIndex !== null
+      && this.theftSelectedSlotIndex >= 0;
+  }
+
+  get omenCanSubmit(): boolean {
+    return this.locationActionKind === 'OMEN'
+      && this.isLocationActionOwner
+      && this.omenPlacements.length > 0
+      && this.omenPlacements.every(p => p === 'TOP' || p === 'BOTTOM');
+  }
+
+  private resetLocationActionUi() {
+    this.locationActionModalOpen = false;
+    this.locationActionKind = null;
+
+    // OMEN
+    this.omenCards = [];
+    this.omenPlacements = [];
+    this.omenSubmitting = false;
+
+    // THEFT
+    this.theftTargets = [];
+    this.theftSelectedTargetId = null;
+    this.theftSlots = [];
+    this.theftSelectedSlotIndex = null;
+    this.theftSubmitting = false;
+  }
+
+  private computeTheftTargets(g: GameSnapshot): { id: string; username: string; actionsCount: number }[] {
+    const ownerId = g.locationEffectOwnerId;
+    if (!ownerId) return [];
+
+    const owner = g.players.find(p => p.id === ownerId);
+    if (!owner) return [];
+
+    if (owner.role === 'VAMPIRE') {
+      // Vampire → peut cibler n'importe quel chasseur vivant avec ≥1 carte Action
+      return g.players
+        .filter(p => p.role === 'HUNTER' && p.hp > 0 && p.actions && p.actions.length > 0)
+        .map(p => ({
+          id: p.id,
+          username: p.username,
+          actionsCount: p.actions.length,
+        }));
+    }
+
+    if (owner.role === 'HUNTER') {
+      // Chasseur → cible unique = vampire, s'il a des cartes
+      const vamp = g.players.find(p => p.role === 'VAMPIRE' && p.hp > 0 && p.actions && p.actions.length > 0);
+      return vamp
+        ? [{
+            id: vamp.id,
+            username: vamp.username,
+            actionsCount: vamp.actions.length,
+          }]
+        : [];
+    }
+
+    return [];
+  }
+
+  onSelectTheftTarget(targetId: string) {
+    if (!this.isLocationActionOwner) return;
+    this.theftSelectedTargetId = targetId;
+
+    const t = this.theftTargets.find(tt => tt.id === targetId);
+    const count = t ? t.actionsCount : 0;
+
+    this.theftSlots = Array.from({ length: count }, (_, i) => i);
+    this.theftSelectedSlotIndex = null;
+  }
+
+  onSelectTheftSlot(index: number) {
+    if (!this.isLocationActionOwner) return;
+    if (index < 0 || index >= this.theftSlots.length) return;
+
+    this.theftSelectedSlotIndex = index;
+  }
+
+  confirmTheftSelection() {
+    if (!this.game) return;
+    if (!this.theftCanSubmit) return;
+    if (!this.theftSelectedTargetId && this.theftSelectedTargetId !== '') return;
+    if (this.theftSelectedSlotIndex === null) return;
+
+    this.theftSubmitting = true;
+
+    this.api.resolveLibraryTheft(
+      this.game.id,
+      this.theftSelectedTargetId!,
+      this.theftSelectedSlotIndex
+    ).subscribe({
+      next: () => {
+        // Le serveur va :
+        //  - retirer la carte de la main de la cible
+        //  - la remettre dans le bon deck + shuffle
+        //  - loguer dans l'historique
+        //  - émettre LOCATION_USED(THEFT) puis enchaîner la file d'effets
+        //
+        // La fermeture de la modale se fera via LOCATION_USED + nouveau snapshot
+        // → syncLocationEffectFromSnapshot() la refermera.
+        this.theftSubmitting = false;
+      },
+      error: (err) => {
+        console.error('Erreur resolveLibraryTheft', err);
+        alert(err.error?.message ?? 'Erreur Subtilisation de manuscrit');
+        this.theftSubmitting = false;
+      }
+    });
+  }
+  
+  onOmenPlacementClick(index: number, where: 'TOP' | 'BOTTOM') {
+    if (!this.isLocationActionOwner) return;
+    if (!this.omenPlacements || index < 0 || index >= this.omenPlacements.length) return;
+
+    this.omenPlacements = this.omenPlacements.map((p, i) =>
+      i === index ? where : p
+    );
+  }
+
+  confirmOmenPlacements() {
+    if (!this.game || !this.isLocationActionOwner || !this.omenCanSubmit) return;
+
+    this.omenSubmitting = true;
+
+    this.api.resolveLibraryOmen(
+      this.game.id,
+      this.omenPlacements as ('TOP' | 'BOTTOM')[]
+    ).subscribe({
+      next: () => {
+        // Le serveur va :
+        //  - remettre les cartes dans le deck (TOP/BOTTOM)
+        //  - effacer libraryOmenState
+        //  - émettre LOCATION_USED(OMEN) et enchaîner ensuite sur PHASE3 ou effet suivant
+        // La fermeture de la modale se fera via snapshot + syncLocationEffectFromSnapshot.
+        this.omenSubmitting = false;
+      },
+      error: (err) => {
+        console.error('Erreur resolveLibraryOmen', err);
+        alert(err.error?.message ?? 'Erreur Prédiction occulte');
+        this.omenSubmitting = false;
+      }
+    });
+  }
+
 }

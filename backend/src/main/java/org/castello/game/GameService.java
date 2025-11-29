@@ -76,6 +76,28 @@ public class GameService {
         return (m == null) ? new java.util.HashMap<>() : new java.util.HashMap<>(m);
     }
 
+    private int deckSize(List<String> deck) {
+        return (deck != null ? deck.size() : 0);
+    }
+
+    /**
+     * Taille "effective" du deck : ce qu’on considère comme
+     * encore piochable en tenant compte de la défausse.
+     *
+     * - Si deck non vide -> on renvoie deck.size()
+     * - Sinon -> on renvoie discard.size()
+     */
+    private int deckAvailableSize(List<String> deck, List<String> discard) {
+        int deckSize = (deck != null ? deck.size() : 0);
+        if (deckSize > 0) return deckSize;
+
+        return (discard != null ? discard.size() : 0);
+    }
+
+    private int discardSize(List<String> discard) {
+        return (discard != null ? discard.size() : 0);
+    }
+
     public GameSnapshot viewSnapshot(String gameId, String userId) {
         Game g = findOr404(gameId);
 
@@ -126,18 +148,34 @@ public class GameService {
             List<String> potions = (p.getPotions() != null ? p.getPotions() : java.util.List.of());
             List<String> actions = (p.getActions() != null ? p.getActions() : java.util.List.of());
 
+            boolean isSelf = p.getId().equals(userId);
+
+            List<String> handView;
+            List<String> potionsView;
+            List<String> actionsView;
+
+            if (isSelf) {
+                // Moi : je vois tout normalement
+                handView    = hand;
+                potionsView = potions;
+                actionsView = actions;
+            } else {
+                // Les autres :
+                // - main de lieux cachée
+                // - potions cachées (si tu veux les laisser secrètes)
+                // - actions : on cache l’ID mais on garde la taille de la main
+                handView    = java.util.List.of();
+                potionsView = java.util.List.of();
+                actionsView = java.util.Collections.nCopies(actions.size(), "HIDDEN");
+            }
+
             return new GameSnapshot.PlayerView(
                     p.getId(),
                     p.getUsername(),
                     p.getRole(),
-                    // Main (lieux) visible seulement pour soi
-                    p.getId().equals(userId) ? hand : java.util.List.of(),
-
-                    // Actions visibles seulement pour soi
-                    p.getId().equals(userId) ? potions : java.util.List.of(),
-
-                    // Actions visibles seulement pour soi
-                    p.getId().equals(userId) ? actions : java.util.List.of(),
+                    handView,
+                    potionsView,
+                    actionsView,
                     p.getHp(),
                     p.getCorruption(),
                     p.getAttackDice() != null ? p.getAttackDice() : "D6",
@@ -184,19 +222,21 @@ public class GameService {
             }
         }
 
+
+
         // Decks
         var decks = new GameSnapshot.DecksView(
                 new GameSnapshot.DecksView.Pile(
-                        g.getVampActionsPool(),
-                        g.getVampActionsDiscardPool()
+                        deckSize(g.getVampActionsDeck()),
+                        discardSize(g.getVampActionsDiscard())
                 ),
                 new GameSnapshot.DecksView.Pile(
-                        g.getHunterActionsPool(),
-                        g.getHunterActionsDiscardPool()
+                        deckSize(g.getHunterActionsDeck()),
+                        discardSize(g.getHunterActionsDiscard())
                 ),
                 new GameSnapshot.DecksView.Pile(
-                        g.getPotionsPool(),
-                        g.getPotionsDiscardPool()
+                        deckSize(g.getPotionDeck()),
+                        discardSize(g.getPotionDiscard())
                 )
         );
 
@@ -308,6 +348,38 @@ public class GameService {
                 ? new java.util.ArrayList<>(g.getPitHunters())
                 : java.util.List.of();
 
+        // Conversions pour builtInfras
+        List<String> builtInfras = (g.getBuiltInfras() != null)
+                ? g.getBuiltInfras().stream().map(Infra::name).toList()
+                : java.util.List.of();
+
+        // Effet de lieu courant (s'il y en a un)
+        Game.LocationEffectInstance currentLocEffect = null;
+        if (g.getLocationEffectsQueue() != null && g.getCurrentLocationEffectIndex() != null) {
+            int idx = g.getCurrentLocationEffectIndex();
+            if (idx >= 0 && idx < g.getLocationEffectsQueue().size()) {
+                currentLocEffect = g.getLocationEffectsQueue().get(idx);
+            }
+        }
+
+        String locationEffectOwnerId = (currentLocEffect != null) ? currentLocEffect.ownerId : null;
+        String locationEffectInfra   = (currentLocEffect != null) ? currentLocEffect.infra.name() : null;
+        String locationEffectChoice  = (g.getLocationEffectChoice() != null)
+                ? g.getLocationEffectChoice().name()
+                : null;
+        boolean locationEffectPending = g.getLocationEffectPending();
+
+        // OMEN : cartes visibles uniquement pour le joueur qui résout
+        java.util.List<String> omenCards = java.util.List.of();
+        var omenState = g.getLibraryOmenState();
+        if (omenState != null
+                && omenState.ownerId != null
+                && omenState.ownerId.equals(userId)
+                && omenState.cards != null) {
+            omenCards = new java.util.ArrayList<>(omenState.cards);
+        }
+
+
         return new GameSnapshot(
                 g.getId(),
                 (g.getStatus() != null ? g.getStatus().name() : "CREATED"),
@@ -338,6 +410,12 @@ public class GameService {
                 campfireLocations,
                 netHunters,
                 pitHunters,
+                builtInfras,
+                locationEffectPending,
+                locationEffectChoice,
+                locationEffectOwnerId,
+                locationEffectInfra,
+                omenCards,
                 history,
                 messagesSrc,
                 System.currentTimeMillis(),
@@ -372,15 +450,25 @@ public class GameService {
         if (g.getPitHunters() == null) g.setPitHunters(new java.util.HashSet<>());
         if (g.getPitTargetsByHunter() == null) g.setPitTargetsByHunter(new java.util.HashMap<>());
         else g.getPitTargetsByHunter().clear();
-        if (g.getPotionsPool() == null)             g.setPotionsPool(new java.util.HashMap<>());
-        if (g.getPotionsDiscardPool() == null)      g.setPotionsDiscardPool(new java.util.HashMap<>());
-        if (g.getHunterActionsPool() == null)       g.setHunterActionsPool(new java.util.HashMap<>());
-        if (g.getHunterActionsDiscardPool() == null)g.setHunterActionsDiscardPool(new java.util.HashMap<>());
-        if (g.getVampActionsPool() == null)         g.setVampActionsPool(new java.util.HashMap<>());
-        if (g.getVampActionsDiscardPool() == null)  g.setVampActionsDiscardPool(new java.util.HashMap<>());
+        if (g.getPotionDeck() == null)        g.setPotionDeck(new java.util.ArrayList<>());
+        if (g.getPotionDiscard() == null)     g.setPotionDiscard(new java.util.ArrayList<>());
+
+        if (g.getHunterActionsDeck() == null)     g.setHunterActionsDeck(new java.util.ArrayList<>());
+        if (g.getHunterActionsDiscard() == null)  g.setHunterActionsDiscard(new java.util.ArrayList<>());
+
+        if (g.getVampActionsDeck() == null)       g.setVampActionsDeck(new java.util.ArrayList<>());
+        if (g.getVampActionsDiscard() == null)    g.setVampActionsDiscard(new java.util.ArrayList<>());
 
         if (g.getPitIndexByHunter() == null) g.setPitIndexByHunter(new java.util.HashMap<>());
         else g.getPitIndexByHunter().clear();
+
+        if (g.getLocationEffectsQueue() == null) g.setLocationEffectsQueue(new java.util.ArrayList<>());
+        else g.getLocationEffectsQueue().clear();
+        g.setCurrentLocationEffectIndex(null);
+        g.setLocationEffectPending(false);
+        g.setLocationEffectChoice(null);
+        g.setLibraryOmenState(null);
+
         // Bite/combat reset explicite
         g.setCurrentBite(null);
         g.setCurrentCombatIndex(null);
@@ -761,6 +849,25 @@ public class GameService {
             p.setHp("VAMPIRE".equals(p.getRole()) ? 20 + huntersCount * 10 : 20);
         }
 
+        // --- Inventaire ressources (dev/test) ---
+        for (var p : g.getPlayers()) {
+            if ("VAMPIRE".equals(p.getRole())) {
+                p.setSouls(200);
+                p.setWood(30);
+                p.setHerbs(30);
+                p.setWater(30);
+                p.setStone(30);
+                p.setIron(30);
+            }
+            if ("HUNTER".equals(p.getRole())) {
+                p.setGold(200);
+                p.setWood(30);
+                p.setHerbs(30);
+                p.setWater(30);
+                p.setStone(30);
+                p.setIron(30);
+            }
+        }
 
         // --- Inventaire potions (dev/test) ---
         for (var p : g.getPlayers()) {
@@ -775,49 +882,21 @@ public class GameService {
         }
 
         // --- Inventaire actions (dev/test) ---
+        /*
         for (var p : g.getPlayers()) {
             if ("HUNTER".equals(p.getRole())) {
                 p.getActions().addAll(List.of(
-                        "FUMIGATION_AIL", "FUMIGATION_AIL",
-                        "PISTEUR", "PISTEUR",
-                        "FEU_DE_CAMP", "FEU_DE_CAMP",
-                        "FILET", "FILET",
-                        "FOSSE", "FOSSE"
+                        "FUMIGATION_AIL",
+                        "PISTEUR",
+                        "FEU_DE_CAMP",
+                        "FILET",
+                        "FOSSE"
                 ));
             }
         }
+        */
 
-        // --- Deck actions chasseurs ---
-        Map<String,Integer> hunterPool = new HashMap<>();
-        hunterPool.put("FUMIGATION_AIL",  4);
-        hunterPool.put("PISTEUR",         4);
-        hunterPool.put("FEU_DE_CAMP",     4);
-        hunterPool.put("FILET",           2);
-        hunterPool.put("FOSSE",           2);
-        g.setHunterActionsPool(hunterPool);
-        g.setHunterActionsDiscardPool(new HashMap<>());
-
-        // --- Deck actions vampire ---
-        Map<String,Integer> vampPool = new HashMap<>();
-        // vampPool.put("TOTOSTORY", 3);
-        g.setVampActionsPool(vampPool);
-        g.setVampActionsDiscardPool(new HashMap<>());
-
-        // --- Deck potions : composition initiale ---
-        Map<String,Integer> potionsPool = new HashMap<>();
-        potionsPool.put("FORCE",           3);
-        potionsPool.put("ENDURANCE",       3);
-        potionsPool.put("VIE",             4);
-        potionsPool.put("FOCALISATION",    2);
-        potionsPool.put("SANGSUE",         2);
-        potionsPool.put("RESILIENCE",      2);
-        potionsPool.put("RAGE",            2);
-        potionsPool.put("RAPIDITE",        2);
-        potionsPool.put("INVISIBILITE",    1);
-        potionsPool.put("INVULNERABILITE", 1);
-
-        g.setPotionsPool(potionsPool);
-        g.setPotionsDiscardPool(new HashMap<>());
+        initDecks(g);
 
         g.setCenter(new ArrayList<>());
 
@@ -855,6 +934,56 @@ public class GameService {
 
         return g;
     }
+
+    private List<String> buildDeckFromComposition(Map<String,Integer> composition) {
+        List<String> deck = new ArrayList<>();
+        for (var e : composition.entrySet()) {
+            String cardId = e.getKey();
+            int count = (e.getValue() != null ? e.getValue() : 0);
+            for (int i = 0; i < count; i++) {
+                deck.add(cardId);
+            }
+        }
+        // Mélange initial, une seule fois
+        java.util.Collections.shuffle(deck, RND);
+        return deck;
+    }
+
+    private void initDecks(Game g) {
+        // --- Potions ---
+        Map<String,Integer> potionsComp = new HashMap<>();
+        potionsComp.put("FORCE",           3);
+        potionsComp.put("ENDURANCE",       3);
+        potionsComp.put("VIE",             4);
+        potionsComp.put("FOCALISATION",    2);
+        potionsComp.put("SANGSUE",         2);
+        potionsComp.put("RESILIENCE",      2);
+        potionsComp.put("RAGE",            2);
+        potionsComp.put("RAPIDITE",        2);
+        potionsComp.put("INVISIBILITE",    1);
+        potionsComp.put("INVULNERABILITE", 1);
+
+        g.setPotionDeck(buildDeckFromComposition(potionsComp));
+        g.setPotionDiscard(new ArrayList<>());
+
+        // --- Actions chasseurs ---
+        Map<String,Integer> hunterComp = new HashMap<>();
+        hunterComp.put("FUMIGATION_AIL",  4);
+        hunterComp.put("PISTEUR",         4);
+        hunterComp.put("FEU_DE_CAMP",     4);
+        hunterComp.put("FILET",           2);
+        hunterComp.put("FOSSE",           2);
+
+        g.setHunterActionsDeck(buildDeckFromComposition(hunterComp));
+        g.setHunterActionsDiscard(new ArrayList<>());
+
+        // --- Actions vampire ---
+        Map<String,Integer> vampComp = new HashMap<>();
+
+        g.setVampActionsDeck(buildDeckFromComposition(vampComp));
+        g.setVampActionsDiscard(new ArrayList<>());
+    }
+
 
     private boolean allHuntersSelected(@NonNull Game g) {
         var hunters = getHunters(g);
@@ -906,6 +1035,11 @@ public class GameService {
                 }
 
                 g.setCurrentAction(null);
+
+                g.setVampireTookDamageThisRaid(false);
+                g.setPendingConstruction(null);
+                g.setLocationEffectPending(false);
+                g.setLocationEffectChoice(null);
 
                 if (g.getNetHunters() == null) g.setNetHunters(new java.util.HashSet<>());
                 else g.getNetHunters().clear();
@@ -988,29 +1122,11 @@ public class GameService {
                 g.setMessages(center);
                 for (var m : history) addHistory(g, m);
 
-                // 4) Flags et liste des participants
-                boolean hasPendingUnstable =
-                        !(g.getUnstableEligibleTargets().isEmpty() && g.getUnstableEligibleLocations().isEmpty());
-                boolean upcoming = computeHasUpcomingCombat(g); // <-- déjà corrigé pour ignorer les récolteurs
-                g.setHasUpcomingCombat(upcoming);
-
-                // 5) "Prêt" pour non-participants (Vampire/Serviteurs/Chasseurs hors combat)
-                g.getReadyForPhase3().clear();
-                if (g.isHasUpcomingCombat()) {
-                    var participants = participantsOfUpcomingCombat(g); // <-- version corrigée ci-dessus
-                    for (var p : g.getPlayers()) {
-                        if (!participants.contains(p.getId())) {
-                            g.getReadyForPhase3().add(p.getId()); // auto-prêt si hors combat
-                        }
-                    }
-                }
-
-                // 6) Cadence : long si instables en attente OU combats ; sinon avance courte
-                if (hasPendingUnstable || g.isHasUpcomingCombat()) {
-                    schedulePrephaseTimeout(g.getId(), 30_000);
-                } else {
-                    scheduleAdvance(g.getId(), Phase.PREPHASE3, Phase.PHASE3, 4000);
-                }
+                // 4) Comportement "classique" de préphase :
+                //    - calcule hasUpcomingCombat
+                //    - readyForPhase3 auto pour les non-participants
+                //    - timer 30s ou avance rapide
+                setupUnstableAndPrephaseTimeout(g);
             }
 
             case PHASE3 -> {
@@ -1044,6 +1160,32 @@ public class GameService {
             }
 
             default -> { /* rien */ }
+        }
+    }
+
+    private void setupUnstableAndPrephaseTimeout(Game g) {
+        // 1) Flags et liste des participants
+        boolean hasPendingUnstable =
+                !(g.getUnstableEligibleTargets().isEmpty() && g.getUnstableEligibleLocations().isEmpty());
+        boolean upcoming = computeHasUpcomingCombat(g); // <-- déjà corrigé pour ignorer les récolteurs
+        g.setHasUpcomingCombat(upcoming);
+
+        // 2) "Prêt" pour non-participants (Vampire/Serviteurs/Chasseurs hors combat)
+        g.getReadyForPhase3().clear();
+        if (g.isHasUpcomingCombat()) {
+            var participants = participantsOfUpcomingCombat(g); // <-- version corrigée ci-dessus
+            for (var p : g.getPlayers()) {
+                if (!participants.contains(p.getId())) {
+                    g.getReadyForPhase3().add(p.getId()); // auto-prêt si hors combat
+                }
+            }
+        }
+
+        // 3) Cadence : long si instables en attente OU combats ; sinon avance courte
+        if (hasPendingUnstable || g.isHasUpcomingCombat()) {
+            schedulePrephaseTimeout(g.getId(), 30_000);
+        } else {
+            scheduleAdvance(g.getId(), Phase.PREPHASE3, Phase.PHASE3, 4000);
         }
     }
 
@@ -1084,16 +1226,26 @@ public class GameService {
                     g.setCurrentAction(null);
                 }
                 case PREPHASE3 -> {
-                    if (to != Phase.PHASE3) throw new ResponseStatusException(HttpStatus.CONFLICT, "illegal advance");
+                    if (to != Phase.PHASE3)
+                        throw new ResponseStatusException(HttpStatus.CONFLICT, "illegal advance");
+
                     boolean hasPendingUnstable =
                             !(g.getUnstableEligibleTargets().isEmpty() && g.getUnstableEligibleLocations().isEmpty());
-                    if (hasPendingUnstable) throw new ResponseStatusException(HttpStatus.CONFLICT, "unstable choices pending");
-                    if (!allReadyForPhase3(g)) throw new ResponseStatusException(HttpStatus.CONFLICT, "players not ready");
-                    applyPhaseEntry(g, Phase.PHASE3);
-                    prepareFirstTrapAction(g);
+                    if (hasPendingUnstable)
+                        throw new ResponseStatusException(HttpStatus.CONFLICT, "unstable choices pending");
+
+                    if (!allReadyForPhase3(g))
+                        throw new ResponseStatusException(HttpStatus.CONFLICT, "players not ready");
+
+                    // Fin de PREPHASE3 unifiée (effets de lieu ou PHASE3 directe)
+                    finishPrephaseAndMaybeStartLocationEffects(g, gameId);
+
+                    // Toute la persistance + events sont gérés dans le helper
+                    return null;
                 }
                 case PHASE3 -> {
                     if (to != Phase.PHASE4) throw new ResponseStatusException(HttpStatus.CONFLICT, "illegal advance");
+                    resolveInfraConstruction(g);
                     applyPhaseEntry(g, Phase.PHASE4);
                     g.setCurrentAction(null);
                 }
@@ -1136,7 +1288,15 @@ public class GameService {
                             if (g.getStatus() != GameStatus.ACTIVE) return null;
                             if (g.getPhase() != expected)           return null;
 
-                            // Mutation + persist
+                            // Cas particulier : avance rapide PREPHASE3 -> PHASE3
+                            if (expected == Phase.PREPHASE3 && target == Phase.PHASE3) {
+                                // Ici on ne regarde PAS readyForPhase3 :
+                                // c'est le chemin "auto" quand pas de combats/instables.
+                                finishPrephaseAndMaybeStartLocationEffects(g, gameId);
+                                return null;
+                            }
+
+                            // Mutations normales
                             applyPhaseEntry(g, target);
                             save(g);
 
@@ -1174,20 +1334,30 @@ public class GameService {
 
                             // Si des choix "instable" restent en attente, on NE force pas
                             boolean hasPendingUnstable =
-                                    !(g2.getUnstableEligibleTargets().isEmpty() && g2.getUnstableEligibleLocations().isEmpty());
+                                    !(g2.getUnstableEligibleTargets().isEmpty()
+                                            && g2.getUnstableEligibleLocations().isEmpty());
                             if (hasPendingUnstable) {
                                 return null;
                             }
 
-                            // OK, on avance vers PHASE3
-                            applyPhaseEntry(g2, Phase.PHASE3);
-                            save(g2);
+                            // Si un effet de lieu est déjà en cours, on ne touche à rien :
+                            // scheduleNextLocationEffect finira le travail.
+                            if (g2.getLocationEffectPending()
+                                    && g2.getLocationEffectsQueue() != null
+                                    && g2.getCurrentLocationEffectIndex() != null) {
 
-                            // Tous les events après COMMIT uniquement
-                            afterCommit(() -> {
-                                Game fresh = findOr404(gameId);    // état frais et commité
-                                live.phaseChanged(fresh);
-                            });
+                                int idx = g2.getCurrentLocationEffectIndex();
+                                if (idx >= 0 && idx < g2.getLocationEffectsQueue().size()) {
+                                    return null;
+                                }
+                            }
+
+                            // À partir d'ici :
+                            // - plus d'instables en attente
+                            // - aucun effet de lieu en cours
+                            // → on applique la même logique que pour un clic manuel :
+                            //    effets de lieu s'il y en a, sinon PHASE3 directe.
+                            finishPrephaseAndMaybeStartLocationEffects(g2, gameId);
 
                             return null;
                         })
@@ -1221,6 +1391,58 @@ public class GameService {
                             return null;
                         }),
                 java.time.Instant.now().plusMillis(millis)
+        );
+    }
+
+    private void scheduleNextLocationEffect(String gameId) {
+        raidScheduler.schedule(() ->
+                        tx.execute(status -> {
+                            Game g = findOr404(gameId);
+                            if (g.getStatus() != GameStatus.ACTIVE) return null;
+                            if (g.getPhase() != Phase.PREPHASE3) return null;
+                            if (g.getLocationEffectsQueue() == null) return null;
+
+                            Integer idxObj = g.getCurrentLocationEffectIndex();
+                            int idx = (idxObj == null ? -1 : idxObj);
+                            int nextIndex = idx + 1;
+
+                            if (nextIndex >= g.getLocationEffectsQueue().size()) {
+                                // Fini : plus aucun effet de lieu à traiter
+                                g.setCurrentLocationEffectIndex(null);
+                                g.setLocationEffectPending(false);
+                                g.setLocationEffectChoice(null);
+
+                                // Maintenant seulement, on passe en PHASE3
+                                applyPhaseEntry(g, Phase.PHASE3);
+                                prepareFirstTrapAction(g);
+
+                                save(g);
+
+                                afterCommit(() -> {
+                                    Game fresh = findOr404(gameId);
+                                    live.phaseChanged(fresh);
+                                });
+
+                                return null;
+                            }
+
+                            // Sinon : on passe à l'effet suivant
+                            g.setCurrentLocationEffectIndex(nextIndex);
+                            g.setLocationEffectPending(true);
+                            g.setLocationEffectChoice(null);
+
+                            Game.LocationEffectInstance inst = g.getLocationEffectsQueue().get(nextIndex);
+                            save(g);
+
+                            afterCommit(() -> {
+                                Game fresh = findOr404(gameId);
+                                live.locationEffectStarted(fresh, inst);
+                                live.phaseChanged(fresh);
+                            });
+
+                            return null;
+                        }),
+                java.time.Instant.now().plusMillis(5000L) // 5 secondes d’affichage du choix précédent
         );
     }
 
@@ -1429,13 +1651,8 @@ public class GameService {
 
     // Mini label FR pour l’affichage des lieux
     private String labelLieuFr(@NonNull String c){
-        return switch (c) {
-            case "forest" -> "Forêt";
-            case "quarry" -> "Carrière";
-            case "lake" -> "Lac";
-            case "manor" -> "Manoir";
-            default -> c;
-        };
+        Location loc = Location.fromCode(c);
+        return (loc != null) ? loc.labelFr() : c;
     }
 
     // Tout le monde prêt pour PHASE3 ?
@@ -1897,6 +2114,11 @@ public class GameService {
                 defPlayer.setHp(Math.max(0, defPlayer.getHp() - dmg));
             }
 
+            // Si le vampire subit des dégâts pendant la PHASE3, on marque le raid comme "endommagé"
+            if (defPlayer != null && dmg > 0 && "VAMPIRE".equals(defPlayer.getRole())) {
+                g.setVampireTookDamageThisRaid(true);
+            }
+
             var atkPlayer = g.getPlayers().stream()
                     .filter(p -> p.getId().equals(r.getAttackerId()))
                     .findFirst().orElse(null);
@@ -2153,7 +2375,7 @@ public class GameService {
             live.biteResolved(gAfter, ev.att, ev.tgt, ev.loc);
         }
         if (ev.trapResolved) {
-            // ⬅️ C'est cet event que ton front écoute (ACTION_RESOLVED)
+            // C'est cet event que le front écoute (ACTION_RESOLVED)
             live.actionResolved(gAfter, ev.trapMode, ev.trapOwnerId, ev.trapTargetId);
         }
         if (ev.advanced) {
@@ -2366,11 +2588,22 @@ public class GameService {
                 boolean harvestForVamp = g.getUnstableHarvestLocByPlayer() != null
                         && g.getUnstableHarvestLocByPlayer().containsKey(p.getId());
 
-                // Si combat “classique”, on bloque la récolte sauf cas instable → récolte
-                if (combatHere && !harvestForVamp) continue;
+                boolean isVamp = "VAMPIRE".equals(p.getRole());
+
+                // en cas de combat, on bloque tout le monde
+                // sauf :
+                //   - les instables qui récoltent pour le vampire
+                //   - le vampire lui-même
+                if (combatHere && !harvestForVamp && !isVamp) continue;
 
                 // Si ce joueur est engagé dans un duel instable → cible, on bloque sa récolte
                 if (duelParticipants.contains(p.getId())) continue;
+
+                // Si le vampire est en train de construire sur ce lieu, il ne récolte pas
+                // (il aura sa récolte via resolveInfraConstruction / applyBaseLocationHarvestForInfra)
+                if (skipHarvestBecauseOfConstruction(g, p, loc)) {
+                    continue;
+                }
 
                 Player recipient = (harvestForVamp && vamp != null) ? vamp : p;
 
@@ -2402,6 +2635,22 @@ public class GameService {
                             }
                         }
                     }
+                    case "sawmill" -> {
+                        grant(recipient, "wood", 2);
+                    }
+                    case "mine" -> {
+                        grant(recipient, "iron", 2);
+                    }
+                    case "library" -> {
+                        int roll = rollD100Tens();
+                        if ("VAMPIRE".equals(vamp.getRole())) {
+                            grant(vamp, "souls", roll);
+                            gains.add("+" + roll + " âmes déchues");
+                        } else {
+                            grant(vamp, "gold", roll);
+                            gains.add("+" + roll + " or");
+                        }
+                    }
                     default -> { /* plus tard */ }
                 }
 
@@ -2416,7 +2665,6 @@ public class GameService {
             }
         }
     }
-
 
     private @Nullable String pickStealableFromHunter(Player h) {
         // Ressources volables chez un chasseur (ni or, ni argent)
@@ -2972,7 +3220,7 @@ public class GameService {
                 // Marque ce chasseur comme ayant une Fosse préparée
                 g.getPitHunters().add(playerId);
 
-                // 🔹 Nouveau : enregistre les victimes pour ce chasseur
+                // Nouveau : enregistre les victimes pour ce chasseur
                 if (g.getPitTargetsByHunter() == null) g.setPitTargetsByHunter(new java.util.HashMap<>());
                 if (g.getPitIndexByHunter() == null)   g.setPitIndexByHunter(new java.util.HashMap<>());
 
@@ -3883,77 +4131,61 @@ public class GameService {
         return g.getPlayers().stream().filter(p -> p.getId().equals(id)).findFirst().orElse(null);
     }
 
-    private int poolTotal(Map<String,Integer> pool) {
-        if (pool == null || pool.isEmpty()) return 0;
-        return pool.values().stream()
-                .filter(java.util.Objects::nonNull)
-                .mapToInt(Integer::intValue)
-                .sum();
-    }
+    // Pioche dans un deck ordonné, avec reshuffle auto depuis la défausse
+    private String drawFromDeck(List<String> deck, List<String> discard) {
+        if (deck == null) return null;
 
-    private String drawFromPool(Map<String,Integer> pool) {
-        if (pool == null) return null;
-
-        int total = poolTotal(pool);
-        if (total <= 0) return null;
-
-        int r = RND.nextInt(total) + 1;
-
-        for (var e : pool.entrySet()) {
-            int count = (e.getValue() != null ? e.getValue() : 0);
-            if (count <= 0) continue;
-
-            r -= count;
-            if (r <= 0) {
-                pool.put(e.getKey(), count - 1); // on consomme 1 carte de ce type
-                return e.getKey();
-            }
+        // Si le deck est vide mais qu'il y a des cartes en défausse, on recrée le deck
+        if (deck.isEmpty() && discard != null && !discard.isEmpty()) {
+            java.util.Collections.shuffle(discard, RND);
+            deck.addAll(discard);
+            discard.clear();
         }
-        return null;
+
+        if (deck.isEmpty()) return null;
+
+        // top = fin de la liste
+        return deck.remove(deck.size() - 1);
     }
 
-    // POTIONS
-    private String drawPotion(Game g){
-        return drawFromPool(g.getPotionsPool());
+    private void putOnTop(List<String> deck, String cardId) {
+        if (deck == null || cardId == null) return;
+        deck.add(cardId); // top = fin
     }
 
-    // ACTIONS HUNTERS
+    private void putOnBottom(List<String> deck, String cardId) {
+        if (deck == null || cardId == null) return;
+        deck.add(0, cardId); // bottom = début
+    }
+
+    private void discardCard(List<String> discard, String cardId) {
+        if (discard == null || cardId == null) return;
+        discard.add(cardId);
+    }
+
     private String drawHunterAction(Game g){
-        return drawFromPool(g.getHunterActionsPool());
+        return drawFromDeck(g.getHunterActionsDeck(), g.getHunterActionsDiscard());
     }
 
-    // ACTIONS VAMPIRE
-    private String drawVampAction(Game g){
-        return drawFromPool(g.getVampActionsPool());
+    private String drawVampAction(Game g) {
+        return drawFromDeck(g.getVampActionsDeck(), g.getVampActionsDiscard());
     }
 
-    private void discardToPool(Map<String,Integer> discardPool, String type){
-        if (type == null || discardPool == null) return;
-        discardPool.merge(type, 1, Integer::sum);
+    private String drawPotion(Game g) {
+        return drawFromDeck(g.getPotionDeck(), g.getPotionDiscard());
     }
 
-    private void discardPotion(Game g, String type) {
-        discardToPool(g.getPotionsDiscardPool(), type);
+    private void discardHunterAction(Game g, String cardId) {
+        discardCard(g.getHunterActionsDiscard(), cardId);
     }
 
-    private void discardHunterAction(Game g, String type) {
-        discardToPool(g.getHunterActionsDiscardPool(), type);
+    private void discardVampAction(Game g, String cardId) {
+        discardCard(g.getVampActionsDiscard(), cardId);
     }
 
-    private void discardVampAction(Game g, String type) {
-        discardToPool(g.getVampActionsDiscardPool(), type);
+    private void discardPotion(Game g, String cardId) {
+        discardCard(g.getPotionDiscard(), cardId);
     }
-
-    private void addPotionTo(Game g, String playerId, String type) {
-        var p = g.getPlayers().stream()
-                .filter(pp -> pp.getId().equals(playerId))
-                .findFirst()
-                .orElse(null);
-        if (p != null) {
-            p.getPotions().add(type);
-        }
-    }
-
 
     @Transactional
     public Game buyPotion(String gameId, String userId) {
@@ -3965,7 +4197,7 @@ public class GameService {
         if (p == null)
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
 
-        int potionsLeft = poolTotal(g.getPotionsPool());
+        int potionsLeft = deckAvailableSize(g.getPotionDeck(), g.getPotionDiscard());
         if (potionsLeft <= 0)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "no potions left");
 
@@ -3976,16 +4208,20 @@ public class GameService {
         p.setWater(p.getWater() - 4);
         p.setHerbs(p.getHerbs() - 3);
 
-        // tirage
+        // tirage depuis un VRAI deck (avec reshuffle auto depuis la défausse)
         String type = drawPotion(g);
         if (type == null)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "no potions left");
 
-        addPotionTo(g, userId, type);
+        if (p.getPotions() == null) {
+            p.setPotions(new java.util.ArrayList<>());
+        }
+        p.getPotions().add(type);
+
         addHistory(g, nameOf(g, userId) + " achète une potion.");
 
-        // recompute pour l'event
-        int remaining = poolTotal(g.getPotionsPool());
+        // nb restant réellement piochable (deck ou futur reshuffle)
+        int remaining = deckAvailableSize(g.getPotionDeck(), g.getPotionDiscard());
 
         save(g);
 
@@ -3996,11 +4232,11 @@ public class GameService {
         return g;
     }
 
+
     @Transactional
     public Game buyAction(String gameId, String userId) {
         Game g = findOr404(gameId);
 
-        // même logique que pour buyPotion : achat pendant PHASE4
         if (g.getPhase() != Phase.PHASE4)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE4");
 
@@ -4008,33 +4244,34 @@ public class GameService {
         if (p == null)
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
 
-        boolean isVamp = "VAMPIRE".equals(p.getRole());
+        boolean isVamp   = "VAMPIRE".equals(p.getRole());
         boolean isHunter = "HUNTER".equals(p.getRole());
 
-        // on choisit le bon deck
-        Map<String,Integer> pool = isVamp ? g.getVampActionsPool() : g.getHunterActionsPool();
+        List<String> deck    = isVamp ? g.getVampActionsDeck()    : g.getHunterActionsDeck();
+        List<String> discard = isVamp ? g.getVampActionsDiscard() : g.getHunterActionsDiscard();
 
-        int actionsLeft = poolTotal(pool);
+        int actionsLeft = deckAvailableSize(deck, discard);
         if (actionsLeft <= 0)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "no actions left");
 
+        // paiement
         if (isVamp) {
             if (p.getSouls() < 50)
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
             p.setSouls(p.getSouls() - 50);
-        }
-        if (isHunter) {
+        } else if (isHunter) {
             if (p.getGold() < 50)
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
             p.setGold(p.getGold() - 50);
+        } else {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "invalid role for actions deck");
         }
 
-        // === TIRAGE ===
+        // Tirage (gère le reshuffle auto si deck vide + défausse non vide)
         String type = isVamp ? drawVampAction(g) : drawHunterAction(g);
         if (type == null)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "no actions left");
 
-        // Ajout dans la main d'actions
         if (p.getActions() == null) {
             p.setActions(new java.util.ArrayList<>());
         }
@@ -4045,7 +4282,7 @@ public class GameService {
                         (isVamp ? "camp vampire" : "camp chasseurs") + ")."
         );
 
-        int remaining = poolTotal(pool);
+        int remaining = deckAvailableSize(deck, discard);
 
         save(g);
 
@@ -4057,7 +4294,6 @@ public class GameService {
 
         return g;
     }
-
 
     @Transactional
     public Game buySilver(String gameId, String userId, int qty) {
@@ -4388,4 +4624,982 @@ public class GameService {
             }
         }
     }
+
+    @Transactional
+    public Game planConstruction(String gameId, String playerId, Infra infra) {
+        Game g = findOr404(gameId);
+
+        if (g.getStatus() != GameStatus.ACTIVE)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "game not active");
+
+        var p = findPlayer(g, playerId);
+
+        // --- PHASE + RÔLE ---
+        if (g.getPhase() != Phase.PHASE2) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "construction possible uniquement en phase 2");
+        }
+
+        if (!"VAMPIRE".equals(p.getRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Seul le vampire peut construire.");
+        }
+
+        // --- PAS 2 CONSTRUCTIONS EN PARALLÈLE ---
+        if (g.getPendingConstruction() != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Une construction est déjà en cours pour ce raid.");
+        }
+
+        // --- DÉJÀ CONSTRUIT ? ---
+        if (g.getBuiltInfras() != null && g.getBuiltInfras().contains(infra)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Ce lieu a déjà été construit.");
+        }
+
+        // --- RESSOURCES MINIMALES ---
+        if (!hasResourcesForInfra(p, infra)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Ressources insuffisantes pour construire " + infra);
+        }
+
+        // --- QUELLE CARTE LIEU DOIT-IL JOUER ? ---
+        final String card;
+        switch (infra) {
+            case SAWMILL -> card = "forest";
+            case MINE    -> card = "quarry";
+            case LIBRARY -> card = "manor";
+            default      -> throw new IllegalArgumentException("Infra non supportée: " + infra);
+        }
+
+        // --- FUMIGATION : vampire/servant ne peuvent pas aller sur un lieu fumigé ---
+        if (g.getGarlicBlockedLocations() != null
+                && g.getGarlicBlockedLocations().contains(card)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "ce lieu est protégé par une fumigation d'ail");
+        }
+
+        // --- DÉJÀ JOUÉ CE ROUND ? ---
+        if (hasPlayed(g, playerId))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "already selected this round");
+
+        // --- LA CARTE DOIT ÊTRE DANS SA MAIN ---
+        var hand = p.getHand();
+        if (hand == null || !hand.remove(card)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "card not in hand");
+        }
+
+        // Pas de fumigation ici : on joue juste le lieu pour se déplacer
+        boolean fumigate = false;
+
+        // Pose au centre (comme selectLocation)
+        CenterBoard cb = new CenterBoard(playerId, card, /*faceUp=*/fumigate);
+        g.getCenter().add(cb);
+
+        // Pisteur : même comportement que quand le vampire joue un lieu
+        applyTrackerHuntersWhenVampirePlays(g, card);
+
+        // Auto-advance vers PREPHASE3 si tout le camp vampire/servants a joué
+        boolean advanceToPre3 = allVampSideSelected(g);
+        if (advanceToPre3) {
+            g.setHasUpcomingCombat(computeHasUpcomingCombat(g));
+        }
+
+        // --- ENREGISTRER LA CONSTRUCTION EN ATTENTE ---
+        Game.PendingConstruction pc = new Game.PendingConstruction();
+        pc.infra = infra;
+        pc.builderId = p.getId();
+        g.setPendingConstruction(pc);
+
+        // ----- COMMIT -----
+        save(g);
+
+        final String gid = g.getId();
+        //final Infra infraFinal = infra;
+
+        afterCommit(() -> {
+            live.locationSelected(g, playerId, card);
+            // live.constructionPlanned(gid, playerId, infraFinal.name());
+        });
+
+        // ----- AUTO-ADVANCE (scheduler) -----
+        if (advanceToPre3) {
+            scheduleAdvance(gid, Phase.PHASE2, Phase.PREPHASE3, 2500);
+        }
+
+        return g;
+    }
+
+    private boolean hasResourcesForInfra(Player p, Infra infra) {
+        return switch (infra) {
+            case SAWMILL -> p.getStone() >= 5 && p.getIron() >= 3;
+            case MINE    -> p.getWood()  >= 6 && p.getIron() >= 2;
+            case LIBRARY -> p.getWood()  >= 8 && p.getStone() >= 4 && p.getIron() >= 2;
+            default      -> false;
+        };
+    }
+
+    private void payResourcesForInfra(Player p, Infra infra) {
+        switch (infra) {
+            case SAWMILL -> {
+                p.setStone(p.getStone() - 5);
+                p.setIron(p.getIron()  - 3);
+            }
+            case MINE -> {
+                p.setWood(p.getWood()  - 6);
+                p.setIron(p.getIron()  - 2);
+            }
+            case LIBRARY -> {
+                p.setWood (p.getWood()  - 8);
+                p.setStone(p.getStone() - 4);
+                p.setIron (p.getIron()  - 2);
+            }
+        }
+    }
+
+    /** Récolte du lieu construit (au lieu de Forêt/Carrière). */
+    private void applyInfraHarvest(Game g, Player vamp, Infra infra) {
+        java.util.List<String> gains = new java.util.ArrayList<>();
+        switch (infra) {
+            case SAWMILL -> {
+                grant(vamp, "wood", 2);
+                gains.add("+2 bois");
+            }
+            case MINE -> {
+                grant(vamp, "iron", 2);
+                gains.add("+2 fer");
+            }
+            case LIBRARY -> {
+                // Pour l’instant : même logique que Manoir, tu ajusteras si tu as déjà un case "manor"
+                // Exemple : +1d100 or OU +1d100 âmes déchues selon rôle
+                int d100 = 1 + RND.nextInt(100);
+                if ("VAMPIRE".equals(vamp.getRole())) {
+                    grant(vamp, "souls", d100);
+                    gains.add("+" + d100 + " âmes déchues");
+                } else {
+                    grant(vamp, "gold", d100);
+                    gains.add("+" + d100 + " or");
+                }
+            }
+        }
+
+        if (!gains.isEmpty()) {
+            String who = nameOf(g, vamp.getId());
+            String line = "Récoltes — " + who + " (" + infra.labelFr() + ") : "
+                    + String.join(", ", gains);
+            addHistory(g, line);
+        }
+    }
+
+    private boolean skipHarvestBecauseOfConstruction(Game g, Player p, String loc) {
+        var pc = g.getPendingConstruction();
+        if (pc == null) return false;
+
+        var vampOpt = getVamp(g);
+        if (vampOpt.isEmpty()) return false;
+        var vamp = vampOpt.get();
+
+        // On ne bloque que la récolte du vampire lui-même
+        if (!p.getId().equals(vamp.getId())) return false;
+
+        // Mapping infra -> lieu de base
+        return switch (pc.infra) {
+            case SAWMILL -> "forest".equals(loc);
+            case MINE    -> "quarry".equals(loc);
+            case LIBRARY -> "manor".equals(loc);
+            // si plus tard tu ajoutes d'autres infras, tu complètes ici
+        };
+    }
+
+    private void giveInfraCardToAllPlayers(Game g, Infra infra) {
+        String cardCode = infra.locationCode(); // "sawmill" ou "mine"
+
+        for (var p : g.getPlayers()) {
+            if (p.getHand() == null) {
+                p.setHand(new java.util.ArrayList<>());
+            }
+            p.getHand().add(cardCode);
+        }
+    }
+
+    /** À appeler à la fin de la PHASE3, avant de passer en PHASE4. */
+    private void resolveInfraConstruction(Game g) {
+        var pc = g.getPendingConstruction();
+        if (pc == null) return;
+
+        // On consomme la construction en attente dans tous les cas
+        g.setPendingConstruction(null);
+
+        var vampOpt = getVamp(g);
+        if (vampOpt.isEmpty()) return;
+        var vamp = vampOpt.get();
+
+        // 1) Si le vampire a pris des dégâts, la construction échoue,
+        //    mais il récolte le lieu d'origine (forêt/carrière)
+        if (g.isVampireTookDamageThisRaid()) {
+            addHistory(g, "La construction de " + pc.infra
+                    + " échoue : le vampire a subi des dégâts durant le raid.");
+            applyBaseLocationHarvestForInfra(g, vamp, pc.infra);
+            return;
+        }
+
+        // 2) Vérifier qu'il a encore les ressources
+        if (!hasResourcesForInfra(vamp, pc.infra)) {
+            addHistory(g, "La construction de " + pc.infra
+                    + " échoue : le vampire n'a plus les ressources nécessaires.");
+            applyBaseLocationHarvestForInfra(g, vamp, pc.infra);
+            return;
+        }
+
+        // 3) Payer les ressources
+        payResourcesForInfra(vamp, pc.infra);
+
+        // 4) Marquer l'infrastructure comme construite (une seule fois par partie)
+        g.getBuiltInfras().add(pc.infra);
+
+        addHistory(g, "La construction de " + pc.infra
+                + " est achevée.");
+
+        // 5) Donner la carte Lieu correspondante à tous les joueurs
+        giveInfraCardToAllPlayers(g, pc.infra);
+
+        // 6) Récolte du nouveau lieu pour ce raid
+        applyInfraHarvest(g, vamp, pc.infra);
+    }
+
+    /** Récolte du lieu d'origine (FOREST/QUARRY) quand la construction échoue. */
+    private void applyBaseLocationHarvestForInfra(Game g, Player vamp, Infra infra) {
+        java.util.List<String> gains = new java.util.ArrayList<>();
+        String locKey;
+        String locLabel;
+
+        switch (infra) {
+            case SAWMILL -> {
+                // même logique que case "forest" de applyHarvests pour le vampire
+                grant(vamp, "wood", 1);  gains.add("+1 bois");
+                grant(vamp, "herbs", 2); gains.add("+2 herbe médicinale");
+                locKey = "forest";
+                locLabel = labelLieuFr("forest");
+            }
+            case MINE -> {
+                // même logique que case "quarry"
+                grant(vamp, "iron", 1);  gains.add("+1 fer");
+                grant(vamp, "stone", 2); gains.add("+2 pierre");
+                locKey = "quarry";
+                locLabel = labelLieuFr("quarry");
+            }
+            case LIBRARY -> {
+                // même logique que "manor" quand la construction échoue
+                int d100 = 1 + RND.nextInt(100);
+                if ("VAMPIRE".equals(vamp.getRole())) {
+                    grant(vamp, "souls", d100);
+                    gains.add("+" + d100 + " âmes déchues");
+                } else {
+                    grant(vamp, "gold", d100);
+                    gains.add("+" + d100 + " or");
+                }
+                locKey = "manor";
+                locLabel = labelLieuFr("manor");
+            }
+            default -> {
+                return; // au cas où d'autres infras plus tard
+            }
+        }
+
+        if (!gains.isEmpty()) {
+            String who = nameOf(g, vamp.getId());
+            String line = "Récoltes — " + who + " (" + locLabel + ") : " + String.join(", ", gains);
+            addHistory(g, line);
+        }
+    }
+
+    /**
+     * Fin de PREPHASE3 :
+     *  - soit on démarre / poursuit la file d'effets de lieu,
+     *  - soit on bascule en PHASE3 (récoltes + combats + pièges).
+     *
+     * Cette méthode :
+     *  - suppose qu'on est encore en PREPHASE3,
+     *  - suppose qu'il n'y a plus de choix "instable" en attente,
+     *  - ne vérifie PAS readyForPhase3 (utile pour les timers serveur).
+     */
+    private void finishPrephaseAndMaybeStartLocationEffects(Game g, String gameId) {
+        // 1) Si un effet est déjà en cours (file non vide + index valide + pending),
+        //    on ne fait rien : scheduleNextLocationEffect gérera la suite.
+        if (g.getLocationEffectPending()
+                && g.getLocationEffectsQueue() != null
+                && g.getCurrentLocationEffectIndex() != null) {
+
+            int idx = g.getCurrentLocationEffectIndex();
+            if (idx >= 0 && idx < g.getLocationEffectsQueue().size()) {
+                // Petit heartbeat seulement
+                save(g);
+                afterCommit(() -> {
+                    Game fresh = findOr404(gameId);
+                    live.phaseChanged(fresh);
+                });
+                return;
+            }
+        }
+
+        // 2) (Re)construire la file d'effets à partir de l'état FINAL de PREPHASE3
+        buildLocationEffectsQueue(g);
+
+        if (g.getLocationEffectsQueue() != null && !g.getLocationEffectsQueue().isEmpty()) {
+            // Il y a au moins un effet de lieu à résoudre → on reste en PREPHASE3
+            g.setCurrentLocationEffectIndex(0);
+            g.setLocationEffectPending(true);
+            g.setLocationEffectChoice(null);
+
+            save(g);
+
+            afterCommit(() -> {
+                Game fresh = findOr404(gameId);
+
+                Game.LocationEffectInstance inst = null;
+                if (fresh.getLocationEffectsQueue() != null
+                        && fresh.getCurrentLocationEffectIndex() != null) {
+                    int idx = fresh.getCurrentLocationEffectIndex();
+                    if (idx >= 0 && idx < fresh.getLocationEffectsQueue().size()) {
+                        inst = fresh.getLocationEffectsQueue().get(idx);
+                    }
+                }
+
+                if (inst != null) {
+                    live.locationEffectStarted(fresh, inst);
+                }
+                live.phaseChanged(fresh);
+            });
+        } else {
+            // 3) Aucun effet de lieu → PHASE3 classique
+            applyPhaseEntry(g, Phase.PHASE3);
+            prepareFirstTrapAction(g);
+
+            save(g);
+
+            afterCommit(() -> {
+                Game fresh = findOr404(gameId);
+                live.phaseChanged(fresh);
+            });
+        }
+    }
+
+    /**
+     * (Re)construit la file des effets de lieu pour le raid courant.
+     *
+     * - Réinitialise la structure (queue, index courant, flags).
+     * - Ajoute une entrée par joueur éligible pour chaque lieu à effet
+     *   (actuellement uniquement LIBRARY).
+     * - Utilise l'état final de PREPHASE3 (positions, instables, combats)
+     *   pour décider qui a droit à un effet.
+     */
+    private void buildLocationEffectsQueue(Game g) {
+        // Réinit de la structure
+        if (g.getLocationEffectsQueue() == null) {
+            g.setLocationEffectsQueue(new java.util.ArrayList<>());
+        } else {
+            g.getLocationEffectsQueue().clear();
+        }
+        g.setCurrentLocationEffectIndex(null);
+        g.setLocationEffectPending(false);
+        g.setLocationEffectChoice(null);
+
+        // Si aucune infra à effet n'est construite, rien à faire.
+        if (g.getBuiltInfras() == null || !g.getBuiltInfras().contains(Infra.LIBRARY)) {
+            return;
+        }
+
+        // Positions finales des joueurs par lieu (après instables)
+        var groups = groupPlayersByLocation(g);
+
+        // Instables déjà réaffectés (attaque OU récolte)
+        var unstableAssigned = new java.util.HashSet<String>();
+        if (g.getUnstableTargetByPlayer() != null) {
+            unstableAssigned.addAll(g.getUnstableTargetByPlayer().keySet());
+        }
+        if (g.getUnstableHarvestLocByPlayer() != null) {
+            unstableAssigned.addAll(g.getUnstableHarvestLocByPlayer().keySet());
+        }
+
+        // Joueurs impliqués dans des duels instables par lieu
+        java.util.Map<String, java.util.Set<String>> unstableCombatPlayersByLoc =
+                new java.util.HashMap<>();
+        if (g.getUnstableTargetByPlayer() != null) {
+            for (var entry : g.getUnstableTargetByPlayer().entrySet()) {
+                String unstableId = entry.getKey();
+                String targetId   = entry.getValue();
+
+                String loc = g.getCenter().stream()
+                        .filter(cb -> cb.getPlayerId().equals(targetId))
+                        .map(CenterBoard::getCard)
+                        .findFirst()
+                        .orElse(null);
+                if (loc == null) continue;
+
+                var set = unstableCombatPlayersByLoc
+                        .computeIfAbsent(loc, __ -> new java.util.HashSet<>());
+                set.add(unstableId);
+                set.add(targetId);
+            }
+        }
+
+        // Code de la carte associée à LIBRARY (normalement "library")
+        String libraryCardCode = Infra.LIBRARY.locationCode();
+
+        // Tous les joueurs physiquement sur "library"
+        var onLibrary = groups.getOrDefault(libraryCardCode, java.util.List.<Player>of());
+
+        // --- Détection des combats "classiques" sur la Bibliothèque ---
+
+        // ennemis (VAMPIRE/SERVANT) présents sur la Bibliothèque
+        var enemiesOnLibrary = onLibrary.stream()
+                .filter(p -> ("VAMPIRE".equals(p.getRole()) || "SERVANT".equals(p.getRole()))
+                        && p.getHp() > 0)
+                .toList();
+
+        // chasseurs non réaffectés (donc vraiment en combat par défaut sur ce lieu)
+        var huntersNonReassigned = onLibrary.stream()
+                .filter(p -> "HUNTER".equals(p.getRole()))
+                .filter(p -> p.getHp() > 0)
+                .filter(p -> !unstableAssigned.contains(p.getId()))
+                .toList();
+
+        boolean hasDefaultCombatOnLibrary =
+                !enemiesOnLibrary.isEmpty() && !huntersNonReassigned.isEmpty();
+
+        // Joueurs impliqués dans des duels instables SUR "library"
+        java.util.Set<String> unstableCombatOnLibrary =
+                unstableCombatPlayersByLoc.getOrDefault(libraryCardCode, java.util.Set.of());
+
+        boolean hasUnstableCombatOnLibrary = !unstableCombatOnLibrary.isEmpty();
+
+        // Y a-t-il AU MOINS UN combat sur la Bibliothèque ?
+        boolean hasAnyCombatOnLibrary = hasDefaultCombatOnLibrary || hasUnstableCombatOnLibrary;
+
+        // --- Construction de la file pour chaque joueur qui a joué "library" ---
+
+        for (var cb : g.getCenter()) {
+            if (!libraryCardCode.equals(cb.getCard())) continue;
+
+            var owner = g.getPlayers().stream()
+                    .filter(p -> p.getId().equals(cb.getPlayerId()))
+                    .findFirst()
+                    .orElse(null);
+            if (owner == null) continue;
+            if (owner.getHp() <= 0) continue; // mort → pas d'effet
+
+            boolean ownerIsVamp = "VAMPIRE".equals(owner.getRole());
+
+            // 1) Vampire : il garde TOUJOURS l'effet s'il a joué Bibliothèque
+            if (ownerIsVamp) {
+                Game.LocationEffectInstance inst = new Game.LocationEffectInstance();
+                inst.ownerId = owner.getId();
+                inst.infra   = Infra.LIBRARY;
+                inst.choice  = null;
+                g.getLocationEffectsQueue().add(inst);
+                continue;
+            }
+
+            // 2) Chasseurs / Serviteurs :
+            //    - s'il y a un combat sur la Bibliothèque → ils n'ont PAS d'effet
+            if (hasAnyCombatOnLibrary) {
+                continue;
+            }
+
+            //    - sinon (aucun combat sur ce lieu) → ils ont un effet
+            Game.LocationEffectInstance inst = new Game.LocationEffectInstance();
+            inst.ownerId = owner.getId();
+            inst.infra   = Infra.LIBRARY;
+            inst.choice  = null;
+            g.getLocationEffectsQueue().add(inst);
+
+            log.info("[{}] LIBRARY owner={} role={} hasAnyCombatOnLibrary={} addedEffect={}",
+                    g.getId(), owner.getUsername(), owner.getRole(),
+                    hasAnyCombatOnLibrary, ownerIsVamp || !hasAnyCombatOnLibrary);
+        }
+
+        // --- Sécurité : s'assurer que le vampire a bien une entrée s'il a joué Bibliothèque ---
+
+        var vampOpt = getVamp(g);
+        if (vampOpt.isPresent()) {
+            var vamp = vampOpt.get();
+
+            boolean vampPlayedLibrary = g.getCenter().stream()
+                    .anyMatch(cb -> libraryCardCode.equals(cb.getCard())
+                            && vamp.getId().equals(cb.getPlayerId()));
+
+            if (vampPlayedLibrary) {
+                boolean alreadyQueued = g.getLocationEffectsQueue().stream()
+                        .anyMatch(inst -> inst.infra == Infra.LIBRARY
+                                && vamp.getId().equals(inst.ownerId));
+                if (!alreadyQueued) {
+                    Game.LocationEffectInstance inst = new Game.LocationEffectInstance();
+                    inst.ownerId = vamp.getId();
+                    inst.infra   = Infra.LIBRARY;
+                    inst.choice  = null;
+                    g.getLocationEffectsQueue().add(inst);
+                }
+            }
+        }
+    }
+
+    /**
+     * Traite le choix d’effet de lieu pour l’instance en cours.
+     *
+     * - Vérifie que l’on est bien en PREPHASE3 et sur un effet en attente.
+     * - Contrôle que le joueur appelant est le propriétaire de l’effet.
+     * - Applique ou prépare l’effet selon le choix (STUDY / THEFT / OMEN, pour LIBRARY).
+     * - Marque l’effet comme interactif si une étape supplémentaire est nécessaire
+     *   (THEFT / OMEN), sinon enchaîne directement sur l’effet suivant.
+     */
+    @Transactional
+    public Game chooseLocationEffect(String gameId, String playerId, LocationEffectChoice choice) {
+        Game g = findOr404(gameId);
+
+        if (g.getStatus() != GameStatus.ACTIVE)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "game not active");
+
+        if (g.getPhase() != Phase.PREPHASE3)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "location effect only in PREPHASE3");
+
+        if (!g.getLocationEffectPending())
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "no location effect pending");
+
+        if (g.getLocationEffectsQueue() == null || g.getCurrentLocationEffectIndex() == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "no current location effect");
+        }
+
+        int idx = g.getCurrentLocationEffectIndex();
+        if (idx < 0 || idx >= g.getLocationEffectsQueue().size()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "invalid location effect index");
+        }
+
+        var inst = g.getLocationEffectsQueue().get(idx);
+
+        if (!inst.ownerId.equals(playerId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Ce n'est pas votre effet de lieu.");
+        }
+
+        var p = findPlayer(g, playerId);
+
+        // Flag générique : est-ce qu'on DOIT attendre une étape supplémentaire
+        // avant de passer à l'effet suivant ? (OMEN ou THEFT interactif)
+        boolean waitForExtraResolution = false;
+
+        // Pour l’instant: seulement LIBRARY gérée, avec les 3 effets.
+        switch (choice) {
+            case STUDY -> {
+                // effet immédiat
+                applyLibraryStudyEffect(g, p);
+            }
+            case THEFT -> {
+                // THEFT interactif : on vérifie d'abord s'il y a au moins une cible possible
+                if (!canUseLibraryTheft(g, p)) {
+                    addHistory(g, "Bibliothèque — " + nameOf(g, p.getId())
+                            + " tente de subtiliser un manuscrit, mais aucun adversaire ne possède de carte Action.");
+                    // pas d'étape supplémentaire → on laissera enchaîner la file
+                } else {
+                    // On va ouvrir la modale d'action côté front
+                    waitForExtraResolution = true;
+                }
+            }
+            case OMEN -> {
+                // 1) Vérif serveur : deck adverse doit avoir > 3 cartes (en tenant compte du reshuffle)
+                if (!canUseLibraryOmen(g, p)) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Prédiction occulte impossible : le deck adverse contient 3 cartes ou moins.");
+                }
+
+                // 2) Prépare les 3 cartes dans libraryOmenState (sans avancer la file)
+                int drawn = applyLibraryOmenEffect(g, p);
+
+                // Si jamais (par sécurité) on n'a pas pu préparer de cartes,
+                // on ne bloque pas la suite : on traitera cet effet comme "fini".
+                if (drawn > 0) {
+                    // On a bien 3 cartes en attente → on attend /location-omen
+                    waitForExtraResolution = true;
+                }
+            }
+        }
+
+        // On mémorise le choix pour l'effet courant
+        inst.choice = choice;
+        g.setLocationEffectChoice(choice); // pour affichage côté front
+
+        save(g);
+
+        final LocationEffectChoice fChoice = choice;
+        final boolean fWaitExtra = waitForExtraResolution;
+
+        afterCommit(() -> {
+            Game fresh = findOr404(gameId);
+            Player freshOwner = fresh.getPlayers().stream()
+                    .filter(pp -> pp.getId().equals(playerId))
+                    .findFirst().orElse(null);
+
+            // Notifie le front que l'effet a été choisi
+            live.locationEffectUsed(fresh, fChoice, freshOwner);
+
+            // STUDY = immédiat ; THEFT/OMEN interactifs → on attend la résolution dédiée
+            if (!fWaitExtra) {
+                scheduleNextLocationEffect(fresh.getId());
+            }
+        });
+
+        return g;
+    }
+
+    /**
+     * Effet de Bibliothèque : STUDY.
+     *
+     * Fait piocher 1 carte Action au joueur (dans son deck de camp)
+     * et l’ajoute à sa main, si possible. Ajoute aussi un message dans l’historique.
+     */
+    private void applyLibraryStudyEffect(Game g, Player user) {
+        boolean isVamp = "VAMPIRE".equals(user.getRole());
+
+        String cardId;
+        if (isVamp) {
+            cardId = drawVampAction(g);
+        } else {
+            cardId = drawHunterAction(g);
+        }
+
+        if (cardId == null) {
+            addHistory(g, "Bibliothèque — " + nameOf(g, user.getId())
+                    + " n'a pas pu piocher (pioche Action vide).");
+            return;
+        }
+
+        if (user.getActions() == null) {
+            user.setActions(new java.util.ArrayList<>());
+        }
+        user.getActions().add(cardId);
+
+        String who = nameOf(g, user.getId());
+        addHistory(g, "Bibliothèque — " + who
+                + " étudie les grimoires et pioche 1 carte Action.");
+    }
+
+    /**
+     * Effet de Bibliothèque : THEFT — application concrète du vol.
+     *
+     * - Retire une carte Action dans la main de la cible (slotIndex).
+     * - Replace cette carte dans le deck d’Actions du camp de la cible
+     *   (côté adverse du lanceur), puis mélange le deck.
+     * - Log l’action dans l’historique.
+     *
+     * Les validations (cible, index, rôles, phase…) sont supposées faites en amont.
+     */
+    private void applyLibraryTheftEffect(Game g, Player owner, Player target, int slotIndex) {
+        var hand = target.getActions();
+        if (hand == null || hand.isEmpty()) {
+            throw new IllegalStateException("target has no action cards");
+        }
+        if (slotIndex < 0 || slotIndex >= hand.size()) {
+            throw new IllegalStateException("invalid slot index");
+        }
+
+        // 1) On enlève la carte choisie
+        String stolen = hand.remove(slotIndex);
+
+        // 2) On remet la carte dans le DECK de la cible (camp adverse)
+        List<String> deck;
+        boolean ownerIsVamp = "VAMPIRE".equals(owner.getRole());
+
+        if (ownerIsVamp) {
+            // Vampire vole une carte à un chasseur → carte remise dans le deck Actions CHASSEURS
+            deck = g.getHunterActionsDeck();
+            if (deck == null) {
+                deck = new java.util.ArrayList<>();
+                g.setHunterActionsDeck(deck);
+            }
+        } else {
+            // Chasseur vole une carte au vampire → carte remise dans le deck Actions VAMPIRE
+            deck = g.getVampActionsDeck();
+            if (deck == null) {
+                deck = new java.util.ArrayList<>();
+                g.setVampActionsDeck(deck);
+            }
+        }
+
+        deck.add(stolen);
+        java.util.Collections.shuffle(deck, RND);
+
+        // 3) Historique
+        String who  = nameOf(g, owner.getId());
+        String who2 = nameOf(g, target.getId());
+        addHistory(g, "Bibliothèque — " + who
+                + " subtilise un manuscrit à " + who2
+                + " et le replace dans la pioche Action.");
+    }
+
+    /**
+     * Prédiction occulte :
+     * - prépare libraryOmenState avec les 3 prochaines cartes du deck adverse
+     * - ne fait PAS avancer la file d'effets (résolution en 2 temps).
+     * @return nombre de cartes réellement préparées (0 si impossibilité)
+     */
+    private int applyLibraryOmenEffect(Game g, Player user) {
+        boolean isVamp = "VAMPIRE".equals(user.getRole());
+
+        List<String> deck    = isVamp ? g.getHunterActionsDeck()   : g.getVampActionsDeck();
+        List<String> discard = isVamp ? g.getHunterActionsDiscard(): g.getVampActionsDiscard();
+
+        if (deck == null) {
+            deck = new java.util.ArrayList<>();
+            if (isVamp) g.setHunterActionsDeck(deck);
+            else        g.setVampActionsDeck(deck);
+        }
+        if (discard == null) {
+            discard = new java.util.ArrayList<>();
+            if (isVamp) g.setHunterActionsDiscard(discard);
+            else        g.setVampActionsDiscard(discard);
+        }
+
+        // Si deck vide mais discard non vide → on recrée le deck maintenant
+        if (deck.isEmpty() && !discard.isEmpty()) {
+            java.util.Collections.shuffle(discard, RND);
+            deck.addAll(discard);
+            discard.clear();
+        }
+
+        // Protection supplémentaire : si après ça le deck ≤ 3, on annule
+        if (deck.size() <= 3) {
+            addHistory(g, "Bibliothèque — " + nameOf(g, user.getId())
+                    + " ne peut pas utiliser la Prédiction occulte (moins de 4 cartes dans la pioche adverse).");
+            g.setLibraryOmenState(null);
+            return 0;
+        }
+
+        Game.LibraryOmenState state = new Game.LibraryOmenState();
+        state.ownerId    = user.getId();
+        state.targetSide = isVamp ? "HUNTERS" : "VAMP";
+        state.cards      = new java.util.ArrayList<>();
+
+        for (int i = 0; i < 3; i++) {
+            String c = drawFromDeck(deck, discard);
+            if (c != null) {
+                state.cards.add(c);
+            }
+        }
+
+        g.setLibraryOmenState(state);
+        return state.cards.size(); // normalement 3
+    }
+
+    private boolean canUseLibraryTheft(Game g, Player user) {
+        boolean isVamp   = "VAMPIRE".equals(user.getRole());
+        boolean isHunter = "HUNTER".equals(user.getRole());
+
+        if (isVamp) {
+            // Au moins un chasseur vivant avec ≥1 carte Action
+            return g.getPlayers().stream()
+                    .filter(p -> "HUNTER".equals(p.getRole()))
+                    .filter(p -> p.getHp() > 0)
+                    .anyMatch(p -> p.getActions() != null && !p.getActions().isEmpty());
+        }
+
+        if (isHunter) {
+            // Cible unique = vampire
+            var vampOpt = getVamp(g);
+            if (vampOpt.isEmpty()) return false;
+            Player vamp = vampOpt.get();
+            if (vamp.getHp() <= 0) return false;
+            return vamp.getActions() != null && !vamp.getActions().isEmpty();
+        }
+
+        return false;
+    }
+
+    private boolean canUseLibraryOmen(Game g, Player user) {
+        boolean isVamp = "VAMPIRE".equals(user.getRole());
+
+        List<String> deck    = isVamp ? g.getHunterActionsDeck()   : g.getVampActionsDeck();
+        List<String> discard = isVamp ? g.getHunterActionsDiscard(): g.getVampActionsDiscard();
+
+        int available = deckAvailableSize(deck, discard);
+
+        // OMEN interdit si 3 cartes ou moins "piochables"
+        return available > 3;
+    }
+
+    /**
+     * Résout l’effet interactif de Bibliothèque THEFT côté serveur.
+     *
+     * - Valide le contexte (phase, effet en cours, propriétaire, cible, index).
+     * - Applique le vol via applyLibraryTheftEffect().
+     * - Sauvegarde la partie, notifie le front et enchaîne sur
+     *   le prochain effet de lieu via scheduleNextLocationEffect().
+     */
+    @Transactional
+    public Game resolveLibraryTheft(String gameId, String playerId, String targetId, int slotIndex) {
+        Game g = findOr404(gameId);
+
+        if (g.getStatus() != GameStatus.ACTIVE)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "game not active");
+
+        if (g.getPhase() != Phase.PREPHASE3)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "theft only in PREPHASE3");
+
+        if (!g.getLocationEffectPending())
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "no location effect pending");
+
+        if (g.getLocationEffectsQueue() == null || g.getCurrentLocationEffectIndex() == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "no current location effect");
+        }
+
+        int idx = g.getCurrentLocationEffectIndex();
+        if (idx < 0 || idx >= g.getLocationEffectsQueue().size()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "invalid location effect index");
+        }
+
+        var inst = g.getLocationEffectsQueue().get(idx);
+
+        // On ne résout que THEFT (Bibliothèque)
+        if (inst.infra != Infra.LIBRARY || inst.choice != LocationEffectChoice.THEFT) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "no theft effect to resolve");
+        }
+
+        if (!inst.ownerId.equals(playerId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not your theft effect");
+        }
+
+        var owner  = findPlayer(g, playerId);
+        var target = findPlayer(g, targetId);
+
+        if (target == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid target");
+        }
+
+        boolean ownerIsVamp   = "VAMPIRE".equals(owner.getRole());
+        boolean ownerIsHunter = "HUNTER".equals(owner.getRole());
+
+        if (!ownerIsVamp && !ownerIsHunter) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "invalid role for theft");
+        }
+
+        if (ownerIsVamp && !"HUNTER".equals(target.getRole())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "vampire must target a hunter");
+        }
+        if (ownerIsHunter && !"VAMPIRE".equals(target.getRole())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "hunter must target the vampire");
+        }
+
+        if (target.getHp() <= 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "target is dead");
+        }
+
+        var hand = target.getActions();
+        if (hand == null || hand.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "target has no action cards");
+        }
+
+        if (slotIndex < 0 || slotIndex >= hand.size()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid slot index");
+        }
+
+        // ---- Ici on applique enfin l'effet ----
+        applyLibraryTheftEffect(g, owner, target, slotIndex);
+
+        save(g);
+
+        afterCommit(() -> {
+            Game fresh = findOr404(gameId);
+            Player freshOwner = fresh.getPlayers().stream()
+                    .filter(pp -> pp.getId().equals(playerId))
+                    .findFirst().orElse(null);
+
+            // Effet complètement résolu (THEFT)
+            live.locationEffectUsed(fresh, LocationEffectChoice.THEFT, freshOwner);
+            scheduleNextLocationEffect(fresh.getId());
+        });
+
+        return g;
+    }
+
+    /**
+     * Résout l’effet interactif de Bibliothèque OMEN côté serveur.
+     *
+     * - Utilise l’état temporaire libraryOmenState préparé auparavant.
+     * - Replace chaque carte préparée en haut ou en bas du deck adverse
+     *   selon la liste placements.
+     * - Ajoute un message d’historique, nettoie l’état OMEN,
+     *   sauvegarde et enchaîne sur le prochain effet de lieu.
+     */
+    @Transactional
+    public Game resolveLibraryOmen(String gameId, String playerId, java.util.List<String> placements) {
+        Game g = findOr404(gameId);
+
+        if (g.getStatus() != GameStatus.ACTIVE)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "game not active");
+
+        if (g.getPhase() != Phase.PREPHASE3)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "omen only in PREPHASE3");
+
+        var omen = g.getLibraryOmenState();
+        if (omen == null)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "no omen pending");
+
+        if (!playerId.equals(omen.ownerId))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not your omen");
+
+        if (omen.cards == null || omen.cards.isEmpty()) {
+            g.setLibraryOmenState(null);
+            save(g);
+            return g;
+        }
+
+        if (placements == null || placements.size() != omen.cards.size())
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid placements");
+
+        boolean targetIsVamp = "VAMP".equals(omen.targetSide);
+        List<String> deck    = targetIsVamp ? g.getVampActionsDeck()   : g.getHunterActionsDeck();
+        List<String> discard = targetIsVamp ? g.getVampActionsDiscard(): g.getHunterActionsDiscard();
+
+        if (deck == null) {
+            deck = new java.util.ArrayList<>();
+            if (targetIsVamp) g.setVampActionsDeck(deck);
+            else              g.setHunterActionsDeck(deck);
+        }
+        if (discard == null) {
+            discard = new java.util.ArrayList<>();
+            if (targetIsVamp) g.setVampActionsDiscard(discard);
+            else              g.setHunterActionsDiscard(discard);
+        }
+
+        for (int i = 0; i < omen.cards.size(); i++) {
+            String cardId = omen.cards.get(i);
+            String where  = placements.get(i);
+
+            if ("BOTTOM".equalsIgnoreCase(where)) {
+                putOnBottom(deck, cardId);
+            } else {
+                putOnTop(deck, cardId);
+            }
+        }
+
+        String who = nameOf(g, playerId);
+        addHistory(g, "Bibliothèque — " + who
+                + " manipule secrètement le futur des cartes d'action (Prédiction occulte).");
+
+        g.setLibraryOmenState(null);
+
+        save(g);
+
+        afterCommit(() -> {
+            Game fresh = findOr404(gameId);
+            Player freshOwner = fresh.getPlayers().stream()
+                    .filter(pp -> pp.getId().equals(playerId))
+                    .findFirst().orElse(null);
+
+            // Effet complètement résolu
+            live.locationEffectUsed(fresh, LocationEffectChoice.OMEN, freshOwner);
+            scheduleNextLocationEffect(fresh.getId());
+        });
+
+        return g;
+    }
+
 }
