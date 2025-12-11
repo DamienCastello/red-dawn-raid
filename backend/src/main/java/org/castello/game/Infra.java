@@ -3,9 +3,13 @@ package org.castello.game;
 public enum Infra {
     SAWMILL(Location.SAWMILL),
     MINE   (Location.MINE),
-    LIBRARY(Location.LIBRARY);
+    LIBRARY(Location.LIBRARY),
+    LABORATORY(Location.LABORATORY),
+    BALLROOM(Location.BALLROOM),
+    ALTAR(Location.ALTAR),
+    FORGE(Location.FORGE);
 
-    private final Location locationCard;  // la carte de lieu associée
+    private final Location locationCard;
 
     Infra(Location locationCard) {
         this.locationCard = locationCard;

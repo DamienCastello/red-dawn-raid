@@ -16,6 +16,10 @@ public class RoundFight {
     private Integer defenderReroll;
     private boolean rapidExtra;
 
+    // Valse sanguinaire : détails des jets d'attaque du vampire pour ce combat
+    private java.util.List<Integer> ballroomWaltzRolls;
+    private Integer ballroomWaltzBest;
+
     public RoundFight() {}
 
     public RoundFight(String id, String location, String attackerId, String defenderId) {
@@ -64,4 +68,10 @@ public class RoundFight {
 
     public boolean isRapidExtra() { return rapidExtra; }
     public void setRapidExtra(boolean rapidExtra) { this.rapidExtra = rapidExtra;}
+
+    public java.util.List<Integer> getBallroomWaltzRolls() { return ballroomWaltzRolls; }
+    public void setBallroomWaltzRolls(java.util.List<Integer> rolls) { this.ballroomWaltzRolls = rolls; }
+
+    public Integer getBallroomWaltzBest() { return ballroomWaltzBest; }
+    public void setBallroomWaltzBest(Integer v) { this.ballroomWaltzBest = v; }
 }

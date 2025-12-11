@@ -13,7 +13,7 @@ export type GameEvent =
   | { type: 'RAID_MODS_UPDATED'; gameId: string; payload: { mods?: Record<string, any[]>; playerId?: string }; ts: number }
   | { type: 'CENTER_REVEALED'; gameId: string; payload: {}; ts: number }
   | { type: 'LOCATION_STARTED'; gameId: string; payload: { ownerId: string; username: string; infra: string }; ts: number }
-  | { type: 'LOCATION_USED';    gameId: string; payload: { choice: 'STUDY'|'THEFT'|'OMEN'; playerId: string; username: string; infra: string|null }; ts: number }
+  | { type: 'LOCATION_USED';    gameId: string; payload: { choice: 'STUDY'|'THEFT'|'OMEN'|'EXPERIMENT'|'ALCHEMY'|'RARE_ALCHEMY'|'EXPLOSION'|'DEATH_DANCE'|'SNEAK_ATTACK'|'BLOOD_WALTZ'|'LOOTING'|'HEAL'|'CORRUPT_SOULS'|'CORRUPT'|'PURIFY_WATER'|'FORGE'; playerId: string; username: string; infra: string|null }; ts: number }
   | { type: 'POTION_USED'; gameId: string; payload: { playerId: string; type: string }; ts: number }
   | { type: 'ACTION_USED'; gameId: string; payload: { playerId: string; type: string }; ts: number }
   | { type: 'ACTION_STARTED';   gameId: string; payload: { mode: 'NET'|'PIT'; ownerId: string; location: string; targetId: string | null }; ts: number }

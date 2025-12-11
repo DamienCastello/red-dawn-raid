@@ -379,4 +379,64 @@ public class GameController {
         games.resolveLibraryOmen(id, user.getId(), body.placements);
     }
 
+    public static class ExperimentReq {
+        public Game.MonsterType type;   // REVENANT / GARGOYLE / ABERRATION
+        public String location;    // "forest","quarry","manor","lab", ...
+    }
+
+    @PostMapping("/{id}/effect-experiment")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resolveExperiment(@PathVariable String id,
+                                  @RequestBody ExperimentReq body,
+                                  @RequestHeader("Authorization") String authorization) {
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+
+        if (body == null || body.type == null || body.location == null || body.location.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid experiment payload");
+        }
+
+        games.resolveLaboratoryExperiment(id, user.getId(), body.type, body.location);
+    }
+
+    @PostMapping("/{id}/effect-heal")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resolveAltarHeal(@PathVariable String id,
+                                 @RequestParam String targetId,
+                                 @RequestHeader("Authorization") String authorization) {
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+        games.resolveAltarHeal(id, user.getId(), targetId);
+    }
+
+    @PostMapping("/{id}/effect-corrupt")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resolveAltarCorrupt(@PathVariable String id,
+                                    @RequestParam String targetId,
+                                    @RequestHeader("Authorization") String authorization) {
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+        games.resolveAltarCorrupt(id, user.getId(), targetId);
+    }
+
+    public static class ForgeReq {
+        public String equipCode; // H_WEAPON_T1_SWORD, V_ARMOR_T2_HAUBERT, etc.
+    }
+
+    @PostMapping("/{id}/effect-forge")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resolveForge(@PathVariable String id,
+                             @RequestBody ForgeReq body,
+                             @RequestHeader("Authorization") String authorization) {
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+
+        if (body == null || body.equipCode == null || body.equipCode.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid forge payload");
+        }
+
+        // on utilise toujours le userId authentifié comme owner
+        games.resolveForge(id, user.getId(), body.equipCode);
+    }
+
 }

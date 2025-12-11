@@ -14,6 +14,9 @@ public class Player {
     /** Inventaire de potions (IDs de l'enum Potion sous forme de String). */
     private List<String> potions = new ArrayList<>();
 
+    /** Potions rares / élixirs (deck spécial). */
+    private List<String> elixirs = new ArrayList<>();
+
     /** Inventaire de cartes d'action (IDs de l'enum Action sous forme de String). */
     private List<String> actions = new ArrayList<>();
 
@@ -21,6 +24,21 @@ public class Player {
     private int hp;
     private String attackDice;
     private String defenseDice;
+
+    // --- ÉQUIPEMENT (Forge) ---
+    /**
+     * Code d'équipement d'arme actuellement équipée
+     * (par ex "H_WEAPON_T1_SWORD", "V_WEAPON_T2_SWORD", etc.)
+     * null = équipement de base (T0).
+     */
+    private String weapon;
+
+    /**
+     * Code d'armure actuellement équipée
+     * (par ex "H_ARMOR_T1_BRIGANDINE", "V_ARMOR_T1_CARAPACE", etc.)
+     * null = équipement de base (T0).
+     */
+    private String armor;
 
     // --- RESSOURCES ---
     private int wood;
@@ -58,6 +76,12 @@ public class Player {
     public List<String> getPotions() { return potions; }
     public void setPotions(List<String> potions) { this.potions = (potions != null ? potions : new ArrayList<>()); }
 
+    // --- ELIXIRS (POTIONS RARES) ---
+    public List<String> getElixirs() { return elixirs; }
+    public void setElixirs(List<String> elixirs) {
+        this.elixirs = (elixirs != null ? elixirs : new ArrayList<>());
+    }
+
     // --- ACTIONS ---
     public List<String> getActions() { return actions; }
     public void setActions(List<String> actions) { this.actions = (actions != null ? actions : new ArrayList<>()); }
@@ -87,4 +111,9 @@ public class Player {
     public void setSilver(int v){ this.silver = v; }
     public int getCorruption() { return corruption; }
     public void setCorruption(int corruption) { this.corruption = Math.max(0, Math.min(3, corruption)); }
+    public String getWeapon() { return weapon; }
+    public void setWeapon(String weapon) { this.weapon = weapon; }
+    public String getArmor() { return armor; }
+    public void setArmor(String armor) { this.armor = armor; }
+
 }

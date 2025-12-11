@@ -4,7 +4,9 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { ApiService, GameSnapshot, RawStatMod, Phase, TradeView, Pile } from './api.service';
 import { LiveService, GameEvent } from './live.service';
 
+type RoundFightView = GameSnapshot['combatsQueue'][number];
 type SPlayer = GameSnapshot['players'][number];
+type SMonster = NonNullable<GameSnapshot['monsters']>[number];
 type UiStatMod = RawStatMod & { labelFr?: string; displayOnly?: boolean };
 type DefaultFightInfo = { willFight: boolean; loc?: string; opponentName?: string };
 type TradeStatus = 'PENDING'|'CONFIRMED'|'REFUSED'|'CANCELLED';
@@ -13,6 +15,13 @@ interface STrade {
   id: string; side: TradeSide; aId: string; bId: string;
   offerA: Record<string,number>; offerB: Record<string,number>;
   statusA: TradeStatus; statusB: TradeStatus; updatedAt: number;
+}
+interface ForgeOption {
+  id: string;
+  type: 'WEAPON' | 'ARMOR';
+  tier: 1 | 2 | 3;
+  label: string;
+  desc: string;
 }
 
 @Component({
@@ -73,12 +82,20 @@ interface STrade {
               </div>
 
               <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
-                <img class="mod-ico" [src]="actionIconSrc(m.source)" alt="action"/>
+                <img class="mod-ico" [src]="modIconSrc(m.source)" alt="action"/>
               </div>
 
               <div class="mods-badge-corruption"
                   *ngIf="m.source?.startsWith('CORRUPTION')">
                 <img class="mod-ico" src="/assets/corruption/corruption-icon.png" alt="corruption"/>
+              </div>
+
+              <div class="mods-badge-equip" *ngIf="m.source?.startsWith('EQUIP:')">
+                <img class="mod-ico" [src]="modIconSrc(m.source)" alt="équipement"/>
+              </div>
+
+              <div class="mods-badge-hit" *ngIf="m.source?.startsWith('HIT:')">
+                <img class="mod-ico" [src]="modIconSrc(m.source)" alt="effet de coup"/>
               </div>
               <span class="chip-val">{{ labelOrChip(m) }}</span>
             </span>
@@ -136,7 +153,15 @@ interface STrade {
             </div>
 
             <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
-              <img class="mod-ico" [src]="actionIconSrc(m.source)" alt="action"/>
+              <img class="mod-ico" [src]="modIconSrc(m.source)" alt="action"/>
+            </div>
+
+            <div class="mods-badge-equip" *ngIf="m.source?.startsWith('EQUIP:')">
+              <img class="mod-ico" [src]="modIconSrc(m.source)" alt="équipement"/>
+            </div>
+
+            <div class="mods-badge-hit" *ngIf="m.source?.startsWith('HIT:')">
+              <img class="mod-ico" [src]="modIconSrc(m.source)" alt="effet de coup"/>
             </div>
             <span class="chip-val">{{ labelOrChip(m) }}</span>
           </span>
@@ -205,19 +230,25 @@ interface STrade {
       <section class="panel">
         <h3>Actions & Potions</h3>
         <div>
-          Pioche action chasseur :
+          Pioche action chasseur:
           {{ deckSize(game?.decks?.actionsHunters) }}
           (défausse : {{ discardSize(game?.decks?.actionsHunters) }})
         </div>
 
         <div>
-          Pioche potions :
+          Pioche potions:
           {{ deckSize(game?.decks?.potions) }}
           (défausse : {{ discardSize(game?.decks?.potions) }})
         </div>
 
         <div>
-          Pioche action vampire :
+          Pioche elixirs:
+          {{ deckSize(game?.decks?.elixirs) }}
+          (défausse : {{ discardSize(game?.decks?.elixirs) }})
+        </div>
+
+        <div>
+          Pioche action vampire:
           {{ deckSize(game?.decks?.actionsVamp) }}
           (défausse : {{ discardSize(game?.decks?.actionsVamp) }})
         </div>
@@ -276,12 +307,20 @@ interface STrade {
             </div>
 
             <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
-              <img class="mod-ico" [src]="actionIconSrc(m.source)" alt="action"/>
+              <img class="mod-ico" [src]="modIconSrc(m.source)" alt="action"/>
             </div>
 
             <div class="mods-badge-corruption"
                 *ngIf="m.source?.startsWith('CORRUPTION')">
               <img class="mod-ico" src="/assets/corruption/corruption-icon.png" alt="corruption"/>
+            </div>
+            
+            <div class="mods-badge-equip" *ngIf="m.source?.startsWith('EQUIP:')">
+              <img class="mod-ico" [src]="modIconSrc(m.source)" alt="équipement"/>
+            </div>
+
+            <div class="mods-badge-hit" *ngIf="m.source?.startsWith('HIT:')">
+              <img class="mod-ico" [src]="modIconSrc(m.source)" alt="effet de coup"/>
             </div>
             <span class="chip-val">{{ labelOrChip(m) }}</span>
           </span>
@@ -316,6 +355,16 @@ interface STrade {
             {{ actionLabelFr(action) }}
           </button>
           <button *ngFor="let potion of myPotions()"
+                  class="card-btn"
+                  [class.is-disabled]="!canUsePotionNow(potion)"
+                  [attr.aria-disabled]="!canUsePotionNow(potion) ? true : null"
+                  (click)="onPotionClick(potion)"
+                  [title]="canUsePotionNow(potion)
+                  ? 'Utiliser maintenant (préparation au combat)'
+                  : 'Disponible uniquement en PREPHASE3 si vous participez à un combat'">
+            {{ potionLabelFr(potion) }}
+          </button>
+                    <button *ngFor="let potion of myElixirs()"
                   class="card-btn"
                   [class.is-disabled]="!canUsePotionNow(potion)"
                   [attr.aria-disabled]="!canUsePotionNow(potion) ? true : null"
@@ -405,58 +454,152 @@ interface STrade {
     <div class="modal location-modal" [style.backgroundImage]="setImageBackground('location')">
       <h3 style="margin-top:0" class="bg-badge">
         {{ modalTitle(r) }}
+        <ng-container *ngIf="monsterHpInCombat(r) as hp">
+          &nbsp;— <span>{{ hp }} PV</span>
+        </ng-container>
       </h3>
           <div class="bg-badge" *ngIf="isMyFocusFirstStep">
             Potion de focalisation : vous pouvez relancer ce dé et garder le meilleur.
           </div>
-      <div class="content action">
+      <div class="content action" style="margin-top: 30px;">
         <!-- On affiche le dé du joueur courant, avec icône -->
         
         <ng-container *ngIf="waitingForMyRoll as side">
-          <ng-container *ngIf="side==='ATTACK'; else defenseSide">
-            <!-- ATTAQUANT -->
-            <div class="roll-row">
+          <ng-container *ngIf="side === 'ATTACK'; else defenseSide">
+            <!-- ===================== -->
+            <!--        ATTAQUANT      -->
+            <!-- ===================== -->
+            <div class="roll-row" style="margin-top: 30px;">
               <!-- Icône (à gauche) -->
               <div class="icon-bubble oval">
-                <div class="icon-halo" [ngClass]="(getPlayer(r.attackerId)?.role==='VAMPIRE') ? 'round' : 'oval'">
+                <div class="icon-halo"
+                    [ngClass]="(getPlayer(r.attackerId)?.role === 'VAMPIRE') ? 'round' : 'oval'">
                   <img class="icon-side"
                       [src]="roleIcon(getRole(getPlayer(r.attackerId)),'sword')"
                       alt="attaque"/>
                 </div>
               </div>
 
-              <!-- Gros dé principal -->
-              <div class="dice-wrap">
-                <img class="dice-big"
-                    [src]="diceAsset(getPlayer(r.attackerId)?.attackDice,
-                                    roleColorOf(getPlayer(r.attackerId)))"
-                    alt="dice"/>
-                <div class="dice-overlay" *ngIf="r.attackerRoll != null">
-                  {{ r.attackerReroll }}
-                </div>
-              </div>
+              <!-- CAS 1 : Valse + Foca -->
+              <ng-container *ngIf="isBallroomWaltzFight(r) && hasFocus(r.attackerId); else noWaltzFocusCombo">
 
-              <!-- Colonne "Premier jet" (uniquement en focalisation, entre 1er et 2e dé) -->
-              <div class="focus-column"
-                  *ngIf="hasFocus(r.attackerId)
-                          && r.attackerId === meId
-                          && r.attackerFirstRoll != null
-                          && r.attackerRoll == null">
-                <div class="bg-badge focus-label">
-                  Premier jet d'attaque
-                </div>
-                <div class="dice-wrap focus-small">
-                  <img class="dice"
-                      [src]="diceAsset(getPlayer(r.attackerId)?.attackDice,
-                                        roleColorOf(getPlayer(r.attackerId)))"
-                      alt="premier dé"/>
-                  <div class="dice-overlay">
-                    {{ r.attackerFirstRoll }}
+                <div class="dice-column">
+                  <!-- Valse -->
+                  <div class="dice-section">
+                    <div class="dice-label global bg-badge">Dés de valse sanguinaire</div>
+                    <div class="waltz-dice-grid">badge-weather
+                      <div class="dice-with-label valse-die"
+                          *ngFor="let _ of waltzPlaceholderDice(); let i = index">
+                        <div class="dice-wrap waltz-verysmall">
+                          <img class="dice-verysmall"
+                              [src]="diceAsset(getPlayer(r.attackerId)?.attackDice,
+                                                roleColorOf(getPlayer(r.attackerId)))"
+                              alt="dé valse"/>
+                          <div class="dice-overlay-small" *ngIf="waltzRolls.length">
+                            {{ waltzRolls[i] }}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Focalisation -->
+                  <div class="dice-section focus-single">
+                    <div class="dice-label bg-badge">Dé de focalisation</div>
+                    <div class="dice-wrap waltz-small">
+                      <img class="dice"
+                          [src]="diceAsset(getPlayer(r.attackerId)?.attackDice,
+                                            roleColorOf(getPlayer(r.attackerId)))"
+                          alt="dé de focalisation"/>
+                      <div class="dice-overlay-small" *ngIf="r.attackerReroll != null">
+                        {{ r.attackerReroll }}
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
 
+              </ng-container>
+
+              <!-- Pas combo Valse+Foca -->
+              <ng-template #noWaltzFocusCombo>
+
+                <!-- CAS 2 : Valse seule -->
+                <ng-container *ngIf="isBallroomWaltzFight(r); else noWaltz">
+
+                  <div class="dice-column">
+                    <div class="dice-section">
+                      <div class="dice-label global">Dés de valse sanguinaire</div>
+                      <div class="waltz-dice-grid">
+                        <div class="dice-with-label valse-die"
+                            *ngFor="let _ of waltzPlaceholderDice(); let i = index">
+                          <div class="dice-wrap waltz-verysmall">
+                            <img class="dice-verysmall"
+                                [src]="diceAsset(getPlayer(r.attackerId)?.attackDice,
+                                                  roleColorOf(getPlayer(r.attackerId)))"
+                                alt="dé valse"/>
+                            <div class="dice-overlay-small" *ngIf="waltzRolls.length">
+                              {{ waltzRolls[i] }}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                </ng-container>
+
+                <!-- CAS 3 : pas de Valse -->
+                <ng-template #noWaltz>
+
+                  <!-- Focalisation seule : 2 petits dés -->
+                  <ng-container *ngIf="hasFocus(r.attackerId); else singleBigDice">
+                    <div class="dice-pair">
+                      <!-- Dé de base -->
+                      <div class="dice-with-label">
+                        <div class="dice-label bg-badge">Dé de base</div>
+                        <div class="dice-wrap">
+                          <img class="dice"
+                              [src]="diceAsset(getPlayer(r.attackerId)?.attackDice,
+                                                roleColorOf(getPlayer(r.attackerId)))"
+                              alt="dé de base"/>
+                          <div class="dice-overlay" *ngIf="r.attackerFirstRoll != null">
+                            {{ r.attackerFirstRoll }}
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Dé de Focalisation -->
+                      <div class="dice-with-label">
+                        <div class="dice-label bg-badge">Dé de focalisation</div>
+                        <div class="dice-wrap">
+                          <img class="dice"
+                              [src]="diceAsset(getPlayer(r.attackerId)?.attackDice,
+                                                roleColorOf(getPlayer(r.attackerId)))"
+                              alt="dé de focalisation"/>
+                          <div class="dice-overlay" *ngIf="r.attackerReroll != null">
+                            {{ r.attackerReroll }}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </ng-container>
+
+                  <!-- CAS 4 : ni Valse ni Foca → gros dé classique -->
+                  <ng-template #singleBigDice>
+                    <div class="dice-wrap">
+                      <img class="dice-big"
+                          [src]="diceAsset(getPlayer(r.attackerId)?.attackDice,
+                                            roleColorOf(getPlayer(r.attackerId)))"
+                          alt="dice"/>
+                      <div class="dice-overlay" *ngIf="r.attackerRoll != null">
+                        {{ r.attackerRoll }}
+                      </div>
+                    </div>
+                  </ng-template>
+
+                </ng-template>
+              </ng-template>
+            </div>
             <ng-container *ngIf="modsForStat(getPlayer(r.attackerId), 'ATTACK') as atkMods">
               <div class="mods-row" *ngIf="atkMods.length">
                 <span class="mod-chip" *ngFor="let m of atkMods" [title]="titleFor(m)">
@@ -469,12 +612,20 @@ interface STrade {
                   </div>
 
                   <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
-                    <img class="mod-ico" [src]="actionIconSrc(m.source)" alt="action"/>
+                    <img class="mod-ico" [src]="modIconSrc(m.source)" alt="action"/>
                   </div>
 
                   <div class="mods-badge-corruption"
                       *ngIf="m.source?.startsWith('CORRUPTION')">
                     <img class="mod-ico" src="/assets/corruption/corruption-icon.png" alt="corruption"/>
+                  </div>
+
+                  <div class="mods-badge-equip" *ngIf="m.source?.startsWith('EQUIP:')">
+                    <img class="mod-ico" [src]="modIconSrc(m.source)" alt="équipement"/>
+                  </div>
+
+                  <div class="mods-badge-hit" *ngIf="m.source?.startsWith('HIT:')">
+                    <img class="mod-ico" [src]="modIconSrc(m.source)" alt="effet de coup"/>
                   </div>
                   <span class="chip-val">{{ labelOrChip(m) }}</span>
                 </span>
@@ -482,7 +633,9 @@ interface STrade {
             </ng-container>
           </ng-container>
           <ng-template #defenseSide>
-            <!-- DEFENSEUR -->
+            <!-- ===================== -->
+            <!--       DEFENSEUR       -->
+            <!-- ===================== -->
             <div class="roll-row">
               <!-- Icône à gauche -->
               <div class="icon-bubble oval">
@@ -493,36 +646,51 @@ interface STrade {
                 </div>
               </div>
 
-              <!-- Gros dé principal -->
-              <div class="dice-wrap">
-                <img class="dice-big"
-                    [src]="diceAsset(getPlayer(r.defenderId)?.defenseDice,
-                                    roleColorOf(getPlayer(r.defenderId)))"
-                    alt="dice"/>
-                <div class="dice-overlay" *ngIf="r.defenderRoll != null">
-                  {{ r.defenderReroll }}
-                </div>
-              </div>
+              <!-- Focalisation seule (défenseur) -->
+              <ng-container *ngIf="hasFocus(r.defenderId); else defSingleBig">
+                <div class="dice-pair">
+                  <!-- Dé de base -->
+                  <div class="dice-with-label">
+                    <div class="dice-label bg-badge">Dé de base</div>
+                    <div class="dice-wrap">
+                      <img class="dice"
+                          [src]="diceAsset(getPlayer(r.defenderId)?.defenseDice,
+                                            roleColorOf(getPlayer(r.defenderId)))"
+                          alt="dé de base"/>
+                      <div class="dice-overlay" *ngIf="r.defenderFirstRoll != null">
+                        {{ r.defenderFirstRoll }}
+                      </div>
+                    </div>
+                  </div>
 
-              <!-- Colonne "Premier jet" pour la défense -->
-              <div class="focus-column"
-                  *ngIf="hasFocus(r.defenderId)
-                          && r.defenderId === meId
-                          && r.defenderFirstRoll != null
-                          && r.defenderRoll == null">
-                <div class="bg-badge focus-label">
-                  Premier jet de défense
-                </div>
-                <div class="dice-wrap focus-small">
-                  <img class="dice"
-                      [src]="diceAsset(getPlayer(r.defenderId)?.defenseDice,
-                                        roleColorOf(getPlayer(r.defenderId)))"
-                      alt="premier dé"/>
-                  <div class="dice-overlay">
-                    {{ r.defenderFirstRoll }}
+                  <!-- Dé de focalisation -->
+                  <div class="dice-with-label">
+                    <div class="dice-label bg-badge">Dé de focalisation</div>
+                    <div class="dice-wrap">
+                      <img class="dice"
+                          [src]="diceAsset(getPlayer(r.defenderId)?.defenseDice,
+                                            roleColorOf(getPlayer(r.defenderId)))"
+                          alt="dé de focalisation"/>
+                      <div class="dice-overlay" *ngIf="r.defenderReroll != null">
+                        {{ r.defenderReroll }}
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </ng-container>
+
+              <!-- Pas de Foca : gros dé comme avant -->
+              <ng-template #defSingleBig>
+                <div class="dice-wrap">
+                  <img class="dice-big"
+                      [src]="diceAsset(getPlayer(r.defenderId)?.defenseDice,
+                                        roleColorOf(getPlayer(r.defenderId)))"
+                      alt="dice"/>
+                  <div class="dice-overlay" *ngIf="r.defenderRoll != null">
+                    {{ r.defenderRoll }}
+                  </div>
+                </div>
+              </ng-template>
             </div>
 
             <ng-container *ngIf="modsForStat(getPlayer(r.defenderId), 'DEFENSE') as defMods">
@@ -537,18 +705,27 @@ interface STrade {
                   </div>
 
                   <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
-                    <img class="mod-ico" [src]="actionIconSrc(m.source)" alt="action"/>
+                    <img class="mod-ico" [src]="modIconSrc(m.source)" alt="action"/>
                   </div>
 
                   <div class="mods-badge-corruption"
                       *ngIf="m.source?.startsWith('CORRUPTION')">
                     <img class="mod-ico" src="/assets/corruption/corruption-icon.png" alt="corruption"/>
                   </div>
+
+                  <div class="mods-badge-equip" *ngIf="m.source?.startsWith('EQUIP:')">
+                    <img class="mod-ico" [src]="modIconSrc(m.source)" alt="équipement"/>
+                  </div>
+
+                  <div class="mods-badge-hit" *ngIf="m.source?.startsWith('HIT:')">
+                    <img class="mod-ico" [src]="modIconSrc(m.source)" alt="effet de coup"/>
+                  </div>
                   <span class="chip-val">{{ labelOrChip(m) }}</span>
                 </span>
               </div>
             </ng-container>
           </ng-template>
+
         </ng-container>
       </div>
 
@@ -568,13 +745,16 @@ interface STrade {
         [style.backgroundImage]="setImageBackground('location')">
       <h3 style="margin-top:0" class="bg-badge">
         {{ modalTitle(r) }}
+        <ng-container *ngIf="monsterHpInCombat(r) as hp">
+          &nbsp;— <span>{{ hp }} PV</span>
+        </ng-container>
       </h3>
 
       <div class="content spectate">
         <!-- Côté attaquant -->
         <div class="side">
           <!-- Colonne mods à GAUCHE -->
-          <ng-container *ngIf="modsForStat(getPlayer(r.attackerId), 'ATTACK') as atkMods">
+          <ng-container *ngIf="modsForEntityStat(r.attackerId, 'ATTACK') as atkMods">
             <div class="mods-col left" *ngIf="atkMods.length">
               <div class="mods-row">
                 <span class="mod-chip" *ngFor="let m of atkMods" [title]="titleFor(m)">
@@ -587,12 +767,20 @@ interface STrade {
                   </div>
 
                   <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
-                    <img class="mod-ico" [src]="actionIconSrc(m.source)" alt="action"/>
+                    <img class="mod-ico" [src]="modIconSrc(m.source)" alt="action"/>
                   </div>
 
                   <div class="mods-badge-corruption"
                       *ngIf="m.source?.startsWith('CORRUPTION')">
                     <img class="mod-ico" src="/assets/corruption/corruption-icon.png" alt="corruption"/>
+                  </div>
+
+                  <div class="mods-badge-equip" *ngIf="m.source?.startsWith('EQUIP:')">
+                    <img class="mod-ico" [src]="modIconSrc(m.source)" alt="équipement"/>
+                  </div>
+
+                  <div class="mods-badge-hit" *ngIf="m.source?.startsWith('HIT:')">
+                    <img class="mod-ico" [src]="modIconSrc(m.source)" alt="effet de coup"/>
                   </div>
                   <span class="chip-val">{{ labelOrChip(m) }}</span>
                 </span>
@@ -601,48 +789,125 @@ interface STrade {
           </ng-container>
 
           <div class="icon-halo oval"
-              [ngClass]="(getPlayer(r.attackerId)?.role==='VAMPIRE') ? 'round' : 'oval'">
+              [ngClass]="entityHaloIcon(r.attackerId)">
             <img class="icon-side"
-                [src]="roleIcon(getRole(getPlayer(r.attackerId)),'sword')"
+                [src]="entityRoleIcon(r.attackerId,'sword')"
                 alt="attaque"/>
           </div>
 
           <div class="dice-row">
-            <ng-container *ngIf="showFocusSpectate(r.attackerId); else attackerSingleDie">
-              <!-- Layout 2 dés (FOCA) AVANT la morsure -->
-              <div class="dice-wrap">
-                <img class="dice"
-                    [src]="diceAsset(getPlayer(r.attackerId)?.attackDice,
-                                      roleColorOf(getPlayer(r.attackerId)))"
-                    alt="premier dé"/>
-                <div class="dice-overlay" *ngIf="r.attackerFirstRoll != null">
-                  {{ r.attackerFirstRoll }}
-                </div>
-              </div>
+            <!-- CAS 1 : duel de Valse -->
+            <ng-container *ngIf="isBallroomWaltzFight(r); else spectateNoWaltz">
 
-              <div class="dice-wrap">
-                <img class="dice"
-                    [src]="diceAsset(getPlayer(r.attackerId)?.attackDice,
-                                      roleColorOf(getPlayer(r.attackerId)))"
-                    alt="dé de focalisation"/>
-                <div class="dice-overlay" *ngIf="r.attackerRoll != null">
-                  {{ r.attackerReroll }}
+              <!-- Valse + Foca ? -->
+              <ng-container *ngIf="hasFocus(r.attackerId); else spectateValseOnly">
+                <div class="dice-column">
+                  <!-- Valse -->
+                  <div class="dice-section">
+                    <div class="dice-label global bg-badge">Dés de valse sanguinaire</div>
+                    <div class="waltz-dice-grid">
+                      <div class="dice-with-label valse-die"
+                          *ngFor="let _ of waltzPlaceholderDice(); let i = index">
+                        <div class="dice-wrap waltz-verysmall">
+                          <img class="dice-verysmall"
+                              [src]="diceAsset(entityAttackDice(r.attackerId),
+                                                entityColor(r.attackerId))"
+                              alt="dé valse"/>
+                          <div class="dice-overlay-small" *ngIf="waltzRolls.length">
+                            {{ waltzRolls[i] }}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Foca sous les dés de Valse -->
+                  <div class="dice-section focus-single">
+                    <div class="dice-label bg-badge">Dé de focalisation</div>
+                    <div class="dice-wrap waltz-verysmall">
+                      <img class="dice-verysmall"
+                          [src]="diceAsset(entityAttackDice(r.attackerId),
+                                            entityColor(r.attackerId))"
+                          alt="dé focalisation"/>
+                      <div class="dice-overlay-small" *ngIf="r.attackerReroll != null">
+                        {{ r.attackerReroll }}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              </ng-container>
+
+              <!-- Valse seule -->
+              <ng-template #spectateValseOnly>
+                <div class="dice-column">
+                  <div class="dice-section">
+                    <div class="dice-label global">Dés de valse sanguinaire</div>
+                    <div class="waltz-dice-grid">
+                      <div class="dice-with-label valse-die"
+                          *ngFor="let _ of waltzPlaceholderDice(); let i = index">
+                        <div class="dice-wrap waltz-verysmall">
+                          <img class="dice-verysmall"
+                              [src]="diceAsset(entityAttackDice(r.attackerId),
+                                                entityColor(r.attackerId))"
+                              alt="dé valse"/>
+                          <div class="dice-overlay-small" *ngIf="waltzRolls.length">
+                            {{ waltzRolls[i] }}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </ng-template>
+
             </ng-container>
 
-            <!-- Layout classique : un seul dé (utilisé dès que currentBite existe) -->
-            <ng-template #attackerSingleDie>
-              <div class="dice-wrap">
-                <img class="dice"
-                    [src]="diceAsset(getPlayer(r.attackerId)?.attackDice,
-                                      roleColorOf(getPlayer(r.attackerId)))"
-                    alt="dice"/>
-                <div class="dice-overlay"
-                    *ngIf="(r.attackerRoll ?? r.attackerFirstRoll) != null">
-                  {{ r.attackerRoll ?? r.attackerFirstRoll }}
+            <!-- PAS VALSE -->
+            <ng-template #spectateNoWaltz>
+              <!-- Foca seule : 2 petits dés avec labels -->
+              <ng-container *ngIf="showFocusSpectate(r.attackerId); else attackerSingleDice">
+                <div class="dice-pair">
+                  <div class="dice-with-label">
+                    <div class="dice-label bg-badge">Dé de base</div>
+                    <div class="dice-wrap waltz-verysmall">
+                      <img class="dice-verysmall"
+                          [src]="diceAsset(entityAttackDice(r.attackerId),
+                                            entityColor(r.attackerId))"
+                          alt="premier dé"/>
+                      <div class="dice-overlay-small" *ngIf="r.attackerFirstRoll != null">
+                        {{ r.attackerFirstRoll }}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="dice-with-label">
+                    <div class="dice-label bg-badge">Dé de focalisation</div>
+                    <div class="dice-wrap waltz-verysmall">
+                      <img class="dice-verysmall"
+                          [src]="diceAsset(entityAttackDice(r.attackerId),
+                                            entityColor(r.attackerId))"
+                          alt="dé de focalisation"/>
+                      <div class="dice-overlay-small" *ngIf="r.attackerReroll != null">
+                        {{ r.attackerReroll }}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              </ng-container>
+
+              <!-- Ni Foca ni Valse : un seul dé comme avant -->
+              <ng-template #attackerSingleDice>
+                <div class="dice-wrap">
+                  <img class="dice-big"
+                      [src]="diceAsset(entityAttackDice(r.attackerId),
+                                        entityColor(r.attackerId))"
+                      alt="dice"/>
+                  <div class="dice-overlay"
+                      *ngIf="(r.attackerRoll ?? r.attackerFirstRoll) != null">
+                    {{ r.attackerRoll ?? r.attackerFirstRoll }}
+                  </div>
+                </div>
+              </ng-template>
             </ng-template>
           </div>
         </div>
@@ -650,7 +915,7 @@ interface STrade {
         <!-- Côté défenseur -->
         <div class="side">
           <!-- Colonne mods à DROITE -->
-          <ng-container *ngIf="modsForStat(getPlayer(r.defenderId), 'DEFENSE') as defMods">
+          <ng-container *ngIf="modsForEntityStat(r.defenderId, 'DEFENSE') as defMods">
             <div class="mods-col right" *ngIf="defMods.length">
               <div class="mods-row">
                 <span class="mod-chip" *ngFor="let m of defMods" [title]="titleFor(m)">
@@ -663,59 +928,76 @@ interface STrade {
                   </div>
 
                   <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
-                    <img class="mod-ico" [src]="actionIconSrc(m.source)" alt="action"/>
+                    <img class="mod-ico" [src]="modIconSrc(m.source)" alt="action"/>
                   </div>
 
                   <div class="mods-badge-corruption"
                       *ngIf="m.source?.startsWith('CORRUPTION')">
                     <img class="mod-ico" src="/assets/corruption/corruption-icon.png" alt="corruption"/>
                   </div>
+
+                  <div class="mods-badge-equip" *ngIf="m.source?.startsWith('EQUIP:')">
+                    <img class="mod-ico" [src]="modIconSrc(m.source)" alt="équipement"/>
+                  </div>
+
+                  <div class="mods-badge-hit" *ngIf="m.source?.startsWith('HIT:')">
+                    <img class="mod-ico" [src]="modIconSrc(m.source)" alt="effet de coup"/>
+                  </div>
                   <span class="chip-val">{{ labelOrChip(m) }}</span>
                 </span>
               </div>
             </div>
           </ng-container>
-
-          <div class="icon-halo oval">
+          <div class="icon-halo oval"
+              [ngClass]="isVampSideEntity(r.defenderId) ? 'round' : 'oval'">
             <img class="icon-side"
-                [src]="roleIcon(getRole(getPlayer(r.defenderId)),'armor')"
+                [src]="entityRoleIcon(r.defenderId,'armor')"
                 alt="défense"/>
           </div>
 
           <div class="dice-row">
-            <ng-container *ngIf="showFocusSpectate(r.defenderId); else defenderSingleDie">
-              <!-- 2 dés FOCA AVANT la morsure -->
-              <div class="dice-wrap">
-                <img class="dice"
-                    [src]="diceAsset(getPlayer(r.defenderId)?.defenseDice,
-                                      roleColorOf(getPlayer(r.defenderId)))"
-                    alt="premier dé"/>
-                <div class="dice-overlay" *ngIf="r.defenderFirstRoll != null">
-                  {{ r.defenderFirstRoll }}
+            <!-- Focalisation seule (défenseur) -->
+            <ng-container *ngIf="hasFocus(r.defenderId); else defSingleBig">
+              <div class="dice-pair">
+                <!-- Dé de base -->
+                <div class="dice-with-label">
+                  <div class="dice-label bg-badge">Dé de base</div>
+                  <div class="dice-wrap waltz-verysmall">
+                    <img class="dice-verysmall"
+                        [src]="diceAsset(getPlayer(r.defenderId)?.defenseDice,
+                                          roleColorOf(getPlayer(r.defenderId)))"
+                        alt="dé de base"/>
+                    <div class="dice-overlay-small" *ngIf="r.defenderFirstRoll != null">
+                      {{ r.defenderFirstRoll }}
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              <div class="dice-wrap">
-                <img class="dice"
-                    [src]="diceAsset(getPlayer(r.defenderId)?.defenseDice,
-                                      roleColorOf(getPlayer(r.defenderId)))"
-                    alt="dé de focalisation"/>
-                <div class="dice-overlay" *ngIf="r.defenderRoll != null">
-                  {{ r.defenderReroll }}
+                <!-- Dé de focalisation -->
+                <div class="dice-with-label">
+                  <div class="dice-label bg-badge">Dé de focalisation</div>
+                  <div class="dice-wrap waltz-verysmall">
+                    <img class="dice-verysmall"
+                        [src]="diceAsset(getPlayer(r.defenderId)?.defenseDice,
+                                          roleColorOf(getPlayer(r.defenderId)))"
+                        alt="dé de focalisation"/>
+                    <div class="dice-overlay-small" *ngIf="r.defenderReroll != null">
+                      {{ r.defenderReroll }}
+                    </div>
+                  </div>
                 </div>
               </div>
             </ng-container>
 
-            <!-- Layout classique : un seul dé -->
-            <ng-template #defenderSingleDie>
+            <!-- Pas de Foca : gros dé comme avant -->
+            <ng-template #defSingleBig>
               <div class="dice-wrap">
-                <img class="dice"
-                    [src]="diceAsset(getPlayer(r.defenderId)?.defenseDice,
-                                      roleColorOf(getPlayer(r.defenderId)))"
+                <img class="dice-big"
+                    [src]="diceAsset(entityDefenseDice(r.defenderId),
+                                      entityColor(r.defenderId))"
                     alt="dice"/>
-                <div class="dice-overlay"
-                    *ngIf="(r.defenderRoll ?? r.defenderFirstRoll) != null">
-                  {{ r.defenderRoll ?? r.defenderFirstRoll }}
+                <div class="dice-overlay" *ngIf="r.defenderRoll != null">
+                  {{ r.defenderRoll }}
                 </div>
               </div>
             </ng-template>
@@ -742,28 +1024,56 @@ interface STrade {
           </div>
         </div>
 
-        <div class="dice-wrap" [attr.data-digits]="1">
-          <img class="dice-big" src="/assets/dices/d6-red.png" alt="d6"/>
-          <div class="dice-overlay" *ngIf="game?.currentBite?.roll != null">
-            {{ game?.currentBite?.roll }}
+        <div class="dice-row">
+          <!-- D6 de morsure -->
+          <div class="dice-wrap" [attr.data-digits]="1">
+            <img class="dice-big" src="/assets/dices/d6-red.png" alt="d6"/>
+            <div class="dice-overlay" *ngIf="game?.currentBite?.roll != null">
+              {{ game?.currentBite?.roll }}
+            </div>
+          </div>
+
+          <!-- D4 d’armure (si armure d’argent concernée) -->
+          <div class="dice-wrap"
+              *ngIf="showArmorDie"
+              [attr.data-digits]="1">
+            <!-- adapte le visuel si tu n’as pas de d4 -->
+            <img class="dice-big" src="/assets/dices/d4-white.png" alt="d4"/>
+            <div class="dice-overlay" *ngIf="game?.currentBite?.armorRoll != null">
+              {{ game?.currentBite?.armorRoll }}
+            </div>
           </div>
         </div>
       </div>
 
       <div class="footer">
-        <!-- avant le jet -->
-        <ng-container *ngIf="game?.currentBite?.roll == null; else biteResult">
+        <!-- Étape 1 : jet de morsure (D6) -->
+        <ng-container *ngIf="biteStage() === 'BITE'; else afterFirstRoll">
           <ng-container *ngIf="canRollBite(); else waitBite">
             <button (click)="rollCorruption()" class="btn-primary">Jeter le dé</button>
           </ng-container>
-          <ng-template #waitBite >
+          <ng-template #waitBite>
             <span class="bg-badge">En attente du jet…</span>
           </ng-template>
         </ng-container>
 
-        <!-- après le jet -->
-        <ng-template #biteResult>
-          <span class="bg-badge">{{ biteResultText() }}</span>
+        <!-- Étape 2 : jet d’armure (D4) ou résultat final -->
+        <ng-template #afterFirstRoll>
+          <!-- Jet d’armure en attente -->
+          <ng-container *ngIf="biteStage() === 'ARMOR'; else finalResult">
+            <ng-container *ngIf="canRollArmor(); else waitArmor">
+              <button (click)="rollArmor()" class="btn-primary">Jet d’armure (d4)</button>
+            </ng-container>
+            <ng-template #waitArmor>
+              <span class="bg-badge">En attente du jet d’armure…</span>
+            </ng-template>
+          </ng-container>
+
+          <!-- Résultat final -->
+          <ng-template #finalResult>
+            <span class="bg-badge">{{ biteResultText() }}</span>
+            <span class="bg-badge">{{ altarRitualText() }}</span>
+          </ng-template>
         </ng-template>
       </div>
     </div>
@@ -1142,19 +1452,43 @@ interface STrade {
           <button *ngIf="!(game?.builtInfras?.includes('SAWMILL'))"
            (click)="onChooseInfra('SAWMILL')">
             Scierie<br />
-            <small>(Forêt · 5 pierre, 3 fer)</small>
+            <small>(Forêt · 5 pierres, 3 fers)</small>
           </button>
 
           <button *ngIf="!(game?.builtInfras?.includes('MINE'))"
            (click)="onChooseInfra('MINE')">
             Mine<br />
-            <small>(Carrière · 6 bois, 2 fer)</small>
+            <small>(Carrière · 6 bois, 2 fers)</small>
           </button>
 
           <button *ngIf="!(game?.builtInfras?.includes('LIBRARY'))"
            (click)="onChooseInfra('LIBRARY')">
             Bibliothèque<br />
-            <small>(Carrière · 8 bois, 4 pierre, 2 fer)</small>
+            <small>(Manoir · 8 bois, 4 pierres, 2 fers)</small>
+          </button>
+
+          <button *ngIf="!(game?.builtInfras?.includes('LABORATORY'))"
+          (click)="onChooseInfra('LABORATORY')">
+            Laboratoire<br />
+            <small>(Manoir · 5 eaux pures, 5 herbes médicinales, 3 pierres, 50 âmes)</small>
+          </button>
+
+          <button *ngIf="!(game?.builtInfras?.includes('BALLROOM'))"
+          (click)="onChooseInfra('BALLROOM')">
+            Salle de bal<br />
+            <small>(Manoir · 8 pierres, 2 fers, 50 âmes)</small>
+          </button>
+
+          <button *ngIf="!(game?.builtInfras?.includes('ALTAR'))"
+                  (click)="onChooseInfra('ALTAR')">
+            Autel<br />
+            <small>(Manoir · 4 pierres, 2 bois, 2 fers, 50 âmes)</small>
+          </button>
+
+          <button *ngIf="!(game?.builtInfras?.includes('FORGE'))"
+                  (click)="onChooseInfra('FORGE')">
+            Forge<br />
+            <small>(Manoir · 8 fers, 4 pierres, 2 bois)</small>
           </button>
         </div>
 
@@ -1174,14 +1508,14 @@ interface STrade {
       </div>
     </div>
   </div>
-  <!-- ===== MODALE SELECTION EFFET DE LIEU ===== -->
+  <!-- ===== MODALE SELECTION EFFET DE LIEU: LIBRARY ===== -->
   <div class="modal-backdrop"
       *ngIf="game?.locationEffectPending 
       && game?.locationEffectInfra === 'LIBRARY'
       && !locationActionModalOpen"
   >
     <div class="modal construction-modal location-effect-modal"
-        style="background-image: url('/assets/locations/library.png')">
+        [style.backgroundImage]="locationEffectBackground()">
       <div class="modal-overlay-content">
         <h2>Bibliothèque occulte</h2>
 
@@ -1257,13 +1591,381 @@ interface STrade {
       </div>
     </div>
   </div>
+  <!-- ===== MODALE SELECTION EFFET DE LIEU : LABORATORY ===== -->
+  <div class="modal-backdrop"
+      *ngIf="game?.locationEffectPending 
+            && game?.locationEffectInfra === 'LABORATORY'
+            && !locationActionModalOpen">
+    <div class="modal construction-modal location-effect-modal"
+        [style.backgroundImage]="locationEffectBackground()">
+      <div class="modal-overlay-content">
+        <h2>Laboratoire occulte</h2>
+
+        <p class="bg-badge">
+          <ng-container *ngIf="game?.locationEffectOwnerId as ownerId">
+            <ng-container *ngIf="ownerId === me?.id; else labOtherOwner">
+              Vous devez choisir un effet du Laboratoire pour ce raid.
+            </ng-container>
+            <ng-template #labOtherOwner>
+              {{ usernameOf(ownerId) }} choisit un effet du Laboratoire…
+            </ng-template>
+          </ng-container>
+        </p>
+
+        <div class="modal-button-row" *ngIf="isLocationEffectOwner">
+          <!-- EXPERIMENT -->
+          <button
+            type="button"
+            class="effect-option"
+            (click)="onEffectOptionClick('EXPERIMENT')"
+            [disabled]="!canChooseLocationEffect || !canUseExperiment()"
+            [class.selected]="effectChoice === 'EXPERIMENT'">
+            Expérience occulte<br />
+            <small>Invoquer une créature et l’envoyer défendre un lieu.</small>
+          </button>
+
+          <!-- ALCHEMY -->
+          <button
+            type="button"
+            class="effect-option"
+            (click)="onEffectOptionClick('ALCHEMY')"
+            [disabled]="!canChooseLocationEffect"
+            [class.selected]="effectChoice === 'ALCHEMY'">
+            Alchimie<br />
+            <small>Préparer 1 potion (commune) gratuitement.</small>
+          </button>
+
+          <!-- RARE_ALCHEMY -->
+          <button
+            type="button"
+            class="effect-option"
+            (click)="onEffectOptionClick('RARE_ALCHEMY')"
+            [disabled]="!canChooseLocationEffect || !canUseRareAlchemy()"
+            [class.selected]="effectChoice === 'RARE_ALCHEMY'">
+            Alchimie rare<br />
+            <small>Préparer 1 potion rare (6 eau, 6 herbes).</small>
+
+            <div class="warning" *ngIf="!canUseRareAlchemy()">
+              <small>Ressources insuffisantes.</small>
+            </div>
+          </button>
+
+          <!-- EXPLOSION -->
+          <button
+            type="button"
+            class="effect-option"
+            (click)="onEffectOptionClick('EXPLOSION')"
+            [disabled]="!canChooseLocationEffect || !canUseExplosion()"
+            [class.selected]="effectChoice === 'EXPLOSION'">
+            Explosion alchimique<br />
+            <small>Détruire le Laboratoire (chasseur uniquement).</small>
+          </button>
+        </div>
+
+        <div class="modal-button-row footer-row" *ngIf="isLocationEffectOwner">
+          <button
+            type="button"
+            (click)="chooseLocationEffect()"
+            [disabled]="!canChooseLocationEffect || !effectChoice">
+            Valider
+          </button>
+
+          <button
+            type="button"
+            class="btn-secondary"
+            *ngIf="!game?.locationEffectChoice"
+            (click)="onCancelLocationEffect()">
+            Annuler
+          </button>
+        </div>
+
+        <p *ngIf="game?.locationEffectChoice"
+          class="location-effect-result">
+          Effet choisi : {{ translateLocationEffect(game?.locationEffectChoice) }}
+        </p>
+      </div>
+    </div>
+  </div>
+  <!-- ===== MODALE SELECTION EFFET DE LIEU : BALLROOM ===== -->
+  <div class="modal-backdrop"
+      *ngIf="game?.locationEffectPending 
+            && game?.locationEffectInfra === 'BALLROOM'
+            && !locationActionModalOpen">
+    <div class="modal construction-modal location-effect-modal"
+        [style.backgroundImage]="locationEffectBackground()">
+      <div class="modal-overlay-content">
+        <h2>Salle de bal vampirique</h2>
+
+        <p class="bg-badge">
+          <ng-container *ngIf="game?.locationEffectOwnerId as ownerId">
+            <ng-container *ngIf="ownerId === me?.id; else ballroomOtherOwner">
+              Vous devez choisir un effet de la Salle de bal pour ce raid.
+            </ng-container>
+            <ng-template #ballroomOtherOwner>
+              {{ usernameOf(ownerId) }} choisit un effet de la Salle de bal…
+            </ng-template>
+          </ng-container>
+        </p>
+
+        <div class="modal-button-row" *ngIf="isLocationEffectOwner">
+          <!-- Danse macabre -->
+          <button
+            type="button"
+            class="effect-option"
+            (click)="onEffectOptionClick('DEATH_DANCE')"
+            [disabled]="isBallroomChoiceDisabled('DEATH_DANCE')"
+            [class.selected]="effectChoice === 'DEATH_DANCE'">
+            Danse macabre<br />
+            <small>Lorsque le vampire réussit une attaque, le chasseur subit aussi directement 1 point de corruption.</small>
+          </button>
+
+          <!-- Attaque sournoise -->
+          <button
+            type="button"
+            class="effect-option"
+            (click)="onEffectOptionClick('SNEAK_ATTACK')"
+            [disabled]="isBallroomChoiceDisabled('SNEAK_ATTACK')"
+            [class.selected]="effectChoice === 'SNEAK_ATTACK'">
+            Attaque sournoise<br />
+            <small>Le vampire peut voler directement une ressource au hasard à chaque chasseur présent.</small>
+          </button>
+
+          <!-- Valse sanguinaire -->
+          <button
+            type="button"
+            class="effect-option"
+            (click)="onEffectOptionClick('BLOOD_WALTZ')"
+            [disabled]="isBallroomChoiceDisabled('BLOOD_WALTZ')"
+            [class.selected]="effectChoice === 'BLOOD_WALTZ'">
+            Valse sanguinaire<br />
+            <small>Le vampire jette autant de dé d’attaque que de chasseurs présents, conserve le meilleur dé et applique l’attaque contre tous les chasseurs de la salle.</small>
+          </button>
+
+          <!-- Pillage -->
+          <button
+            type="button"
+            class="effect-option"
+            (click)="onEffectOptionClick('LOOTING')"
+            [disabled]="isBallroomChoiceDisabled('LOOTING')"
+            [class.selected]="effectChoice === 'LOOTING'">
+            Pillage<br />
+            <small>Les chasseurs gagnent plus d'or.</small>
+          </button>
+        </div>
+
+        <div class="modal-button-row footer-row" *ngIf="isLocationEffectOwner">
+          <button
+            type="button"
+            (click)="chooseLocationEffect()"
+            [disabled]="!canChooseLocationEffect || !effectChoice">
+            Valider
+          </button>
+
+          <button
+            type="button"
+            class="btn-secondary"
+            *ngIf="!game?.locationEffectChoice"
+            (click)="onCancelLocationEffect()">
+            Annuler
+          </button>
+        </div>
+
+        <!-- Résultat figé (info pour tous) -->
+        <p *ngIf="game?.locationEffectChoice"
+          class="location-effect-result">
+          Effet choisi : {{ translateLocationEffect(game?.locationEffectChoice) }}
+        </p>
+      </div>
+    </div>
+  </div>
+  <!-- ===== MODALE SELECTION EFFET DE LIEU : ALTAR ===== -->
+  <div class="modal-backdrop"
+      *ngIf="game?.locationEffectPending 
+            && game?.locationEffectInfra === 'ALTAR'
+            && !locationActionModalOpen">
+    <div class="modal construction-modal location-effect-modal"
+        [style.backgroundImage]="locationEffectBackground()">
+      <div class="modal-overlay-content">
+        <h2>
+          <ng-container *ngIf="game?.altarCorrupted; else altarPureTitle">
+            Autel corrompu
+          </ng-container>
+          <ng-template #altarPureTitle>
+            Sanctuaire du sang
+          </ng-template>
+        </h2>
+
+        <p class="bg-badge">
+          <ng-container *ngIf="game?.locationEffectOwnerId as ownerId">
+            <ng-container *ngIf="ownerId === me?.id; else altarOtherOwner">
+              Vous devez choisir un effet de l’autel pour ce raid.
+            </ng-container>
+            <ng-template #altarOtherOwner>
+              {{ usernameOf(ownerId) }} choisit un effet de l’autel…
+            </ng-template>
+          </ng-container>
+        </p>
+
+        <div class="modal-button-row" *ngIf="isLocationEffectOwner">
+
+          <!-- Purifier un chasseur (autel PUR seulement) -->
+          <button
+            *ngIf="!game?.altarCorrupted"
+            type="button"
+            class="effect-option"
+            (click)="onEffectOptionClick('HEAL')"
+            [disabled]="isAltarChoiceDisabled('HEAL')"
+            [class.selected]="effectChoice === 'HEAL'">
+            Purifier un chasseur<br />
+            <small>Soigne 1 point de corruption sur un chasseur vivant.</small>
+          </button>
+
+          <!-- Corrompre un chasseur (autel CORROMPU seulement) -->
+          <button
+            *ngIf="game?.altarCorrupted"
+            type="button"
+            class="effect-option"
+            (click)="onEffectOptionClick('CORRUPT')"
+            [disabled]="isAltarChoiceDisabled('CORRUPT')"
+            [class.selected]="effectChoice === 'CORRUPT'">
+            Corrompre un chasseur<br />
+            <small>Ajoute 1 point de corruption à un chasseur vivant.</small>
+          </button>
+
+          <!-- Purifier le sanctuaire (autel CORROMPU seulement) -->
+          <button
+            *ngIf="game?.altarCorrupted"
+            type="button"
+            class="effect-option"
+            (click)="onEffectOptionClick('PURIFY_WATER')"
+            [disabled]="isAltarChoiceDisabled('PURIFY_WATER')"
+            [class.selected]="effectChoice === 'PURIFY_WATER'">
+            Purifier le sanctuaire<br />
+            <small>Rend le lieu à nouveau sacré.</small>
+          </button>
+
+          <!-- Corrompre le sanctuaire (autel PUR seulement) -->
+          <button
+            *ngIf="!game?.altarCorrupted"
+            type="button"
+            class="effect-option"
+            (click)="onEffectOptionClick('CORRUPT_SOULS')"
+            [disabled]="isAltarChoiceDisabled('CORRUPT_SOULS')"
+            [class.selected]="effectChoice === 'CORRUPT_SOULS'">
+            Profaner le sanctuaire<br />
+            <small>Renforce la corruption spirituelle du lieu.</small>
+          </button>
+        </div>
+
+        <div class="modal-button-row footer-row" *ngIf="isLocationEffectOwner">
+          <button
+            type="button"
+            (click)="chooseLocationEffect()"
+            [disabled]="!canChooseLocationEffect || !effectChoice">
+            Valider
+          </button>
+
+          <button
+            type="button"
+            class="btn-secondary"
+            *ngIf="!game?.locationEffectChoice"
+            (click)="onCancelLocationEffect()">
+            Annuler
+          </button>
+        </div>
+
+        <!-- Résultat figé (info pour tous) -->
+        <p *ngIf="game?.locationEffectChoice"
+          class="location-effect-result">
+          Effet choisi : {{ translateLocationEffect(game?.locationEffectChoice) }}
+        </p>
+      </div>
+    </div>
+  </div>
+  <!-- ===== MODALE SELECTION EFFET DE LIEU: FORGE ===== -->
+  <div class="modal-backdrop"
+      *ngIf="game?.locationEffectPending 
+          && game?.locationEffectInfra === 'FORGE'
+          && !locationActionModalOpen">
+    <div class="modal construction-modal location-effect-modal"
+        style="background-image: url('/assets/locations/forge.png')">
+      <div class="modal-overlay-content">
+        <h2>Forge maudite</h2>
+
+        <p class="bg-badge">
+          <ng-container *ngIf="game?.locationEffectOwnerId as ownerId">
+            <ng-container *ngIf="ownerId === me?.id; else otherForgeOwner">
+              Vous devez choisir comment utiliser la Forge pour ce raid.
+            </ng-container>
+            <ng-template #otherForgeOwner>
+              {{ usernameOf(ownerId) }} choisit comment utiliser la Forge…
+            </ng-template>
+          </ng-container>
+        </p>
+
+        <!-- 🔥 Boutons visibles uniquement pour le propriétaire de l’effet -->
+        <div class="modal-button-row" *ngIf="isLocationEffectOwner">
+          <button
+            type="button"
+            class="effect-option"
+            (click)="onEffectOptionClick('FORGE')"
+            [disabled]="!canChooseLocationEffect"
+            [class.selected]="effectChoice === 'FORGE'">
+            Forger de l’équipement<br />
+            <small>Fabrication d’arme ou d’armure.</small>
+          </button>
+        </div>
+
+        <div class="modal-button-row footer-row" *ngIf="isLocationEffectOwner">
+          <button
+            type="button"
+            (click)="chooseLocationEffect()"
+            [disabled]="!canChooseLocationEffect || !effectChoice">
+            Valider
+          </button>
+
+          <button
+            type="button"
+            class="btn-secondary"
+            *ngIf="!game?.locationEffectChoice"
+            (click)="onCancelLocationEffect()">
+            Annuler
+          </button>
+        </div>
+
+        <p *ngIf="game?.locationEffectChoice"
+          class="location-effect-result">
+          Effet choisi : {{ translateLocationEffect(game?.locationEffectChoice) }}
+        </p>
+      </div>
+    </div>
+  </div>
   <!-- ===== MODALE UTILISATION EFFET DE LIEU ===== -->
   <div class="modal-backdrop"
-      *ngIf="locationActionModalOpen && game?.locationEffectInfra === 'LIBRARY'">
+      *ngIf="locationActionModalOpen 
+              && (game?.locationEffectInfra === 'LIBRARY' 
+                  || game?.locationEffectInfra === 'LABORATORY'
+                  || game?.locationEffectInfra === 'ALTAR'
+                  || game?.locationEffectInfra === 'FORGE')">
     <div class="modal construction-modal location-effect-modal"
-        style="background-image: url('/assets/locations/library.png')">
+        [style.backgroundImage]="locationEffectBackground()">
       <div class="modal-overlay-content">
-        <h2>Bibliothèque — Effet en cours</h2>
+        <h2>
+          <ng-container [ngSwitch]="game?.locationEffectInfra">
+            <span *ngSwitchCase="'LIBRARY'">Bibliothèque — Effet en cours</span>
+            <span *ngSwitchCase="'LABORATORY'">Laboratoire occulte — Effet en cours</span>
+            <span *ngSwitchCase="'ALTAR'">
+              <ng-container *ngIf="game?.altarCorrupted; else sanctuaryTitle">
+                Autel corrompu — Effet en cours
+              </ng-container>
+              <ng-template #sanctuaryTitle>
+                Autel purifié — Effet en cours
+              </ng-template>
+            </span>
+            <span *ngSwitchCase="'FORGE'">Forge maudite — Effet en cours</span>
+            <span *ngSwitchDefault>Lieu — Effet en cours</span>
+          </ng-container>
+        </h2>
 
         <p class="bg-badge">
           <ng-container *ngIf="game?.locationEffectOwnerId as ownerId">
@@ -1380,6 +2082,209 @@ interface STrade {
                 chez son adversaire…
               </p>
             </ng-template>
+          </div>  
+
+          <!-- EXPERIMENT: choix monstre + lieu -->
+          <div *ngSwitchCase="'EXPERIMENT'" class="experiment-container">
+            <p *ngIf="!isLocationActionOwner">
+              Le vampire prépare une expérience occulte, une créature va être invoquée…
+            </p>
+
+            <div *ngIf="isLocationActionOwner" class="experiment-owner">
+              <p>
+                Choisissez le type de créature et le lieu où l’envoyer défendre.
+              </p>
+
+              <div class="experiment-row">
+                <div class="experiment-col">
+                  <h3>Type de créature</h3>
+                  <button type="button"
+                          class="effect-option"
+                          (click)="onExperimentMonsterClick('REVENANT')"
+                          [class.selected]="experimentMonsterType === 'REVENANT'">
+                    Revenant
+                  </button>
+                  <button type="button"
+                          class="effect-option"
+                          (click)="onExperimentMonsterClick('GARGOYLE')"
+                          [class.selected]="experimentMonsterType === 'GARGOYLE'">
+                    Gargouille
+                  </button>
+                  <button type="button"
+                          class="effect-option"
+                          (click)="onExperimentMonsterClick('ABERRATION')"
+                          [class.selected]="experimentMonsterType === 'ABERRATION'">
+                    Aberration
+                  </button>
+                </div>
+
+                <div class="experiment-col">
+                  <h3>Lieu de déploiement</h3>
+                  <div class="location-list">
+                    <button type="button"
+                            *ngFor="let loc of experimentAvailableLocations"
+                            (click)="onExperimentLocationClick(loc)"
+                            [class.selected]="experimentLocation === loc">
+                      {{ labelLocation(loc) }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="modal-button-row footer-row">
+                <button type="button"
+                        (click)="confirmExperiment()"
+                        [disabled]="!experimentCanSubmit || experimentSubmitting">
+                  Valider l’expérience
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ALTAR: HEAL -->
+          <div *ngSwitchCase="'HEAL'" class="altar-container">
+            <p *ngIf="!isLocationActionOwner">
+              Le joueur actif choisit un chasseur à purifier à l’autel…
+            </p>
+
+            <div *ngIf="isLocationActionOwner">
+              <p>Choisissez un chasseur vivant possédant au moins 1 point de corruption.</p>
+
+              <div class="altar-targets" *ngIf="altarTargets.length > 0; else noAltarHealTargets">
+                <div
+                  class="altar-target"
+                  *ngFor="let t of altarTargets"
+                  [class.selected]="t.id === altarSelectedTargetId"
+                  (click)="onSelectAltarTarget(t.id)"
+                >
+                  <strong>{{ t.username }}</strong>
+                  <span> — PV {{ t.hp }}, Corruption {{ t.corruption }}</span>
+                </div>
+              </div>
+
+              <ng-template #noAltarHealTargets>
+                <p>Aucun chasseur corrompu et vivant à purifier.</p>
+              </ng-template>
+
+              <div class="modal-button-row footer-row">
+                <button type="button"
+                        (click)="confirmAltarHeal()"
+                        [disabled]="!altarCanSubmit || altarSubmitting">
+                  Valider la purification
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ALTAR: CORRUPT -->
+          <div *ngSwitchCase="'CORRUPT'" class="altar-container">
+            <p *ngIf="!isLocationActionOwner">
+              Le joueur actif choisit un chasseur à corrompre depuis l’autel…
+            </p>
+
+            <div *ngIf="isLocationActionOwner">
+              <p>Choisissez un chasseur vivant à corrompre (+1 corruption).</p>
+
+              <div class="altar-targets" *ngIf="altarTargets.length > 0; else noAltarCorruptTargets">
+                <div
+                  class="altar-target"
+                  *ngFor="let t of altarTargets"
+                  [class.selected]="t.id === altarSelectedTargetId"
+                  (click)="onSelectAltarTarget(t.id)"
+                >
+                  <strong>{{ t.username }}</strong>
+                  <span> — PV {{ t.hp }}, Corruption {{ t.corruption }}</span>
+                </div>
+              </div>
+
+              <ng-template #noAltarCorruptTargets>
+                <p>Aucun chasseur vivant à corrompre.</p>
+              </ng-template>
+
+              <div class="modal-button-row footer-row">
+                <button type="button"
+                        (click)="confirmAltarCorrupt()"
+                        [disabled]="!altarCanSubmit || altarSubmitting">
+                  Valider la corruption
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- FORGE: choix d’équipement à fabriquer -->
+          <div *ngSwitchCase="'FORGE'" class="forge-container">
+            <!-- Vue spectateurs AVANT résolution -->
+            <p *ngIf="!isLocationActionOwner && !forgeResolvedLabel">
+              <ng-container *ngIf="game?.locationEffectOwnerId as ownerId">
+                {{ usernameOf(ownerId) }} est en train de forger un nouvel équipement…
+              </ng-container>
+            </p>
+
+            <!-- Vue joueur actif AVANT résolution -->
+            <div *ngIf="isLocationActionOwner && !forgeResolvedLabel">
+              <p>
+                Choisissez l’équipement de tier supérieur que vous voulez forger
+                pour ce raid.
+              </p>
+
+              <!-- Armes disponibles -->
+              <div class="forge-section" *ngIf="forgeWeaponOptions.length > 0">
+                <h3>Armes disponibles</h3>
+                <div class="forge-options-row">
+                  <button
+                    type="button"
+                    class="effect-option"
+                    *ngFor="let opt of forgeWeaponOptions"
+                    (click)="onSelectForgeOption(opt)"
+                    [class.selected]="forgeSelectedId === opt.id"
+                    [disabled]="forgeSubmitting"
+                  >
+                    {{ opt.label }}<br />
+                    <small>{{ opt.desc }}</small>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Armures disponibles -->
+              <div class="forge-section" *ngIf="forgeArmorOptions.length > 0">
+                <h3>Armures disponibles</h3>
+                <div class="forge-options-row">
+                  <button
+                    type="button"
+                    class="effect-option"
+                    *ngFor="let opt of forgeArmorOptions"
+                    (click)="onSelectForgeOption(opt)"
+                    [class.selected]="forgeSelectedId === opt.id"
+                    [disabled]="forgeSubmitting"
+                  >
+                    {{ opt.label }}<br />
+                    <small>{{ opt.desc }}</small>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Aucun choix possible -->
+              <div *ngIf="forgeWeaponOptions.length === 0 && forgeArmorOptions.length === 0">
+                <p>Aucun équipement supérieur n’est disponible à la forge pour ce raid.</p>
+              </div>
+
+              <div class="modal-button-row footer-row">
+                <button
+                  type="button"
+                  (click)="confirmForge()"
+                  [disabled]="!forgeCanSubmit || forgeSubmitting"
+                >
+                  Forger cet équipement
+                </button>
+              </div>
+            </div>
+
+            <!-- Message final visible pour TOUT LE MONDE après résolution -->
+            <p *ngIf="forgeResolvedLabel" class="bg-badge">
+              <ng-container *ngIf="game?.locationEffectOwnerId as ownerId">
+                {{ usernameOf(ownerId) }} fabrique {{ forgeResolvedLabel }} à la forge.
+              </ng-container>
+            </p>
           </div>
 
         </ng-container>
@@ -1626,6 +2531,25 @@ interface STrade {
     letter-spacing: -0.5px;
   }
 
+  .dice-overlay-small{
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font: 700 42px/1 system-ui, sans-serif;
+    color: #cc9c00;
+    pointer-events: none;
+    font-variant-numeric: tabular-nums;
+    font-size: 25px;
+    transform: translate(var(--dx, 0px), var(--dy, 0px));
+  }
+
+    /* 1 chiffre */
+  .dice-wrap[data-digits="1"] .dice-overlay-small{
+    --dx: 0px;
+    --dy: 5px;
+  }
+
 
   .mods-col{
     position: absolute;
@@ -1642,11 +2566,11 @@ interface STrade {
   .mods-col.right{ right: -72px; align-items: flex-end;   }
 
   .modal.location-modal.spectate.has-focus .mods-col.left{
-    left: -100px;
+    left: -130px;
   }
 
   .modal.location-modal.spectate.has-focus .mods-col.right{
-    right: -100px;
+    right: -130px;
   }
 
   .modal.location-modal.spectate.has-focus.bite-active .mods-col.left{
@@ -1789,6 +2713,70 @@ interface STrade {
     height: auto;
   }
 
+.dice-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* 2 dés côte à côte (Foca seule) */
+.dice-pair {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Un dé + son label au-dessus */
+.dice-with-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.dice-label {
+  font-size: 11px;
+  text-transform: none;
+  opacity: 0.9;
+  color: white;
+}
+
+/* Label "global" pour un groupe (Valse) */
+.dice-label.global {
+  font-weight: 600;
+}
+
+/* Section logique (Valse, Foca, etc.) */
+.dice-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.dice-section.focus-single {
+  margin-top: 0.25rem;
+}
+
+/* Grille Valse 2 par 2 max */
+.waltz-dice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, auto);
+  gap: 0.25rem;
+}
+
+/* Tailles */
+.dice-wrap.waltz-small .dice,
+.dice-wrap.waltz-small .dice-small {
+  width: 100px;
+  height: 100px;
+}
+
+.dice-wrap.waltz-verysmall .dice-verysmall {
+  width: 60px;
+  height: 60px;
+}
+
+
   /* L'image passe au-dessus du halo */
   .modal.location-modal .icon-halo .icon-side, modal.bite-modal .icon-halo .icon-side{
     position: relative;
@@ -1886,7 +2874,6 @@ interface STrade {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: .75rem;
   }
 
   .modal.location-modal.spectate.has-focus .content.spectate .dice{
@@ -1971,7 +2958,7 @@ interface STrade {
     opacity: .92;
   }
 
-  .mods-badge-weather, .mods-badge-potion, .mods-badge-action, .mods-badge-corruption{
+  .mods-badge-weather, .mods-badge-potion, .mods-badge-action, .mods-badge-corruption, .mods-badge-equip, .mods-badge-hit{
     width: 28px; height: 28px;
     background: #ddddddff;
     border-radius: 999px;
@@ -1998,7 +2985,7 @@ interface STrade {
 
   .modal.bite-modal {
     width: min(780px, 95vw);
-    min-height: 540px;
+    min-height: 700px;
   }
 
   .modal.bite-modal .icon-side{ width: 120px; height: 120px; opacity: .9; }
@@ -2107,7 +3094,9 @@ interface STrade {
   /* Icône de potion et d'action à l'intérieur du badge */
   .mods-badge-potion .mod-ico,
   .mods-badge-action .mod-ico,
-  .mods-badge-corruption .mod-ico{
+  .mods-badge-corruption .mod-ico,
+  .mods-badge-equip .mod-ico,
+  .mods-badge-hit .mod-ico{
     width: 28px;
     height: 28px;
     display: block;
@@ -2377,7 +3366,7 @@ interface STrade {
   .modal.construction-modal {
     position: relative;
     width: min(780px, 95vw);
-    min-height: 540px;
+    min-height: 700px;
 
     display: flex;
     flex-direction: column;
@@ -2593,12 +3582,12 @@ export class GameComponent {
   // Constructions
   buildModalOpen = false;
   buildConfirmModalOpen = false;
-  buildChoice: 'SAWMILL' | 'MINE' | 'LIBRARY' | null = null;
-  effectChoice: 'STUDY' | 'THEFT' | 'OMEN' | null = null;
+  buildChoice: 'SAWMILL' | 'MINE' | 'LIBRARY' | 'LABORATORY' | 'BALLROOM' | 'ALTAR' | 'FORGE' | null = null;
+  effectChoice: 'STUDY' | 'THEFT' | 'OMEN' | 'EXPERIMENT' | 'ALCHEMY' | 'RARE_ALCHEMY' | 'EXPLOSION' | 'DEATH_DANCE' | 'SNEAK_ATTACK' | 'BLOOD_WALTZ' | 'LOOTING' | 'HEAL' | 'CORRUPT_SOULS' | 'CORRUPT' | 'PURIFY_WATER' | 'FORGE' | null = null;
 
   // ----- Effet de lieu : modale d'action (Bibliothèque) -----
   locationActionModalOpen = false;
-  locationActionKind: 'THEFT' | 'OMEN' | null = null;
+  locationActionKind: 'THEFT' | 'OMEN' | 'EXPERIMENT' | 'HEAL' | 'CORRUPT' | 'FORGE' | null = null;
 
   // THEFT
   theftTargets: { id: string; username: string; actionsCount: number }[] = [];
@@ -2611,7 +3600,23 @@ export class GameComponent {
   omenCards: string[] = [];
   omenPlacements: ('TOP' | 'BOTTOM' | null)[] = [];
   omenSubmitting = false;
-  
+
+  // EXPERIMENT
+  experimentMonsterType: 'REVENANT' | 'GARGOYLE' | 'ABERRATION' | null = null;
+  experimentLocation: string | null = null;
+  experimentSubmitting = false;
+  experimentPossibleLocations: string[] = [];
+
+  // ALTAR
+  altarTargets: { id: string; username: string; hp: number; corruption: number }[] = [];
+  altarSelectedTargetId: string | null = null;
+  altarSubmitting = false;
+
+  // ----- FORGE -----
+  forgeOptions: ForgeOption[] = [];
+  forgeSelectedId: string | null = null;
+  forgeSubmitting = false;
+  forgeResolvedLabel: string | null = null;
 
   // Echanges
   selectedTradeTargetId: string | null = null;
@@ -2881,6 +3886,29 @@ export class GameComponent {
     return out;
   }
 
+  modsForEntityStat(id: string, stat: 'ATTACK'|'DEFENSE'): RawStatMod[] {
+    const p = this.getPlayer(id);
+    if (p) return this.modsForStat(p, stat);
+
+    // Monstre
+    if (!this.game?.raidMods) return [];
+    const list = this.game.raidMods[id] || [];
+
+    return list.filter(m => {
+      if (m.stat !== stat) return false;
+
+      const src = m.source || '';
+      const isWeather    = src.startsWith('WEATHER:');
+      const isCorruptEng = src.startsWith('CORRUPTION') && src.includes(':ENG');
+
+      // pas de météo sur les monstres, ni CORRUPTION:...:ENG
+      if (isWeather)    return false;
+      if (isCorruptEng) return false;
+
+      return true;
+    });
+  }
+
   chipOf(m: UiStatMod): string {
     if (m.labelFr) return m.labelFr;
     if (m.stat === 'MULTIPLE') return 'affaibli'; // fallback
@@ -2918,17 +3946,25 @@ export class GameComponent {
   }
 
   private totalModForDisplay(pId: string, stat: 'ATTACK'|'DEFENSE'): number {
-    const p = this.getPlayer(pId);
-    if (!p) return 0;
-
-    // On réutilise exactement les mêmes filtres que pour l’affichage des puces :
-    // - météo inactive -> pas de mods WEATHER
-    // - météo annulée par Feu de camp -> pas de mods WEATHER
-    // - CORRUPTION:...:ENG masqués
+  const p = this.getPlayer(pId);
+  if (p) {
     const mods = this.modsForDisplay(p);
-
     return mods.reduce((sum, m) => sum + (m.stat === stat ? m.amount : 0), 0);
   }
+
+  // Monstre : somme simple des mods pertinents (sans météo ni CORRUPTION:...:ENG)
+  if (!this.game?.raidMods) return 0;
+  const list = this.game.raidMods[pId] || [];
+
+  return list.reduce((sum, m) => {
+    if (m.stat !== stat) return sum;
+    const src = m.source || '';
+    const isWeather    = src.startsWith('WEATHER:');
+    const isCorruptEng = src.startsWith('CORRUPTION') && src.includes(':ENG');
+    if (isWeather || isCorruptEng) return sum;
+    return sum + m.amount;
+  }, 0);
+}
 
   // Construit UN chip d’affichage : MULTIPLE (L1), INSTABLE (L2) ou SERVITEUR (L3)
   private corruptionDisplayChip(p?: SPlayer): UiStatMod | null {
@@ -2989,6 +4025,30 @@ export class GameComponent {
       }
     }
 
+        // Équipement DSP / ENG (EQUIP:...)
+    if (s.startsWith('EQUIP:')) {
+      const type = (s.split(':')[1] || '').toUpperCase();
+      switch (type) {
+        case 'BLEED_WEAPON':       return 'arme tranchante';
+        case 'STUN_WEAPON':        return 'arme contondante';
+        case 'RANGED_WEAPON':      return 'arme à distance';
+        case 'HUNTER_ARMOR':       return 'armure sacrée';
+        case 'VAMPIRE_WEAPON':     return 'arme vampirique';
+        case 'VAMPIRE_ARMOR_T3':   return 'armure vampirique';
+      }
+    }
+
+    // Effets de coup (HIT:...)
+    if (s.startsWith('HIT:')) {
+      const type = (s.split(':')[1] || '').toUpperCase();
+      switch (type) {
+        case 'BLEED_WEAPON':   return 'saigne';
+        case 'RANGED_WEAPON':  return 'tenu à distance';
+        case 'STUN_WEAPON':    return 'étourdi';
+      }
+    }
+
+
     return (m as any).labelFr || this.chipOf(m);
   }
 
@@ -3027,6 +4087,31 @@ export class GameComponent {
       };
       return tooltips[type] ?? null;
     }
+    
+        // Effets d'équipement (EQUIP:...)
+    if (s.startsWith('EQUIP:')) {
+      const type = (s.split(':')[1] || '').toUpperCase();
+      const tooltipsEquip: Record<string, string> = {
+        BLEED_WEAPON:     'Cette arme provoque un saignement lorsqu’elle inflige des dégâts.',
+        STUN_WEAPON:      'Cette arme peut étourdir sa cible et réduire son attaque au prochain tour.',
+        RANGED_WEAPON:    'Cette arme peut tenir le vampire à distance sur une riposte avec un mauvais jet.',
+        HUNTER_ARMOR:     'Cette armure réduit les risques liés aux morsures du vampire.',
+        VAMPIRE_WEAPON:   'Cette arme peut soigner le vampire lorsqu’il inflige des dégâts.',
+        VAMPIRE_ARMOR_T3: 'Cette armure permet de se dématerialiser et esquiver une attaque critique.'
+      };
+      return tooltipsEquip[type] ?? 'Effet d’équipement';
+    }
+
+    // Effets déclenchés par un coup (HIT:...)
+    if (s.startsWith('HIT:')) {
+      const type = (s.split(':')[1] || '').toUpperCase();
+      const tooltipsHit: Record<string, string> = {
+        BLEED_WEAPON:   'Ce personnage saigne et subira des dégâts supplémentaires en phase 4.',
+        RANGED_WEAPON:  'Cette attaque a été repoussée par une arme à distance.',
+        STUN_WEAPON:    'Ce personnage est étourdi et sa prochaine attaque est réduite.'
+      };
+      return tooltipsHit[type] ?? 'Effet de coup spécial';
+    }
 
     // (Garde le reste de tes cas, ex. météo si tu l’avais déjà ajouté)
     return null;
@@ -3039,21 +4124,44 @@ export class GameComponent {
 
   // === Helpers combat ===
   private nameOrId(id: string): string {
-    return this.getPlayer(id)?.username || id;
+    return this.entityDisplayName(id);
   }
 
   /** SPECTATE: affiche le nom joueur dans sa colonne */
   modalTitle(r: any): string {
-    const atk = this.getPlayer(r.attackerId);
-    const def = this.getPlayer(r.defenderId);
-    if (!atk || !def) return `${this.nameOrId(r.attackerId)} vs ${this.nameOrId(r.defenderId)}`;
+    const atkPlayer = this.getPlayer(r.attackerId);
+    const defPlayer = this.getPlayer(r.defenderId);
 
-    const vampireLeft = atk.role === 'VAMPIRE';
-    const vampireName = vampireLeft ? this.nameOrId(r.attackerId) : this.nameOrId(r.defenderId);
-    const hunterName  = vampireLeft ? this.nameOrId(r.defenderId) : this.nameOrId(r.attackerId);
+    const atkMonster = this.getMonster(r.attackerId);
+    const defMonster = this.getMonster(r.defenderId);
 
-    return vampireLeft ? `${vampireName} vs ${hunterName}` : `${hunterName} vs ${vampireName}`;
+    // Cas 1 : EXACTEMENT un monstre dans le duel → on met le joueur à gauche
+    if (atkMonster && !defMonster && defPlayer) {
+      return `${this.entityDisplayName(r.defenderId)} vs ${this.entityDisplayName(r.attackerId)}`;
+    }
+    if (defMonster && !atkMonster && atkPlayer) {
+      return `${this.entityDisplayName(r.attackerId)} vs ${this.entityDisplayName(r.defenderId)}`;
+    }
+
+    // Cas 2 : duel 100% joueurs → logique vampire/hunter comme avant
+    if (atkPlayer && defPlayer) {
+      const vampireLeft = atkPlayer.role === 'VAMPIRE';
+      const vampireName = vampireLeft
+        ? this.entityDisplayName(r.attackerId)
+        : this.entityDisplayName(r.defenderId);
+      const hunterName  = vampireLeft
+        ? this.entityDisplayName(r.defenderId)
+        : this.entityDisplayName(r.attackerId);
+
+      return vampireLeft
+        ? `${vampireName} vs ${hunterName}`
+        : `${hunterName} vs ${vampireName}`;
+    }
+
+    // Fallback : juste "A vs B"
+    return `${this.entityDisplayName(r.attackerId)} vs ${this.entityDisplayName(r.defenderId)}`;
   }
+  
 
   /* non utilisé pour le moment 
   /*
@@ -3099,6 +4207,75 @@ export class GameComponent {
     return role === 'SERVANT' ? `/assets/icons/HUNTER-${name}.png` : `/assets/icons/${role}-${name}.png`;
   }
 
+  getMonster(id: string): SMonster | undefined {
+    const g = this.game as GameSnapshot | undefined;
+    const list = g?.monsters ?? [];
+    return list.find(m => m.id === id);
+  }
+
+  entityDisplayName(id: string): string {
+    const p = this.getPlayer(id);
+    if (p) return p.username;
+
+    const m = this.getMonster(id);
+    if (m) {
+      switch (m.type) {
+        case 'REVENANT':   return 'Revenant';
+        case 'GARGOYLE':   return 'Gargouille';
+        case 'ABERRATION': return 'Aberration';
+        default:           return 'Créature';
+      }
+    }
+    return id;
+  }
+
+  entityAttackDice(id: string): string | undefined {
+    const p = this.getPlayer(id);
+    if (p) return p.attackDice;
+    const m = this.getMonster(id);
+    return m?.attackDice;
+  }
+
+  entityDefenseDice(id: string): string | undefined {
+    const p = this.getPlayer(id);
+    if (p) return p.defenseDice;
+    const m = this.getMonster(id);
+    return m?.defenseDice;
+  }
+
+  entityColor(id: string): 'red'|'blue' {
+    const p = this.getPlayer(id);
+    if (p) return this.roleColorOf(p);
+    // Monstres = camp vampire
+    return 'red';
+  }
+
+  entityRoleIcon(id: string, name: 'sword'|'armor'): string {
+    const p = this.getPlayer(id);
+    if (p) {
+      return this.roleIcon(this.getRole(p), name);
+    }
+    // Monstres : pour l’instant, icône du vampire
+    return `/assets/icons/VAMPIRE-${name}.png`;
+  }
+
+  entityHaloIcon(id: string){
+    if(this.getPlayer(id)?.role==='VAMPIRE'){
+      return 'round';
+    } else if (this.getPlayer(id)?.role==='HUNTER' || this.getPlayer(id)?.role==='SERVANT') {
+      return 'oval';
+    } else {
+      return 'round';
+    }
+  }
+
+  isVampSideEntity(id: string): boolean {
+    const p = this.getPlayer(id);
+    if (p) return p.role === 'VAMPIRE';
+    // Monstres appartiennent au vampire
+    return true;
+  }
+
   private locationOf(playerId?: string): string | null {
     if (!playerId || !this.game) return null;
 
@@ -3115,16 +4292,15 @@ export class GameComponent {
 
   getCombatResultText(): string | null {
     const r = this.currentCombat; if (!r) return null;
-    const atkP = this.getPlayer(r.attackerId);
-    const defP = this.getPlayer(r.defenderId);
     if (r.attackerRoll == null || r.defenderRoll == null) return null;
 
     const atkMod = this.totalModForDisplay(r.attackerId, 'ATTACK');
     const defMod = this.totalModForDisplay(r.defenderId, 'DEFENSE');
     const dmg = Math.max(0, (r.attackerRoll + atkMod) - (r.defenderRoll + defMod));
 
-    const an = atkP?.username || r.attackerId;
-    const dn = defP?.username || r.defenderId;
+    const an = this.entityDisplayName(r.attackerId);
+    const dn = this.entityDisplayName(r.defenderId);
+
     return dmg > 0 ? `${an} inflige ${dmg} dégâts à ${dn}` : `${dn} pare l’attaque de ${an}`;
   }
 
@@ -3203,6 +4379,7 @@ export class GameComponent {
     if(modal === 'construction') {
       if(this.buildChoice === 'SAWMILL') return "url('/assets/locations/forest.png')";
       if(this.buildChoice === 'MINE') return "url('/assets/locations/quarry.png')";
+      else return "url('/assets/locations/manor.png')"
     }
     return 'none';
   }
@@ -3213,31 +4390,62 @@ export class GameComponent {
     return `/assets/weather/icon-${ws.toLowerCase()}.png`;
   }
 
-  actionIconSrc(source: string): string {
-    // fallback simple
-    if (!source || !source.startsWith('ACTION:')) {
-      return '/assets/icons/action-hunter-icon.png';
+  modIconSrc(source: string): string {
+    const fallback = '/assets/icons/action-hunter-icon.png';
+    if (!source) return fallback;
+
+    if (source.startsWith('ACTION:')) {
+      const parts = source.split(':');
+      const code = parts[1] || '';
+
+      // Liste des actions qui sont forcément jouées par les chasseurs
+      const hunterActions = [
+        'FUMIGATION_AIL',
+        'PISTEUR',
+        'FEU_DE_CAMP',
+        'FILET',
+        'FOSSE',
+      ];
+
+      const isHunter = hunterActions.includes(code);
+
+      return isHunter
+        ? '/assets/icons/action-hunter-icon.png'
+        : '/assets/icons/action-vampire-icon.png';
     }
 
-    // source = "ACTION:FOSSE" -> on prend "FOSSE"
-    const parts = source.split(':');
-    const code = parts[1] || '';
+    if (source.startsWith('EQUIP:')) {
+      const parts = source.split(':');
+      const type = (parts[1] || '').toUpperCase();
 
-    // Liste des actions qui sont forcément jouées par les chasseurs
-    const hunterActions = [
-      'FUMIGATION_AIL',
-      'PISTEUR',
-      'FEU_DE_CAMP',
-      'FILET',
-      'FOSSE',
-    ];
+      if (type === 'BLEED_WEAPON'
+        || type === 'STUN_WEAPON'
+        || type === 'RANGED_WEAPON') {
+        return '/assets/icons/HUNTER-sword.png';
+      }
 
-    const isHunter = hunterActions.includes(code);
+      if (type === 'HUNTER_ARMOR') {
+        return '/assets/icons/HUNTER-armor.png';
+      }
 
-    return isHunter
-      ? '/assets/icons/action-hunter-icon.png'
-      : '/assets/icons/action-vampire-icon.png';
+      if (type === 'VAMPIRE_WEAPON') {
+        return '/assets/icons/VAMPIRE-sword.png';
+      }
+
+      if (type === 'VAMPIRE_ARMOR') {
+        return '/assets/icons/VAMPIRE-armor.png';
+      }
+
+      return fallback;
+    }
+
+    if (source.startsWith('HIT:')) {
+      return '/assets/icons/HUNTER--sword.png';
+    }
+
+    return fallback;
   }
+
 
   // --- HP helpers (pour une jauge plus tard) ---
   maxHpOf(p: SPlayer): number {
@@ -3307,6 +4515,10 @@ export class GameComponent {
       case 'sawmill': return 'Scierie';
       case 'mine': return 'Mine';
       case 'library': return 'Bibliothèque';
+      case 'laboratory': return 'Laboratoire';
+      case 'ballroom': return 'Salle de bal';
+      case 'altar': return 'Autel';
+      case 'forge': return 'Forge';
       default: return c;
     }
   }
@@ -4067,6 +5279,13 @@ export class GameComponent {
     return me?.potions ?? [];
   }
 
+  myElixirs(): string[] {
+    const g = this.game;
+    if (!g) return [];
+    const me = g.players.find(p => p.id === this.meId);
+    return me?.elixirs ?? [];
+  }
+
   canUsePotionNow(_pot: string): boolean {
     const g = this.game;
     if (!g) return false;
@@ -4080,40 +5299,61 @@ export class GameComponent {
     return false;
   }
 
-  // Suis-je (moi) sur un lieu face-up où il y aura un combat (ennemi = vampire OU serviteur) ?
+  // Suis-je (moi) sur un lieu face-up où il y aura un combat ?
+  // Ennemi = vampire / serviteur / monstre.
   imInUpcomingCombat(): boolean {
     const game = this.game;
-    if (!game) return false;
+    const meId = this.meId;
+    if (!game || !meId) return false;
 
     const faceUp = (game.center || []).filter(cb => cb.faceUp);
     if (faceUp.length === 0) return false;
 
-    const harvestMap: Record<string,string> = (game as any).unstableHarvestLocByPlayer || {};
+    const harvestMap: Record<string,string> =
+      (game as any).unstableHarvestLocByPlayer || {};
 
     const allLocs = Array.from(new Set(faceUp.map(cb => cb.card)));
     const combatLocs = new Set<string>();
 
+    // Monstres du snapshot (vivants)
+    const monsters = (game as any).monsters as SMonster[] | undefined;
+    const aliveMonsters = (monsters || []).filter(m => m.hp > 0);
+
     for (const loc of allLocs) {
-      const idsOnLoc = faceUp.filter(cb => cb.card === loc).map(cb => cb.playerId);
+      const idsOnLoc = faceUp
+        .filter(cb => cb.card === loc)
+        .map(cb => cb.playerId);
+
       const playersOnLoc = idsOnLoc
         .map(id => game.players.find(p => p.id === id))
         .filter((p): p is SPlayer => !!p);
 
-      const hasEnemy  = playersOnLoc.some(p => this.isEnemy(p));
+      const monstersOnLoc = aliveMonsters.filter(m => m.location === loc);
+
+      // Ennemi = joueur ennemi OU monstre présent sur ce lieu
+      const hasEnemy =
+        playersOnLoc.some(p => this.isEnemy(p)) ||
+        monstersOnLoc.length > 0;
+
+      // Hunters présents (non récolteurs)
       const hasHunter = playersOnLoc.some(p =>
-        p.role === 'HUNTER' && p.hp > 0 && !harvestMap[p.id]   // <-- exclusion récolteur
+        p.role === 'HUNTER' &&
+        p.hp > 0 &&
+        !harvestMap[p.id]
       );
 
-      if (hasEnemy && hasHunter) combatLocs.add(loc);
+      if (hasEnemy && hasHunter) {
+        combatLocs.add(loc);
+      }
     }
 
-    const myFaceUpCard = faceUp.find(cb => cb.playerId === this.meId)?.card;
+    const myFaceUpCard = faceUp.find(cb => cb.playerId === meId)?.card;
+
     // si je suis récolteur, jamais combat pour moi
-    if (harvestMap[this.meId]) return false;
+    if (harvestMap[meId]) return false;
 
     return !!myFaceUpCard && combatLocs.has(myFaceUpCard);
   }
-
 
   private isEnemy(p?: SPlayer): boolean {
     return p?.role === 'VAMPIRE' || p?.role === 'SERVANT';
@@ -4425,7 +5665,7 @@ export class GameComponent {
     return 'blue';
   }
 
-  //====== Corruption ======/
+  // ====== Corruption / morsure ======/
   get showBiteModal(): boolean {
     const g = this.game as any;
     return g?.phase === 'PHASE3' && !!g?.currentBite && Date.now() >= this.biteNotBeforeMillis;
@@ -4435,16 +5675,89 @@ export class GameComponent {
     const id = (this.game as any)?.currentBite?.attackerId;
     return id ? this.getPlayer(id) : undefined;
   }
+
   biteTarget(): SPlayer | undefined {
     const id = (this.game as any)?.currentBite?.targetId;
     return id ? this.getPlayer(id) : undefined;
   }
-  rollBiteNow() {
+
+  rollCorruption() {
     if (!this.game) return;
     this.api.rollCorruption(this.game.id).subscribe({
       error: e => this.showError(e)
     });
   }
+
+  // 1) Détermine la "phase" actuelle de la morsure : D6, D4, terminé
+  biteStage(): 'BITE' | 'ARMOR' | 'DONE' {
+    const g: any = this.game;
+    const b = g?.currentBite;
+    if (!b) return 'DONE';
+
+    // Pas encore de jet de morsure → D6
+    if (b.roll == null) return 'BITE';
+
+    // Jet de morsure fait : voir si armure spéciale intervient
+    const target = this.getPlayer?.(b.targetId);
+    const hasArmor = this.hasSilverPlate(target);
+
+    if (b.roll > 3 && hasArmor && b.armorRoll == null) {
+      return 'ARMOR';
+    }
+
+    return 'DONE';
+  }
+
+  // 2) Est-ce qu’on affiche le D4 d’armure ?
+  get showArmorDie(): boolean {
+    const g: any = this.game;
+    const b = g?.currentBite;
+    if (!b) return false;
+    const target = this.getPlayer?.(b.targetId);
+    const hasArmor = this.hasSilverPlate(target);
+    return hasArmor && b.roll != null;
+  }
+
+  // 3) Qui peut lancer le D6 de morsure ?
+  canRollBite(): boolean {
+    const g = this.game;
+    const b = g?.currentBite;
+    if (!g || !b) return false;
+    if (b.roll != null) return false; // déjà lancé
+
+    const meId = this.me?.id;
+    if (!meId) return false;
+
+    // Seul le vampire lance le D6
+    const me = this.getPlayer(meId);
+    return me?.role === 'VAMPIRE';
+  }
+
+  // 4) Qui peut lancer le D4 d’armure ?
+  canRollArmor(): boolean {
+    const g: any = this.game;
+    const b = g?.currentBite;
+    if (!g || !b) return false;
+
+    if (b.roll == null) return false;           // pas encore de morsure
+    if (b.armorRoll != null) return false;      // déjà fait
+
+    const meId = this.me?.id;
+    if (!meId || meId !== b.targetId) return false;
+
+    const target = this.getPlayer(meId);
+    return this.hasSilverPlate(target);
+  }
+
+  // 5) Action : jet d’armure (appel le même endpoint back)
+  rollArmor() {
+    if (!this.game) return;
+    this.api.rollCorruption(this.game.id).subscribe({
+      error: e => this.showError(e)
+    });
+  }
+
+  // 6) Résumé texte du résultat final
   biteResultText(): string {
     const g: any = this.game;
     const b = g?.currentBite;
@@ -4453,11 +5766,63 @@ export class GameComponent {
     const attacker = this.getPlayer?.(b.attackerId)?.username ?? 'Le vampire';
     const target   = this.getPlayer?.(b.targetId)?.username   ?? 'le chasseur';
 
-    // règle simple : > 3 = morsure réussie
-    return (b.roll > 3)
-      ? `${target} est mordu.`
-      : `${attacker} échoue sa tentative de morsure.`;
+    const targetPlayer = this.getPlayer?.(b.targetId);
+    const hasArmor = this.hasSilverPlate(targetPlayer);
+
+    // Échec direct du D6
+    if (b.roll <= 3) {
+      return `${attacker} échoue sa tentative de morsure.`;
+    }
+
+    // Pas d’armure spéciale → morsure réussie
+    if (!hasArmor || b.armorRoll == null) {
+      return `${target} est mordu.`;
+    }
+
+    // Avec armure: à adapter selon ta règle exacte !
+    // Ici j’assume : 1-2 = armure échoue (morsure passe), 3-4 = armure bloque.
+    if (b.armorRoll <= 2) {
+      return `${target} est mordu malgré son armure d'argent.`;
+    } else {
+      return `L'armure d'argent de ${target} le protège de la morsure.`;
+    }
   }
+
+  altarRitualText(): string  {
+    const g: any = this.game;
+    const b = g?.currentBite;
+    if (!b || b.roll == null) return '';
+
+    const isAltarFight = g.currentCombat?.location === 'altar';
+    if (!isAltarFight || g.altarCorrupted) return '';
+
+    const target = this.getPlayer?.(b.targetId);
+    const hasArmor = this.hasSilverPlate(target);
+
+    let success = false;
+    if (b.roll > 3) {
+      if (!hasArmor || b.armorRoll == null) {
+        success = true;
+      } else {
+        // même hypothèse que ci-dessus : 1-2 = morsure réussie
+        success = b.armorRoll <= 2;
+      }
+    }
+
+    if (success) {
+      return `Le rituel est accompli : l'autel est profané.`;
+    }
+    return '';
+  }
+
+  // 7) Test d’armure argent (à adapter au champ réel du snapshot)
+  private hasSilverPlate(p: SPlayer | undefined): boolean {
+    if (!p) return false;
+    // Adapte ce test au nom réel de l’armure dans ton snapshot :
+    // ex : (p as any).armor === 'SILVER_PLATE'
+    return (p as any).armor === 'SILVER_PLATE';
+  }
+
   // Conditions d’ouverture de la modale (seulement vampire + PREPHASE3 + choix restants)
   showUnstableModal(): boolean {
     return !!this.game
@@ -4527,19 +5892,6 @@ export class GameComponent {
           error: e => this.showError(e)
         });
       },
-      error: e => this.showError(e)
-    });
-  }
-
-  canRollBite(): boolean {
-    const g: any = this.game;
-    const b = g?.currentBite;
-    if (!b) return false;
-    return b.attackerId === this.meId && (b.roll == null);
-  }
-  rollCorruption(){
-    if (!this.game) return;
-    this.api.rollCorruption(this.game.id).subscribe({
       error: e => this.showError(e)
     });
   }
@@ -4641,14 +5993,12 @@ export class GameComponent {
   }
 
   private closeShop() {
-    console.log('[SHOP] closeShop() – phase actuelle :', this.game?.phase, 'deadline:', (this.game as any)?.phase4DeadlineMillis);
     this.shopOpen = false;
     this.waitingDone = false;
     this.stopPhase4Timer();
   }
 
   private syncShopVisibilityFromSnapshot(): void {
-    console.log('[SHOP] sync from snapshot – phase =', this.game?.phase, 'shopOpen =', this.shopOpen);
     const inPhase4 = this.game?.phase === 'PHASE4';
 
     // ouvrir/fermer la modale
@@ -4696,6 +6046,17 @@ export class GameComponent {
     if (!me || !snapshot) return false;
 
     const left = this.deckSize(snapshot.decks?.potions);
+    if (left <= 0) return false;
+
+    return me.water >= 4 && me.herbs >= 3;
+  }
+
+  get canBuyElixir() {
+    const me = this.me; 
+    const snapshot = this.game;
+    if (!me || !snapshot) return false;
+
+    const left = this.deckSize(snapshot.decks?.elixirs);
     if (left <= 0) return false;
 
     return me.water >= 4 && me.herbs >= 3;
@@ -4826,7 +6187,7 @@ export class GameComponent {
 
     return this.game.trades
       .filter(t => t.aId === meId || t.bId === meId)
-      // ⬇️ (REMIS) je ne montre pas un trade si MON statut est cancel/refuse
+      // je ne montre pas un trade si MON statut est cancel/refuse
       .filter(t => {
         const st = this.myStatus(t);
         return st !== 'CANCELLED' && st !== 'REFUSED';
@@ -4930,7 +6291,7 @@ export class GameComponent {
     this.buildModalOpen = false;
   }
 
-  onChooseInfra(infra: 'SAWMILL' | 'MINE' | 'LIBRARY') {
+  onChooseInfra(infra: 'SAWMILL' | 'MINE' | 'LIBRARY' | 'LABORATORY' | 'BALLROOM' | 'ALTAR' | 'FORGE') {
     this.buildChoice = infra;
     this.buildModalOpen = false;
     this.buildConfirmModalOpen = true;
@@ -4941,15 +6302,7 @@ export class GameComponent {
     this.buildChoice = null;
   }
 
-  // Image de fond pour la modale de confirmation
-  getInfraImage(infra: 'SAWMILL' | 'MINE' | 'LIBRARY'): string {
-    // adapte les chemins à tes assets réels
-    return infra === 'SAWMILL'
-      ? 'assets/locations/sawmill.png'
-      : 'assets/locations/mine.png';
-  }
-
-  getInfraConfirmText(infra: 'SAWMILL' | 'MINE' | 'LIBRARY'): string {
+  getInfraConfirmText(infra: 'SAWMILL' | 'MINE' | 'LIBRARY' | 'LABORATORY' | 'BALLROOM' | 'ALTAR' | 'FORGE'): string {
     if (infra === 'SAWMILL') {
       return 'Se déplacer à la Forêt pour construire la Scierie ?';
     } 
@@ -4958,6 +6311,18 @@ export class GameComponent {
     }
     if (infra === 'LIBRARY'){
       return 'Se déplacer au Manoir pour construire la Bibliothèque ?';
+    }
+    if (infra === 'LABORATORY'){
+      return 'Se déplacer au Manoir pour construire le Laboratoire ?';
+    }
+    if (infra === 'BALLROOM'){
+      return 'Se déplacer au Manoir pour construire la salle de bal ?';
+    }
+    if (infra === 'ALTAR'){
+      return 'Se déplacer au Manoir pour construire l\'autel ?';
+    }
+    if (infra === 'FORGE'){
+      return 'Se déplacer au Manoir pour construire la forge ?';
     }
     return '';
   }
@@ -5000,13 +6365,58 @@ export class GameComponent {
         return 'Subtilisation de manuscrit';
       case 'OMEN':
         return 'Prédiction occulte';
+      case 'EXPERIMENT':
+        return 'Expérimentation';
+      case 'ALCHEMY':
+        return 'Alchimie';
+      case 'RARE_ALCHEMY':
+        return 'Alchimie rare';
+      case 'EXPLOSION':    
+        return 'Explosion alchimique';
+      case 'DEATH_DANCE':
+        return 'Danse macabre';
+      case 'SNEAK_ATTACK':
+        return 'Attaque sournoise';
+      case 'LOOTING':
+        return 'Pillage';
+      case 'HEAL':
+        return 'Purifier un chasseur';
+      case 'CORRUPT_SOULS':
+        return 'Corrompre le lieu';
+      case 'CORRUPT':
+        return 'Corrompre un chasseur';
+      case 'PURIFY_WATER':
+        return 'Purifier le lieu';
+      case 'FORGE':
+        return 'Fabriquer de l\'équipement';
       default:
         return '';
     }
   }
 
+  locationEffectBackground(): string {
+    const infra = this.game?.locationEffectInfra;
+    if (infra === 'LIBRARY') {
+      return "url('/assets/locations/library.png')";
+    }
+    if (infra === 'LABORATORY') {
+      return "url('/assets/locations/laboratory.png')";
+    }
+    if (infra === 'BALLROOM') {
+      return "url('/assets/locations/ballroom.png')";
+    }
+    if (infra === 'ALTAR') {
+      if (this.game?.altarCorrupted) return "url('/assets/locations/altar.png')"
+      else return "url('/assets/locations/sanctuary.png')"
+    }
+    if (infra === 'FORGE') {
+      return "url('/assets/locations/forge.png')"
+    }
+    return 'none';
+  }
+
   private syncLocationEffectFromSnapshot(g: GameSnapshot, previous?: GameSnapshot | null) {
-    // Si aucun effet de lieu en cours → on reset tout
+    // 0) Aucun effet de lieu → on vide tout
     if (!g.locationEffectPending || !g.locationEffectInfra) {
       this.effectChoice = null;
       this.resetLocationActionUi();
@@ -5016,75 +6426,267 @@ export class GameComponent {
     const prevOwner = previous?.locationEffectOwnerId;
     const ownerChanged = !!prevOwner && prevOwner !== g.locationEffectOwnerId;
 
-    // Si le serveur a déjà un choix -> on s'aligne dessus
+    // 1) Si le serveur a déjà figé un choix → on s'aligne
     if (g.locationEffectChoice) {
       this.effectChoice = g.locationEffectChoice;
     } else if (ownerChanged) {
-      // Nouveau joueur en cours de résolution → on reset la sélection locale
+      // Nouveau joueur qui résout un effet → reset la sélection locale
       this.effectChoice = null;
     }
 
-    // On repart d'un état d'action propre (la modale de choix reste gérée par le template)
+    // 2) À chaque appel, on repart d'un état d'action "propre"
+    // (la modale de choix d'effet est gérée par le template via locationEffectPending/Choice)
     this.resetLocationActionUi();
 
-    // Pour l'instant : seulement LIBRARY a des effets interactifs
-    if (g.locationEffectInfra !== 'LIBRARY') {
-      return;
-    }
+    // ============================================================
+    // ===  LIBRARY : logique existante (THEFT / OMEN)          ===
+    // ============================================================
+    if (g.locationEffectInfra === 'LIBRARY') {
 
-    // --- THEFT : modale d'action pour choisir cible + slot ---
-    if (g.locationEffectChoice === 'THEFT') {
-      // La modale d'action est visible pour tout le monde (actif + spectateurs)
-      this.locationActionKind = 'THEFT';
-      this.locationActionModalOpen = true;
-
-      // Seul le propriétaire de l’effet a besoin de la liste des cibles + slots
-      if (this.isLocationEffectOwner) {
-        const targets = this.computeTheftTargets(g);
-        this.theftTargets = targets;
-      } else {
-        // Spectateurs : pas besoin de targets, ils voient juste le texte "choisit secrètement..."
-        this.theftTargets = [];
-      }
-
-      return;
-    }
-
-    // --- OMEN : on ouvre la modale d'action si des cartes sont préparées ---
-    if (g.locationEffectChoice === 'OMEN') {
-      const cards = g.libraryOmenCards ?? [];
-
-      if (cards.length > 0) {
-        this.locationActionKind = 'OMEN';
+      // --- THEFT : modale d'action pour choisir cible + slot ---
+      if (g.locationEffectChoice === 'THEFT') {
+        this.locationActionKind = 'THEFT';
         this.locationActionModalOpen = true;
 
+        // Seul le propriétaire a besoin des cibles/slots
         if (this.isLocationEffectOwner) {
-          this.omenCards = cards;
-
-          // Si nouvelle séquence ou taille différente → reset des placements
-          if (!this.omenPlacements || this.omenPlacements.length !== cards.length) {
-            this.omenPlacements = cards.map(() => null);
-          }
+          const targets = this.computeTheftTargets(g);
+          this.theftTargets = targets;
         } else {
-          // Observateurs : ils ne voient pas le détail des cartes
-          this.omenCards = [];
-          this.omenPlacements = [];
+          // Spectateurs : texte uniquement
+          this.theftTargets = [];
+        }
+
+        return;
+      }
+
+      // --- OMEN : modale d'action si des cartes sont préparées ---
+      if (g.locationEffectChoice === 'OMEN') {
+        const cards = g.libraryOmenCards ?? [];
+
+        if (cards.length > 0) {
+          this.locationActionKind = 'OMEN';
+          this.locationActionModalOpen = true;
+
+          if (this.isLocationEffectOwner) {
+            this.omenCards = cards;
+
+            // reset si nouvelle séquence ou taille différente
+            if (!this.omenPlacements || this.omenPlacements.length !== cards.length) {
+              this.omenPlacements = cards.map(() => null);
+            }
+          } else {
+            // Observateurs : pas de détail des cartes
+            this.omenCards = [];
+            this.omenPlacements = [];
+          }
+        }
+
+        return;
+      }
+
+      // STUDY (et autres futurs non interactifs côté LIBRARY) : rien à faire ici.
+      return;
+    }
+
+    // ============================================================
+    // ===  LABORATORY : nouvel effet EXPERIMENT                ===
+    // ============================================================
+    if (g.locationEffectInfra === 'LABORATORY') {
+
+      // Seul EXPERIMENT est interactif pour l'instant
+      if (g.locationEffectChoice === 'EXPERIMENT') {
+        this.locationActionKind = 'EXPERIMENT';
+        this.locationActionModalOpen = true;
+
+        // Vue joueur actif : prépare les choix possibles.
+        if (this.isLocationEffectOwner) {
+          // 1) reset local (dans le doute)
+          this.experimentMonsterType = this.experimentMonsterType ?? null;
+          this.experimentLocation = this.experimentLocation ?? null;
+
+          // 2) calcul des lieux disponibles pour envoyer le monstre
+          //    → tu peux adapter cette fonction selon tes règles exactes
+          this.experimentPossibleLocations = this.computeExperimentLocations(g);
+        } else {
+          // Spectateurs : ils voient juste "X crée une créature..." par le template
+          this.experimentPossibleLocations = [];
+          this.experimentMonsterType = null;
+          this.experimentLocation = null;
         }
       }
 
+      // Pas d'autre effet interactif LABORATORY pour le moment
       return;
     }
 
-    // STUDY ou autres effets futurs non interactifs : rien à faire ici.
+    // ============================================================
+    // ===  ALTAR : effets interactifs HEAL / CORRUPT           ===
+    // ============================================================
+    if (g.locationEffectInfra === 'ALTAR') {
+
+      // HEAL : choisir un chasseur vivant avec corruption > 0 et < 3 (verrou max)
+      if (g.locationEffectChoice === 'HEAL') {
+        this.locationActionKind = 'HEAL';
+        this.locationActionModalOpen = true;
+
+        if (this.isLocationEffectOwner) {
+          this.altarTargets = g.players
+            .filter(p => p.role === 'HUNTER' && p.hp > 0 && p.corruption > 0 && p.corruption < 3)
+            .map(p => ({
+              id: p.id,
+              username: p.username,
+              hp: p.hp,
+              corruption: p.corruption,
+            }));
+        } else {
+          this.altarTargets = [];
+        }
+
+        this.altarSelectedTargetId = null;
+        return;
+      }
+
+      // CORRUPT : choisir un chasseur vivant avec corruption < 3
+      if (g.locationEffectChoice === 'CORRUPT') {
+        this.locationActionKind = 'CORRUPT';
+        this.locationActionModalOpen = true;
+
+        if (this.isLocationEffectOwner) {
+          this.altarTargets = g.players
+            .filter(p => p.role === 'HUNTER' && p.hp > 0 && p.corruption < 3)
+            .map(p => ({
+              id: p.id,
+              username: p.username,
+              hp: p.hp,
+              corruption: p.corruption,
+            }));
+        } else {
+          this.altarTargets = [];
+        }
+
+        this.altarSelectedTargetId = null;
+        return;
+      }
+
+      // CORRUPT_SOULS / PURIFY_WATER : pas d’UI interactive côté front,
+      // le serveur gère tout lors du choix d’effet.
+      return;
+    }
+
+    // ============================================================
+    // ===  FORGE : choix d’un équipement à fabriquer            ===
+    // ============================================================
+    if (g.locationEffectInfra === 'FORGE') {
+      if (g.locationEffectChoice === 'FORGE') {
+        this.locationActionKind = 'FORGE';
+        this.locationActionModalOpen = true;
+
+        if (this.isLocationEffectOwner) {
+          // Calcul local des options possibles pour le propriétaire
+          this.forgeOptions = this.computeForgeOptionsForOwner(g);
+        } else {
+          this.forgeOptions = [];
+        }
+
+        this.forgeSelectedId = null;
+        this.forgeResolvedLabel = null;
+      }
+
+      return;
+    }
+
+    // Si un jour tu ajoutes d'autres infrastructures : leur logique ira ici.
   }
 
-  onEffectOptionClick(choice: 'STUDY' | 'THEFT' | 'OMEN') {
+  // Lieux où on peut envoyer un monstre créé par le Laboratoire
+  private computeExperimentLocations(g: GameSnapshot): string[] {
+    const locs = new Set<string>();
+
+    // 1) 4 lieux de base toujours proposés
+    [
+      'forest',
+      'quarry',
+      'lake',
+      'manor',
+    ].forEach(l => locs.add(l));
+
+    // 2) Ajouter les lieux correspondant aux infrastructures construites
+    for (const infra of g.builtInfras ?? []) {
+      switch (infra) {
+        case 'SAWMILL':
+          locs.add('sawmill');
+          break;
+        case 'MINE':
+          locs.add('mine');
+          break;
+        case 'LIBRARY':
+          locs.add('library');
+          break;
+        case 'LABORATORY':
+          locs.add('laboratory');
+          break;
+        case 'BALLROOM':
+          locs.add('ballroom');
+          break;
+        case 'ALTAR':
+          locs.add('altar');
+          break;
+      }
+    }
+
+    return Array.from(locs);
+  }
+
+  onEffectOptionClick(choice: 'STUDY' | 'THEFT' | 'OMEN' | 'EXPERIMENT' | 'ALCHEMY' | 'RARE_ALCHEMY' | 'EXPLOSION' | 'DEATH_DANCE' | 'SNEAK_ATTACK' | 'BLOOD_WALTZ' | 'LOOTING' | 'HEAL' | 'CORRUPT_SOULS' | 'CORRUPT' | 'PURIFY_WATER' | 'FORGE') {
     if (!this.canChooseLocationEffect) return;
+
+    // Experiment : pas de chasseur
+    if (choice === 'EXPERIMENT' && !this.canUseExperiment()) {
+      return;
+    }
+
+    // Garde spécifique rare alchimie : si pas les ressources, on ignore le clic
+    if (choice === 'RARE_ALCHEMY' && !this.canUseRareAlchemy()) {
+      return;
+    }
+
+    // Explosion : juste un chasseur
+    if (choice === 'EXPLOSION' && !this.canUseExplosion()) {
+      return;
+    }
+
+      // Garde Ballroom : cohérent avec isBallroomChoiceDisabled
+    if (
+      (choice === 'DEATH_DANCE' || choice === 'SNEAK_ATTACK' || choice === 'BLOOD_WALTZ') &&
+      !this.isVampireSide
+    ) {
+      return;
+    }
+
+    if (choice === 'LOOTING' && !this.isHunter) {
+      return;
+    }
+
+    // ALTAR : garde role + état du lieu
+    if (this.game?.locationEffectInfra === 'ALTAR') {
+      if (choice === 'HEAL' || choice === 'CORRUPT' || choice === 'PURIFY_WATER' || choice === 'CORRUPT_SOULS') {
+        if (this.isAltarChoiceDisabled(choice)) {
+          return;
+        }
+      }
+    }
+
     this.effectChoice = choice;
   }
 
   chooseLocationEffect() {
     if (!this.game || !this.effectChoice || !this.canChooseLocationEffect) return;
+
+    if (this.effectChoice === 'RARE_ALCHEMY' && !this.canUseRareAlchemy()) {
+      alert("Vous n'avez pas assez d'ingrédients pour une alchimie rare (6 eau, 6 herbes).");
+      return;
+    }
 
     this.api.chooseLocationEffect(this.game.id, this.effectChoice).subscribe({
       next: () => {
@@ -5107,6 +6709,32 @@ export class GameComponent {
 
   get isLocationActionOwner(): boolean {
     return this.isLocationEffectOwner; // même logique que pour la modale de choix
+  }
+
+  canUseExperiment(): boolean {
+    const me = this.me;
+    if (!me) return false;
+    return me.role === 'VAMPIRE' || me.role === 'SERVANT';
+  }
+
+  canUseRareAlchemy(): boolean {
+    const g = this.game;
+    const meId = this.me?.id;
+    if (!g || !meId) return false;
+
+    const me = g.players.find(p => p.id === meId);
+    if (!me) return false;
+
+    const water = (me as any).water ?? 0;
+    const herbs = (me as any).herbs ?? 0;
+
+    return water >= 6 && herbs >= 6;
+  }
+
+  canUseExplosion(): boolean {
+    const me = this.me;
+    if (!me) return false;
+    return me.role === 'HUNTER';
   }
 
   get theftCanSubmit(): boolean {
@@ -5139,6 +6767,23 @@ export class GameComponent {
     this.theftSlots = [];
     this.theftSelectedSlotIndex = null;
     this.theftSubmitting = false;
+
+    // EXPERIMENT
+    this.experimentMonsterType = null;
+    this.experimentLocation = null;
+    this.experimentSubmitting = false;
+    this.experimentPossibleLocations = [];
+
+    // ALTAR
+    this.altarTargets = [];
+    this.altarSelectedTargetId = null;
+    this.altarSubmitting = false;
+
+    // FORGE
+    this.forgeOptions = [];
+    this.forgeSelectedId = null;
+    this.forgeSubmitting = false;
+    this.forgeResolvedLabel = null;
   }
 
   private computeTheftTargets(g: GameSnapshot): { id: string; username: string; actionsCount: number }[] {
@@ -5258,4 +6903,520 @@ export class GameComponent {
     });
   }
 
+  get experimentAvailableLocations(): string[] {
+    return this.experimentPossibleLocations;
+  }
+
+  get experimentCanSubmit(): boolean {
+    return this.locationActionKind === 'EXPERIMENT'
+      && this.isLocationActionOwner
+      && !!this.experimentMonsterType
+      && !!this.experimentLocation;
+  }
+
+  monsterHpInCombat(r: any): number | undefined {
+    const m = this.getMonster(r.attackerId) || this.getMonster(r.defenderId);
+    return m?.hp;
+  }
+
+  onExperimentMonsterClick(type: 'REVENANT'|'GARGOYLE'|'ABERRATION') {
+    if (!this.isLocationActionOwner) return;
+    this.experimentMonsterType = type;
+  }
+
+  onExperimentLocationClick(loc: string) {
+    if (!this.isLocationActionOwner) return;
+    this.experimentLocation = loc;
+  }
+
+  confirmExperiment() {
+    if (!this.game) return;
+    if (!this.experimentCanSubmit || !this.experimentMonsterType || !this.experimentLocation) return;
+
+    this.experimentSubmitting = true;
+
+    this.api.resolveLaboratoryExperiment(
+      this.game.id,
+      this.experimentMonsterType,
+      this.experimentLocation
+    ).subscribe({
+      next: () => {
+        // Le serveur fera LOCATION_USED + snapshot → la modale se fermera via syncLocationEffectFromSnapshot
+        this.experimentSubmitting = false;
+      },
+      error: (err) => {
+        console.error('Erreur resolveLaboratoryExperiment', err);
+        alert(err.error?.message ?? 'Erreur Expérience occulte');
+        this.experimentSubmitting = false;
+      }
+    });
+  }
+
+  isBallroomChoiceDisabled(
+    choice: 'DEATH_DANCE' | 'SNEAK_ATTACK' | 'BLOOD_WALTZ' | 'LOOTING'
+  ): boolean {
+    const g = this.game;
+    if (!g) return true;
+
+    // conditions globales (comme canChooseLocationEffect)
+    if (!g.locationEffectPending || !!g.locationEffectChoice) return true;
+    if (!this.isLocationEffectOwner) return true;
+
+    // Pillage : chasseurs uniquement → disabled si PAS chasseur
+    if (choice === 'LOOTING') {
+      return !this.isHunter;
+    }
+
+    // Effets vampiriques : vampire ou serviteur uniquement → disabled si PAS vampire-side
+    if (choice === 'DEATH_DANCE' || choice === 'SNEAK_ATTACK' || choice === 'BLOOD_WALTZ') {
+      return !this.isVampireSide;
+    }
+
+    // Par défaut, pas de désactivation spécifique
+    return false;
+  }
+
+
+  isBallroomFight(r: RoundFightView): boolean {
+    if (!this.game?.builtInfras?.includes('BALLROOM')) return false;
+    return r.location === 'ballroom';
+  }
+
+  /** Duel où la Valse s'applique : effet actif + duel sur Ballroom + vampire vs chasseur + ≥2 chasseurs sur Ballroom */
+  isBallroomWaltzFight(r: RoundFightView): boolean {
+    if (!this.game) return false;
+
+    // Effet Valse activé sur ce raid
+    if (!this.game.ballroomBloodWaltz) return false;
+
+    // Ballroom construite
+    if (!this.game.builtInfras?.includes('BALLROOM')) return false;
+
+    const att = this.getPlayer(r.attackerId);
+    const def = this.getPlayer(r.defenderId);
+    if (!att || !def) return false;
+
+    // Conditions de rôles (adapte si, en fait, c'est le chasseur qui attaque le vampire)
+    if (att.role !== 'VAMPIRE' || def.role !== 'HUNTER') return false;
+
+    // Le duel doit être sur la salle de bal
+    const locKey = 'ballroom';
+    if (r.location !== locKey) return false;
+
+    // On réutilise la même logique que getHuntersOnBallroomCount()
+    if (!this.playersOnLocation) return false;
+    const playersOnLoc = this.playersOnLocation(locKey) || [];
+    const huntersOnLoc = playersOnLoc.filter(p => p.role === 'HUNTER' && p.hp > 0).length;
+
+    // Valse seulement s'il y a au moins 2 chasseurs sur Ballroom
+    return huntersOnLoc > 1;
+  }
+
+
+
+  /** Est-ce que CE joueur (moi) est le vampire attaquant sur un duel Valse ? */
+  isBallroomWaltzForMe(r: RoundFightView): boolean {
+    return this.meId === r.attackerId && this.isBallroomWaltzFight(r);
+  }
+
+  getHuntersOnBallroomCount(): number {
+    if (!this.game?.builtInfras?.includes('BALLROOM')) return 0;
+
+    const locKey = 'ballroom';
+
+    if (!this.playersOnLocation) {
+      return 0; // sécurité
+    }
+
+    const playersOnLoc = this.playersOnLocation(locKey);
+
+    return playersOnLoc.filter(p => p.role === 'HUNTER' && p.hp > 0).length;
+  }
+
+  /** Placeholders avant que les dés de Valse soient connus */
+  waltzPlaceholderDice(): number[] {
+    const n = this.getHuntersOnBallroomCount();
+    return n > 1 ? new Array(n).fill(0) : [];
+  }
+
+  /** Dés de Valse (globaux pour le raid) */
+  get waltzRolls(): number[] {
+    return this.game?.ballroomWaltzRolls || [];
+  }
+
+  get waltzBest(): number | null {
+    return this.game?.ballroomWaltzBest ?? null;
+  }
+
+  get altarCanSubmit(): boolean {
+    return (this.locationActionKind === 'HEAL'
+            || this.locationActionKind === 'CORRUPT')
+      && this.isLocationActionOwner
+      && !!this.altarSelectedTargetId;
+  }
+
+  isAltarChoiceDisabled(
+    choice: 'HEAL' | 'CORRUPT' | 'PURIFY_WATER' | 'CORRUPT_SOULS'
+  ): boolean {
+    const g = this.game;
+    if (!g) return true;
+
+    // Conditions globales : même logique que canChooseLocationEffect
+    if (!g.locationEffectPending || !!g.locationEffectChoice) return true;
+    if (!this.isLocationEffectOwner) return true;
+
+    // Règles de rôle demandées :
+    // 1) Si vampire (ou serviteur), les 2 "purifier" doivent être désactivés
+    if ((choice === 'HEAL' || choice === 'PURIFY_WATER') && !this.isHunter) {
+      return true;
+    }
+
+    // 2) Si chasseur, les 2 "corrompre" doivent être désactivés
+    if ((choice === 'CORRUPT' || choice === 'CORRUPT_SOULS') && !this.isVampireSide) {
+      return true;
+    }
+
+    // Optionnel (mais logique) : éviter les choix absurdes côté lieu
+    if (choice === 'PURIFY_WATER' && !g.altarCorrupted) {
+      // Sanctuaire déjà pur → rien à purifier
+      return true;
+    }
+    if (choice === 'CORRUPT_SOULS' && g.altarCorrupted) {
+      // Sanctuaire déjà corrompu → rien à corrompre en plus
+      return true;
+    }
+
+    return false;
+  }
+
+  onSelectAltarTarget(targetId: string) {
+    if (!this.isLocationActionOwner) return;
+    this.altarSelectedTargetId = targetId;
+  }
+
+  confirmAltarHeal() {
+    if (!this.game || !this.altarCanSubmit || !this.altarSelectedTargetId) return;
+
+    this.altarSubmitting = true;
+    this.api.resolveAltarHeal(this.game.id, this.altarSelectedTargetId).subscribe({
+      next: () => {
+        this.altarSubmitting = false;
+        // La modale se fermera via snapshot + syncLocationEffectFromSnapshot
+      },
+      error: (err) => {
+        console.error('Erreur resolveAltarHeal', err);
+        alert(err.error?.message ?? 'Erreur Purification de chasseur');
+        this.altarSubmitting = false;
+      },
+    });
+  }
+
+  confirmAltarCorrupt() {
+    if (!this.game || !this.altarCanSubmit || !this.altarSelectedTargetId) return;
+
+    this.altarSubmitting = true;
+    this.api.resolveAltarCorrupt(this.game.id, this.altarSelectedTargetId).subscribe({
+      next: () => {
+        this.altarSubmitting = false;
+      },
+      error: (err) => {
+        console.error('Erreur resolveAltarCorrupt', err);
+        alert(err.error?.message ?? 'Erreur Corruption de chasseur');
+        this.altarSubmitting = false;
+      },
+    });
+  }
+
+  // Forge
+  get forgeWeaponOptions(): ForgeOption[] {
+    return this.forgeOptions.filter(o => o.type === 'WEAPON');
+  }
+  get forgeArmorOptions(): ForgeOption[] {
+    return this.forgeOptions.filter(o => o.type === 'ARMOR');
+  }
+  get forgeCanSubmit(): boolean {
+    return this.isLocationActionOwner
+      && !!this.game
+      && !!this.forgeSelectedId
+      && !this.forgeSubmitting;
+  }
+
+  // Renvoie le nombre de faces max trouvé dans une chaîne de dés (ex: "2D6+1" → 6)
+  private maxDiceFaces(dice: string | null | undefined): number {
+    if (!dice) return 0;
+    const matches = [...dice.matchAll(/D(\d+)/gi)];
+    if (matches.length === 0) return 0;
+    return matches
+      .map(m => parseInt(m[1], 10))
+      .filter(n => !Number.isNaN(n))
+      .reduce((a, b) => Math.max(a, b), 0);
+  }
+
+  private getWeaponTierFromPlayer(p: GameSnapshot['players'][number]): 0 | 1 | 2 | 3 {
+    const faces = this.maxDiceFaces(p.attackDice);
+    if (faces >= 20) return 3;
+    if (faces >= 12) return 2;
+    if (faces >= 8)  return 1;
+    return 0;
+  }
+
+  private getArmorTierFromPlayer(p: GameSnapshot['players'][number]): 0 | 1 | 2 | 3 {
+    const faces = this.maxDiceFaces(p.defenseDice);
+    if (faces >= 20) return 3;
+    if (faces >= 12) return 2;
+    if (faces >= 8)  return 1;
+    return 0;
+  }
+
+    private buildHunterWeaponOptions(tier: 1 | 2 | 3): ForgeOption[] {
+    switch (tier) {
+      case 1:
+        return [
+          {
+            id: 'H_WEAPON_T1_SWORD',
+            type: 'WEAPON',
+            tier: 1,
+            label: 'Épée de fer',
+            desc: 'Arme de chasseur — Saignement +1.',
+          },
+          {
+            id: 'H_WEAPON_T1_MACE',
+            type: 'WEAPON',
+            tier: 1,
+            label: 'Masse de fer',
+            desc: 'Arme de chasseur — Étourdissement -1.',
+          },
+          {
+            id: 'H_WEAPON_T1_SPEAR',
+            type: 'WEAPON',
+            tier: 1,
+            label: 'Lance de fer',
+            desc: 'Arme de chasseur — Portée 1.',
+          },
+        ];
+      case 2:
+        return [
+          {
+            id: 'H_WEAPON_T2_HALBERD',
+            type: 'WEAPON',
+            tier: 2,
+            label: 'Hallebarde',
+            desc: 'Arme de chasseur — Saignement +2.',
+          },
+          {
+            id: 'H_WEAPON_T2_HAMMER',
+            type: 'WEAPON',
+            tier: 2,
+            label: 'Marteau de guerre',
+            desc: 'Arme de chasseur — Étourdissement -2.',
+          },
+          {
+            id: 'H_WEAPON_T2_CROSSBOW',
+            type: 'WEAPON',
+            tier: 2,
+            label: 'Arbalète',
+            desc: 'Arme de chasseur — Portée 1–2.',
+          },
+        ];
+      case 3:
+        return [
+          {
+            id: 'H_WEAPON_T3_WRIST_BLADES',
+            type: 'WEAPON',
+            tier: 3,
+            label: 'Lames de poignet',
+            desc: 'Arme de chasseur — Saignement +3.',
+          },
+          {
+            id: 'H_WEAPON_T3_FLAIL',
+            type: 'WEAPON',
+            tier: 3,
+            label: 'Fléau',
+            desc: 'Arme de chasseur — Étourdissement -3.',
+          },
+          {
+            id: 'H_WEAPON_T3_PISTOL',
+            type: 'WEAPON',
+            tier: 3,
+            label: 'Pistolet',
+            desc: 'Arme de chasseur — Portée 1–3.',
+          },
+        ];
+    }
+  }
+
+  private buildHunterArmorOptions(tier: 1 | 2 | 3): ForgeOption[] {
+    switch (tier) {
+      case 1:
+        return [
+          {
+            id: 'H_ARMOR_T1_BRIGANDINE',
+            type: 'ARMOR',
+            tier: 1,
+            label: 'Brigandine',
+            desc: 'Armure de chasseur — Dé de défense D8.',
+          },
+        ];
+      case 2:
+        return [
+          {
+            id: 'H_ARMOR_T2_HAUBERT',
+            type: 'ARMOR',
+            tier: 2,
+            label: 'Haubert',
+            desc: 'Armure de chasseur — Dé de défense D12.',
+          },
+        ];
+      case 3:
+        return [
+          {
+            id: 'H_ARMOR_T3_PLATE_SILVER',
+            type: 'ARMOR',
+            tier: 3,
+            label: 'Armure de plates en argent',
+            desc: 'Armure de chasseur — D20 + effet spécial contre la morsure.',
+          },
+        ];
+    }
+  }
+
+  private buildVampireWeaponOptions(tier: 1 | 2 | 3): ForgeOption[] {
+    switch (tier) {
+      case 1:
+        return [
+          {
+            id: 'V_WEAPON_T1_SCYTHE',
+            type: 'WEAPON',
+            tier: 1,
+            label: 'Faux maudite',
+            desc: 'Arme vampirique — D8, régénération 1 sur 7–8.',
+          },
+        ];
+      case 2:
+        return [
+          {
+            id: 'V_WEAPON_T2_SWORD',
+            type: 'WEAPON',
+            tier: 2,
+            label: 'Épée vampirique',
+            desc: 'Arme vampirique — D12, régénération 2 sur 10–12.',
+          },
+        ];
+      case 3:
+        return [
+          {
+            id: 'V_WEAPON_T3_CLAWS',
+            type: 'WEAPON',
+            tier: 3,
+            label: 'Griffes maudites',
+            desc: 'Arme vampirique — D20, régénération 3 sur 16+.',
+          },
+        ];
+    }
+  }
+
+  private buildVampireArmorOptions(tier: 1 | 2 | 3): ForgeOption[] {
+    switch (tier) {
+      case 1:
+        return [
+          {
+            id: 'V_ARMOR_T1_CARAPACE',
+            type: 'ARMOR',
+            tier: 1,
+            label: 'Carapace d’ombre',
+            desc: 'Armure vampirique — D8 +1 DEF.',
+          },
+        ];
+      case 2:
+        return [
+          {
+            id: 'V_ARMOR_T2_HAUBERT',
+            type: 'ARMOR',
+            tier: 2,
+            label: 'Haubert de nuit',
+            desc: 'Armure vampirique — D12 +1 DEF.',
+          },
+        ];
+      case 3:
+        return [
+          {
+            id: 'V_ARMOR_T3_ECORCE',
+            type: 'ARMOR',
+            tier: 3,
+            label: 'Écorce impie',
+            desc: 'Armure vampirique — D20 + esquive sur 19–20.',
+          },
+        ];
+    }
+  }
+
+  private computeForgeOptionsForOwner(g: GameSnapshot): ForgeOption[] {
+    const ownerId = g.locationEffectOwnerId;
+    if (!ownerId) return [];
+
+    const owner = g.players.find(p => p.id === ownerId);
+    if (!owner) return [];
+
+    const role = owner.role; // 'HUNTER' | 'VAMPIRE' | 'SERVANT'
+
+    const weaponTier = this.getWeaponTierFromPlayer(owner);
+    const armorTier  = this.getArmorTierFromPlayer(owner);
+
+    const nextWeaponTier = (weaponTier < 3 ? (weaponTier + 1) as 1 | 2 | 3 : null);
+    const nextArmorTier  = (armorTier  < 3 ? (armorTier  + 1) as 1 | 2 | 3 : null);
+
+    const options: ForgeOption[] = [];
+
+    const isHunterCamp = role === 'HUNTER';
+    const isVampCamp   = role === 'VAMPIRE' || role === 'SERVANT';
+
+    if (nextWeaponTier) {
+      if (isHunterCamp) {
+        options.push(...this.buildHunterWeaponOptions(nextWeaponTier));
+      } else if (isVampCamp) {
+        options.push(...this.buildVampireWeaponOptions(nextWeaponTier));
+      }
+    }
+
+    if (nextArmorTier) {
+      if (isHunterCamp) {
+        options.push(...this.buildHunterArmorOptions(nextArmorTier));
+      } else if (isVampCamp) {
+        options.push(...this.buildVampireArmorOptions(nextArmorTier));
+      }
+    }
+
+    return options;
+  }
+
+  onSelectForgeOption(opt: ForgeOption) {
+    if (!this.isLocationActionOwner) return;
+    this.forgeSelectedId = opt.id;
+  }
+
+  confirmForge() {
+    if (!this.game || !this.forgeCanSubmit || !this.forgeSelectedId) return;
+
+    this.forgeSubmitting = true;
+
+    const chosen = this.forgeOptions.find(o => o.id === this.forgeSelectedId) || null;
+
+    this.api.resolveForge(
+      this.game.id,
+      this.forgeSelectedId
+    ).subscribe({
+      next: () => {
+        this.forgeSubmitting = false;
+
+        if (chosen) {
+          this.forgeResolvedLabel = chosen.label;
+        }
+      },
+      error: (err) => {
+        console.error('Erreur resolveForgeEffect', err);
+        alert(err.error?.message ?? 'Erreur Forge');
+        this.forgeSubmitting = false;
+      },
+    });
+  }
 }

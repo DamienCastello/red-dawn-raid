@@ -12,7 +12,8 @@ export type GameSnapshot = {
     attackDice: string; defenseDice: string;
     wood: number; herbs: number; stone: number; iron: number;
     water: number; gold: number; souls: number; silver: number;
-    hand: Player['hand']; potions: Player['potions']; actions: Player['actions'];
+    hand: Player['hand']; actions: Player['actions'];
+    potions: Player['potions']; elixirs: Player['elixirs'];
   }>;
 
   center: Array<{ playerId: string; card: string; faceUp: boolean }>;
@@ -21,20 +22,12 @@ export type GameSnapshot = {
   hasUpcomingCombat: boolean;
   readyForPhase3: string[];
 
-  /*
-  decks?: {
-    actionsVamp:   { left: number; discard: number };
-    actionsHunters:{ left: number; discard: number };
-    potions:       { left: number; discard: number };
-  };
-  */
-
   decks: DecksView;
   phase4DeadlineMillis?: number|null;
   readyForNextRaid?: string[];
   trades?: TradeView[];
 
-  currentBite?: { attackerId: string; targetId: string; location: string; roll: number|null; resolvedAtMillis: number|null } | null;
+  currentBite?: { attackerId: string; targetId: string; location: string; roll: number|null; armorRoll: number|null; resolvedAtMillis: number|null } | null;
 
   combatsQueue: RoundFight[];
   currentCombatIndex: number | null;
@@ -59,13 +52,18 @@ export type GameSnapshot = {
   campfireLocations: string[];
   netHunters: string[];
   pitHunters: string[];
-  builtInfras: ('SAWMILL' | 'MINE' | 'LIBRARY')[];
+  builtInfras: ('SAWMILL' | 'MINE' | 'LIBRARY' | 'LABORATORY' | 'BALLROOM' | 'ALTAR' | 'FORGE')[];
 
   locationEffectPending: boolean;
-  locationEffectChoice: 'STUDY' | 'THEFT' | 'OMEN' | null;
+  locationEffectChoice: 'STUDY' | 'THEFT' | 'OMEN' | 'EXPERIMENT' | 'ALCHEMY' | 'RARE_ALCHEMY' | 'EXPLOSION' | 'DEATH_DANCE' | 'SNEAK_ATTACK' | 'BLOOD_WALTZ' | 'LOOTING' | 'HEAL' | 'CORRUPT_SOULS' | 'CORRUPT' | 'PURIFY_WATER' | 'FORGE' | null;
   locationEffectOwnerId: string | null;
-  locationEffectInfra: 'LIBRARY' | null;
+  locationEffectInfra: 'LIBRARY' | 'LABORATORY' | 'BALLROOM' | 'ALTAR' | 'FORGE' | null;
   libraryOmenCards: string[] | null;
+  monsters?: Monster[];
+  ballroomBloodWaltz: boolean;
+  ballroomWaltzRolls: number[];
+  ballroomWaltzBest: number;
+  altarCorrupted: boolean;
 
   history: Array<{ ts: number; raid: number; phase: Phase; text: string }>;
   messages: string[];
@@ -84,12 +82,13 @@ export interface Bite {
   attackerId: string;
   targetId: string;
   roll?: number | null;
+  armorRoll?: number | null;
   resolvedAtMillis?: number | null;
 }
 
 type Health = { status: string };
 
-export type Phase = 'PHASE0'|'PHASE1'|'PHASE2'| 'PREPHASE3' | 'PHASE3'|'PHASE4';
+export type Phase = 'PHASE0'|'PHASE1'|'PHASE2'|'PREPHASE3'|'PHASE3'|'PHASE4';
 
 export interface RaidEffectsView {
   focus: boolean;
@@ -117,6 +116,7 @@ export type Player = {
   role: 'VAMPIRE'|'HUNTER'|'SERVANT';
   hand: string[];
   potions: string[];
+  elixirs: string[];
   actions: string[];
   hp: number;
   attackDice: string;
@@ -131,6 +131,15 @@ export type Player = {
   silver: number;
   corruption: number;
 };
+
+type Monster = {
+    id: string;
+    type: 'REVENANT'|'GARGOYLE'|'ABERRATION';
+    hp: number;
+    attackDice: string;
+    defenseDice: string;
+    location: string;
+  };
 
 export type CenterBoard = {
   playerId: string;
@@ -163,6 +172,7 @@ export interface DecksView {
   actionsVamp: Pile;
   actionsHunters: Pile;
   potions: Pile;
+  elixirs: Pile;
 }
 
 export type Game = {
@@ -365,12 +375,29 @@ export class ApiService {
     return this.http.post<void>(`${this.base}/games/${gameId}/trade/${action}?targetId=${targetId}`, {});
   }
 
-  planConstruction(gameId: string, infra: 'SAWMILL' | 'MINE' | 'LIBRARY') {
+  planConstruction(gameId: string, infra: 'SAWMILL' | 'MINE' | 'LIBRARY' | 'LABORATORY' | 'BALLROOM' | 'ALTAR' | 'FORGE') {
     const params = new HttpParams().set('infra', infra);
     return this.http.post<void>(`${this.base}/games/${gameId}/plan-construction`, null, { params });
   }
 
-  chooseLocationEffect(gameId: string, choice: 'STUDY' | 'THEFT' | 'OMEN') {
+  chooseLocationEffect(gameId: string, 
+    choice: 
+      'STUDY' 
+      | 'THEFT' 
+      | 'OMEN' 
+      | 'EXPERIMENT' 
+      | 'ALCHEMY' 
+      | 'RARE_ALCHEMY' 
+      | 'EXPLOSION' 
+      | 'DEATH_DANCE'
+      | 'SNEAK_ATTACK'
+      | 'BLOOD_WALTZ'
+      | 'LOOTING'
+      | 'HEAL' 
+      | 'CORRUPT_SOULS' 
+      | 'CORRUPT' 
+      | 'PURIFY_WATER'
+      | 'FORGE') {
     const params = new HttpParams().set('choice', choice);
     return this.http.post<void>(`${this.base}/games/${gameId}/location-effect`, null, { params });
   }
@@ -378,16 +405,53 @@ export class ApiService {
   resolveLibraryTheft(gameId: string, targetId: string, slotIndex: number) {
     return this.http.post<void>(
       `${this.base}/games/${gameId}/effect-theft`,
-      { targetId, slotIndex } // body JSON
+      { targetId, slotIndex }
     );
   }
 
   resolveLibraryOmen(gameId: string, placements: ('TOP' | 'BOTTOM')[]) {
     return this.http.post<void>(
       `${this.base}/games/${gameId}/effect-omen`,
-      { placements }  // { placements: [...] }
+      { placements }
     );
   }
+
+  resolveLaboratoryExperiment(
+    gameId: string,
+    monsterType: 'REVENANT'|'GARGOYLE'|'ABERRATION',
+    location: string
+  ) {
+    return this.http.post<void>(
+      `${this.base}/games/${gameId}/effect-experiment`,
+      { type: monsterType, location }
+    );
+  }
+
+  resolveAltarHeal(gameId: string, targetId: string) {
+    const params = new HttpParams().set('targetId', targetId);
+    return this.http.post<void>(
+      `${this.base}/games/${gameId}/effect-heal`,
+      null,
+      { params }
+    );
+  }
+
+  resolveAltarCorrupt(gameId: string, targetId: string) {
+    const params = new HttpParams().set('targetId', targetId);
+    return this.http.post<void>(
+      `${this.base}/games/${gameId}/effect-corrupt`,
+      null,
+      { params }
+    );
+  }
+
+  resolveForge(gameId: string, equipCode: string) {
+    return this.http.post<void>(
+      `${this.base}/games/${gameId}/effect-forge`,
+      { equipCode }
+    );
+  }
+
 
     // Auth
   signup(username: string, password: string) {

@@ -125,10 +125,10 @@ public class LiveEvents {
         ));
     }
 
-    public void diceRolled(Game g, String roundId, String rollerId, String side, int roll){
+    public void diceRolled(Game g, String roundId, String rollerId, String side, int roll, List<String> breakdown){
         send(g.getId(), new GameEvents(
                 GameEvents.Type.DICE_ROLLED, g.getId(),
-                Map.of("roundId", roundId, "rollerId", rollerId, "side", side, "roll", roll),
+                Map.of("roundId", roundId, "rollerId", rollerId, "side", side, "roll", roll, "breakdown", breakdown),
                 System.currentTimeMillis()
         ));
     }

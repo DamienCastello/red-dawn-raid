@@ -48,6 +48,11 @@ public record GameSnapshot(
         String locationEffectOwnerId,  // id du joueur concerné ou null
         String locationEffectInfra,    // ex: "LIBRARY" ou null
         List<String> libraryOmenCards,
+        List<MonsterView> monsters,
+        boolean ballroomBloodWaltz,
+        List<Integer> ballroomWaltzRolls,
+        Integer ballroomWaltzBest,
+        boolean altarCorrupted,
 
         List<HistoryItemView> history,
         List<String> messages,
@@ -60,6 +65,7 @@ public record GameSnapshot(
             String id, String username, String role,
             List<String> hand,
             List<String> potions,
+            List<String> elixirs,
             List<String> actions,
             int hp, int corruption,
             String attackDice, String defenseDice,
@@ -68,12 +74,12 @@ public record GameSnapshot(
 
     ) {}
 
-    public record DecksView(Pile actionsVamp, Pile actionsHunters, Pile potions) {
+    public record DecksView(Pile actionsVamp, Pile actionsHunters, Pile potions, Pile elixirs) {
         public record Pile(int deck, int discard) {}
     }
 
     public record BiteView(String attackerId, String targetId, String location,
-                           Integer roll, Long resolvedAtMillis) {}
+                           Integer roll, Integer armorRoll, Long resolvedAtMillis) {}
 
     public record ActionView(String mode, String ownerId, String location, String targetId,
                            Integer roll, List<String> breakdownLines, Long resolvedAtMillis) {}
@@ -82,11 +88,11 @@ public record GameSnapshot(
     public record StatModView(String stat, int amount, String source) {}
 
     public record RaidEffectsView(
+            boolean focus,
+            boolean leech,
             boolean invulnerable,
             boolean doubleAttack,
             boolean doubleDefense,
-            boolean focus,
-            boolean leech,
             boolean invisible,
             boolean rapid
     ) {}
@@ -107,4 +113,9 @@ public record GameSnapshot(
             Map<String,Integer> offerA, Map<String,Integer> offerB,
             String statusA, String statusB, long updatedAt
     ) {}
+
+    public record MonsterView(String id, String type, String location,
+                       int hp, String attackDice, String defenseDice
+    ) {}
+
 }

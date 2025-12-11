@@ -146,10 +146,11 @@ public class Game {
     // Corruption
     public static class BiteAttempt {
         private String id;
-        private String attackerId; // vampire
-        private String targetId;   // chasseur mordu
-        private String location;   // pour l’affichage
-        private Integer roll;      // null tant que pas lancé
+        private String attackerId;
+        private String targetId;
+        private String location;
+        private Integer roll;
+        private Integer armorRoll;
         private Long resolvedAtMillis;
 
         public String getId() { return id; }
@@ -166,6 +167,9 @@ public class Game {
 
         public Integer getRoll() { return roll; }
         public void setRoll(Integer r) { this.roll = r; }
+
+        public Integer getArmorRoll() { return armorRoll; }
+        public void setArmorRoll(Integer armorRoll) { this.armorRoll = armorRoll; }
 
         public Long getResolvedAtMillis() { return resolvedAtMillis; }
         public void setResolvedAtMillis(Long r) { this.resolvedAtMillis = r; }
@@ -187,6 +191,11 @@ public class Game {
     // Potions (deck commun)
     private List<String> potionDeck = new ArrayList<>();
     private List<String> potionDiscard = new ArrayList<>();
+
+    // Potions rares (deck spécial Laboratoire / loot rare)
+    private List<String> elixirDeck = new ArrayList<>();
+    private List<String> elixirDiscard = new ArrayList<>();
+
 
     // Actions chasseurs
     private List<String> hunterActionsDeck = new ArrayList<>();
@@ -272,11 +281,41 @@ public class Game {
 
     public static class LibraryOmenState {
         public String ownerId;              // joueur qui résout l'effet
-        public String targetSide;           // "HUNTERS" ou "VAMP"
+        public String targetSide;           // "HUNTERS" ou "VAMPIRE"
         public java.util.List<String> cards = new java.util.ArrayList<>();
     }
 
     private LibraryOmenState libraryOmenState;
+
+    public static class Monster {
+        public String id;
+        public MonsterType type;
+        public String location;    // "forest","quarry","manor","lab",...
+        public int hp;
+        public String attackDice;   // "D6","D8","D12"
+        public String defenseDice;  // peut être null ou "NONE" pour Revenant
+    }
+
+    public enum MonsterType {
+        REVENANT, GARGOYLE, ABERRATION
+    }
+
+    private boolean laboratoryToDestroy;
+    private boolean ballroomDeathDance;
+    private boolean ballroomSneakAttack;
+    private boolean ballroomBloodWaltz;        // effet activé ce raid
+    private Integer ballroomBloodWaltzBestRoll;            // meilleur dé retenu
+    private java.util.List<Integer> ballroomBloodWaltzRolls = new java.util.ArrayList<>();
+
+    // État persistant du lieu : null ou FALSE = pure, TRUE = corrompu.
+    // non-null que quand l'infra est réellement construite.
+    private Boolean altarCorrupted;
+
+    // Flags "par raid" (reset entre 2 raids)
+    private boolean altarBiteOccurredThisRaid;           // au moins une morsure sur ce lieu
+    private boolean altarVampTookDamageThisRaid;         // le vampire a pris des dégâts sur ce lieu ce raid
+
+    private Map<String, Integer> bleedDamageByTarget = new HashMap<>();
 
     public Game() {}
 
@@ -411,6 +450,13 @@ public class Game {
     public List<String> getPotionDiscard() { return potionDiscard; }
     public void setPotionDiscard(List<String> discard) { this.potionDiscard = discard; }
 
+    // Potions rares
+    public List<String> getElixirDeck() { return elixirDeck; }
+    public void setElixirDeck(List<String> deck) { this.elixirDeck = deck; }
+
+    public List<String> getElixirDiscard() { return elixirDiscard; }
+    public void setElixirDiscard(List<String> discard) { this.elixirDiscard = discard; }
+
     // Actions chasseurs
     public List<String> getHunterActionsDeck() { return hunterActionsDeck; }
     public void setHunterActionsDeck(List<String> deck) { this.hunterActionsDeck = deck; }
@@ -456,6 +502,66 @@ public class Game {
     public LocationEffectChoice getLocationEffectChoice() { return locationEffectChoice; }
     public void setLocationEffectChoice(LocationEffectChoice locationEffectChoice) { this.locationEffectChoice = locationEffectChoice; }
 
+    // LIBRARY
     public LibraryOmenState getLibraryOmenState() { return libraryOmenState; }
     public void setLibraryOmenState(LibraryOmenState s) { this.libraryOmenState = s; }
+
+    // LABORATORY
+    // --- Monstres invoqués par le Laboratoire occulte ---
+    private List<Monster> monsters = new ArrayList<>();
+
+    public List<Monster> getMonsters() {
+        // on garantit jamais null
+        if (monsters == null) {
+            monsters = new ArrayList<>();
+        }
+        return monsters;
+    }
+
+    public void setMonsters(List<Monster> monsters) {
+        this.monsters = (monsters != null ? monsters : new ArrayList<>());
+    }
+
+    public boolean isLaboratoryToDestroy() { return laboratoryToDestroy; }
+    public void setLaboratoryToDestroy(boolean v) { this.laboratoryToDestroy = v; }
+
+    // BALLROOM
+    public boolean isBallroomDeathDance() { return ballroomDeathDance; }
+    public void setBallroomDeathDance(boolean v) { this.ballroomDeathDance = v; }
+
+    public boolean isBallroomSneakAttack() {
+        return ballroomSneakAttack;
+    }
+    public void setBallroomSneakAttack(boolean v) {
+        this.ballroomSneakAttack = v;
+    }
+
+    public boolean isBallroomBloodWaltz() { return ballroomBloodWaltz; }
+    public void setBallroomBloodWaltz(boolean v) { this.ballroomBloodWaltz = v; }
+
+    public Integer getBallroomBloodWaltzBestRoll() { return ballroomBloodWaltzBestRoll; }
+    public void setBallroomBloodWaltzBestRoll(Integer v) { this.ballroomBloodWaltzBestRoll = v; }
+
+    public java.util.List<Integer> getBallroomBloodWaltzRolls() {
+        if (ballroomBloodWaltzRolls == null) {
+            ballroomBloodWaltzRolls = new java.util.ArrayList<>();
+        }
+        return ballroomBloodWaltzRolls;
+    }
+    public void setBallroomBloodWaltzRolls(java.util.List<Integer> rolls) {
+        this.ballroomBloodWaltzRolls = (rolls != null ? rolls : new java.util.ArrayList<>());
+    }
+
+    // ALTAR
+    public Boolean getAltarCorrupted() { return altarCorrupted; }
+    public void setAltarCorrupted(Boolean altarCorrupted) { this.altarCorrupted = altarCorrupted; }
+
+    public boolean isAltarBiteOccurredThisRaid() { return altarBiteOccurredThisRaid; }
+    public void setAltarBiteOccurredThisRaid(boolean v) { this.altarBiteOccurredThisRaid = v; }
+
+    public boolean isAltarVampTookDamageThisRaid() { return altarVampTookDamageThisRaid; }
+    public void setAltarVampTookDamageThisRaid(boolean v) { this.altarVampTookDamageThisRaid = v; }
+
+    public Map<String, Integer> getBleedDamageByTarget() { return bleedDamageByTarget; }
+    public void setBleedDamageByTarget(Map<String,Integer> m) { this.bleedDamageByTarget = m; }
 }

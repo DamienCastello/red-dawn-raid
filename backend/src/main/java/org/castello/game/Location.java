@@ -10,7 +10,11 @@ public enum Location {
     // Lieux construits (codes comme tu veux)
     SAWMILL("sawmill", "Scierie"),
     MINE("mine", "Mine"),
-    LIBRARY("library", "Bibliothèque");
+    LIBRARY("library", "Bibliothèque"),
+    LABORATORY("laboratory", "Laboratoire occulte"),
+    BALLROOM("ballroom", "Salle de bal"),
+    ALTAR("altar", "Autel"),
+    FORGE("forge", "Forge");
 
     private final String code;     // ce qui est stocké dans Game/hand/center
     private final String labelFr;  // affichage
