@@ -41,7 +41,16 @@ public record GameSnapshot(
         List<String> campfireLocations,
         List<String> netHunters,
         List<String> pitHunters,
+        String shopBonusKind,
+        boolean hunterActionsBlockedThisRaid,
+        List<String> clonesLocations,
+        Boolean clonesFaceUp,
+        String mirrorOwnerId,
+        List<String> mirrorAltLocations,
+        String mirrorChosenLocation,
+        boolean shopPricesIncreasedThisRaid,
 
+        String pendingConstructionInfra,
         List<String> builtInfras,
         boolean locationEffectPending,
         String locationEffectChoice,   // ex: "STUDY" | "THEFT" | "OMEN" | null
@@ -60,7 +69,16 @@ public record GameSnapshot(
         String whoami
 ) {
 
-    public record WeatherView(Integer roll, String status, String nameFr, String descFr) {}
+    public record WeatherView(
+            Integer roll,
+            String status,
+            String nameFr,
+            String descFr,
+            String secondaryStatus,
+            String secondaryNameFr,
+            String secondaryDescFr
+    ) {}
+
     public record PlayerView(
             String id, String username, String role,
             List<String> hand,
@@ -70,7 +88,10 @@ public record GameSnapshot(
             int hp, int corruption,
             String attackDice, String defenseDice,
             int wood, int herbs, int stone, int iron,
-            int water, int gold, int souls, int silver
+            int water, int gold, int souls, int silver,
+            boolean isBlessedStake,
+            boolean isSacredRosary,
+            boolean charismaticThisRaid
 
     ) {}
 
@@ -104,7 +125,8 @@ public record GameSnapshot(
             Integer attackerFirstRoll, Integer defenderFirstRoll,
             Integer attackerReroll, Integer defenderReroll,
             Long resolvedAtMillis,
-            List<String> breakdownLines
+            List<String> breakdownLines,
+            boolean cloneAttack
     ) {}
     public record HistoryItemView(long ts, int raid, String phase, String text) {}
 

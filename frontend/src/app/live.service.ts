@@ -3,7 +3,7 @@ import { Client, IMessage, IFrame, StompHeaders } from '@stomp/stompjs';
 import { TradeView } from './api.service';
 
 export type GameEvent =
-  | { type: 'LOBBY_UPDATED'; gameId: string; payload: { gameId: string; status: string; players: {id:string; username:string}[] }; ts: number }
+  { type: 'LOBBY_UPDATED'; gameId: string; payload: { gameId: string; status: string; players: {id:string; username:string}[] }; ts: number }
   | { type: 'GAME_CREATED'; gameId: string; payload: { gameId: string; status: string; players: {id:string; username:string}[] }; ts: number }
   | { type: 'PHASE_CHANGED'; gameId: string; payload: { phase: string; raid: number }; ts: number }
   | { type: 'WEATHER_ROLLED'; gameId: string; payload: { roll: number; status: string; nameFr: string; descFr: string }; ts: number }
@@ -16,18 +16,19 @@ export type GameEvent =
   | { type: 'LOCATION_USED';    gameId: string; payload: { choice: 'STUDY'|'THEFT'|'OMEN'|'EXPERIMENT'|'ALCHEMY'|'RARE_ALCHEMY'|'EXPLOSION'|'DEATH_DANCE'|'SNEAK_ATTACK'|'BLOOD_WALTZ'|'LOOTING'|'HEAL'|'CORRUPT_SOULS'|'CORRUPT'|'PURIFY_WATER'|'FORGE'; playerId: string; username: string; infra: string|null }; ts: number }
   | { type: 'POTION_USED'; gameId: string; payload: { playerId: string; type: string }; ts: number }
   | { type: 'ACTION_USED'; gameId: string; payload: { playerId: string; type: string }; ts: number }
-  | { type: 'ACTION_STARTED';   gameId: string; payload: { mode: 'NET'|'PIT'; ownerId: string; location: string; targetId: string | null }; ts: number }
+  | { type: 'ACTION_STARTED';   gameId: string; payload: { mode: 'NET'|'PIT'|'MARCHAND_BONUS_BUY'; ownerId: string; location: string; targetId: string | null }; ts: number }
   | { type: 'ACTION_ROLLED';    gameId: string; payload: { mode: 'NET'|'PIT'; ownerId: string; targetId: string; roll: number }; ts: number }
   | { type: 'ACTION_RESOLVED';  gameId: string; payload: { mode: 'NET'|'PIT'; ownerId: string; targetId?: string | null }; ts: number }
   | { type: 'UNSTABLE_ASSIGNED'; gameId: string; payload: { unstableId: string; kind: 'TARGET'|'HARVEST'|'NOTHING'; value: string }; ts: number }
   | { type: 'DICE_ROLLED'; gameId: string; payload: { roundId: string; rollerId: string; side: 'ATTACK'|'DEFENSE'; roll: number }; ts: number }
   | { type: 'COMBAT_RESOLVED'; gameId: string; payload: { roundId: string; dmg: number; defenderId: string; defenderHp: number; breakdown: string[] }; ts: number }
   | { type: 'BITE_STARTED'; gameId: string; payload: { attackerId: string; targetId: string; location: string }; ts: number }
-  | { type: 'BITE_ROLLED'; gameId: string; payload: { roll: number; attackerId: string; targetId: string; newCorruption?: number|null; becameServant: boolean }; ts: number }
+  | { type: 'BITE_ROLLED'; gameId: string; payload: { roll: number; attackerId: string; targetId: string; newCorruption?: number|null; becameServant: boolean; isSacredRosaryUsed: boolean; }; ts: number }
   | { type: 'BITE_RESOLVED';      gameId: string; payload: { attackerId: string; targetId: string; location: string }; ts: number } 
   | { type: 'POTION_BOUGHT';  gameId: string; payload: { playerId: string; type: string; pool: number }; ts: number }
   | { type: 'ACTION_BOUGHT';  gameId: string; payload: { playerId: string; type: string; pool: number }; ts: number }
   | { type: 'SILVER_BOUGHT';  gameId: string; payload: { playerId: string; qty: number; cost: number }; ts: number }
+  | { type: 'HOLY_WATER_BOUGHT';  gameId: string; payload: { playerId: string; costWater: number; costGold: number; }; ts: number }
   | { type: 'RESOURCE_SOLD';  gameId: string; payload: { playerId: string; res: string; qty: number; gain: number }; ts: number }
   | { type: 'TRANSMUTED';     gameId: string; payload: { playerId: string; recipe: 'WOOD_TO_IRON'|'IRON_TO_WOOD'|'TRINITY_TO_SOULS' }; ts: number }
   | { type: 'TRADE_SYNC';     gameId: string; payload: TradeView; ts: number }

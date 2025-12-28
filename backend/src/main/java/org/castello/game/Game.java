@@ -35,8 +35,11 @@ public class Game {
     // --- METEO ---
     private Integer weatherRoll;
     private WeatherStatus weatherStatus;
+    private WeatherStatus secondaryWeatherStatus;
     private String weatherStatusNameFr;
     private String weatherDescriptionFr;
+    private String secondaryWeatherStatusNameFr;
+    private String secondaryWeatherDescriptionFr;
 
     // --- Buffs/Debuffs du raid (affichage + calcul) ---
     private Map<String, List<StatMod>> raidMods = new HashMap<>();
@@ -90,6 +93,48 @@ public class Game {
 
     // Chasseurs ayant préparé une Fosse pour ce raid
     private java.util.Set<String> pitHunters = new java.util.HashSet<>();
+
+    // Provocation chasseur
+    private Map<String, String> provokedTargetByEnemy = new HashMap<>();
+
+    // Chasseurs ayant préparé un Incendiaire pour ce raid : hunterId -> lieu ("forest", "manor", etc.)
+    private Map<String, String> incendiaireLocationByHunter = new HashMap<>();
+
+    // Ennemi ciblé par Embuscade -> liste des chasseurs embusqués
+    private Map<String, List<String>> ambushHuntersByEnemy = new HashMap<>();
+
+    // Infras qui seront détruites à la fin du raid courant (Incendiaire)
+    private java.util.EnumSet<Infra> infrasToDestroyEndOfRaid = java.util.EnumSet.noneOf(Infra.class);
+
+    // Boutique : bonus unique (Marchand itinérant)
+    private String shopBonusKind; // "POTION", "ELIXIR", "EQUIP_WEAPON", "EQUIP_ARMOR";
+
+    // Blocage des actions chasseur
+    private boolean hunterActionsBlockedThisRaid;
+
+    // lieux des clones vampire
+    private java.util.List<String> clonesLocations = new java.util.ArrayList<>();
+    private boolean clonesFaceUp;
+
+    // lieux de l'image miroir
+    private String mirrorOwnerId;
+    private java.util.List<String> mirrorAltLocations;
+    private String mirrorChosenLocation;
+
+    // annule récolte chasseurs
+    private boolean fogBlocksHunterHarvestThisRaid;
+
+    // morsure garantie si attaque fail
+    private boolean hungerAllowsBiteThisRaid;
+
+    // Chasseurs marqués par Marque ténébreuse (effet permanent)
+    private java.util.Set<String> darkMarkedHunters;
+
+    // Chasseurs déjà pris 1 corruption par la marque sur CE raid
+    private java.util.Set<String> darkMarkCorruptedThisRaid;
+
+    // Avidité augmente prix boutique
+    private boolean shopPricesIncreasedThisRaid;
 
     // Effets temporaires pour le raid courant (réinitialisés en PHASE0)
     private Map<String, RaidEffects> raidEffects = new HashMap<>();
@@ -209,7 +254,7 @@ public class Game {
     // --- Phase4: "j'ai fini" (finishTrade) ---
     private final Set<String> readyForNextRaid = new HashSet<>();
 
-    // --- Optionnel pour un vrai compte à rebours côté front ---
+    private int prephaseTimerVersion;
     private Long phase4DeadlineMillis;
 
     // --- Échanges ---
@@ -369,10 +414,16 @@ public class Game {
     public void setWeatherRoll(Integer weatherRoll) { this.weatherRoll = weatherRoll; }
     public WeatherStatus getWeatherStatus() { return weatherStatus; }
     public void setWeatherStatus(WeatherStatus weatherStatus) { this.weatherStatus = weatherStatus; }
+    public WeatherStatus getSecondaryWeatherStatus() { return secondaryWeatherStatus; }
+    public void setSecondaryWeatherStatus(WeatherStatus secondaryWeatherStatus) { this.secondaryWeatherStatus = secondaryWeatherStatus; }
     public String getWeatherStatusNameFr() { return weatherStatusNameFr; }
     public void setWeatherStatusNameFr(String weatherStatusNameFr) { this.weatherStatusNameFr = weatherStatusNameFr; }
     public String getWeatherDescriptionFr() { return weatherDescriptionFr; }
     public void setWeatherDescriptionFr(String weatherDescriptionFr) { this.weatherDescriptionFr = weatherDescriptionFr; }
+    public String getSecondaryWeatherStatusNameFr() { return secondaryWeatherStatusNameFr; }
+    public void setSecondaryWeatherStatusNameFr(String v) { this.secondaryWeatherStatusNameFr = v; }
+    public String getSecondaryWeatherDescriptionFr() { return secondaryWeatherDescriptionFr; }
+    public void setSecondaryWeatherDescriptionFr(String v) { this.secondaryWeatherDescriptionFr = v; }
 
     // buffs/debuffs
     public Map<String, List<StatMod>> getRaidMods() { return raidMods; }
@@ -395,6 +446,7 @@ public class Game {
     public Map<String, RaidEffects> getRaidEffects() { return raidEffects; }
     public void setRaidEffects(Map<String, RaidEffects> m) { this.raidEffects = m; }
 
+    //ACTIONS
     public Set<String> getGarlicBlockedLocations() { return garlicBlockedLocations; }
     public void setGarlicBlockedLocations(Set<String> s) { this.garlicBlockedLocations = s; }
 
@@ -417,8 +469,79 @@ public class Game {
     public Set<String> getPitHunters() { return pitHunters; }
     public void setPitHunters(Set<String> s) { this.pitHunters = s; }
 
+    public Map<String, String> getProvokedTargetByEnemy() { return provokedTargetByEnemy; }
+    public void setProvokedTargetByEnemy(Map<String, String> m) {
+        this.provokedTargetByEnemy = (m != null ? m : new HashMap<>());
+    }
+
+    public Map<String, String> getIncendiaireLocationByHunter() {
+        if (incendiaireLocationByHunter == null) {
+            incendiaireLocationByHunter = new HashMap<>();
+        }
+        return incendiaireLocationByHunter;
+    }
+    public void setIncendiaireLocationByHunter(Map<String, String> m) {
+        this.incendiaireLocationByHunter = (m != null ? m : new HashMap<>());
+    }
+
+    public Map<String, List<String>> getAmbushHuntersByEnemy() {
+        if (ambushHuntersByEnemy == null) {
+            ambushHuntersByEnemy = new HashMap<>();
+        }
+        return ambushHuntersByEnemy;
+    }
+    public void setAmbushHuntersByEnemy(Map<String, List<String>> m) {
+        this.ambushHuntersByEnemy = (m != null ? m : new HashMap<>());
+    }
+
+    public String getShopBonusKind() { return shopBonusKind; }
+    public void setShopBonusKind(String shopBonusKind) { this.shopBonusKind = shopBonusKind; }
+
+    public java.util.EnumSet<Infra> getInfrasToDestroyEndOfRaid() { return infrasToDestroyEndOfRaid; }
+    public void setInfrasToDestroyEndOfRaid(java.util.EnumSet<Infra> v) { this.infrasToDestroyEndOfRaid = v; }
+
+    public boolean isHunterActionsBlockedThisRaid() { return hunterActionsBlockedThisRaid; }
+    public void setHunterActionsBlockedThisRaid(boolean hunterActionsBlockedThisRaid) { this.hunterActionsBlockedThisRaid = hunterActionsBlockedThisRaid; }
+
     public Action getCurrentAction() { return currentAction; }
     public void setCurrentAction(Action currentAction) { this.currentAction = currentAction; }
+
+    public java.util.List<String> getClonesLocations() {
+        if (clonesLocations == null) {
+            clonesLocations = new java.util.ArrayList<>();
+        }
+        return clonesLocations;
+    }
+    public void setClonesLocations(java.util.List<String> locs) {
+        this.clonesLocations = (locs != null ? locs : new java.util.ArrayList<>());
+    }
+
+    public boolean isClonesFaceUp() { return clonesFaceUp; }
+    public void setClonesFaceUp(boolean v) { this.clonesFaceUp = v; }
+
+    public String getMirrorOwnerId() { return mirrorOwnerId; }
+    public void setMirrorOwnerId(String mirrorOwnerId) { this.mirrorOwnerId = mirrorOwnerId; }
+
+    public List<String> getMirrorAltLocations() { return mirrorAltLocations; }
+    public void setMirrorAltLocations(List<String> mirrorAltLocations) { this.mirrorAltLocations = mirrorAltLocations; }
+
+    public String getMirrorChosenLocation() { return mirrorChosenLocation; }
+    public void setMirrorChosenLocation(String mirrorChosenLocation) { this.mirrorChosenLocation = mirrorChosenLocation; }
+
+    public boolean isFogBlocksHunterHarvestThisRaid() { return fogBlocksHunterHarvestThisRaid; }
+    public void setFogBlocksHunterHarvestThisRaid(boolean fogBlocksHunterHarvestThisRaid) { this.fogBlocksHunterHarvestThisRaid = fogBlocksHunterHarvestThisRaid; }
+
+    public boolean isHungerAllowsBiteThisRaid() { return hungerAllowsBiteThisRaid; }
+    public void setHungerAllowsBiteThisRaid(boolean hungerAllowsBiteThisRaid) { this.hungerAllowsBiteThisRaid = hungerAllowsBiteThisRaid; }
+
+    public java.util.Set<String> getDarkMarkedHunters() { return darkMarkedHunters; }
+    public void setDarkMarkedHunters(java.util.Set<String> darkMarkedHunters) { this.darkMarkedHunters = darkMarkedHunters; }
+
+    public java.util.Set<String> getDarkMarkCorruptedThisRaid() { return darkMarkCorruptedThisRaid; }
+    public void setDarkMarkCorruptedThisRaid(java.util.Set<String> darkMarkCorruptedThisRaid) { this.darkMarkCorruptedThisRaid = darkMarkCorruptedThisRaid; }
+
+    public boolean isShopPricesIncreasedThisRaid() { return shopPricesIncreasedThisRaid; }
+    public void setShopPricesIncreasedThisRaid(boolean shopPricesIncreasedThisRaid) { this.shopPricesIncreasedThisRaid = shopPricesIncreasedThisRaid; }
 
     public Map<String, List<String>> getPitTargetsByHunter() { return pitTargetsByHunter; }
     public void setPitTargetsByHunter(Map<String, List<String>> pitTargetsByHunter) { this.pitTargetsByHunter = pitTargetsByHunter; }
@@ -473,6 +596,9 @@ public class Game {
 
 
     public Set<String> getReadyForNextRaid() { return readyForNextRaid; }
+
+    public int getPrephaseTimerVersion() { return prephaseTimerVersion; }
+    public void setPrephaseTimerVersion(int v) { this.prephaseTimerVersion = v; }
 
     public Long getPhase4DeadlineMillis() { return phase4DeadlineMillis; }
     public void setPhase4DeadlineMillis(Long v) { this.phase4DeadlineMillis = v; }

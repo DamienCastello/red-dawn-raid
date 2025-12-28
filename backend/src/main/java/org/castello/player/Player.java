@@ -40,6 +40,10 @@ public class Player {
      */
     private String armor;
 
+    private boolean blessedStake;
+    private boolean sacredRosary;
+    private boolean charismaticThisRaid;
+
     // --- RESSOURCES ---
     private int wood;
     private int herbs;
@@ -115,5 +119,10 @@ public class Player {
     public void setWeapon(String weapon) { this.weapon = weapon; }
     public String getArmor() { return armor; }
     public void setArmor(String armor) { this.armor = armor; }
-
+    public boolean isBlessedStake() { return blessedStake; }
+    public void setBlessedStake(boolean blessedStake) { this.blessedStake = blessedStake; }
+    public boolean isSacredRosary() { return sacredRosary; }
+    public void setSacredRosary(boolean sacredRosary) { this.sacredRosary = sacredRosary; }
+    public boolean isCharismaticThisRaid() { return charismaticThisRaid; }
+    public void setCharismaticThisRaid(boolean charismaticThisRaid) { this.charismaticThisRaid = charismaticThisRaid; }
 }

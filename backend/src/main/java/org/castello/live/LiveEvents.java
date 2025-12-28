@@ -155,7 +155,7 @@ public class LiveEvents {
         ));
     }
 
-    public void biteRolled(Game g, int roll, String attackerId, String targetId, Integer newCorruption, boolean becameServant){
+    public void biteRolled(Game g, int roll, String attackerId, String targetId, Integer newCorruption, boolean becameServant, boolean isSacredRosaryUsed){
         send(g.getId(), new GameEvents(
                 GameEvents.Type.BITE_ROLLED, g.getId(),
                 Map.of(
@@ -163,7 +163,8 @@ public class LiveEvents {
                         "attackerId", attackerId,
                         "targetId", targetId,
                         "newCorruption", newCorruption,
-                        "becameServant", becameServant
+                        "becameServant", becameServant,
+                        "isSacredRosaryUsed", isSacredRosaryUsed
                 ),
                 System.currentTimeMillis()
         ));
@@ -273,6 +274,14 @@ public class LiveEvents {
         send(g.getId(), new GameEvents(
                 GameEvents.Type.SILVER_BOUGHT, g.getId(),
                 Map.of("playerId", playerId, "qty", qty, "cost", cost),
+                System.currentTimeMillis()
+        ));
+    }
+
+    public void holyWaterActionBought(Game g, String playerId, int costWater, int costGold) {
+        send(g.getId(), new GameEvents(
+                GameEvents.Type.HOLY_WATER_BOUGHT, g.getId(),
+                Map.of("playerId", playerId, "costWater", costWater, "costGold", costGold),
                 System.currentTimeMillis()
         ));
     }

@@ -22,6 +22,7 @@ public class GameEvents {
         UNSTABLE_ASSIGNED,
         POTION_BOUGHT,
         ACTION_BOUGHT,
+        HOLY_WATER_BOUGHT,
         SILVER_BOUGHT,
         RESOURCE_SOLD,
         TRANSMUTED,

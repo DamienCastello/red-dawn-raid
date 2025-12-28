@@ -9,6 +9,7 @@ public class RaidEffects {
     private boolean leech;
     private boolean invisible;
     private boolean rapid;
+    private boolean holyWaterAttack;
 
     // getters/setters…
     public boolean isFocus() { return focus; }
@@ -31,4 +32,7 @@ public class RaidEffects {
 
     public boolean isRapid() { return rapid; }
     public void setRapid(boolean rapid) { this.rapid = rapid; }
+
+    public boolean isHolyWaterAttack() { return holyWaterAttack; }
+    public void setHolyWaterAttack(boolean holyWaterAttack) { this.holyWaterAttack = holyWaterAttack; }
 }

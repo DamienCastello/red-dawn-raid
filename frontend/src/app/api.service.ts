@@ -4,7 +4,15 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 // === Types du snapshot (côté back) ===
 export type GameSnapshot = {
   id: string; status: string; raid: number; phase: Phase;
-  weather: { roll: number|null; status: string|null; nameFr: string|null; descFr: string|null } | null;
+  weather: { 
+    roll: number|null; 
+    status: string|null; 
+    nameFr: string|null; 
+    descFr: string|null; 
+    secondaryStatus?: string | null;
+    secondaryNameFr?: string | null;
+    secondaryDescFr?: string | null;
+  } | null;
 
   players: Array<{
     id: string; username: string; role: Player['role'];
@@ -14,6 +22,9 @@ export type GameSnapshot = {
     water: number; gold: number; souls: number; silver: number;
     hand: Player['hand']; actions: Player['actions'];
     potions: Player['potions']; elixirs: Player['elixirs'];
+    isBlessedStake: boolean;
+    isSacredRosary: boolean;
+    charismaticThisRaid: boolean;
   }>;
 
   center: Array<{ playerId: string; card: string; faceUp: boolean }>;
@@ -39,19 +50,31 @@ export type GameSnapshot = {
   unstableHarvestLocByPlayer?: Record<string, string>;
 
   currentAction?: {
-    mode: 'NET' | 'PIT';
+    mode: 'EAU_BENITE' | 'NET' | 'PIT' | 'PROVOCATION' | 'INCENDIAIRE' | 'AMBUSH' | 'BLESSED_STAKE' | 'CHARISMATIQUE' | 'MARCHAND_ITINERANT' | 'MARCHAND_BONUS_BUY' | 'PRESENCE_ECRASANTE' | 'CATACLYSME' | 'CLONES_OMBRE' | 'IMAGE_MIROIR_SETUP' | 'IMAGE_MIROIR_RESOLVE' | 'ECLIPSE' | 'BLOOD_MOON' | 'VOILE_DE_BRUME' | 'FAIM_IRREPRESSIBLE' | 'AFFAIBLISSEMENT_OCCULTE' | 'MARQUE_TENEBREUSE' | 'PASSAGE_SECRET' | 'AVIDITE_NOCTURNE';
     ownerId: string;
     location: string;
     targetId: string | null;
     roll: number | null;
     breakdownLines: string[];
     resolvedAtMillis: number | null;
+    cloneAttack?: boolean;
   } | null;
 
   garlicBlockedLocations: string[];
   campfireLocations: string[];
   netHunters: string[];
   pitHunters: string[];
+  hunterActionsBlockedThisRaid: boolean;
+  clonesLocations?: string[] | null;
+  clonesFaceUp?: boolean | null;
+  mirrorOwnerId?: string | null;
+  mirrorAltLocations?: string[] | null;
+  mirrorChosenLocation?: string | null;
+  shopBonusKind: string;
+
+  pendingConstructionInfra?: 
+    'SAWMILL' | 'MINE' | 'LIBRARY' | 'LABORATORY' | 'BALLROOM' | 'ALTAR' | 'FORGE'
+    | null;
   builtInfras: ('SAWMILL' | 'MINE' | 'LIBRARY' | 'LABORATORY' | 'BALLROOM' | 'ALTAR' | 'FORGE')[];
 
   locationEffectPending: boolean;
@@ -108,6 +131,7 @@ export type RoundFight = {
   defenderReroll?: number | null;
   resolvedAtMillis: number | null;
   breakdownLines: string[];
+  cloneAttack?: boolean;
 };
 
 export type Player = {
@@ -130,6 +154,8 @@ export type Player = {
   souls: number;
   silver: number;
   corruption: number;
+  isBlessedStake: boolean;
+  isSacredRosary: boolean;
 };
 
 type Monster = {
@@ -314,6 +340,151 @@ export class ApiService {
     return this.http.post<void>(`${this.base}/games/${gameId}/actions/pit/resolve`, null);
   }
 
+  resolveProvocation(gameId: string, targetId: string) {
+    const params = new HttpParams().set('targetId', targetId);
+    return this.http.post<void>(
+      `${this.base}/games/${gameId}/actions/provocation/resolve`,
+      null,
+      { params }
+    );
+  }
+
+  resolveIncendiaire(
+    gameId: string,
+    infra: 'SAWMILL' | 'MINE' | 'LIBRARY' | 'LABORATORY' | 'BALLROOM' | 'ALTAR' | 'FORGE'
+  ) {
+    const params = new HttpParams().set('infra', infra);
+    return this.http.post<void>(
+      `${this.base}/games/${gameId}/actions/incendiaire/resolve`,
+      null,
+      { params }
+    );
+  }
+
+  resolveAmbush(gameId: string, targetId: string) {
+    const params = new HttpParams().set('targetId', targetId);
+    return this.http.post<void>(
+      `${this.base}/games/${gameId}/actions/ambush/resolve`,
+      null,
+      { params }
+    );
+  }
+
+  resolveBlessedStake(gameId: string) {
+    return this.http.post<void>(`${this.base}/games/${gameId}/actions/blessed-stake/resolve`, {});
+  }
+
+  rollMerchant(gameId: string) {
+    return this.http.post<void>(
+      `${this.base}/games/${gameId}/actions/merchant/roll`,
+      {}
+    );
+  }
+
+  StartShopBonus(gameId: string) {
+    return this.http.post<void>(
+      `${this.base}/games/${gameId}/shop/start-bonus`,
+      {}
+    );
+  }
+
+
+  buyShopBonus(gameId: string, payment: 'RESOURCE' | 'GOLD') {
+    const params = new HttpParams().set('payment', payment);
+    return this.http.post<void>(
+      `${this.base}/games/${gameId}/shop/buy-bonus`,
+      null,
+      { params }
+    );
+  }
+
+  cancelShopBonus(gameId: string) {
+    return this.http.post<void>(
+      `${this.base}/games/${gameId}/shop/cancel-bonus`,
+      {}
+    );
+  }
+
+  resolveCataclysme(gameId: string, first: string, second: string) {
+    return this.http.post<void>(
+      `${this.base}/games/${gameId}/actions/cataclysme/resolve`,
+      null,
+      { params: { first, second } }
+    );
+  }
+
+  rollClones(gameId: string) {
+    return this.http.post<GameSnapshot>(`${this.base}/games/${gameId}/actions/clones/roll`, {});
+  }
+
+  confirmClones(gameId: string, locations: string[]) {
+    return this.http.post<GameSnapshot>(
+      `${this.base}/games/${gameId}/actions/clones/confirm`,
+      { locations }
+    );
+  }
+
+  resolveImageMiroirSetup(gameId: string, loc: string) {
+    const params = new HttpParams().set('loc', loc);
+    return this.http.post<void>(
+      `${this.base}/games/${gameId}/actions/image-miroir/resolve`,
+      null,
+      { params }
+    );
+  }
+
+  resolveImageMiroirChoice(gameId: string, loc: string) {
+    const params = new HttpParams().set('loc', loc);
+    return this.http.post<void>(
+      `${this.base}/games/${gameId}/actions/image-miroir/choose`,
+      null,
+      { params }
+    );
+  }
+
+  resolveDarkMark(gameId: string, targetId: string) {
+    const params = new HttpParams().set('targetId', targetId);
+    return this.http.post<void>(
+      `${this.base}/games/${gameId}/actions/dark-mark/resolve`,
+      null,
+      { params }
+    );
+  }
+
+  resolveOccultWeakening(gameId: string, targetId: string) {
+    const params = new HttpParams().set('targetId', targetId);
+    return this.http.post<GameSnapshot>(
+      `${this.base}/games/${gameId}/actions/occult-weakening/resolve`,
+      null,
+      { params }
+    );
+  }
+
+  resolveSecretPassage(gameId: string, loc: string) {
+    const params = new HttpParams().set('loc', loc);
+    return this.http.post<GameSnapshot>(
+      `${this.base}/games/${gameId}/actions/secret-passage/resolve`,
+      null,
+      { params }
+    );
+  }
+
+  useNightGreed(gameId: string) {
+    return this.http.post<void>(
+      `${this.base}/games/${gameId}/actions/night-greed`,
+      {}
+    );
+  }
+
+  resolveHolyWater(gameId: string, mode: 'REDUCE' | 'ATTACK' | 'CLEANSE') {
+    const params = new HttpParams().set('mode', mode);
+    return this.http.post<void>(
+      `${this.base}/games/${gameId}/actions/eau-benite/resolve`,
+      null,
+      { params }
+    );
+  }
+
   rollCorruption(gameId: string){
     return this.http.post<void>(`${this.base}/games/${gameId}/corruption/roll`, {});
   }
@@ -352,6 +523,10 @@ export class ApiService {
 
   buySilver(gameId: string, qty = 1) {
     return this.http.post<void>(`${this.base}/games/${gameId}/shop/buy-silver?qty=${qty}`, {});
+  }
+
+  buyHolyWaterAction(gameId: string) {
+    return this.http.post<void>(`${this.base}/games/${gameId}/shop/buy-holy-water`, {});
   }
 
   sellResource(gameId: string, res: 'wood'|'herbs'|'stone'|'iron'|'water', qty = 1) {

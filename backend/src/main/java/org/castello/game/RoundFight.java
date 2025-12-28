@@ -20,6 +20,9 @@ public class RoundFight {
     private java.util.List<Integer> ballroomWaltzRolls;
     private Integer ballroomWaltzBest;
 
+    private boolean cloneAttack;
+    private boolean blessedStakePending;
+
     public RoundFight() {}
 
     public RoundFight(String id, String location, String attackerId, String defenderId) {
@@ -74,4 +77,10 @@ public class RoundFight {
 
     public Integer getBallroomWaltzBest() { return ballroomWaltzBest; }
     public void setBallroomWaltzBest(Integer v) { this.ballroomWaltzBest = v; }
+
+    public boolean isCloneAttack() { return cloneAttack; }
+    public void setCloneAttack(boolean cloneAttack) { this.cloneAttack = cloneAttack; }
+
+    public boolean isBlessedStakePending() { return blessedStakePending; }
+    public void setBlessedStakePending(boolean blessedStakePending) { this.blessedStakePending = blessedStakePending; }
 }

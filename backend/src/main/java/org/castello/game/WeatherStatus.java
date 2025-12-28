@@ -12,5 +12,6 @@ public enum WeatherStatus {
     DUSK,
     NIGHT_DARK,
     NIGHT_CLEAR,
-    FULL_MOON
+    FULL_MOON,
+    BLOOD_MOON
 }

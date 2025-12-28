@@ -139,7 +139,10 @@ public class GameService {
                 g.getWeatherRoll(),
                 (g.getWeatherStatus() != null ? g.getWeatherStatus().name() : null),
                 g.getWeatherStatusNameFr(),
-                g.getWeatherDescriptionFr()
+                g.getWeatherDescriptionFr(),
+                (g.getSecondaryWeatherStatus() != null ? g.getSecondaryWeatherStatus().name() : null),
+                g.getSecondaryWeatherStatusNameFr(),
+                g.getSecondaryWeatherDescriptionFr()
         );
 
         // Players
@@ -165,7 +168,7 @@ public class GameService {
             } else {
                 // Les autres :
                 // - main de lieux cachée
-                // - potions cachées (si tu veux les laisser secrètes)
+                // - potions cachées
                 // - actions : on cache l’ID mais on garde la taille de la main
                 handView    = List.of();
                 potionsView = Collections.nCopies(actions.size(), "HIDDEN");
@@ -186,7 +189,10 @@ public class GameService {
                     p.getAttackDice() != null ? p.getAttackDice() : "D6",
                     p.getDefenseDice() != null ? p.getDefenseDice() : "D6",
                     p.getWood(), p.getHerbs(), p.getStone(), p.getIron(),
-                    p.getWater(), p.getGold(), p.getSouls(), p.getSilver()
+                    p.getWater(), p.getGold(), p.getSouls(), p.getSilver(),
+                    p.isBlessedStake(),
+                    p.isSacredRosary(),
+                    p.isCharismaticThisRaid()
             );
         }).toList();
 
@@ -268,7 +274,8 @@ public class GameService {
                         r.getAttackerFirstRoll(), r.getDefenderFirstRoll(),
                         r.getAttackerReroll(), r.getDefenderReroll(),
                         r.getResolvedAtMillis(),
-                        (r.getBreakdownLines() != null ? r.getBreakdownLines() : java.util.List.of())
+                        (r.getBreakdownLines() != null ? r.getBreakdownLines() : java.util.List.of()),
+                        r.isCloneAttack()
                 )
         ).toList();
 
@@ -282,7 +289,8 @@ public class GameService {
                     r.getAttackerFirstRoll(), r.getDefenderFirstRoll(),
                     r.getAttackerReroll(), r.getDefenderReroll(),
                     r.getResolvedAtMillis(),
-                    (r.getBreakdownLines() != null ? r.getBreakdownLines() : java.util.List.of())
+                    (r.getBreakdownLines() != null ? r.getBreakdownLines() : java.util.List.of()),
+                    r.isCloneAttack()
             );
         }
 
@@ -318,11 +326,33 @@ public class GameService {
         // Ready → liste (copie) pour ne pas exposer la Set interne
         java.util.List<String> readyList = new java.util.ArrayList<>(readySet);
 
-        // Action (Filet / Fosse) pilotée uniquement par currentAction
         GameSnapshot.ActionView action = null;
         Game.Action a = g.getCurrentAction();
 
-        if (a != null && ("NET".equals(a.getMode()) || "PIT".equals(a.getMode()))) {
+        if (a != null && ("NET".equals(a.getMode())
+                || "PIT".equals(a.getMode())
+                || "INCENDIAIRE".equals(a.getMode())
+                || "PROVOCATION".equals(a.getMode())
+                || "AMBUSH".equals(a.getMode())
+                || "BLESSED_STAKE".equals(a.getMode())
+                || "SACRED_ROSARY".equals(a.getMode())
+                || "CHARISMATIQUE".equals(a.getMode())
+                || "MARCHAND_ITINERANT".equals(a.getMode())
+                || "MARCHAND_BONUS_BUY".equals(a.getMode())
+                || "PRESENCE_ECRASANTE".equals(a.getMode())
+                || "CATACLYSME".equals(a.getMode())
+                || "CLONES_OMBRE".equals(a.getMode())
+                || "IMAGE_MIROIR_SETUP".equals(a.getMode())
+                || "IMAGE_MIROIR_RESOLVE".equals(a.getMode())
+                || "ECLIPSE".equals(a.getMode())
+                || "BLOOD_MOON".equals(a.getMode())
+                || "VOILE_DE_BRUME".equals(a.getMode())
+                || "FAIM_IRREPRESSIBLE".equals(a.getMode())
+                || "MARQUE_TENEBREUSE".equals(a.getMode())
+                || "AFFAIBLISSEMENT_OCCULTE".equals(a.getMode())
+                || "PASSAGE_SECRET".equals(a.getMode())
+                || "AVIDITE_NOCTURNE".equals(a.getMode())
+                || "EAU_BENITE".equals(a.getMode()))) {
             action = new GameSnapshot.ActionView(
                     a.getMode(),
                     a.getOwnerId(),
@@ -356,6 +386,39 @@ public class GameService {
         java.util.List<String> pitHunters = (g.getPitHunters() != null)
                 ? new java.util.ArrayList<>(g.getPitHunters())
                 : java.util.List.of();
+
+        String shopBonusKind = null;
+        if (g.getShopBonusKind() != null) {
+            shopBonusKind = g.getShopBonusKind();
+        }
+
+        boolean hunterActionsBlockedThisRaid = g.isHunterActionsBlockedThisRaid();
+
+        java.util.List<String> clonesLocations = null;
+        if (g.getClonesLocations() != null && !g.getClonesLocations().isEmpty()) {
+            clonesLocations = new java.util.ArrayList<>(g.getClonesLocations());
+        }
+        Boolean clonesFaceUp = g.isClonesFaceUp();
+
+        String mirrorOwnerId = null;
+        if (g.getMirrorOwnerId() != null) {
+            mirrorOwnerId = g.getMirrorOwnerId();
+        }
+        List<String> mirrorAltLocations = null;
+        if (g.getMirrorAltLocations() != null && !g.getMirrorAltLocations().isEmpty()) {
+            mirrorAltLocations = new java.util.ArrayList<>(g.getMirrorAltLocations());
+        }
+        String mirrorChosenLocation = null;
+        if (g.getMirrorChosenLocation() != null) {
+            mirrorChosenLocation = g.getMirrorChosenLocation();
+        }
+
+        String pendingConstructionInfra = null;
+        if (g.getPendingConstruction() != null) {
+            pendingConstructionInfra = g.getPendingConstruction().infra.name();
+        }
+
+        boolean shopPricesIncreasedThisRaid = g.isShopPricesIncreasedThisRaid();
 
         // Conversions pour builtInfras
         List<String> builtInfras = (g.getBuiltInfras() != null)
@@ -444,6 +507,15 @@ public class GameService {
                 campfireLocations,
                 netHunters,
                 pitHunters,
+                shopBonusKind,
+                hunterActionsBlockedThisRaid,
+                clonesLocations,
+                clonesFaceUp,
+                mirrorOwnerId,
+                mirrorAltLocations,
+                mirrorChosenLocation,
+                shopPricesIncreasedThisRaid,
+                pendingConstructionInfra,
                 builtInfras,
                 locationEffectPending,
                 locationEffectChoice,
@@ -487,6 +559,11 @@ public class GameService {
         g.getCampfireLocations().clear();
         if (g.getNetHunters() == null) g.setNetHunters(new java.util.HashSet<>());
         if (g.getPitHunters() == null) g.setPitHunters(new java.util.HashSet<>());
+        if (g.getIncendiaireLocationByHunter() == null) {
+            g.setIncendiaireLocationByHunter(new java.util.HashMap<>());
+        } else {
+            g.getIncendiaireLocationByHunter().clear();
+        }
         if (g.getPitTargetsByHunter() == null) g.setPitTargetsByHunter(new java.util.HashMap<>());
         else g.getPitTargetsByHunter().clear();
         if (g.getPotionDeck() == null)        g.setPotionDeck(new java.util.ArrayList<>());
@@ -560,7 +637,7 @@ public class GameService {
                 ? g.getUnstableHarvestLocByPlayer().keySet()
                 : java.util.Set.of();
 
-        // Parcourt les lieux révélés
+        // --- 1) Combats "classiques" (vampire / serviteurs / monstres) ---
         java.util.Set<String> locs = new java.util.HashSet<>();
         for (var cb : faceUp) locs.add(cb.getCard());
 
@@ -591,7 +668,6 @@ public class GameService {
                     .toList();
 
             boolean hasMonsterEnemy = !monstersHere.isEmpty();
-
             boolean hasEnemy = hasEnemyPlayer || hasMonsterEnemy;
 
             boolean hasEligibleHunter = playersOnLoc.stream()
@@ -599,12 +675,36 @@ public class GameService {
                             && p.getHp() > 0
                             && !harvesters.contains(p.getId()));
 
-            if (hasEnemy && hasEligibleHunter) return true;
+            if (hasEnemy && hasEligibleHunter) {
+                return true;
+            }
         }
 
-        // (B) Duels instables explicites => combat de toute façon
+        // --- 2) Duels instables explicites => combat de toute façon ---
         if (g.getUnstableTargetByPlayer() != null && !g.getUnstableTargetByPlayer().isEmpty()) {
             return true;
+        }
+
+        // --- 3) Clones des ombres : s'il y a des chasseurs vivants sur un lieu ciblé ---
+        if (g.getClonesLocations() != null && !g.getClonesLocations().isEmpty()) {
+
+            var groups = groupPlayersByLocation(g); // loc -> List<Player>
+
+            for (String loc : g.getClonesLocations()) {
+                var onLoc = groups.get(loc);
+                if (onLoc == null || onLoc.isEmpty()) continue;
+
+                boolean hasEligibleHunter = onLoc.stream()
+                        .anyMatch(p -> "HUNTER".equals(p.getRole())
+                                && p.getHp() > 0
+                                && !harvesters.contains(p.getId()));
+
+                if (hasEligibleHunter) {
+                    // Même s'il n'y a pas le vampire physiquement sur ce lieu,
+                    // le fait qu'un clone soit là contre un chasseur = combat pour la préphase.
+                    return true;
+                }
+            }
         }
 
         return false;
@@ -696,6 +796,7 @@ public class GameService {
             case NIGHT_DARK -> "Nuit obscure";
             case NIGHT_CLEAR-> "Nuit claire";
             case FULL_MOON  -> "Pleine lune";
+            case BLOOD_MOON -> "Lune sanglante";
         };
     }
 
@@ -713,6 +814,7 @@ public class GameService {
             case NIGHT_DARK -> "Les ombres dominent. +1 attaque du vampire. Les chasseurs ne peuvent utiliser de pièges.";
             case NIGHT_CLEAR-> "La lune éclaire légèrement et le vampire gagne en puissance. +1 attaque du vampire et –1 défense pour les chasseurs.";
             case FULL_MOON  -> "La pleine lune exalte le sang ancien. +2 attaque du vampire.";
+            case BLOOD_MOON  -> "La pleine lune exalte le sang ancien. +2 attaque du vampire.";
         };
     }
 
@@ -738,7 +840,7 @@ public class GameService {
      * On renvoie uniquement les mods chiffrés (ATTACK / DEFENSE) utiles pour le calcul,
      * en appliquant éventuellement l’annulation météo par Feu de camp.
      *
-     * ⚠️ Pour les monstres :
+     * Pour les monstres :
      *    - on NE garde que les mods d'actions (source "ACTION:...")
      *    - pas de météo / corruption / potions.
      */
@@ -839,8 +941,9 @@ public class GameService {
             } else if (s.startsWith("ACTION:")) {
                 String type = s.substring("ACTION:".length());
                 src = switch (type) {
-                    case "FILET"     -> "par l'effet d'action filet";
-                    case "FOSSE" -> "par l'effet d'action fosse";
+                    case "NET"     -> "par l'effet d'action filet";
+                    case "PIT" -> "par l'effet d'action fosse";
+                    case "AFFAIBLISSEMENT_OCCULTE" -> "par l'effet d'affaiblissement occulte";
                     default          -> "par l'effet action";
                 };
             } else if (s.startsWith("CORRUPTION:")) {
@@ -1013,7 +1116,12 @@ public class GameService {
         for (var p : g.getPlayers()) {
             if ("HUNTER".equals(p.getRole())) {
                 p.getActions().addAll(List.of(
-                        "EAU_BENITE"
+                        "MARCHAND_ITINERANT", "MARCHAND_ITINERANT", "MARCHAND_ITINERANT", "CHARISMATIQUE", "SACRED_ROSARY", "SACRED_ROSARY", "BLESSED_STAKE", "BLESSED_STAKE", "AMBUSH", "AMBUSH", "EAU_BENITE", "EAU_BENITE", "PROVOCATION", "PROVOCATION", "EAU_BENITE", "INCENDIAIRE", "INCENDIAIRE", "NET", "PIT", "FUMIGATION_AIL", "FUMIGATION_AIL", "PISTEUR", "PISTEUR"
+                ));
+            }
+            if ("VAMPIRE".equals(p.getRole())) {
+                p.getActions().addAll(List.of(
+                        "AVIDITE_NOCTURNE", "AVIDITE_NOCTURNE", "VOILE_DE_BRUME", "BLOOD_MOON", "AFFAIBLISSEMENT_OCCULTE", "IMAGE_MIROIR", "IMAGE_MIROIR", "PASSAGE_SECRET", "PASSAGE_SECRET", "PASSAGE_SECRET", "FAIM_IRREPRESSIBLE",  "CATACLYSME", "CLONES_OMBRE", "CLONES_OMBRE", "MARQUE_TENEBREUSE", "PRESENCE_ECRASANTE", "PRESENCE_ECRASANTE"
                 ));
             }
         }
@@ -1096,17 +1204,36 @@ public class GameService {
 
         // --- Actions chasseurs ---
         Map<String,Integer> hunterComp = new HashMap<>();
-        hunterComp.put("FUMIGATION_AIL",  4);
-        hunterComp.put("PISTEUR",         4);
-        hunterComp.put("FEU_DE_CAMP",     4);
-        hunterComp.put("FILET",           2);
-        hunterComp.put("FOSSE",           2);
+        hunterComp.put("FUMIGATION_AIL",     3);
+        hunterComp.put("PISTEUR",            4);
+        hunterComp.put("FEU_DE_CAMP",        4);
+        hunterComp.put("NET",                3);
+        hunterComp.put("PIT",                2);
+        hunterComp.put("INCENDIAIRE",        2);
+        hunterComp.put("PROVOCATION",        3);
+        hunterComp.put("AMBUSH",             2);
+        hunterComp.put("BLESSED_STAKE",      3);
+        hunterComp.put("SACRED_ROSARY",      1);
+        hunterComp.put("CHARISMATIQUE",      4);
+        hunterComp.put("MARCHAND_ITINERANT", 3);
 
         g.setHunterActionsDeck(buildDeckFromComposition(hunterComp));
         g.setHunterActionsDiscard(new ArrayList<>());
 
         // --- Actions vampire ---
         Map<String,Integer> vampComp = new HashMap<>();
+        vampComp.put("PRESENCE_ECRASANTE",     1);
+        vampComp.put("CATACLYSME",             1);
+        vampComp.put("CLONES_OMBRE",           1);
+        vampComp.put("IMAGE_MIROIR",           1);
+        vampComp.put("ECLIPSE",                2);
+        vampComp.put("BLOOD_MOON",             1);
+        vampComp.put("VOILE_DE_BRUME",         2);
+        vampComp.put("FAIM_IRREPRESSIBLE",     2);
+        vampComp.put("MARQUE_TENEBREUSE",      1);
+        vampComp.put("AFFAIBLISSEMENT_OCCULTE",3);
+        vampComp.put("PASSAGE_SECRET",         2);
+        vampComp.put("AVIDITE_NOCTURNE",       3);
 
         g.setVampActionsDeck(buildDeckFromComposition(vampComp));
         g.setVampActionsDiscard(new ArrayList<>());
@@ -1151,8 +1278,11 @@ public class GameService {
                 // Reset météo + messages de démarrage de raid
                 g.setWeatherRoll(null);
                 g.setWeatherStatus(null);
+                g.setSecondaryWeatherStatus(null);
                 g.setWeatherStatusNameFr(null);
                 g.setWeatherDescriptionFr(null);
+                g.setSecondaryWeatherStatusNameFr(null);
+                g.setSecondaryWeatherDescriptionFr(null);
                 g.setMessages(new ArrayList<>(List.of("Tirage météo ...")));
 
                 // reset des effets one-shot de raid
@@ -1160,6 +1290,39 @@ public class GameService {
                     g.setTrackerHunters(new java.util.HashSet<>());
                 } else {
                     g.getTrackerHunters().clear();
+                }
+                g.setProvokedTargetByEnemy(null);
+                g.setAmbushHuntersByEnemy(null);
+                g.setShopBonusKind(null);
+                if (g.getInfrasToDestroyEndOfRaid() == null) {
+                    g.setInfrasToDestroyEndOfRaid(java.util.EnumSet.noneOf(Infra.class));
+                } else {
+                    g.getInfrasToDestroyEndOfRaid().clear();
+                }
+                // Reset du bonus Charismatique au début de chaque raid
+                if (g.getPlayers() != null) {
+                    for (Player pl : g.getPlayers()) {
+                        pl.setCharismaticThisRaid(false);
+                    }
+                }
+                g.setHunterActionsBlockedThisRaid(false);
+                g.setClonesLocations(new ArrayList<>());
+                g.setClonesFaceUp(false);
+                g.setMirrorOwnerId(null);
+                g.setMirrorAltLocations(null);
+                g.setMirrorChosenLocation(null);
+                g.setFogBlocksHunterHarvestThisRaid(false);
+                g.setHungerAllowsBiteThisRaid(false);
+                g.setShopPricesIncreasedThisRaid(false);
+
+                // Marque ténébreuse : les marqués restent, mais on reset le suivi “ce raid”
+                if (g.getDarkMarkedHunters() == null) {
+                    g.setDarkMarkedHunters(new java.util.HashSet<>());
+                }
+                if (g.getDarkMarkCorruptedThisRaid() == null) {
+                    g.setDarkMarkCorruptedThisRaid(new java.util.HashSet<>());
+                } else {
+                    g.getDarkMarkCorruptedThisRaid().clear();
                 }
 
                 g.setCurrentAction(null);
@@ -1193,7 +1356,18 @@ public class GameService {
                     }
                 }
 
-                // ⚠️ mutation OK ici (aucun event) :
+                // Reconstruit les effets DSP persistants (ex: Épieu béni chargé)
+                if (g.getPlayers() != null) {
+                    for (Player pl : g.getPlayers()) {
+                        if (pl.isBlessedStake()) {
+                            addRaidMod(g, pl.getId(), "ATTACK", 0, "ACTION:BLESSED_STAKE:DSP");
+                        }
+                        if (pl.isSacredRosary()) {
+                            addRaidMod(g, pl.getId(), "DEFENSE", 0, "ACTION:SACRED_ROSARY:DSP");
+                        }
+                    }
+                }
+
                 rebuildCorruptionMods(g);
                 rebuildWeatherMods(g);
                 rebuildEquipmentMods(g);
@@ -1218,6 +1392,24 @@ public class GameService {
             case PREPHASE3 -> {
                 // 1) Révéler
                 for (var cb : g.getCenter()) cb.setFaceUp(true);
+                g.setClonesFaceUp(true);
+
+                // Si une Image miroir a été préparée et pas encore résolue
+                if (g.getMirrorOwnerId() != null
+                        && g.getMirrorAltLocations() != null
+                        && !g.getMirrorAltLocations().isEmpty()
+                        && g.getMirrorChosenLocation() == null) {
+
+                    Game.Action a = new Game.Action();
+                    a.setMode("IMAGE_MIROIR_RESOLVE");
+                    a.setOwnerId(g.getMirrorOwnerId());
+                    a.setLocation(null);
+                    a.setTargetId(null);
+                    a.setRoll(null);
+                    a.setBreakdownLines(new java.util.ArrayList<>());
+                    a.setResolvedAtMillis(null);
+                    g.setCurrentAction(a);
+                }
 
                 // 2) Réinit "instable"
                 g.getUnstableTargetByPlayer().clear();
@@ -1254,9 +1446,11 @@ public class GameService {
                     }
                 }
 
-                center.addAll(buildRevealMessages(g));
+                // On pose d’abord les messages de corruption...
                 g.setMessages(center);
                 for (var m : history) addHistory(g, m);
+
+                refreshPrephaseRevealMessages(g);
 
                 // 4) Comportement "classique" de préphase :
                 //    - calcule hasUpcomingCombat
@@ -1271,7 +1465,7 @@ public class GameService {
                     g.setHarvestedRaid(g.getRaid());
                 }
                 buildCombatsQueue(g);
-                prepareFirstTrapAction(g);
+                prepareNextRaidAction(g);
             }
 
             case PHASE4 -> {
@@ -1281,14 +1475,13 @@ public class GameService {
                 for (var cb : g.getCenter()) {
                     var p = g.getPlayers().stream().filter(pp -> pp.getId().equals(cb.getPlayerId())).findFirst().orElse(null);
                     if (p != null) {
-                        if (p.getHand() == null) p.setHand(new ArrayList<>());
                         p.getHand().add(cb.getCard());
                     }
                 }
                 g.getCenter().clear();
 
                 // Détruire le labo s'il a été marqué pour destruction
-                destroyLaboratoryIfNeeded(g);
+                destroyRaidInfrasAtEnd(g);
 
                 g.setMessages(new ArrayList<>(List.of("Maintenance…")));
                 addHistory(g, "Maintenance…");
@@ -1307,27 +1500,107 @@ public class GameService {
     }
 
     private void setupUnstableAndPrephaseTimeout(Game g) {
-        // 1) Flags et liste des participants
+        // 0) Image miroir en attente → on NE lance PAS la préphase
+        boolean mirrorPending =
+                g.getMirrorOwnerId() != null
+                        && g.getMirrorAltLocations() != null
+                        && !g.getMirrorAltLocations().isEmpty()
+                        && g.getMirrorChosenLocation() == null;
+
+        if (mirrorPending) {
+            if (g.getReadyForPhase3() != null) {
+                g.getReadyForPhase3().clear();
+            }
+            g.setHasUpcomingCombat(false);
+            return;
+        }
+
         boolean hasPendingUnstable =
                 !(g.getUnstableEligibleTargets().isEmpty() && g.getUnstableEligibleLocations().isEmpty());
-        boolean upcoming = computeHasUpcomingCombat(g); // <-- déjà corrigé pour ignorer les récolteurs
-        g.setHasUpcomingCombat(upcoming);
+        boolean upcoming = computeHasUpcomingCombat(g);
 
-        // 2) "Prêt" pour non-participants (Vampire/Serviteurs/Chasseurs hors combat)
+        // 2) Incendiaire
+        boolean hasIncendiaire = false;
+        for (Player p : g.getPlayers()) {
+            if (!"HUNTER".equals(p.getRole())) continue;
+            List<String> actions = p.getActions();
+            if (actions == null || !actions.contains(Action.INCENDIAIRE.name())) continue;
+
+            String loc = locationOf(g, p.getId());
+            if (loc == null) continue;
+
+            if (hasIncendiaireTargetsOnLocation(g, loc)) {
+                hasIncendiaire = true;
+                break;
+            }
+        }
+
+        // 3) Voile de brume (vampire)
+        boolean hasFogOption = false;
+        for (Player p : g.getPlayers()) {
+            if (!"VAMPIRE".equals(p.getRole())) continue;
+            List<String> actions = p.getActions();
+            if (actions != null && actions.contains(Action.VOILE_DE_BRUME.name())) {
+                hasFogOption = true;
+                break;
+            }
+        }
+
+        // 4) Marque ténébreuse (vampire)
+        boolean hasDarkMarkOption = false;
+        for (Player p : g.getPlayers()) {
+            if (!"VAMPIRE".equals(p.getRole())) continue;
+            List<String> actions = p.getActions();
+            if (actions != null && actions.contains(Action.MARQUE_TENEBREUSE.name())) {
+                hasDarkMarkOption = true;
+                break;
+            }
+        }
+
+        // 5) Eau bénite (chasseurs)
+        boolean hasHolyWaterOption = hasUsableHolyWaterOption(g);
+
+        // 6) Passage secret (vampire)
+        boolean hasSecretPassageOption = hasUsableSecretPassageOption(g);
+
+        // "quelque chose à faire en préphase" ?
+        boolean hasPrephaseActivity =
+                hasPendingUnstable
+                        || upcoming
+                        || hasIncendiaire
+                        || hasFogOption
+                        || hasDarkMarkOption
+                        || hasHolyWaterOption
+                        || hasSecretPassageOption;
+
+        // Ici, on étend la sémantique de hasUpcomingCombat :
+        // "il y a soit un combat à venir, soit au moins une carte de préphase intéressante"
+        g.setHasUpcomingCombat(
+                upcoming
+                        || hasIncendiaire
+                        || hasFogOption
+                        || hasDarkMarkOption
+                        || hasHolyWaterOption
+                        || hasSecretPassageOption
+        );
+
         g.getReadyForPhase3().clear();
-        if (g.isHasUpcomingCombat()) {
-            var participants = participantsOfUpcomingCombat(g); // <-- version corrigée ci-dessus
+        if (upcoming) {
+            var participants = participantsOfUpcomingCombat(g);
             for (var p : g.getPlayers()) {
                 if (!participants.contains(p.getId())) {
-                    g.getReadyForPhase3().add(p.getId()); // auto-prêt si hors combat
+                    g.getReadyForPhase3().add(p.getId());
                 }
             }
         }
 
-        // 3) Cadence : long si instables en attente OU combats ; sinon avance courte
-        if (hasPendingUnstable || g.isHasUpcomingCombat()) {
-            schedulePrephaseTimeout(g.getId(), 30_000);
+        if (hasPrephaseActivity) {
+            log.info("ENTER IN IF newversion={}", g.getPrephaseTimerVersion() + 1 );
+            int newVersion = g.getPrephaseTimerVersion() + 1;
+            g.setPrephaseTimerVersion(newVersion);
+            schedulePrephaseTimeout(g.getId(), 30_000, newVersion);
         } else {
+            log.info("ENTER IN ELSE");
             scheduleAdvance(g.getId(), Phase.PREPHASE3, Phase.PHASE3, 4000);
         }
     }
@@ -1465,7 +1738,7 @@ public class GameService {
                 , java.time.Instant.now().plusMillis(delayMs));
     }
 
-    private void schedulePrephaseTimeout(String gameId, long millis) {
+    private void schedulePrephaseTimeout(String gameId, long millis, int expectedVersion) {
         raidScheduler.schedule(() ->
                         tx.execute(status -> {
                             Game g2 = findOr404(gameId);
@@ -1473,6 +1746,11 @@ public class GameService {
                             // Garde-fous : partie active + toujours en PREPHASE3 ?
                             if (g2.getStatus() != GameStatus.ACTIVE || g2.getPhase() != Phase.PREPHASE3) {
                                 return null; // rien à faire
+                            }
+
+                            // Timer périmé ?
+                            if (g2.getPrephaseTimerVersion() != expectedVersion) {
+                                return null;
                             }
 
                             // Si des choix "instable" restent en attente, on NE force pas
@@ -1557,7 +1835,6 @@ public class GameService {
 
                                 // Maintenant seulement, on passe en PHASE3
                                 applyPhaseEntry(g, Phase.PHASE3);
-                                prepareFirstTrapAction(g);
 
                                 save(g);
 
@@ -1716,7 +1993,6 @@ public class GameService {
                 .toList();
     }
 
-    // Construit les messages pour la révélation (combat / récolte)
     @NonNull
     private List<String> buildRevealMessages(Game g) {
         List<String> out = new ArrayList<>();
@@ -1730,6 +2006,12 @@ public class GameService {
         }
         if (g.getUnstableEligibleLocations() != null) {
             instablePending.addAll(g.getUnstableEligibleLocations().keySet());
+        }
+
+        // Lieux des clones
+        java.util.Set<String> clonesSet = new java.util.HashSet<>();
+        if (g.getClonesLocations() != null) {
+            clonesSet.addAll(g.getClonesLocations());
         }
 
         boolean anyCombat = false;
@@ -1753,8 +2035,10 @@ public class GameService {
                     .filter(m -> m.hp > 0)
                     .toList();
 
+            boolean clonesHere = clonesSet.contains(loc);
+
             boolean combatHere =
-                    (!enemiesHere.isEmpty() || !monstersHere.isEmpty())
+                    (!enemiesHere.isEmpty() || !monstersHere.isEmpty() || clonesHere)
                             && !huntersHere.isEmpty();
 
             if (!combatHere) {
@@ -1762,7 +2046,9 @@ public class GameService {
                 for (var p : onLoc) {
                     boolean isHunter = "HUNTER".equals(p.getRole());
                     if (isHunter && instablePending.contains(p.getId())) {
-                        // On n’affiche pas sa récolte ici : son cas sera résolu par la décision du vampire.
+                        continue;
+                    }
+                    if (isHunter && g.isFogBlocksHunterHarvestThisRaid()) {
                         continue;
                     }
                     String who;
@@ -1791,7 +2077,7 @@ public class GameService {
                     out.add("Combat — " + enemyName + " VS " + huntersNames + " à " + labelLieuFr(loc));
                 }
 
-                // Combats contre monstres
+                // Combats contre monstres (les clones restent traités plus bas)
                 for (var m : monstersHere) {
                     String enemyName = monsterNameFr(m.type);
                     out.add("Combat — " + enemyName + " VS " + huntersNames + " à " + labelLieuFr(loc));
@@ -1799,15 +2085,66 @@ public class GameService {
             }
         }
 
-        // Remarque : les combats instable -> cible sont loggés au moment du choix.
+        // --- CLONES DES OMBRES : combats supplémentaires pour l’aperçu ---
+        var clonesLocs = g.getClonesLocations();
+        if (clonesLocs != null && !clonesLocs.isEmpty()) {
+            String vampName = getVamp(g)
+                    .map(v -> nameOf(g, v.getId()))
+                    .orElse("le vampire");
+
+            for (String loc : clonesLocs) {
+                var onLoc = groups.get(loc);
+                if (onLoc == null || onLoc.isEmpty()) continue;
+
+                var huntersHere = onLoc.stream()
+                        .filter(p -> "HUNTER".equals(p.getRole()))
+                        .filter(p -> p.getHp() > 0)
+                        .toList();
+
+                if (huntersHere.isEmpty()) continue;
+
+                String huntersNames = String.join(", ",
+                        huntersHere.stream().map(h -> {
+                            String n = h.getUsername();
+                            return (n != null && !n.isBlank()) ? n : h.getId();
+                        }).toList()
+                );
+
+                out.add("Combat — clones d'ombre VS "
+                        + huntersNames + " à " + labelLieuFr(loc));
+
+                anyCombat = true;
+            }
+        }
 
         if (out.isEmpty()) out.add("Aucune carte jouée.");
-
-        g.setHasUpcomingCombat(anyCombat || (g.getUnstableTargetByPlayer() != null
-                && !g.getUnstableTargetByPlayer().isEmpty()));
-
         return out;
     }
+
+
+    private void refreshPrephaseRevealMessages(Game g) {
+        if (g.getPhase() != Phase.PREPHASE3) {
+            return; // sécurité
+        }
+
+        List<String> base = new ArrayList<>();
+
+        if (g.getMessages() != null) {
+            for (String m : g.getMessages()) {
+                if (m == null) continue;
+                if (m.startsWith("Combat — ") || m.startsWith("Récolte de ")) {
+                    // ancienne preview -> on la remplace
+                    continue;
+                }
+                base.add(m);
+            }
+        }
+
+        // Rebuild preview à partir de l'état courant
+        base.addAll(buildRevealMessages(g));
+        g.setMessages(base);
+    }
+
 
 
     // Mini label FR pour l’affichage des lieux
@@ -1818,8 +2155,75 @@ public class GameService {
 
     // Tout le monde prêt pour PHASE3 ?
     private boolean allReadyForPhase3(@NonNull Game g) {
-        if (!g.isHasUpcomingCombat()) return true;
-        var needed = participantsOfUpcomingCombat(g);
+        // Ensemble des joueurs qui doivent CLIQUER sur "J'ai fini"
+        java.util.Set<String> needed = new java.util.HashSet<>();
+
+        // 1) Combattants potentiels (vrai combat, pas juste "actions intéressantes")
+        boolean upcomingCombat = computeHasUpcomingCombat(g);
+        if (upcomingCombat) {
+            needed.addAll(participantsOfUpcomingCombat(g));
+        }
+
+        // 2) Joueurs qui ont encore des actions de préphase jouables
+        if (g.getPlayers() != null) {
+            for (Player p : g.getPlayers()) {
+                if (p.getHp() <= 0) continue;
+
+                java.util.List<String> acts = p.getActions();
+                if (acts == null || acts.isEmpty()) continue;
+
+                // --- Côté CHASSEUR ---
+                if ("HUNTER".equals(p.getRole())) {
+                    String loc = locationOf(g, p.getId());
+
+                    // Incendiaire : même logique que dans setupUnstableAndPrephaseTimeout
+                    if (acts.contains(Action.INCENDIAIRE.name())
+                            && loc != null
+                            && hasIncendiaireTargetsOnLocation(g, loc)) {
+                        needed.add(p.getId());
+                        continue;
+                    }
+
+                    // Eau bénite : on réutilise ton helper global
+                    if (acts.contains(Action.EAU_BENITE.name())
+                            && hasUsableHolyWaterOption(g)) {
+                        needed.add(p.getId());
+                        continue;
+                    }
+                }
+
+                // --- Côté VAMPIRE ---
+                if ("VAMPIRE".equals(p.getRole())) {
+
+                    // Voile de brume : si le vampire a la carte, on considère qu'il a une option de préphase
+                    if (acts.contains(Action.VOILE_DE_BRUME.name())) {
+                        needed.add(p.getId());
+                        continue;
+                    }
+
+                    // Marque ténébreuse : même logique que ton hasDarkMarkOption (juste "a la carte")
+                    if (acts.contains(Action.MARQUE_TENEBREUSE.name())) {
+                        needed.add(p.getId());
+                        continue;
+                    }
+
+                    // Passage secret : seulement s'il est vraiment jouable
+                    if (acts.contains(Action.PASSAGE_SECRET.name())
+                            && hasUsableSecretPassageOption(g)) {
+                        needed.add(p.getId());
+                        continue;
+                    }
+                }
+            }
+        }
+
+        // S'il n'y a ni combat réel ni actions préphase jouables,
+        // on considère que tout le monde est déjà "prêt".
+        if (needed.isEmpty()) {
+            return true;
+        }
+
+        // Sinon : on avance uniquement si TOUS les joueurs concernés ont cliqué "J'ai fini"
         return g.getReadyForPhase3().containsAll(needed);
     }
 
@@ -2089,7 +2493,95 @@ public class GameService {
             }
         }
 
-        // 3) appliquer Potion de rapidité
+        // 3) Clones des ombres : attaques supplémentaires du vampire
+        var clonesLocs = g.getClonesLocations();
+        if (clonesLocs != null && !clonesLocs.isEmpty()) {
+
+            var vampOpt = getVamp(g);
+            if (vampOpt.isPresent()) {
+                Player vamp = vampOpt.get();
+                String vampId = vamp.getId();
+                boolean vampInvisible = hasInvisibility(g, vampId);
+
+                for (String loc : clonesLocs) {
+                    var onLoc = groups.get(loc);
+                    if (onLoc == null || onLoc.isEmpty()) continue;
+
+                    var huntersHere = onLoc.stream()
+                            .filter(p -> "HUNTER".equals(p.getRole()))
+                            .filter(p -> p.getHp() > 0)
+                            // on réutilise la même logique que pour les combats par défaut
+                            .filter(p -> !unstableAssigned.contains(p.getId()))
+                            .toList();
+
+                    for (Player h : huntersHere) {
+                        boolean hunterInvisible = hasInvisibility(g, h.getId());
+
+                        RoundFight cloneFight = new RoundFight(
+                                java.util.UUID.randomUUID().toString(),
+                                loc,
+                                vampId,
+                                h.getId()
+                        );
+                        cloneFight.setCloneAttack(true); // 🔹 ICI : on marque le round comme “clone”
+
+                        // si vampire invisible && pas le chasseur → pas de dé de défense
+                        if (vampInvisible && !hunterInvisible) {
+                            cloneFight.setDefenderRoll(0);
+                        }
+
+                        g.getCombatsQueue().add(cloneFight);
+                    }
+                }
+            }
+        }
+
+        // 4) Provocation : certains ennemis ne peuvent attaquer qu'un chasseur précis
+        var provokedMap = g.getProvokedTargetByEnemy();
+        if (provokedMap != null && !provokedMap.isEmpty()) {
+            java.util.List<RoundFight> filtered = new java.util.ArrayList<>();
+            for (RoundFight rf : g.getCombatsQueue()) {
+                String forcedDef = provokedMap.get(rf.getAttackerId());
+                if (forcedDef == null) {
+                    // attaquant non provoqué : round intact
+                    filtered.add(rf);
+                } else {
+                    // attaquant provoqué : ne conserver que les attaques vers le chasseur provoquant
+                    if (forcedDef.equals(rf.getDefenderId())) {
+                        filtered.add(rf);
+                    } else {
+                        // attaque vers un autre défenseur : annulée
+                    }
+                }
+            }
+            g.setCombatsQueue(filtered);
+        }
+
+        // 5) Embuscade : la cible ne peut pas riposter contre les chasseurs embusqués
+        var ambushMap = g.getAmbushHuntersByEnemy();
+        if (ambushMap != null && !ambushMap.isEmpty()) {
+            java.util.List<RoundFight> filtered2 = new java.util.ArrayList<>();
+            for (RoundFight rf : g.getCombatsQueue()) {
+                java.util.List<String> ambushHunters = ambushMap.get(rf.getAttackerId());
+                if (ambushHunters == null) {
+                    // attaquant non ciblé par Embuscade → round intact
+                    filtered2.add(rf);
+                } else {
+                    // attaquant = la cible de l'Embuscade
+                    boolean defIsAmbushHunter = ambushHunters.contains(rf.getDefenderId());
+
+                    // On annule uniquement les ripostes "classiques" (pas les clones d'ombre)
+                    if (defIsAmbushHunter && !rf.isCloneAttack()) {
+                        // riposte annulée
+                    } else {
+                        filtered2.add(rf);
+                    }
+                }
+            }
+            g.setCombatsQueue(filtered2);
+        }
+
+        // 6) appliquer Potion de rapidité
         if (g.getRaidEffects() != null && !g.getRaidEffects().isEmpty()) {
             java.util.List<RoundFight> expanded = new java.util.ArrayList<>();
             for (RoundFight rf : g.getCombatsQueue()) {
@@ -2120,7 +2612,7 @@ public class GameService {
         }
 
 
-        // 4) Pointeur sur le combat courant (plus aucun nextAdvanceAt/timer côté serveur)
+        // 7) Pointeur sur le combat courant (plus aucun nextAdvanceAt/timer côté serveur)
         if (!g.getCombatsQueue().isEmpty()) {
             g.setCurrentCombatIndex(0);
             g.setCurrentCombat(g.getCombatsQueue().get(0));
@@ -2398,8 +2890,8 @@ public class GameService {
                             String diffLine = nameOf(g, r.getAttackerId())
                                     + " a gagné " + (best - first)
                                     + " de stat par l'effet Potion de focalisation.";
-                            addHistory(g, diffLine);        // si tu veux aussi dans l'historique global
-                            appendBreakdown(r, diffLine);   // visible dans la modale tout de suite
+                            addHistory(g, diffLine);
+                            appendBreakdown(r, diffLine);
                         }
 
                         ev.sendAtk = true;
@@ -2623,10 +3115,40 @@ public class GameService {
                 }
             }
 
-            // Si le vampire subit des dégâts pendant la PHASE3, on marque le raid comme "endommagé"
+            // Si le vampire subit des dégâts "normaux" pendant la PHASE3
             if (defPlayer != null && dmg > 0 && "VAMPIRE".equals(defPlayer.getRole())) {
                 g.setVampireTookDamageThisRaid(true);
             }
+
+            // Eau bénite (mode ATTACK) : +4 dégâts sacrés sur le vampire
+            if (dmg > 0
+                    && atkPlayer != null
+                    && defPlayer != null
+                    && "HUNTER".equals(atkPlayer.getRole())
+                    && "VAMPIRE".equals(defPlayer.getRole())
+                    && atkFx != null
+                    && atkFx.isHolyWaterAttack()) {
+
+                int extra = 4;
+                int beforeHp = defPlayer.getHp();
+                defPlayer.setHp(Math.max(0, defPlayer.getHp() - extra));
+                int realExtra = beforeHp - defPlayer.getHp();
+
+                if (realExtra > 0) {
+                    String line = "Eau bénite — " + nameOf(g, atkPlayer.getId())
+                            + " inflige " + realExtra
+                            + " dégâts sacrés supplémentaires au vampire.";
+                    addHistory(g, line);
+                    appendBreakdown(r, line);
+
+                    // Ces dégâts comptent aussi comme "le vampire a pris des dégâts ce raid"
+                    g.setVampireTookDamageThisRaid(true);
+                }
+
+                // Une seule utilisation
+                atkFx.setHolyWaterAttack(false);
+            }
+
 
             // Étourdissement par arme de chasseur (cible = vampire ou serviteur)
             if (atkPlayer != null
@@ -2874,12 +3396,12 @@ public class GameService {
                 ev.defenderHp = 0;
             }
 
-            boolean vampDamagedHunter = (atkPlayer != null && "VAMPIRE".equals(atkPlayer.getRole())
-                    && defPlayer != null && "HUNTER".equals(defPlayer.getRole()) && dmg > 0);
+            // Vampire vs chasseur ?
+            boolean vampDamagedHunter = vampVsHunter && dmg > 0;
 
+            // 1) Effet Salle de bal : Danse macabre → NE dépend que des dégâts
             if (vampDamagedHunter) {
 
-                // --- Effet Salle de bal : Danse macabre ---
                 if (g.isBallroomDeathDance()
                         && g.getBuiltInfras() != null
                         && g.getBuiltInfras().contains(Infra.BALLROOM)) {
@@ -2895,21 +3417,53 @@ public class GameService {
                         }
                     }
                 }
+            }
 
-                // --- Tentative de morsure uniquement si le chasseur n'est pas déjà à corruption max ---
-                if (defPlayer.getCorruption() < 3) {
-                    Game.BiteAttempt b = new Game.BiteAttempt();
-                    b.setId(java.util.UUID.randomUUID().toString());
-                    b.setAttackerId(atkPlayer.getId());
-                    b.setTargetId(defPlayer.getId());
-                    b.setLocation(r.getLocation());
-                    g.setCurrentBite(b);
+            // 2) Tentative de morsure : dégâts OU Faim irrépressible
+            boolean vampCanBiteHunter =
+                    vampVsHunter
+                            && defPlayer != null
+                            && defPlayer.getCorruption() < 3
+                            && (dmg > 0 || g.isHungerAllowsBiteThisRaid());
 
-                    ev.startBite = true;
-                    ev.biteAtt = atkPlayer.getId();
-                    ev.biteTgt = defPlayer.getId();
-                    ev.biteLoc = r.getLocation();
-                }
+            if (vampCanBiteHunter) {
+                Game.BiteAttempt b = new Game.BiteAttempt();
+                b.setId(java.util.UUID.randomUUID().toString());
+                b.setAttackerId(atkPlayer.getId());
+                b.setTargetId(defPlayer.getId());
+                b.setLocation(r.getLocation());
+                g.setCurrentBite(b);
+
+                ev.startBite = true;
+                ev.biteAtt = atkPlayer.getId();
+                ev.biteTgt = defPlayer.getId();
+                ev.biteLoc = r.getLocation();
+            }
+
+            // 3) Marque ténébreuse : +1 corruption si le chasseur marqué croise le vampire ce raid
+            if (vampVsHunter
+                    && defPlayer != null
+                    && isDarkMarked(g, defPlayer.getId())) {
+
+                applyDarkMarkCorruptionOncePerRaid(g, defPlayer);
+            }
+
+            // 4) Pieu béni : marquer le duel comme devant déclencher l'action
+            boolean canFlagBlessedStake =
+                    atkPlayer != null
+                            && "HUNTER".equals(atkPlayer.getRole())
+                            && atkPlayer.isBlessedStake()
+                            && dmg > 0;
+
+            if (canFlagBlessedStake) {
+                r.setBlessedStakePending(true);
+
+                String line = "Épieu béni — "
+                        + nameOf(g, atkPlayer.getId())
+                        + " prépare un coup sacré supplémentaire contre "
+                        + entityName(g, r.getDefenderId()) + ".";
+                addHistory(g, line);
+                appendBreakdown(r, line);
             }
 
             r.setResolvedAtMillis(System.currentTimeMillis());
@@ -2932,7 +3486,6 @@ public class GameService {
             if (ev.sendResolved) live.combatResolved(g, ev.roundId, ev.dmg, ev.defId, ev.defenderHp, ev.breakdown);
             if (ev.startBite)    live.biteStarted(g, ev.biteAtt, ev.biteTgt, ev.biteLoc);
 
-            // “heartbeat” minimal pour forcer un GET propre chez tous (si tu veux le garder)
             live.phaseChanged(g);
         });
 
@@ -2967,40 +3520,42 @@ public class GameService {
 
             Ev out = new Ev();
 
-            // 0) GESTION DES PIÈGES (NET / PIT) AVANT TOUT
+            // 0) GESTION DES ACTIONS DE RAID (NET / PIT / INCENDIAIRE) AVANT TOUT
             Game.Action ca = g.getCurrentAction();
             if (ca != null
                     && ca.getMode() != null
-                    && ("NET".equals(ca.getMode()) || "PIT".equals(ca.getMode()))) {
+                    && ("NET".equals(ca.getMode())
+                    || "PIT".equals(ca.getMode())
+                    || "INCENDIAIRE".equals(ca.getMode())
+                    || "BLESSED_STAKE".equals(ca.getMode()))) {
 
-                // Si le jet n'est pas encore fait, on ne fait rien : on laisse la modale ouverte
+                // Tant que le jet n'est pas fait, on laisse la modale ouverte
                 if (ca.getRoll() == null) {
                     save(g);
                     return out;
                 }
 
-                // Le piège vient d'être résolu (roll != null) → on clôture cette action
-                out.trapResolved   = true;
-                out.trapMode       = ca.getMode();
-                out.trapOwnerId    = ca.getOwnerId();
-                out.trapTargetId   = ca.getTargetId();
+                // L'action vient d'être résolue (roll != null) → on clôture cette action
+                out.trapResolved = true;
+                out.trapMode     = ca.getMode();
+                out.trapOwnerId  = ca.getOwnerId();
+                out.trapTargetId = ca.getTargetId(); // pour INCENDIAIRE = infra.name()
 
                 // On "oublie" l'action courante
                 g.setCurrentAction(null);
 
-                // On tente de préparer le piège suivant (si un autre chasseur a Filet/Fosse)
-                prepareFirstTrapAction(g); // peut remettre un currentAction, ou laisser null
+                // On tente de préparer l'action suivante (Filet/Fosse/Incendiaire)
+                prepareNextRaidAction(g);
 
-                // S'il reste un autre piège, on s'arrête là :
-                //   - le front affichera le nouveau piège via currentAction
-                //   - on NE touche PAS encore aux morsures / combats
+                // S'il reste une autre action, on s'arrête là :
+                //  - le front affichera la nouvelle modale via currentAction
+                //  - on NE touche PAS encore aux morsures / combats
                 if (g.getCurrentAction() != null) {
                     save(g);
                     return out;
                 }
 
-                // Sinon : plus de pièges → on laisse continuer la logique classique
-                // (morsure / combats) ci-dessous dans le même appel.
+                // Sinon : plus d'action de raid -> on laisse continuer la logique (morsure / combats)
             }
 
             // 1) S'il y a une morsure en cours :
@@ -3018,16 +3573,34 @@ public class GameService {
             } else {
                 // 2) Sinon on est sur un duel : s’il n’est pas encore résolu
                 var r = g.getCurrentCombat();
-                if (r == null) {
-                    save(g);
-                    return out;
-                }
-                if (combatNotResolved(r)) {
-                    save(g);
-                    return out;
-                }
 
-                consumeHitModsAfterFight(g, r);
+                // on laisse filer jusqu'à la partie "hasAnyFight" + auto-PHASE4 plus bas.
+                if (r != null) {
+                    if (combatNotResolved(r)) {
+                        save(g);
+                        return out;
+                    }
+
+                    consumeHitModsAfterFight(g, r);
+
+                    // déclencheur Pieu béni
+                    if (r.isBlessedStakePending() && g.getCurrentAction() == null) {
+                        Game.Action a = new Game.Action();
+                        a.setMode("BLESSED_STAKE");
+                        a.setOwnerId(r.getAttackerId());  // le chasseur qui avait l’effet
+                        a.setLocation(r.getLocation());
+                        a.setTargetId(r.getDefenderId()); // même cible que le duel
+                        a.setRoll(null);                  // d4 pas encore lancé
+                        a.setBreakdownLines(new java.util.ArrayList<>());
+                        a.setResolvedAtMillis(null);
+
+                        g.setCurrentAction(a);
+                        r.setBlessedStakePending(false);  // flag consommé
+
+                        save(g);
+                        return out;
+                    }
+                }
             }
 
             // 3) Avancer la file uniquement quand c’est safe (morsure close ou duel résolu)
@@ -3125,6 +3698,32 @@ public class GameService {
                 out.advanced = true;
             }
 
+            boolean hasAnyFight = false;
+            if (g.getCombatsQueue() != null) {
+                for (RoundFight candidate : g.getCombatsQueue()) {
+                    boolean atkAlive = isEntityAlive(g, candidate.getAttackerId());
+                    boolean defAlive = isEntityAlive(g, candidate.getDefenderId());
+                    if (atkAlive && defAlive) {
+                        hasAnyFight = true;
+                        break;
+                    }
+                }
+            }
+
+            // Si on n'a plus:
+            // - aucune action de raid (currentAction déjà null ici),
+            // - aucune morsure,
+            // - aucun combat valide dans la file,
+            // alors on peut enclencher la maintenance (PHASE4) automatiquement.
+            if (!hasAnyFight && g.getCurrentBite() == null && g.getCurrentCombat() == null) {
+                resolveInfraConstruction(g);
+                applyPhaseEntry(g, Phase.PHASE4);
+                g.setCurrentAction(null);
+                out.advanced = true; // pour envoyer un phaseChanged derrière
+                save(g);
+                return out;
+            }
+
             save(g);
             return out;
         });
@@ -3176,14 +3775,27 @@ public class GameService {
             list.removeIf(m -> m.getSource() != null && m.getSource().startsWith("WEATHER:"));
         }
 
-        // 2) si pas de météo active (PHASE0 juste avant tirage) => on s’arrête là
-        if (g.getWeatherStatus() == null) return;
+        WeatherStatus ws1 = g.getWeatherStatus();
+        WeatherStatus ws2 = g.getSecondaryWeatherStatus();
+
+        // 2) si pas de météo active => on s’arrête
+        if (ws1 == null && ws2 == null) return;
 
         // 3) s'assurer qu'il y a une liste pour chaque joueur
-        for (var p : g.getPlayers())
+        for (var p : g.getPlayers()) {
             g.getRaidMods().computeIfAbsent(p.getId(), __ -> new java.util.ArrayList<>());
+        }
 
-        WeatherStatus ws = g.getWeatherStatus();
+        // 4) Appliquer les effets d'UN ou DEUX statuts
+        if (ws1 != null) {
+            applyWeatherStatusMods(g, ws1);
+        }
+        if (ws2 != null) {
+            applyWeatherStatusMods(g, ws2);
+        }
+    }
+
+    private void applyWeatherStatusMods(Game g, WeatherStatus ws) {
         switch (ws) {
             case SUNNY -> {
                 for (var p : g.getPlayers()) {
@@ -3205,9 +3817,18 @@ public class GameService {
             }
             case WIND     -> { /* pas de mod de combat */ }
             case CLOUDY   -> { /* aucun mod */ }
-            case STORM    -> { for (var p : g.getPlayers()) g.getRaidMods().get(p.getId()).add(new StatMod("DEFENSE", -2, "WEATHER:STORM")); }
-            case RAIN     -> { for (var p : g.getPlayers()) g.getRaidMods().get(p.getId()).add(new StatMod("ATTACK", -2, "WEATHER:RAIN")); }
-            case BLIZZARD -> { for (var p : g.getPlayers()) g.getRaidMods().get(p.getId()).add(new StatMod("ATTACK", -1, "WEATHER:BLIZZARD")); }
+            case STORM    -> {
+                for (var p : g.getPlayers())
+                    g.getRaidMods().get(p.getId()).add(new StatMod("DEFENSE", -2, "WEATHER:STORM"));
+            }
+            case RAIN     -> {
+                for (var p : g.getPlayers())
+                    g.getRaidMods().get(p.getId()).add(new StatMod("ATTACK", -2, "WEATHER:RAIN"));
+            }
+            case BLIZZARD -> {
+                for (var p : g.getPlayers())
+                    g.getRaidMods().get(p.getId()).add(new StatMod("ATTACK", -1, "WEATHER:BLIZZARD"));
+            }
             case DUSK     -> {
                 for (var p : g.getPlayers())
                     if ("VAMPIRE".equals(p.getRole()) || "SERVANT".equals(p.getRole()))
@@ -3230,6 +3851,18 @@ public class GameService {
                 for (var p : g.getPlayers())
                     if ("VAMPIRE".equals(p.getRole()) || "SERVANT".equals(p.getRole()))
                         g.getRaidMods().get(p.getId()).add(new StatMod("ATTACK", +2, "WEATHER:FULL_MOON"));
+            }
+            case BLOOD_MOON -> {
+                for (var p : g.getPlayers()) {
+                    if ("VAMPIRE".equals(p.getRole()) || "SERVANT".equals(p.getRole())) {
+                        g.getRaidMods().get(p.getId())
+                                .add(new StatMod("ATTACK", +3, "WEATHER:BLOOD_MOON"));
+                    }
+                    if ("HUNTER".equals(p.getRole())) {
+                        g.getRaidMods().get(p.getId())
+                                .add(new StatMod("DEFENSE", -3, "WEATHER:BLOOD_MOON"));
+                    }
+                }
             }
         }
     }
@@ -3273,8 +3906,15 @@ public class GameService {
 
     private void applyWeatherRoll(@NonNull Game g, int roll) {
         g.setWeatherRoll(roll);
+
         WeatherStatus ws = mapRollToWeather(roll);
         g.setWeatherStatus(ws);
+
+        // Reset du second statut pour un raid “normal”
+        g.setSecondaryWeatherStatus(null);
+        g.setSecondaryWeatherStatusNameFr(null);
+        g.setSecondaryWeatherDescriptionFr(null);
+
         g.setWeatherStatusNameFr(weatherNameFr(ws));
         g.setWeatherDescriptionFr(weatherDescFr(ws));
 
@@ -3340,6 +3980,12 @@ public class GameService {
                     .forEach(m -> monsterLocs.add(m.location));
         }
 
+        // Lieux des clones
+        java.util.Set<String> cloneLocs = new java.util.HashSet<>();
+        if (g.getClonesLocations() != null) {
+            cloneLocs.addAll(g.getClonesLocations());
+        }
+
         // Participants à des duels instable → cible : ils ne récoltent pas
         java.util.Set<String> duelParticipants = new java.util.HashSet<>();
         if (g.getUnstableTargetByPlayer() != null) {
@@ -3349,7 +3995,6 @@ public class GameService {
             });
         }
 
-        // besoin de ce set pour identifier les instables qui récoltent pour le vampire
         java.util.Set<String> unstableHarvesters = (g.getUnstableHarvestLocByPlayer() != null)
                 ? g.getUnstableHarvestLocByPlayer().keySet()
                 : java.util.Collections.emptySet();
@@ -3358,22 +4003,21 @@ public class GameService {
             String loc = e.getKey();
             var onLoc = e.getValue();
 
-            // y a-t-il un ennemi (VAMPIRE ou SERVANT) vivant sur le lieu ?
             boolean enemyHere = onLoc.stream()
                     .anyMatch(p -> ("VAMPIRE".equals(p.getRole()) || "SERVANT".equals(p.getRole()))
                             && p.getHp() > 0);
 
-            // y a-t-il un monstre vivant sur ce lieu ?
             boolean monsterHere = monsterLocs.contains(loc);
 
-            // un chasseur vivant (non assigné à la récolte instable) sur le lieu ?
+            boolean cloneHere = cloneLocs.contains(loc);
+
             boolean hunterCausingCombatHere = onLoc.stream()
                     .anyMatch(p -> "HUNTER".equals(p.getRole())
                             && p.getHp() > 0
                             && !unstableHarvesters.contains(p.getId()));
 
-            // Combat s’il y a au moins un chasseur + (ennemi joueur OU monstre)
-            boolean combatHere = (enemyHere || monsterHere) && hunterCausingCombatHere;
+            // Combat s’il y a au moins un chasseur + (ennemi joueur OU monstre OU clones)
+            boolean combatHere = (enemyHere || monsterHere || cloneHere) && hunterCausingCombatHere;
 
             for (var p : onLoc) {
                 boolean harvestForVamp = g.getUnstableHarvestLocByPlayer() != null
@@ -3381,17 +4025,21 @@ public class GameService {
 
                 boolean isVamp = "VAMPIRE".equals(p.getRole());
 
+                // Voile de brume : bloque la récolte des chasseurs "normaux"
+                if (g.isFogBlocksHunterHarvestThisRaid()
+                        && "HUNTER".equals(p.getRole())
+                        && !harvestForVamp) {
+                    continue;
+                }
+
                 // en cas de combat, on bloque tout le monde
                 // sauf :
                 //   - les instables qui récoltent pour le vampire
                 //   - le vampire lui-même
                 if (combatHere && !harvestForVamp && !isVamp) continue;
 
-                // Si ce joueur est engagé dans un duel instable → cible, on bloque sa récolte
                 if (duelParticipants.contains(p.getId())) continue;
 
-                // Si le vampire est en train de construire sur ce lieu, il ne récolte pas
-                // (il aura sa récolte via resolveInfraConstruction / applyBaseLocationHarvestForInfra)
                 if (skipHarvestBecauseOfConstruction(g, p, loc)) {
                     continue;
                 }
@@ -3511,6 +4159,7 @@ public class GameService {
      * - chasseurs impliqués
      * - vampire / serviteurs impliqués
      * - instables + leurs cibles
+     * - chasseurs attaqués par des clones d'ombre
      */
     private Set<String> participantsOfUpcomingCombat(Game g) {
         Set<String> ids = new java.util.HashSet<>();
@@ -3535,6 +4184,7 @@ public class GameService {
 
         var groups = groupPlayersByLocation(g); // loc -> List<Player>
 
+        // --- 1) Combats "classiques" (vamp / serviteurs / monstres) ---
         for (var e : groups.entrySet()) {
             String loc = e.getKey();
             java.util.List<Player> onLoc = e.getValue();
@@ -3567,19 +4217,37 @@ public class GameService {
             }
         }
 
-        // Instables affectés à une cible -> ils ont aussi un combat
+        // --- 2) Duels instables explicites ---
         if (g.getUnstableTargetByPlayer() != null) {
             for (var entry : g.getUnstableTargetByPlayer().entrySet()) {
                 String unstableId = entry.getKey();
                 String targetId   = entry.getValue();
-                ids.add(unstableId);
-                ids.add(targetId);
+                if (unstableId != null) ids.add(unstableId);
+                if (targetId   != null) ids.add(targetId);
+            }
+        }
+
+        // --- 3) Clones des ombres : les chasseurs ciblés par un clone sont aussi "participants" ---
+        if (g.getClonesLocations() != null && !g.getClonesLocations().isEmpty()) {
+            for (String loc : g.getClonesLocations()) {
+                var onLoc = groups.get(loc);
+                if (onLoc == null || onLoc.isEmpty()) continue;
+
+                var hunters = onLoc.stream()
+                        .filter(p -> "HUNTER".equals(p.getRole())
+                                && p.getHp() > 0
+                                && !unstableHarvesters.contains(p.getId()))
+                        .toList();
+
+                // On n'ajoute que les chasseurs : le vampire peut être ailleurs
+                if (!hunters.isEmpty()) {
+                    hunters.forEach(p -> ids.add(p.getId()));
+                }
             }
         }
 
         return ids;
     }
-
 
     @Transactional
     public Game usePotion(String gameId, String playerId, Potion type) {
@@ -3642,8 +4310,7 @@ public class GameService {
                         : 20;
                 p.setHp(Math.min(max, p.getHp() + 10));
                 int healed = p.getHp() - before;
-                // (tu n’utilises pas `healed` ici, mais tu peux l’ajouter au texte si tu veux)
-                addHistory(g, nameOf(g, playerId) + " utilise une Potion de vie.");
+                addHistory(g, nameOf(g, playerId) + " utilise une Potion de vie et regénère " + healed + " pv.");
                 feedText = nameOf(g, playerId) + " boit une Potion de vie !";
             }
             case FOCALISATION -> {
@@ -3787,12 +4454,38 @@ public class GameService {
         Player p = findPlayer(g, playerId);
         if (p == null) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
 
+        boolean isHunter = "HUNTER".equals(p.getRole());
+        boolean isVamp   = "VAMPIRE".equals(p.getRole());
+
         // bloque les instables qui succombent à la corruption
         if (g.getPhase() == Phase.PREPHASE3 && hasSuccumbedToCorruption(g, playerId)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "Tu succombes à la corruption : tu ne peux pas utiliser tes cartes ce raid."
             );
+        }
+
+        // Présence écrasante du vampire bloque les actions des chasseurs
+        if (isHunter
+                && g.isHunterActionsBlockedThisRaid()
+                && (g.getPhase() == Phase.PREPHASE3 || g.getPhase() == Phase.PHASE3)) {
+
+            String hunterLoc = locationOf(g, playerId);
+            String vampLoc = null;
+            var vampOpt = getVamp(g);
+            if (vampOpt.isPresent()) {
+                vampLoc = locationOf(g, vampOpt.get().getId());
+            }
+
+            if (hunterLoc != null
+                    && vampLoc != null
+                    && java.util.Objects.equals(hunterLoc, vampLoc)) {
+
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "La présence écrasante du vampire t'empêche d'utiliser des cartes d'action sur ce lieu ce raid."
+                );
+            }
         }
 
         // Inventaire sur Player
@@ -3804,6 +4497,54 @@ public class GameService {
         String feedText;
 
         switch (type) {
+            case EAU_BENITE -> {
+                if (!isHunter) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "chasseur uniquement");
+                }
+                if (g.getPhase() != Phase.PREPHASE3) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "L'Eau bénite est utilisable uniquement juste avant les combats (PREPHASE3).");
+                }
+
+                // Pas deux actions bloquantes en même temps
+                if (hasBlockingActionInProgress(g)) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Une autre action est déjà en cours de résolution.");
+                }
+
+                // currentAction = ouverture de la modale de choix
+                Game.Action a = new Game.Action();
+                a.setMode("EAU_BENITE");
+                a.setOwnerId(playerId);
+                a.setLocation(null);
+                a.setTargetId(null);
+                a.setRoll(null);
+                a.setBreakdownLines(new java.util.ArrayList<>());
+                a.setResolvedAtMillis(null);
+                g.setCurrentAction(a);
+
+                String msg = nameOf(g, playerId)
+                        + " brandit une fiole d'eau bénite et doit choisir comment l'utiliser.";
+                addHistory(g, msg);
+                feedText = msg;
+
+                if (g.getPhase() == Phase.PREPHASE3) {
+                    g.setPrephaseTimerVersion(g.getPrephaseTimerVersion() + 1);
+                }
+
+                save(g);
+
+                final String fFeed   = feedText;
+                final String fUserId = playerId;
+                final String fType   = type.name();
+
+                afterCommit(() -> {
+                    pushLive(g, fFeed);
+                    live.actionUsed(g, fUserId, fType);
+                });
+
+                return g;
+            }
             case FUMIGATION_AIL -> {
                 if (!"HUNTER".equals(p.getRole())) {
                     throw new ResponseStatusException(HttpStatus.FORBIDDEN, "chasseurs uniquement");
@@ -3823,9 +4564,6 @@ public class GameService {
 
                 // consommer l’action sur le Player
                 inv.remove(type.name());
-
-                boolean isVamp = "VAMPIRE".equals(p.getRole());
-                boolean isHunter = "HUNTER".equals(p.getRole());
 
                 // 4) l’envoyer en défausse
                 if (isHunter) discardHunterAction(g, type.name());
@@ -3879,9 +4617,6 @@ public class GameService {
 
                 // consommer l’action sur le Player
                 inv.remove(type.name());
-
-                boolean isVamp = "VAMPIRE".equals(p.getRole());
-                boolean isHunter = "HUNTER".equals(p.getRole());
 
                 // 4) l’envoyer en défausse
                 if (isHunter) discardHunterAction(g, type.name());
@@ -3945,9 +4680,6 @@ public class GameService {
                 // consommer l’action sur le Player
                 inv.remove(type.name());
 
-                boolean isVamp = "VAMPIRE".equals(p.getRole());
-                boolean isHunter = "HUNTER".equals(p.getRole());
-
                 // 4) l’envoyer en défausse
                 if (isHunter) discardHunterAction(g, type.name());
                 if (isVamp) discardVampAction(g, type.name());
@@ -3971,7 +4703,7 @@ public class GameService {
                     live.actionUsed(g, playerId, type.name());
                 });
             }
-            case FILET -> {
+            case NET -> {
                 if (!"HUNTER".equals(p.getRole())) {
                     throw new ResponseStatusException(HttpStatus.FORBIDDEN, "chasseurs uniquement");
                 }
@@ -3999,9 +4731,6 @@ public class GameService {
                 // consommer l’action sur le Player
                 inv.remove(type.name());
 
-                boolean isVamp = "VAMPIRE".equals(p.getRole());
-                boolean isHunter = "HUNTER".equals(p.getRole());
-
                 // 4) l’envoyer en défausse
                 if (isHunter) discardHunterAction(g, type.name());
                 if (isVamp) discardVampAction(g, type.name());
@@ -4024,7 +4753,7 @@ public class GameService {
 
                 return g;
             }
-            case FOSSE -> {
+            case PIT -> {
                 if (!"HUNTER".equals(p.getRole())) {
                     throw new ResponseStatusException(HttpStatus.FORBIDDEN, "chasseurs uniquement");
                 }
@@ -4059,9 +4788,6 @@ public class GameService {
                 // consommer l’action sur le Player
                 inv.remove(type.name());
 
-                boolean isVamp = "VAMPIRE".equals(p.getRole());
-                boolean isHunter = "HUNTER".equals(p.getRole());
-
                 // 4) l’envoyer en défausse
                 if (isHunter) discardHunterAction(g, type.name());
                 if (isVamp) discardVampAction(g, type.name());
@@ -4085,13 +4811,1406 @@ public class GameService {
                 return g;
             }
 
+            case PROVOCATION -> {
+                if (!isHunter) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "chasseurs uniquement");
+                }
+
+                if (g.getPhase() != Phase.PREPHASE3) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Provocation est utilisable uniquement juste avant les combats (PREPHASE3)."
+                    );
+                }
+
+                if (hasBlockingActionInProgress(g)) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Une autre action est déjà en cours de résolution.");
+                }
+
+                String loc = locationOf(g, playerId);
+                if (loc == null) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "tu dois être sur un lieu pour utiliser Provocation.");
+                }
+
+                // Joueurs sur ce lieu
+                java.util.List<Player> onLoc = g.getPlayers().stream()
+                        .filter(pl -> loc.equals(locationOf(g, pl.getId())))
+                        .toList();
+
+                long huntersCount = onLoc.stream()
+                        .filter(pl -> "HUNTER".equals(pl.getRole()))
+                        .filter(pl -> pl.getHp() > 0)
+                        .count();
+
+                long enemyCount = onLoc.stream()
+                        .filter(pl -> ("VAMPIRE".equals(pl.getRole()) || "SERVANT".equals(pl.getRole())))
+                        .filter(pl -> pl.getHp() > 0)
+                        .count();
+
+                if (huntersCount < 2 || enemyCount < 1) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Provocation nécessite au moins 2 chasseurs et 1 ennemi sur ton lieu.");
+                }
+
+                // Consommer la carte dans l'inventaire du chasseur
+                if (inv == null || !inv.remove(type.name())) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "action not in inventory");
+                }
+                discardHunterAction(g, type.name());
+
+                // currentAction : choix de l'ennemi dans la modale
+                Game.Action a = new Game.Action();
+                a.setMode("PROVOCATION");
+                a.setOwnerId(playerId);
+                a.setLocation(loc);
+                a.setTargetId(null);
+                a.setRoll(null);
+                a.setBreakdownLines(new java.util.ArrayList<>());
+                a.setResolvedAtMillis(null);
+                g.setCurrentAction(a);
+
+                String msg = "Provocation — "
+                        + nameOf(g, playerId)
+                        + " attire la colère de ses ennemis.";
+                addHistory(g, msg);
+                feedText = msg;
+
+                // On annule/redémarre le timer de préphase (comme pour Marque / Affaiblissement)
+                if (g.getPhase() == Phase.PREPHASE3) {
+                    g.setPrephaseTimerVersion(g.getPrephaseTimerVersion() + 1);
+                }
+
+                save(g);
+
+                final String fFeed   = feedText;
+                final String fUserId = playerId;
+                final String fType   = type.name();
+
+                afterCommit(() -> {
+                    pushLive(g, fFeed);
+                    live.actionUsed(g, fUserId, fType);
+                });
+
+                return g;
+            }
+
+            case INCENDIAIRE -> {
+                if (!"HUNTER".equals(p.getRole())) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "chasseurs uniquement");
+                }
+
+                if (g.getPhase() != Phase.PREPHASE3) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Incendiaire est utilisable uniquement pendant la PREPHASE3.");
+                }
+
+                String loc = locationOf(g, playerId);
+                if (loc == null) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "tu dois être sur un lieu pour utiliser Incendiaire.");
+                }
+
+                // 1) Consommer la carte
+                inv.remove(type.name());
+                discardHunterAction(g, type.name());
+
+                // 2) Enregistrer la préparation : ce chasseur brûlera potentiellement ce lieu en PHASE3
+                g.getIncendiaireLocationByHunter().put(playerId, loc);
+
+                String msg = nameOf(g, playerId)
+                        + " prépare une action Incendiaire à " + labelLieuFr(loc) + ".";
+                addHistory(g, msg);
+                feedText = msg;
+
+                save(g);
+
+                final String fFeed   = feedText;
+                final String fUserId = playerId;
+                final String fType   = type.name();
+
+                afterCommit(() -> {
+                    pushLive(g, fFeed);
+                    live.actionUsed(g, fUserId, fType);
+                });
+
+                return g;
+            }
+
+            case AMBUSH -> {
+                if (!isHunter) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "chasseurs uniquement");
+                }
+
+                if (g.getPhase() != Phase.PREPHASE3) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Embuscade est utilisable uniquement juste avant les combats (PREPHASE3)."
+                    );
+                }
+
+                if (hasBlockingActionInProgress(g)) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Une autre action est déjà en cours de résolution.");
+                }
+
+                String loc = locationOf(g, playerId);
+                if (loc == null) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Tu dois être sur un lieu pour utiliser Embuscade.");
+                }
+
+                // Joueurs sur ce lieu
+                java.util.List<Player> onLoc = g.getPlayers().stream()
+                        .filter(pl -> loc.equals(locationOf(g, pl.getId())))
+                        .toList();
+
+                long huntersCount = onLoc.stream()
+                        .filter(pl -> "HUNTER".equals(pl.getRole()))
+                        .filter(pl -> pl.getHp() > 0)
+                        .count();
+
+                long enemyCount = onLoc.stream()
+                        .filter(pl -> "VAMPIRE".equals(pl.getRole()) || "SERVANT".equals(pl.getRole()))
+                        .filter(pl -> pl.getHp() > 0)
+                        .count();
+
+                if (huntersCount < 2 || enemyCount < 1) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Embuscade nécessite au moins 2 chasseurs et 1 ennemi (vampire ou serviteur) sur ton lieu.");
+                }
+
+                // Consommer la carte dans l'inventaire du chasseur
+                if (inv == null || !inv.remove(type.name())) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "action not in inventory");
+                }
+                discardHunterAction(g, type.name());
+
+                // currentAction : choix de l'ennemi dans la modale
+                Game.Action a = new Game.Action();
+                a.setMode("AMBUSH");
+                a.setOwnerId(playerId);
+                a.setLocation(loc);
+                a.setTargetId(null);
+                a.setRoll(null);
+                a.setBreakdownLines(new java.util.ArrayList<>());
+                a.setResolvedAtMillis(null);
+                g.setCurrentAction(a);
+
+                String msg = "Embuscade — "
+                        + nameOf(g, playerId)
+                        + " prépare une attaque coordonnée avec les chasseurs présents.";
+                addHistory(g, msg);
+                feedText = msg;
+
+                // On annule/redémarre le timer de préphase (comme Marque / Affaiblissement)
+                if (g.getPhase() == Phase.PREPHASE3) {
+                    g.setPrephaseTimerVersion(g.getPrephaseTimerVersion() + 1);
+                }
+
+                save(g);
+
+                final String fFeed   = feedText;
+                final String fUserId = playerId;
+                final String fType   = type.name();
+
+                afterCommit(() -> {
+                    pushLive(g, fFeed);
+                    live.actionUsed(g, fUserId, fType);
+                });
+
+                return g;
+            }
+
+            case BLESSED_STAKE -> {
+                if (!"HUNTER".equals(p.getRole())) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "chasseurs uniquement");
+                }
+                if (g.getPhase() != Phase.PREPHASE3) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Pieu béni est utilisable uniquement juste avant les combats (PREPHASE3).");
+                }
+
+                // déjà un épieu actif ? on refuse
+                if (p.isBlessedStake()) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "tu as déjà un pieu béni prêt à être déclenché.");
+                }
+
+                String loc = locationOf(g, playerId);
+                if (loc == null) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "tu dois être sur un lieu pour utiliser pieu béni.");
+                }
+
+                // Il doit y avoir au moins un ennemi sur ce lieu (comme Filet)
+                boolean hasEnemy = g.getPlayers().stream()
+                        .anyMatch(pl ->
+                                pl.getHp() > 0
+                                        && loc.equals(locationOf(g, pl.getId()))
+                                        && ("VAMPIRE".equals(pl.getRole()) || "SERVANT".equals(pl.getRole()))
+                        );
+
+                if (!hasEnemy) {
+                    boolean monstersHere = monstersOnLocation(g, loc).stream()
+                            .anyMatch(m -> m.hp > 0);
+                    if (!monstersHere) {
+                        throw new ResponseStatusException(HttpStatus.CONFLICT,
+                                "Pieu béni n’a d’effet que s’il y a un ennemi sur ton lieu.");
+                    }
+                }
+
+                // Consommer la carte dans l'inventaire
+                if (inv == null || !inv.remove(type.name())) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "action not in inventory");
+                }
+                discardHunterAction(g, type.name());
+
+                // Marquer l'effet PERSISTANT
+                p.setBlessedStake(true);
+
+                // Ajouter une puce DSP pour le raid courant
+                addRaidMod(g, playerId, "ATTACK", 0, "ACTION:BLESSED_STAKE:DSP");
+
+                String msg = "Pieu béni — "
+                        + nameOf(g, playerId)
+                        + " s'équipe d'un pieu béni en arme secondaire.";
+                addHistory(g, msg);
+                feedText = msg;
+
+                save(g);
+
+                final String fFeed = feedText;
+                final String fUser = playerId;
+                final String fType = type.name();
+                afterCommit(() -> {
+                    pushLive(g, fFeed);
+                    // pour forcer un refresh de la main / mods côté front
+                    live.actionUsed(g, fUser, fType);
+                });
+
+                return g;
+            }
+
+            case SACRED_ROSARY -> {
+                if (!"HUNTER".equals(p.getRole())) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "chasseurs uniquement");
+                }
+
+                if (g.getPhase() != Phase.PREPHASE3) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Chapelet sacré est utilisable uniquement juste avant les combats (PREPHASE3)."
+                    );
+                }
+
+                // Si Présence écrasante bloque les actions sur ce lieu, le check global
+                // au début de useAction fera déjà le boulot, comme pour les autres cartes.
+
+                // Déjà protégé par un chapelet ?
+                if (p.isSacredRosary()) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Tu bénéficies déjà de la protection d’un chapelet sacré."
+                    );
+                }
+
+                // Activer l’effet persistant sur ce chasseur
+                p.setSacredRosary(true);
+
+                // Puce DISPLAY pour ce raid (et suivants tant qu’on ne la retire pas)
+                if (g.getRaidMods() == null) {
+                    g.setRaidMods(new java.util.HashMap<>());
+                }
+                g.getRaidMods()
+                        .computeIfAbsent(playerId, __ -> new java.util.ArrayList<>())
+                        .add(new StatMod("DEFENSE", 0, "ACTION:SACRED_ROSARY:DSP"));
+
+                // Consommer la carte d’action dans l’inventaire
+                inv.remove(type.name());
+                if (isHunter) discardHunterAction(g, type.name());
+
+                String msg = nameOf(g, playerId)
+                        + " porte un chapelet sacré: il pourra annuler une morsure réussie du vampire.";
+                addHistory(g, msg);
+                feedText = msg;
+
+                save(g);
+
+                final String fFeed   = feedText;
+                final String fUserId = playerId;
+                final String fType   = type.name();
+
+                afterCommit(() -> {
+                    pushLive(g, fFeed);
+                    live.actionUsed(g, fUserId, fType);
+                    // Pour que la puce apparaisse tout de suite
+                    live.raidModsUpdated(g);
+                });
+
+                return g;
+            }
+
+            case CHARISMATIQUE -> {
+                if (!isHunter) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "chasseurs uniquement");
+                }
+                if (g.getPhase() != Phase.PHASE4) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Charismatique est utilisable uniquement lors de la boutique (PHASE4)."
+                    );
+                }
+
+                // Si Présence écrasante bloque les cartes d'action ce raid, on interdit
+                if (g.isHunterActionsBlockedThisRaid()) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "La présence écrasante du vampire t'empêche d'utiliser des cartes d'action ce raid."
+                    );
+                }
+
+                if (p.isCharismaticThisRaid()) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "L'effet de Charismatique est déjà actif pour ce raid."
+                    );
+                }
+
+                // Activer le bonus pour ce raid
+                p.setCharismaticThisRaid(true);
+
+                // Consommer la carte
+                inv.remove(type.name());
+                discardHunterAction(g, type.name());
+
+                String msg = nameOf(g, playerId)
+                        + " charme les marchands: ses achats à la boutique coûtent 20 or de moins "
+                        + "et ses ventes rapportent 20 or de plus par ressource pour ce raid.";
+                addHistory(g, msg);
+                feedText = msg;
+
+                // currentAction purement informative pour la modale front
+                Game.Action a = new Game.Action();
+                a.setMode("CHARISMATIQUE");
+                a.setOwnerId(playerId);
+                a.setLocation(null);
+                a.setTargetId(null);
+                a.setRoll(null);
+                a.setResolvedAtMillis(System.currentTimeMillis());
+                g.setCurrentAction(a);
+
+                save(g);
+
+                final String fFeed   = feedText;
+                final String fUserId = playerId;
+                final String fType   = type.name();
+
+                afterCommit(() -> {
+                    pushLive(g, fFeed);
+                    live.actionUsed(g, fUserId, fType);
+                });
+
+                return g;
+            }
+
+            case MARCHAND_ITINERANT -> {
+                if (!isHunter) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "chasseur uniquement");
+                }
+
+                if (g.getPhase() != Phase.PHASE4) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Marchand itinérant est utilisable uniquement pendant la maintenance (PHASE4)."
+                    );
+                }
+
+                // Consommer la carte dans la main du chasseur
+                inv.remove(type.name());
+                discardHunterAction(g, type.name());
+
+                // On efface un éventuel bonus précédent par sécurité
+                g.setShopBonusKind(null);
+
+                // currentAction pour la modale + D6
+                Game.Action a = new Game.Action();
+                a.setMode("MARCHAND_ITINERANT");
+                a.setOwnerId(playerId);
+                a.setLocation(null);
+                a.setTargetId(null);
+                a.setRoll(null); // D6 pas encore lancé
+                a.setBreakdownLines(new java.util.ArrayList<>());
+                a.setResolvedAtMillis(null);
+
+                g.setCurrentAction(a);
+
+                String msg = nameOf(g, playerId) + " appelle un marchand itinérant à la boutique.";
+                addHistory(g, msg);
+                feedText = msg;
+
+                save(g);
+
+                final String fFeed   = feedText;
+                final String fUserId = playerId;
+                final String fType   = type.name();
+
+                afterCommit(() -> {
+                    pushLive(g, fFeed);
+                    live.actionUsed(g, fUserId, fType);
+                });
+
+                return g;
+            }
+
+            case CATACLYSME -> {
+                if (!isVamp) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "vampire uniquement");
+                }
+
+                if (g.getPhase() != Phase.PHASE2) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Cataclysme est utilisable uniquement pendant la PHASE2.");
+                }
+
+                // On ne veut qu'un Cataclysme en cours à la fois
+                Game.Action existing = g.getCurrentAction();
+                if (existing != null && "CATACLYSME".equals(existing.getMode())) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Un Cataclysme est déjà en cours de résolution.");
+                }
+
+                // On consomme la carte dans la main du vampire
+                inv.remove(type.name());
+                discardVampAction(g, type.name());
+
+                // currentAction pour piloter la modale
+                Game.Action a = new Game.Action();
+                a.setMode("CATACLYSME");
+                a.setOwnerId(playerId);
+                a.setLocation(null);
+                a.setTargetId(null);
+
+                java.util.List<String> breakdown = new java.util.ArrayList<>();
+                a.setBreakdownLines(breakdown);
+
+                a.setRoll(null);
+                a.setResolvedAtMillis(null);
+                g.setCurrentAction(a);
+
+                // Historique / feed
+                String msg = nameOf(g, playerId) + " joue Cataclysme et déchire le ciel.";
+                addHistory(g, msg);
+                feedText = msg;
+
+                save(g);
+
+                final String fType   = type.name();
+                final String fUserId = playerId;
+                final String fFeed   = feedText;
+
+                afterCommit(() -> {
+                    pushLive(g, fFeed);
+                    // Comme pour les autres actions, on notifie:
+                    live.actionUsed(g, fUserId, fType);
+                });
+
+                return g;
+            }
+
+            case CLONES_OMBRE -> {
+                if (!isVamp) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "vampire uniquement");
+                }
+                if (g.getPhase() != Phase.PHASE2) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Clones des ombres est utilisable uniquement pendant la PHASE2.");
+                }
+
+                if (hasBlockingActionInProgress(g)) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Une autre action est déjà en cours de résolution.");
+                }
+
+                // Consommer la carte
+                inv.remove(type.name());
+                discardVampAction(g, type.name());
+
+                Game.Action a = new Game.Action();
+                a.setMode("CLONES_OMBRE");
+                a.setOwnerId(playerId);
+                a.setLocation(null);
+                a.setTargetId(null);
+                a.setRoll(null);
+                a.setBreakdownLines(new ArrayList<>());
+                a.setResolvedAtMillis(null);
+                g.setCurrentAction(a);
+
+                String msg = nameOf(g, playerId) + " invoque des clones des ombres.";
+                addHistory(g, msg);
+                feedText = msg;
+
+                save(g);
+
+                final String fType   = type.name();
+                final String fUserId = playerId;
+                final String fFeed   = feedText;
+
+                afterCommit(() -> {
+                    pushLive(g, fFeed);
+                    live.actionUsed(g, fUserId, fType);
+                });
+
+                return g;
+            }
+
+            case IMAGE_MIROIR -> {
+                if (!isVamp) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "vampire uniquement");
+                }
+                if (g.getPhase() != Phase.PHASE2) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Image miroir est utilisable uniquement pendant la PHASE2.");
+                }
+
+                if (hasBlockingActionInProgress(g)) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Une autre action est déjà en cours de résolution.");
+                }
+
+                // Consommer la carte action
+                inv.remove(type.name());
+                discardVampAction(g, type.name());
+
+                Game.Action a = new Game.Action();
+                a.setMode("IMAGE_MIROIR_SETUP");
+                a.setOwnerId(playerId);
+                a.setLocation(null);
+                a.setTargetId(null);
+                a.setRoll(null);
+                a.setBreakdownLines(new ArrayList<>());
+                a.setResolvedAtMillis(null);
+                g.setCurrentAction(a);
+
+                String msg = nameOf(g, playerId) + " invoque une image miroir.";
+                addHistory(g, msg);
+                feedText = msg;
+
+                save(g);
+
+                final String fType   = type.name();
+                final String fUserId = playerId;
+                final String fFeed   = feedText;
+
+                afterCommit(() -> {
+                    pushLive(g, fFeed);
+                    live.actionUsed(g, fUserId, fType);
+                });
+
+                return g;
+            }
+
+            case PRESENCE_ECRASANTE -> {
+                if (!isVamp) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "vampire uniquement");
+                }
+
+                if (g.getPhase() != Phase.PREPHASE3) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Présence écrasante est utilisable uniquement juste avant les combats (PREPHASE3)."
+                    );
+                }
+
+                // Lieu actuel du vampire
+                String vampLoc = locationOf(g, playerId);
+
+                int cancelledCampfires     = 0;
+                int cancelledNets          = 0;
+                int cancelledPits          = 0;
+                int cancelledIncendiaires  = 0;
+                int cancelledProvocations  = 0;
+                int cancelledBlessedStakes = 0;
+                int cancelledSacredRosaries = 0;
+
+                // Rien de spécial si le vampire n'est sur aucun lieu (cas ultra rare)
+                    // ---------- Feux de camp ----------
+                    if (g.getCampfireLocations() != null) {
+                        for (String loc : g.getCampfireLocations()) {
+                            if (java.util.Objects.equals(loc, vampLoc)) {
+                                cancelledCampfires++;
+                            }
+                        }
+                        // On supprime uniquement ceux sur ce lieu
+                        g.getCampfireLocations().removeIf(loc -> java.util.Objects.equals(loc, vampLoc));
+                    }
+
+                    // ---------- Filets ----------
+                    if (g.getNetHunters() != null && !g.getNetHunters().isEmpty()) {
+                        var it = g.getNetHunters().iterator();
+                        while (it.hasNext()) {
+                            String hunterId = it.next();
+                            String hLoc = locationOf(g, hunterId);
+                            if (java.util.Objects.equals(hLoc, vampLoc)) {
+                                cancelledNets++;
+                                it.remove();
+                            }
+                        }
+                    }
+
+                    // ---------- Fosses + maps associées ----------
+                    if (g.getPitHunters() != null && !g.getPitHunters().isEmpty()) {
+                        var it = g.getPitHunters().iterator();
+                        while (it.hasNext()) {
+                            String hunterId = it.next();
+                            String hLoc = locationOf(g, hunterId);
+                            if (java.util.Objects.equals(hLoc, vampLoc)) {
+                                cancelledPits++;
+                                it.remove();
+                                if (g.getPitTargetsByHunter() != null) {
+                                    g.getPitTargetsByHunter().remove(hunterId);
+                                }
+                                if (g.getPitIndexByHunter() != null) {
+                                    g.getPitIndexByHunter().remove(hunterId);
+                                }
+                            }
+                        }
+                    }
+
+                    // ---------- Provocation ----------
+                    // Map<enemyId, hunterIdProvocateur>
+                    if (g.getProvokedTargetByEnemy() != null && !g.getProvokedTargetByEnemy().isEmpty()) {
+                        var it = g.getProvokedTargetByEnemy().entrySet().iterator();
+                        while (it.hasNext()) {
+                            var e = it.next();
+                            String hunterId = e.getValue();
+                            String hLoc = locationOf(g, hunterId);
+                            if (java.util.Objects.equals(hLoc, vampLoc)) {
+                                cancelledProvocations++;
+                                it.remove();
+                            }
+                        }
+                    }
+
+                    // ---------- Embuscade ----------
+                    // Map<enemyId, List<hunterId>> : on enlève les chasseurs embusqués sur ce lieu
+                    if (g.getAmbushHuntersByEnemy() != null && !g.getAmbushHuntersByEnemy().isEmpty()) {
+                        var it = g.getAmbushHuntersByEnemy().entrySet().iterator();
+                        while (it.hasNext()) {
+                            var e = it.next();
+                            java.util.List<String> hunters = e.getValue();
+                            hunters.removeIf(hId -> java.util.Objects.equals(locationOf(g, hId), vampLoc));
+                            if (hunters.isEmpty()) {
+                                it.remove();
+                            }
+                        }
+                    }
+
+                    // ---------- Incendiaire ----------
+                    // Map<hunterId, locCible> : on annule seulement les chasseurs sur ce lieu
+                    if (g.getIncendiaireLocationByHunter() != null
+                            && !g.getIncendiaireLocationByHunter().isEmpty()) {
+
+                        var it = g.getIncendiaireLocationByHunter().entrySet().iterator();
+                        while (it.hasNext()) {
+                            var e = it.next();
+                            String hunterId = e.getKey();
+                            String hLoc = locationOf(g, hunterId);
+                            if (java.util.Objects.equals(hLoc, vampLoc)) {
+                                cancelledIncendiaires++;
+                                it.remove();
+                            }
+                        }
+                    }
+
+                if (g.getPlayers() != null && vampLoc != null) {
+                    for (Player player : g.getPlayers()) {
+                        if (!"HUNTER".equals(player.getRole())) continue;
+
+                        String hunterLoc = locationOf(g, player.getId());
+                        if (!vampLoc.equals(hunterLoc)) continue;
+
+                        // ---------- Pieu béni ----------
+                        if (player.isBlessedStake()) {
+                            cancelledBlessedStakes++;
+                            player.setBlessedStake(false);
+
+                            if (g.getRaidMods() != null) {
+                                var mods = g.getRaidMods().get(player.getId());
+                                if (mods != null) {
+                                    mods.removeIf(m -> {
+                                        String s = m.getSource();
+                                        return s != null && s.startsWith("ACTION:BLESSED_STAKE");
+                                    });
+                                }
+                            }
+                        }
+
+                        // ---------- Chapelet sacré ----------
+                        if (player.isSacredRosary()) {
+                            cancelledSacredRosaries++;
+                            player.setSacredRosary(false);
+
+                            if (g.getRaidMods() != null) {
+                                var mods = g.getRaidMods().get(player.getId());
+                                if (mods != null) {
+                                    mods.removeIf(m -> {
+                                        String s = m.getSource();
+                                        return s != null && s.startsWith("ACTION:SACRED_ROSARY");
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+
+                    // ---------- currentAction de chasseur sur ce lieu ----------
+                    Game.Action ca = g.getCurrentAction();
+                    if (ca != null && ("NET".equals(ca.getMode())
+                            || "PIT".equals(ca.getMode())
+                            || "INCENDIAIRE".equals(ca.getMode())
+                            || "PROVOCATION".equals(ca.getMode())
+                            || "AMBUSH".equals(ca.getMode())
+                            || "EAU_BENITE".equals(ca.getMode())
+                            || "BLESSED_STAKE".equals(ca.getMode()))) {
+
+                        boolean sameLoc = java.util.Objects.equals(ca.getLocation(), vampLoc);
+                        boolean ownerOnLoc = ca.getOwnerId() != null
+                                && java.util.Objects.equals(locationOf(g, ca.getOwnerId()), vampLoc);
+
+                        if (sameLoc || ownerOnLoc) {
+                            g.setCurrentAction(null);
+                        }
+                    }
+
+                // Bloque les cartes d'action chasseurs pour le reste du raid
+                // (le blocage sera restreint au lieu du vampire dans la garde plus haut)
+                g.setHunterActionsBlockedThisRaid(true);
+
+                // Consommer la carte sur le vampire
+                inv.remove(type.name());
+                discardVampAction(g, type.name());
+
+                java.util.List<String> parts = new java.util.ArrayList<>();
+                if (cancelledCampfires > 0)         parts.add(cancelledCampfires      + " Feu de camp");
+                if (cancelledNets > 0)              parts.add(cancelledNets           + " Filet");
+                if (cancelledPits > 0)              parts.add(cancelledPits           + " Fosse");
+                if (cancelledIncendiaires > 0)      parts.add(cancelledIncendiaires   + " Incendiaire");
+                if (cancelledProvocations > 0)      parts.add(cancelledProvocations   + " Provocation");
+                if (cancelledBlessedStakes > 0)     parts.add(cancelledBlessedStakes  + " Épieu béni");
+                if (cancelledSacredRosaries > 0)    parts.add(cancelledSacredRosaries + " Chapelet sacré");
+
+                String msg = nameOf(g, playerId) + " déchaîne une présence écrasante : ";
+
+                if (parts.isEmpty()) {
+                    msg += "aucune préparation de cartes des chasseurs n'était en cours sur ce lieu, "
+                            + "mais les chasseurs prsénts sur " + labelLieuFr(vampLoc) + " ne pourront plus utiliser de cartes d'action ce raid.";
+                } else {
+                    msg += "les préparations de cartes des chasseurs sur ce lieu sont annulées ("
+                            + String.join(", ", parts)
+                            + "). Les chasseurs présents sur " + labelLieuFr(vampLoc) + " ne pourront plus utiliser de cartes d'action ce raid.";
+                }
+
+                addHistory(g, msg);
+                feedText = msg;
+
+                // currentAction purement informative pour la modale front
+                Game.Action a = new Game.Action();
+                a.setMode("PRESENCE_ECRASANTE");
+                a.setOwnerId(playerId);
+                a.setLocation(vampLoc); // utile si tu veux afficher "au Manoir", etc.
+                a.setTargetId(null);
+
+                java.util.List<String> breakdown = new java.util.ArrayList<>();
+                breakdown.add("Les cartes actions chasseurs sur ce lieu sont annulées.");
+
+                a.setBreakdownLines(breakdown);
+                a.setRoll(null);
+                a.setResolvedAtMillis(System.currentTimeMillis());
+                g.setCurrentAction(a);
+
+                int newVersion = g.getPrephaseTimerVersion() + 1;
+                g.setPrephaseTimerVersion(newVersion);
+
+                save(g);
+
+                final String fFeed   = feedText;
+                final String fUserId = playerId;
+                final String fType   = type.name();
+                final int version    = newVersion;
+
+                afterCommit(() -> {
+                    pushLive(g, fFeed);
+                    live.raidModsUpdated(g);
+                    live.actionUsed(g, fUserId, fType);
+                    schedulePrephaseTimeout(gameId, 30_000L, version);
+                });
+
+                return g;
+            }
+
+            case ECLIPSE -> {
+                if (!isVamp) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "vampire uniquement");
+                }
+
+                if (g.getPhase() != Phase.PREPHASE3) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Éclipse est utilisable uniquement juste avant les combats (PREPHASE3)."
+                    );
+                }
+
+                inv.remove(type.name());
+                discardVampAction(g, type.name());
+
+                g.setWeatherStatus(WeatherStatus.NIGHT_DARK);
+                g.setSecondaryWeatherStatus(null);
+
+                g.setWeatherStatusNameFr(weatherNameFr(WeatherStatus.NIGHT_DARK));
+                g.setWeatherDescriptionFr(weatherDescFr(WeatherStatus.NIGHT_DARK));
+                g.setSecondaryWeatherStatusNameFr(null);
+                g.setSecondaryWeatherDescriptionFr(null);
+
+                // Rebuild des mods météo (WEATHER:...)
+                rebuildWeatherMods(g);
+
+                // Historique + feed
+                String msg = nameOf(g, playerId)
+                        + " invoque une éclipse: l'obscurité s'installe.";
+                addHistory(g, msg);
+                feedText = msg;
+
+                // currentAction purement informative pour la modale front
+                Game.Action a = new Game.Action();
+                a.setMode("ECLIPSE");
+                a.setOwnerId(playerId);
+                a.setLocation(null);
+                a.setTargetId(null);
+
+                java.util.List<String> breakdown = new java.util.ArrayList<>();
+                breakdown.add("Une eclipse plonge les lieux dans l'obscurité.");
+                a.setBreakdownLines(breakdown);
+                a.setRoll(null);
+                a.setResolvedAtMillis(System.currentTimeMillis());
+                g.setCurrentAction(a);
+
+                // --- RESET TIMER PREPHASE ---
+                // Reset du timer PREPHASE3 via version
+                int newVersion = g.getPrephaseTimerVersion() + 1;
+                g.setPrephaseTimerVersion(newVersion);
+
+                save(g);
+
+                final String fFeed   = feedText;
+                final String fUserId = playerId;
+                final String fType   = type.name();
+                final int version    = newVersion;
+
+                afterCommit(() -> {
+                    pushLive(g, fFeed);
+                    live.raidModsUpdated(g);
+                    live.actionUsed(g, fUserId, fType);
+
+                    // On relance un timer PREPHASE3 complet de 30s
+                    schedulePrephaseTimeout(gameId, 30_000L, version);
+                });
+
+                return g;
+            }
+
+            case BLOOD_MOON -> {
+                if (!isVamp) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "vampire uniquement");
+                }
+
+                if (g.getPhase() != Phase.PREPHASE3) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Lune sanglante est utilisable uniquement juste avant les combats (PREPHASE3)."
+                    );
+                }
+
+                // Vérifier que la météo contient FULL_MOON (principal ou secondaire)
+                WeatherStatus ws1 = g.getWeatherStatus();
+                WeatherStatus ws2 = g.getSecondaryWeatherStatus();
+                boolean hasFullMoon =
+                        (ws1 == WeatherStatus.FULL_MOON) || (ws2 == WeatherStatus.FULL_MOON);
+
+                if (!hasFullMoon) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Lune sanglante ne peut être utilisée que si la météo est Pleine lune."
+                    );
+                }
+
+                // Consommer la carte
+                inv.remove(type.name());
+                discardVampAction(g, type.name());
+
+                // Transformer la Pleine lune concernée en Lune sanglante
+                if (ws1 == WeatherStatus.FULL_MOON) {
+                    g.setWeatherStatus(WeatherStatus.BLOOD_MOON);
+                    g.setWeatherStatusNameFr(weatherNameFr(WeatherStatus.BLOOD_MOON));
+                    g.setWeatherDescriptionFr(weatherDescFr(WeatherStatus.BLOOD_MOON));
+                }
+                if (ws2 == WeatherStatus.FULL_MOON) {
+                    g.setSecondaryWeatherStatus(WeatherStatus.BLOOD_MOON);
+                    g.setSecondaryWeatherStatusNameFr("Lune sanglante");
+                    g.setSecondaryWeatherDescriptionFr("La pleine lune se teinte d'un rouge sanglant.");
+                }
+
+                // Rebuilder les mods météo
+                rebuildWeatherMods(g);
+
+                // Historique / feed
+                String msg = nameOf(g, playerId)
+                        + " invoque la Lune sanglante : la pleine lune devient rouge.";
+                addHistory(g, msg);
+                feedText = msg;
+
+                // currentAction juste pour afficher la modale d'info
+                Game.Action a = new Game.Action();
+                a.setMode("BLOOD_MOON");
+                a.setOwnerId(playerId);
+                a.setLocation(null);
+                a.setTargetId(null);
+                a.setRoll(null);
+                a.setResolvedAtMillis(System.currentTimeMillis());
+
+                java.util.List<String> breakdown = new java.util.ArrayList<>();
+                breakdown.add("La Pleine lune devient Lune sanglante.");
+                breakdown.add("+3 Attaque pour le vampire et serviteurs, -3 Défense pour les chasseurs ce raid.");
+                a.setBreakdownLines(breakdown);
+
+                g.setCurrentAction(a);
+
+                // --- RESET TIMER PREPHASE ---
+                int newVersion = g.getPrephaseTimerVersion() + 1;
+                g.setPrephaseTimerVersion(newVersion);
+
+                save(g);
+
+                final String fFeed   = feedText;
+                final String fUserId = playerId;
+                final String fType   = type.name();
+                final int version    = newVersion;
+
+                afterCommit(() -> {
+                    pushLive(g, fFeed);
+                    live.raidModsUpdated(g);   // pour rafraîchir les mods WEATHER:*
+                    live.actionUsed(g, fUserId, fType);
+
+                    // On relance un timer PREPHASE3 complet de 30s
+                    schedulePrephaseTimeout(gameId, 30_000L, version);
+                });
+
+                return g;
+            }
+
+            case VOILE_DE_BRUME -> {
+                if (!isVamp) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "vampire uniquement");
+                }
+
+                if (g.getPhase() != Phase.PREPHASE3) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Voile de brume est utilisable uniquement juste avant les combats (PREPHASE3)."
+                    );
+                }
+
+                // Consommer la carte
+                inv.remove(type.name());
+                discardVampAction(g, type.name());
+
+                // Activer le blocage de récolte des chasseurs pour ce raid
+                g.setFogBlocksHunterHarvestThisRaid(true);
+
+                String msg = nameOf(g, playerId)
+                        + " invoque un voile de brume impénétrable: les chasseurs ne récolteront aucune ressource ce raid.";
+                addHistory(g, msg);
+                feedText = msg;
+
+                // currentAction : modale purement informative
+                Game.Action a = new Game.Action();
+                a.setMode("VOILE_DE_BRUME");
+                a.setOwnerId(playerId);
+                a.setLocation(null);
+                a.setTargetId(null);
+                a.setRoll(null);
+                a.setResolvedAtMillis(System.currentTimeMillis());
+
+                java.util.List<String> breakdown = new java.util.ArrayList<>();
+                breakdown.add("Les chasseurs ne récolteront aucune ressource ce raid.");
+                a.setBreakdownLines(breakdown);
+
+                g.setCurrentAction(a);
+
+                refreshPrephaseRevealMessages(g);
+
+                setupUnstableAndPrephaseTimeout(g);
+
+                save(g);
+
+                final String fFeed   = feedText;
+                final String fUserId = playerId;
+                final String fType   = type.name();
+
+                afterCommit(() -> {
+                    pushLive(g, fFeed);
+                    live.actionUsed(g, fUserId, fType);
+                });
+
+                return g;
+            }
+
+            case FAIM_IRREPRESSIBLE -> {
+                if (!isVamp) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "vampire uniquement");
+                }
+
+                if (g.getPhase() != Phase.PREPHASE3) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Faim irrépressible est utilisable uniquement juste avant les combats (PREPHASE3)."
+                    );
+                }
+
+                // Consommer la carte sur le vampire
+                List<String> actions = p.getActions();
+                if (actions == null || !actions.remove(type.name())) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "action not in inventory");
+                }
+                discardVampAction(g, type.name());
+
+                // Flag de raid : à partir de maintenant, le vamp peut mordre même sans dégâts
+                g.setHungerAllowsBiteThisRaid(true);
+
+                // Message d’historique
+                String msg = nameOf(g, playerId)
+                        + " succombe à une faim irrépressible: il pourra tenter une morsure"
+                        + " même sans infliger de dégâts ce raid.";
+                addHistory(g, msg);
+                feedText = msg;
+
+                // currentAction purement informative pour la modale front
+                Game.Action a = new Game.Action();
+                a.setMode("FAIM_IRREPRESSIBLE");
+                a.setOwnerId(playerId);
+                a.setLocation(null);
+                a.setTargetId(null);
+
+                java.util.List<String> breakdown = new java.util.ArrayList<>();
+                breakdown.add("Ce raid, le vampire pourra tenter une morsure même si l’attaque échoue.");
+                a.setBreakdownLines(breakdown);
+
+                a.setRoll(null);
+                a.setResolvedAtMillis(System.currentTimeMillis());
+                g.setCurrentAction(a);
+
+                // Reset du timer PREPHASE3 (comme Présence écrasante)
+                int newVersion = g.getPrephaseTimerVersion() + 1;
+                g.setPrephaseTimerVersion(newVersion);
+
+                save(g);
+
+                final String fFeed   = feedText;
+                final String fUserId = playerId;
+                final String fType   = type.name();
+                final int version    = newVersion;
+
+                afterCommit(() -> {
+                    pushLive(g, fFeed);
+                    live.actionUsed(g, fUserId, fType);
+                    schedulePrephaseTimeout(gameId, 30_000L, version);
+                });
+
+                return g;
+            }
+
+            case MARQUE_TENEBREUSE -> {
+                if (!isVamp) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "vampire uniquement");
+                }
+
+                if (g.getPhase() != Phase.PREPHASE3) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Marque ténébreuse est utilisable uniquement juste avant les combats (PREPHASE3)."
+                    );
+                }
+
+                if (hasBlockingActionInProgress(g)) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Une autre action est déjà en cours de résolution.");
+                }
+
+                // Consommer la carte dans l'inventaire du vampire
+                List<String> actions = p.getActions();
+                if (actions == null || !actions.remove(type.name())) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "action not in inventory");
+                }
+                discardVampAction(g, type.name());
+
+                // currentAction : choix de la cible dans la modale
+                Game.Action a = new Game.Action();
+                a.setMode("MARQUE_TENEBREUSE");
+                a.setOwnerId(playerId);
+                a.setLocation(null);
+                a.setTargetId(null);
+                a.setRoll(null);
+                a.setBreakdownLines(new java.util.ArrayList<>());
+                a.setResolvedAtMillis(null);
+                g.setCurrentAction(a);
+
+                String msg = nameOf(g, playerId)
+                        + " invoque une Marque ténébreuse et s'apprête à maudire un chasseur.";
+                addHistory(g, msg);
+                feedText = msg;
+
+                // On ANNULE le timer de préphase en cours (comme pour ton flag reset)
+                if (g.getPhase() == Phase.PREPHASE3) {
+                    g.setPrephaseTimerVersion(g.getPrephaseTimerVersion() + 1);
+                }
+
+                save(g);
+
+                final String fFeed   = feedText;
+                final String fUserId = playerId;
+                final String fType   = type.name();
+
+                afterCommit(() -> {
+                    pushLive(g, fFeed);
+                    live.actionUsed(g, fUserId, fType);
+                });
+
+                return g;
+            }
+
+            case AFFAIBLISSEMENT_OCCULTE -> {
+                if (!isVamp) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "vampire uniquement");
+                }
+
+                if (g.getPhase() != Phase.PREPHASE3) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Affaiblissement occulte est utilisable uniquement juste avant les combats (PREPHASE3)."
+                    );
+                }
+
+                if (hasBlockingActionInProgress(g)) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Une autre action est déjà en cours de résolution.");
+                }
+
+                // Consommer la carte dans l'inventaire du vampire
+                if (inv == null || !inv.remove(type.name())) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "action not in inventory");
+                }
+                discardVampAction(g, type.name());
+
+                // currentAction : choix d'un chasseur dans la modale
+                Game.Action a = new Game.Action();
+                a.setMode("AFFAIBLISSEMENT_OCCULTE");
+                a.setOwnerId(playerId);
+                a.setLocation(null);
+                a.setTargetId(null);
+                a.setRoll(null);
+                a.setBreakdownLines(new java.util.ArrayList<>());
+                a.setResolvedAtMillis(null);
+                g.setCurrentAction(a);
+
+                String msg = "Affaiblissement occulte — "
+                        + nameOf(g, playerId)
+                        + " prépare un rituel pour affaiblir un chasseur.";
+                addHistory(g, msg);
+                feedText = msg;
+
+                if (g.getPhase() == Phase.PREPHASE3) {
+                    g.setPrephaseTimerVersion(g.getPrephaseTimerVersion() + 1);
+                }
+
+                save(g);
+
+                final String fFeed   = feedText;
+                final String fUserId = playerId;
+                final String fType   = type.name();
+
+                afterCommit(() -> {
+                    pushLive(g, fFeed);
+                    live.actionUsed(g, fUserId, fType);
+                });
+
+                return g;
+            }
+
+            case PASSAGE_SECRET -> {
+                if (!isVamp) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "vampire uniquement");
+                }
+
+                if (g.getPhase() != Phase.PREPHASE3) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Passage secret est utilisable uniquement juste avant les combats (PREPHASE3)."
+                    );
+                }
+
+                // Doit être au Manoir
+                String loc = locationOf(g, playerId);
+                if (!"manor".equals(loc)) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Passage secret n'est utilisable que si le vampire est au Manoir.");
+                }
+
+                // Pas deux actions bloquantes en même temps
+                if (hasBlockingActionInProgress(g)) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Une autre action est déjà en cours de résolution.");
+                }
+
+                // Consommer la carte
+                if (inv == null || !inv.remove(type.name())) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "action not in inventory");
+                }
+                discardVampAction(g, type.name());
+
+                // currentAction : ouverture de la modale de choix de destination
+                Game.Action a = new Game.Action();
+                a.setMode("PASSAGE_SECRET");
+                a.setOwnerId(playerId);
+                a.setLocation(loc);  // lieu actuel = Manoir
+                a.setTargetId(null);
+                a.setRoll(null);
+                a.setBreakdownLines(new java.util.ArrayList<>());
+                a.setResolvedAtMillis(null);
+                g.setCurrentAction(a);
+
+                String msg = "Passage secret — "
+                        + nameOf(g, playerId)
+                        + " cherche un passage pour quitter le Manoir.";
+                addHistory(g, msg);
+                feedText = msg;
+
+                // On annule le timer de préphase en cours (version++)
+                if (g.getPhase() == Phase.PREPHASE3) {
+                    g.setPrephaseTimerVersion(g.getPrephaseTimerVersion() + 1);
+                }
+
+                save(g);
+
+                final String fFeed   = feedText;
+                final String fUserId = playerId;
+                final String fType   = type.name();
+
+                afterCommit(() -> {
+                    pushLive(g, fFeed);
+                    live.actionUsed(g, fUserId, fType);
+                });
+
+                return g;
+            }
+
+            case AVIDITE_NOCTURNE -> {
+                if (!isVamp) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "vampire uniquement");
+                }
+                if (g.getPhase() != Phase.PHASE4) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Avidité nocturne est utilisable uniquement lors de la boutique (PHASE4)."
+                    );
+                }
+
+                // déjà utilisée ce raid ?
+                if (g.isShopPricesIncreasedThisRaid()) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Avidité nocturne a déjà été utilisée ce raid."
+                    );
+                }
+
+                // le vampire doit réellement avoir la carte
+                if (inv == null || !inv.contains(type.name())) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Le vampire ne possède pas la carte Avidité nocturne."
+                    );
+                }
+
+                // activer l'effet global pour ce raid
+                g.setShopPricesIncreasedThisRaid(true);
+
+                // consommer la carte d'action vampire
+                inv.remove(type.name());
+                discardVampAction(g, type.name());
+
+                String msg = nameOf(g, playerId)
+                        + " joue Avidité nocturne: tous les prix en or à la boutique des chasseurs augmentent de 50 ce raid.";
+                addHistory(g, msg);
+                feedText = msg;
+
+                // currentAction purement informative pour la modale front
+                Game.Action a = new Game.Action();
+                a.setMode("AVIDITE_NOCTURNE");
+                a.setOwnerId(playerId);
+                a.setLocation(null);
+                a.setTargetId(null);
+                a.setRoll(null);
+                a.setResolvedAtMillis(System.currentTimeMillis());
+                g.setCurrentAction(a);
+
+                save(g);
+
+                final String fFeed   = feedText;
+                final String fUserId = playerId;
+                final String fType   = type.name();
+
+                afterCommit(() -> {
+                    pushLive(g, fFeed);
+                    live.actionUsed(g, fUserId, fType);
+                });
+
+                return g;
+            }
+
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "unknown action");
         }
 
         return g;
     }
 
+    private boolean isBlockingAction(Game.Action a) {
+        if (a == null) return false;
+        String m = a.getMode();
+        if (m == null) return false;
 
+        return switch (m) {
+            case "NET",
+                 "PIT",
+                 "INCENDIAIRE",
+                 "EAU_BENITE",
+                 "MARQUE_TENEBREUSE",
+                 "AFFAIBLISSEMENT_OCCULTE",
+                 "CLONES_OMBRE",
+                 "IMAGE_MIROIR_SETUP",
+                 "IMAGE_MIROIR_RESOLVE",
+                 "PASSAGE_SECRET",
+                 "CATACLYSME" -> true;
+
+            default -> false; // FAIM, PRESENCE, ECLIPSE, BLOOD_MOON, VOILE_DE_BRUME => non bloquantes
+        };
+    }
+
+    private boolean hasBlockingActionInProgress(Game g) {
+        return isBlockingAction(g.getCurrentAction());
+    }
+
+
+// ACTIONS HUNTER
     /**
      * Applique l'effet des chasseurs Pisteur quand le vampire pose son lieu.
      * - si le chasseur avait déjà joué un lieu (ex : fumigé) :
@@ -4192,20 +6311,23 @@ public class GameService {
     }
 
     /**
-     * Appelé à l'entrée en PHASE3 pour préparer le premier piège à résoudre.
-     * Si aucun Filet/Fosse utile, currentAction reste null.
+     * Prépare la prochaine action de raid à résoudre en PHASE3 :
+     * - Filet
+     * - Fosse
+     * - Incendiaire
+     * Un seul à la fois via currentAction.
      */
-    private void prepareFirstTrapAction(Game g) {
-        // Par sécurité, on reset avant
+    private void prepareNextRaidAction(Game g) {
+        // reset par sécurité
         g.setCurrentAction(null);
 
-        // 1) FILET en priorité
+        // 1) NET en priorité
         if (g.getNetHunters() != null) {
             for (String hunterId : g.getNetHunters()) {
                 String loc = locationOf(g, hunterId);
                 if (loc == null) continue;
 
-                // cible possible = vampire/serviteur OU monstre sur ce lieu
+                // cible possible = vampire/serviteur ou monstre sur ce lieu
                 if (!hasTrapTargetsOnLocation(g, loc)) continue;
 
                 Game.Action a = new Game.Action();
@@ -4222,7 +6344,7 @@ public class GameService {
             }
         }
 
-        // 2) FOSSE ensuite
+        // 2) PIT ensuite
         if (g.getPitHunters() != null && g.getPitTargetsByHunter() != null) {
             for (String hunterId : g.getPitHunters()) {
                 String loc = locationOf(g, hunterId);
@@ -4243,7 +6365,7 @@ public class GameService {
 
                 String currentVictimId = victims.get(idx);
 
-                // sécurité : la victime (joueur OU monstre) est-elle toujours sur ce lieu ?
+                // sécurité : la victime est-elle toujours sur ce lieu ?
                 boolean stillHere = isEntityOnLocation(g, currentVictimId, loc);
                 if (!stillHere) {
                     // si plus là, on skip cette cible
@@ -4253,9 +6375,9 @@ public class GameService {
 
                 Game.Action a = new Game.Action();
                 a.setMode("PIT");
-                a.setOwnerId(hunterId);      // chasseur qui a posé la Fosse
+                a.setOwnerId(hunterId);           // chasseur qui a posé la Fosse
                 a.setLocation(loc);
-                a.setTargetId(currentVictimId); // 🔹 c’est cette cible qui est en cours de résolution
+                a.setTargetId(currentVictimId);   // cible courante
                 a.setRoll(null);
                 a.setBreakdownLines(java.util.List.of());
                 a.setResolvedAtMillis(null);
@@ -4265,7 +6387,43 @@ public class GameService {
             }
         }
 
-        // 3) Si on arrive ici : aucun piège en attente -> currentAction reste null
+        // 3) Enfin : INCENDIAIRE
+        Map<String, String> incendiaires = g.getIncendiaireLocationByHunter();
+        if (incendiaires != null && !incendiaires.isEmpty()) {
+            // On itère sur une copie pour pouvoir remove dans la map
+            for (var entry : new java.util.ArrayList<>(incendiaires.entrySet())) {
+                String hunterId = entry.getKey();
+                String loc = entry.getValue();
+                if (loc == null) {
+                    incendiaires.remove(hunterId);
+                    continue;
+                }
+
+                // Est-ce qu'il reste au moins une infra brûlable sur ce lieu ?
+                if (!hasIncendiaireTargetsOnLocation(g, loc)) {
+                    String msg = nameOf(g, hunterId)
+                            + " avait préparé Incendiaire à " + labelLieuFr(loc)
+                            + ", mais aucune construction n'est présente: l'effet est perdu.";
+                    addHistory(g, msg);
+                    incendiaires.remove(hunterId);
+                    continue;
+                }
+
+                Game.Action a = new Game.Action();
+                a.setMode("INCENDIAIRE");
+                a.setOwnerId(hunterId);
+                a.setLocation(loc);
+                a.setTargetId(null);                 // infra choisie côté front
+                a.setRoll(null);
+                a.setBreakdownLines(java.util.List.of());
+                a.setResolvedAtMillis(null);
+
+                g.setCurrentAction(a);
+                return;
+            }
+        }
+
+        // 4) Si on arrive ici : aucun Filet/Fosse/Incendiaire à résoudre -> currentAction reste null
     }
 
     @Transactional
@@ -4429,7 +6587,7 @@ public class GameService {
         if (roll > 12) {
             if (g.getRaidMods() == null) g.setRaidMods(new java.util.HashMap<>());
             g.getRaidMods().computeIfAbsent(targetId, __ -> new java.util.ArrayList<>())
-                    .add(new StatMod("DEFENSE", -1, "ACTION:FILET"));
+                    .add(new StatMod("DEFENSE", -1, "ACTION:NET"));
 
             msg += "Le Filet se referme : la défense de " + entityName(g, targetId) + " est réduite de 1.";
             breakdown.add("Succès : DEF -1");
@@ -4590,7 +6748,7 @@ public class GameService {
         if (roll < 8) {
             if (g.getRaidMods() == null) g.setRaidMods(new java.util.HashMap<>());
             g.getRaidMods().computeIfAbsent(targetId, __ -> new java.util.ArrayList<>())
-                    .add(new StatMod("DEFENSE", -2, "ACTION:FOSSE"));
+                    .add(new StatMod("DEFENSE", -2, "ACTION:PIT"));
 
             msg += "Il tombe dans la fosse : sa défense est réduite de 2.";
             breakdown.add("Échec : DEF -2");
@@ -4636,6 +6794,1890 @@ public class GameService {
         return g;
     }
 
+    @Transactional
+    public Game resolveIncendiaire(String gameId, String hunterId, String infraCode) {
+        Game g = findOr404(gameId);
+
+        if (g.getStatus() != GameStatus.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "game not active");
+        }
+
+        // Incendiaire se résout en PHASE3 (comme Filet/Fosse)
+        if (g.getPhase() != Phase.PHASE3) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Incendiaire se résout en PHASE3, juste avant les duels."
+            );
+        }
+
+        Player hunter = findPlayer(g, hunterId);
+        if (hunter == null || !"HUNTER".equals(hunter.getRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "bad hunter");
+        }
+
+        // On vérifie que currentAction correspond bien à cet Incendiaire
+        Game.Action ca = g.getCurrentAction();
+        if (ca == null || !"INCENDIAIRE".equals(ca.getMode())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "aucune action Incendiaire en cours de résolution.");
+        }
+        if (!hunterId.equals(ca.getOwnerId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "ce n'est pas ton Incendiaire à résoudre.");
+        }
+
+        String loc = ca.getLocation();
+        if (loc == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "lieu introuvable pour Incendiaire.");
+        }
+
+        // Parsing de l'infra choisie
+        final Infra infra;
+        try {
+            infra = Infra.valueOf(infraCode);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "infrastructure inconnue pour Incendiaire."
+            );
+        }
+
+        // Jet de dé
+        int roll = 1 + java.util.concurrent.ThreadLocalRandom.current().nextInt(20);
+
+        java.util.List<String> breakdown = new java.util.ArrayList<>();
+        breakdown.add("Jet d'Incendiaire : 1d20 = " + roll);
+
+        String infraLocCode = infra.locationCode();               // ex: "sawmill","mine","library","laboratory","ballroom","altar","forge"
+        String infraLabel   = (infraLocCode != null ? labelLieuFr(infraLocCode) : infra.name());
+
+        String msg;
+
+        if (roll > 10) {
+            boolean destroyedPending = false;
+            boolean willDestroyBuilt = false;
+
+            // 1) Annuler une construction en cours
+            Game.PendingConstruction pc = g.getPendingConstruction();
+            if (pc != null && pc.infra == infra) {
+                g.setPendingConstruction(null);
+                destroyedPending = true;
+            }
+
+            // 2) Si déjà construite → destruction différée en fin de raid
+            if (g.getBuiltInfras() != null && g.getBuiltInfras().contains(infra)) {
+                if (g.getInfrasToDestroyEndOfRaid() == null) {
+                    g.setInfrasToDestroyEndOfRaid(java.util.EnumSet.noneOf(Infra.class));
+                }
+                g.getInfrasToDestroyEndOfRaid().add(infra);
+                willDestroyBuilt = true;
+            }
+
+            if (destroyedPending) {
+                msg = nameOf(g, hunterId)
+                        + " fait échouer la construction de " + infraLabel
+                        + " (1d20 -> " + roll + ").";
+                breakdown.add("Succès : la construction de " + infraLabel + " est ravagée par les flammes.");
+            } else if (willDestroyBuilt) {
+                msg = nameOf(g, hunterId)
+                        + " met le feu à " + infraLabel
+                        + " (1d20 -> " + roll + ").";
+                breakdown.add("Succès : " + infraLabel + " est ravagé par les flammes.");
+            } else {
+                msg = "Aucune construction à détruire.";
+                breakdown.add("Aucune construction correspondant à " + infraLabel + " sur ce lieu.");
+            }
+
+            addHistory(g, msg);
+        } else {
+            msg = nameOf(g, hunterId)
+                    + " tente d'incendier " + infraLabel
+                    + " (1d20 -> " + roll + ") mais échoue.";
+            breakdown.add("Échec : aucune construction n'est affectée.");
+            addHistory(g, msg);
+        }
+
+        // On marque le résultat sur l'action courante
+        ca.setTargetId(infra.name());               // pour que le front sache de quoi on parle
+        ca.setRoll(roll);
+        ca.setBreakdownLines(breakdown);
+        ca.setResolvedAtMillis(System.currentTimeMillis());
+
+        // On retire cet Incendiaire de la liste des préparés
+        if (g.getIncendiaireLocationByHunter() != null) {
+            g.getIncendiaireLocationByHunter().remove(hunterId);
+        }
+
+        save(g);
+
+        final String fMsg      = msg;
+        final int    fRoll     = roll;
+        final String fHunterId = hunterId;
+        final String fInfra    = infra.name();
+
+        afterCommit(() -> {
+            pushLive(g, fMsg);
+            live.actionRolled(g, "INCENDIAIRE", fHunterId, fInfra, fRoll);
+        });
+
+        return g;
+    }
+
+    /**
+     * Retourne true s'il reste au moins une infrastructure cible possible pour Incendiaire
+     * sur ce lieu (construite ou en construction).
+     */
+    private boolean hasIncendiaireTargetsOnLocation(Game g, String loc) {
+        if (loc == null) return false;
+
+        java.util.EnumSet<Infra> built = (g.getBuiltInfras() != null)
+                ? g.getBuiltInfras()
+                : java.util.EnumSet.noneOf(Infra.class);
+
+        Game.PendingConstruction pc = g.getPendingConstruction();
+        Infra pending = (pc != null ? pc.infra : null);
+
+        java.util.function.Predicate<Infra> available = infra ->
+                built.contains(infra) || (pending == infra);
+
+        switch (loc) {
+            case "forest":
+            case "sawmill":
+                return available.test(Infra.SAWMILL);
+
+            case "quarry":
+            case "mine":
+                return available.test(Infra.MINE);
+
+            case "manor":
+                return available.test(Infra.LIBRARY)
+                        || available.test(Infra.LABORATORY)
+                        || available.test(Infra.BALLROOM)
+                        || available.test(Infra.ALTAR)
+                        || available.test(Infra.FORGE);
+
+            case "library":
+                return available.test(Infra.LIBRARY);
+
+            case "laboratory":
+                return available.test(Infra.LABORATORY);
+
+            case "ballroom":
+                return available.test(Infra.BALLROOM);
+
+            case "altar":
+                return available.test(Infra.ALTAR);
+
+            case "forge":
+                return available.test(Infra.FORGE);
+
+            default:
+                // lac ou autre
+                return false;
+        }
+    }
+
+    @Transactional
+    public Game resolveProvocation(String gameId, String hunterId, String enemyId) {
+        Game g = findOr404(gameId);
+
+        if (g.getStatus() != GameStatus.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "game not active");
+        }
+        if (g.getPhase() != Phase.PREPHASE3) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Provocation se résout en PREPHASE3.");
+        }
+
+        Player hunter = findPlayer(g, hunterId);
+        if (hunter == null || !"HUNTER".equals(hunter.getRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "chasseur uniquement");
+        }
+
+        Game.Action a = g.getCurrentAction();
+        if (a == null
+                || !"PROVOCATION".equals(a.getMode())
+                || !hunterId.equals(a.getOwnerId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "aucune Provocation en cours pour ce joueur.");
+        }
+
+        if (enemyId == null || enemyId.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "targetId required");
+        }
+
+        Player enemy = findPlayer(g, enemyId);
+        if (enemy == null
+                || (!"VAMPIRE".equals(enemy.getRole()) && !"SERVANT".equals(enemy.getRole()))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "la cible doit être le vampire ou un serviteur.");
+        }
+
+        if (enemy.getHp() <= 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "la cible doit être vivante.");
+        }
+
+        String hunterLoc = locationOf(g, hunterId);
+        String enemyLoc  = locationOf(g, enemyId);
+        if (hunterLoc == null || !hunterLoc.equals(enemyLoc)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "la cible doit être sur le même lieu que le chasseur.");
+        }
+
+        // On vérifie encore la condition 2 chasseurs + 1 ennemi (sécurité)
+        java.util.List<Player> onLoc = g.getPlayers().stream()
+                .filter(pl -> hunterLoc.equals(locationOf(g, pl.getId())))
+                .toList();
+
+        long huntersCount = onLoc.stream()
+                .filter(pl -> "HUNTER".equals(pl.getRole()))
+                .filter(pl -> pl.getHp() > 0)
+                .count();
+
+        long enemyCount = onLoc.stream()
+                .filter(pl -> ("VAMPIRE".equals(pl.getRole()) || "SERVANT".equals(pl.getRole())))
+                .filter(pl -> pl.getHp() > 0)
+                .count();
+
+        if (huntersCount < 2 || enemyCount < 1) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Provocation nécessite au moins 2 chasseurs et 1 ennemi sur le lieu.");
+        }
+
+        // Enregistrer la provocation pour ce raid
+        if (g.getProvokedTargetByEnemy() == null) {
+            g.setProvokedTargetByEnemy(new java.util.HashMap<>());
+        }
+        g.getProvokedTargetByEnemy().put(enemy.getId(), hunter.getId());
+
+        // Puce display éventuelle
+        addRaidMod(g, enemy.getId(), "ATTACK", 0, "ACTION:PROVOCATION:DSP");
+
+        String hist = "Provocation — " + nameOf(g, hunter.getId())
+                + " provoque " + nameOf(g, enemy.getId())
+                + " : il devra le prendre pour cible en priorité ce raid.";
+        addHistory(g, hist);
+
+        a.setTargetId(enemy.getId());
+        a.setResolvedAtMillis(System.currentTimeMillis());
+        g.setCurrentAction(null); // on ferme la modale comme Marque / Affaiblissement
+
+        // Relancer la mécanique de préphase (30s ou passage phase3)
+        setupUnstableAndPrephaseTimeout(g);
+
+        save(g);
+
+        Game gAfter = g;
+        afterCommit(() -> {
+            live.actionResolved(gAfter, "PROVOCATION", hunterId, enemy.getId());
+            live.phaseChanged(gAfter);
+        });
+
+        return g;
+    }
+
+    @Transactional
+    public Game resolveAmbush(String gameId, String playerId, String targetId) {
+        Game g = findOr404(gameId);
+
+        if (g.getStatus() != GameStatus.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "game not active");
+        }
+        if (g.getPhase() != Phase.PREPHASE3) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Embuscade se résout en PREPHASE3.");
+        }
+
+        Player hunter = findPlayer(g, playerId);
+        if (hunter == null || !"HUNTER".equals(hunter.getRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "chasseur uniquement");
+        }
+
+        Game.Action a = g.getCurrentAction();
+        if (a == null
+                || !"AMBUSH".equals(a.getMode())
+                || !playerId.equals(a.getOwnerId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "aucune Embuscade en cours pour ce joueur.");
+        }
+
+        if (targetId == null || targetId.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "targetId required");
+        }
+
+        Player target = findPlayer(g, targetId);
+        if (target == null
+                || (!"VAMPIRE".equals(target.getRole()) && !"SERVANT".equals(target.getRole()))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "la cible doit être un vampire ou un serviteur.");
+        }
+
+        if (target.getHp() <= 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "la cible doit être vivante.");
+        }
+
+        String loc = a.getLocation();
+        String targetLoc = locationOf(g, target.getId());
+        if (targetLoc == null || !targetLoc.equals(loc)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "la cible n'est plus sur le lieu de l'embuscade.");
+        }
+
+        // Tous les chasseurs vivants sur ce lieu
+        java.util.List<Player> onLoc = g.getPlayers().stream()
+                .filter(pl -> loc.equals(locationOf(g, pl.getId())))
+                .toList();
+
+        java.util.List<Player> huntersOnLoc = onLoc.stream()
+                .filter(pl -> "HUNTER".equals(pl.getRole()))
+                .filter(pl -> pl.getHp() > 0)
+                .toList();
+
+        if (huntersOnLoc.size() < 2) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "il n'y a plus assez de chasseurs groupés pour Embuscade.");
+        }
+
+        int huntersCount = huntersOnLoc.size();
+
+        int bonus = huntersCount;
+
+        for (Player h : huntersOnLoc) {
+            addRaidMod(g, h.getId(), "ATTACK", bonus, "ACTION:AMBUSH:ENG");
+        }
+
+        // Blocage des ripostes de la cible contre ces chasseurs
+        if (g.getAmbushHuntersByEnemy() == null) {
+            g.setAmbushHuntersByEnemy(new java.util.HashMap<>());
+        }
+        java.util.List<String> hunterIds = huntersOnLoc.stream()
+                .map(Player::getId)
+                .toList();
+        g.getAmbushHuntersByEnemy().put(target.getId(), hunterIds);
+
+        String hist = "Embuscade — "
+                + nameOf(g, hunter.getId())
+                + " coordonne une attaque avec "
+                + huntersOnLoc.size() + " chasseurs contre "
+                + nameOf(g, target.getId())
+                + " : chacun gagne +" + bonus + " ATK ce raid, et "
+                + nameOf(g, target.getId())
+                + " ne pourra pas riposter contre eux ce raid.";
+        addHistory(g, hist);
+
+        a.setTargetId(target.getId());
+        a.setResolvedAtMillis(System.currentTimeMillis());
+        g.setCurrentAction(null);
+
+        // on relance la mécanique de préphase
+        setupUnstableAndPrephaseTimeout(g);
+
+        save(g);
+
+        Game gAfter = g;
+        afterCommit(() -> {
+            live.actionResolved(gAfter, "AMBUSH", playerId, target.getId());
+            live.phaseChanged(gAfter);
+        });
+
+        return g;
+    }
+
+    @Transactional
+    public Game resolveBlessedStake(String gameId, String userId) {
+        Game g = findOr404(gameId);
+
+        if (g.getStatus() != GameStatus.ACTIVE)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "game not active");
+
+        if (g.getPhase() != Phase.PHASE3) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Pieu béni se résout pendant les combats (PHASE3).");
+        }
+
+        Game.Action a = g.getCurrentAction();
+        if (a == null || !"BLESSED_STAKE".equals(a.getMode())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "aucune action pieu béni en cours.");
+        }
+
+        if (!userId.equals(a.getOwnerId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "ce pieu béni appartient à un autre chasseur.");
+        }
+
+        Player hunter = findPlayer(g, a.getOwnerId());
+        if (hunter == null || !"HUNTER".equals(hunter.getRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "bad hunter");
+        }
+
+        String targetId = a.getTargetId();
+        if (targetId == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "cible manquante pour pieu béni.");
+        }
+
+        Player targetPlayer = findPlayer(g, targetId);
+        Game.Monster targetMonster = (targetPlayer == null) ? findMonster(g, targetId) : null;
+        if (targetPlayer == null && targetMonster == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "cible invalide pour pieu béni.");
+        }
+
+        // --- Jet d4 ---
+        int roll = 1 + java.util.concurrent.ThreadLocalRandom.current().nextInt(4); // 1..4
+
+        int beforeHp;
+        if (targetPlayer != null) {
+            beforeHp = targetPlayer.getHp();
+            targetPlayer.setHp(Math.max(0, beforeHp - roll));
+        } else {
+            beforeHp = targetMonster.hp;
+            targetMonster.hp = Math.max(0, beforeHp - roll);
+        }
+
+        int afterHp = (targetPlayer != null ? targetPlayer.getHp() : targetMonster.hp);
+        int realExtra = beforeHp - afterHp;
+
+        java.util.List<String> breakdown = new java.util.ArrayList<>();
+        breakdown.add("Jet de pieu béni : 1d4 = " + roll + " → " + realExtra + " dégâts sacrés.");
+
+        String msg = "Pieu béni — "
+                + nameOf(g, hunter.getId())
+                + " inflige " + realExtra
+                + " dégâts sacrés supplémentaires à "
+                + entityName(g, targetId)
+                + " (1d4 = " + roll + ").";
+
+        addHistory(g, msg);
+
+        // Si la cible est le vampire et qu'il perd des PV, on garde le flag cohérent
+        if (realExtra > 0 && targetPlayer != null && "VAMPIRE".equals(targetPlayer.getRole())) {
+            g.setVampireTookDamageThisRaid(true);
+        }
+
+        // Effet persistant : consommé DEFINITIVEMENT une fois utilisé
+        hunter.setBlessedStake(false);
+
+        var list = g.getRaidMods().get(hunter.getId());
+
+        list.removeIf(m -> {
+            String src = m.getSource();
+            return src != null && src.startsWith("ACTION:BLESSED_STAKE");
+        });
+
+        // Remplir currentAction pour le front (modale)
+        a.setRoll(roll);
+        a.setBreakdownLines(breakdown);
+        a.setResolvedAtMillis(System.currentTimeMillis());
+
+        save(g);
+
+        final String fMsg    = msg;
+        final int    fRoll   = roll;
+        final String fOwner  = hunter.getId();
+        final String fTarget = targetId;
+
+        afterCommit(() -> {
+            pushLive(g, fMsg);
+            live.raidModsUpdated(g);
+            // même pattern que Filet : pour mettre la modale à jour
+            live.actionRolled(g, "BLESSED_STAKE", fOwner, fTarget, fRoll);
+        });
+
+        return g;
+    }
+
+    @Transactional
+    public Game rollMerchantItinerant(String gameId, String userId) {
+        Game g = findOr404(gameId);
+
+        if (g.getPhase() != Phase.PHASE4) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE4");
+        }
+
+        Game.Action a = g.getCurrentAction();
+        if (a == null || !"MARCHAND_ITINERANT".equals(a.getMode())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "no merchant action pending");
+        }
+
+        if (!userId.equals(a.getOwnerId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "only acting hunter can roll");
+        }
+
+        if (a.getRoll() != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "merchant already rolled");
+        }
+
+        int d6 = 1 + RND.nextInt(6);
+        a.setRoll(d6);
+
+        // On détermine le type de bonus
+        String kind;
+        String line;
+
+        if (d6 == 1 || d6 == 2) {
+            kind = "POTION";
+            line = "Marchand itinérant — une potion est disponible à la boutique pour ce tour.";
+        } else if (d6 == 3 || d6 == 4) {
+            kind = "ELIXIR";
+            line = "Marchand itinérant — un élixir est disponible à la boutique pour ce tour.";
+        } else {
+            // 5 ou 6 → équipement : 50/50 arme / armure
+            boolean weapon = RND.nextBoolean();
+            kind = weapon ? "EQUIP_WEAPON" : "EQUIP_ARMOR";
+            line = "Marchand itinérant — un équipement est disponible à la boutique pour ce tour "
+                    + "(" + (weapon ? "arme" : "armure") + ").";
+        }
+
+        g.setShopBonusKind(kind);
+
+        if (a.getBreakdownLines() == null) {
+            a.setBreakdownLines(new java.util.ArrayList<>());
+        } else {
+            a.getBreakdownLines().clear();
+        }
+        a.getBreakdownLines().add(line);
+
+        addHistory(g, line);
+
+        // on peut marquer résolu (la modale restera quand même 5s côté front)
+        a.setResolvedAtMillis(System.currentTimeMillis());
+
+        save(g);
+
+        final int rollF       = d6;
+        final String kindF    = kind;
+        final String ownerF   = a.getOwnerId();
+
+        afterCommit(() -> {
+            // Pour que le front rafraîchisse la modale + shopBonusKind
+            live.actionResolved(g, "MARCHAND_ITINERANT", ownerF, null);
+        });
+
+        return g;
+    }
+
+    private int hunterWeaponTier(String weaponId) {
+        if (weaponId == null) return 0;
+        if (weaponId.startsWith("H_WEAPON_T1_")) return 1;
+        if (weaponId.startsWith("H_WEAPON_T2_")) return 2;
+        if (weaponId.startsWith("H_WEAPON_T3_")) return 3;
+        return 0;
+    }
+
+    private int hunterArmorTier(String armorId) {
+        if (armorId == null) return 0;
+        if (armorId.startsWith("H_ARMOR_T1_")) return 1;
+        if (armorId.startsWith("H_ARMOR_T2_")) return 2;
+        if (armorId.startsWith("H_ARMOR_T3_")) return 3;
+        return 0;
+    }
+
+    private int merchantWeaponTierForHunters(Game g) {
+        int minTier = 3; // max
+        boolean anyHunter = false;
+
+        if (g.getPlayers() != null) {
+            for (Player p : g.getPlayers()) {
+                if ("HUNTER".equals(p.getRole())) {
+                    anyHunter = true;
+                    int t = hunterWeaponTier(p.getWeapon());
+                    if (t < minTier) minTier = t;
+                }
+            }
+        }
+        if (!anyHunter) return 1; // défaut
+
+        // ex : si quelqu’un est encore T0 → on propose T1
+        // si tout le monde est au moins T1 → on propose T2, etc, clampé à 3
+        int offer = Math.min(3, minTier + 1);
+        return offer;
+    }
+
+    private int merchantArmorTierForHunters(Game g) {
+        int minTier = 3;
+        boolean anyHunter = false;
+
+        if (g.getPlayers() != null) {
+            for (Player p : g.getPlayers()) {
+                if ("HUNTER".equals(p.getRole())) {
+                    anyHunter = true;
+                    int t = hunterArmorTier(p.getArmor());
+                    if (t < minTier) minTier = t;
+                }
+            }
+        }
+        if (!anyHunter) return 1;
+        int offer = Math.min(3, minTier + 1);
+        return offer;
+    }
+
+    private String merchantWeaponIdForTier(int tier) {
+        int r3 = 1 + RND.nextInt(3); // 1..3 → bleed / stun / ranged
+
+        return switch (tier) {
+            case 1 -> switch (r3) {
+                case 1 -> H_WEAPON_T1_SWORD;
+                case 2 -> H_WEAPON_T1_MACE;
+                case 3 -> H_WEAPON_T1_SPEAR;
+                default -> H_WEAPON_T1_SWORD;
+            };
+            case 2 -> switch (r3) {
+                case 1 -> H_WEAPON_T2_HALBERD;
+                case 2 -> H_WEAPON_T2_HAMMER;
+                case 3 -> H_WEAPON_T2_CROSSBOW;
+                default -> H_WEAPON_T2_HALBERD;
+            };
+            case 3 -> switch (r3) {
+                case 1 -> H_WEAPON_T3_WRIST_BLADES;
+                case 2 -> H_WEAPON_T3_FLAIL;
+                case 3 -> H_WEAPON_T3_PISTOL;
+                default -> H_WEAPON_T3_WRIST_BLADES;
+            };
+            default -> H_WEAPON_T1_SWORD;
+        };
+    }
+
+
+    private String merchantArmorIdForTier(int tier) {
+        return switch (tier) {
+            case 1 -> H_ARMOR_T1_BRIGANDINE;
+            case 2 -> H_ARMOR_T2_HAUBERT;
+            case 3 -> H_ARMOR_T3_PLATE_SILVER;
+            default -> H_ARMOR_T1_BRIGANDINE;
+        };
+    }
+
+    @Transactional
+    public Game startShopBonusPurchase(String gameId, String userId) {
+        Game g = findOr404(gameId);
+
+        if (g.getPhase() != Phase.PHASE4)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE4");
+
+        var p = findPlayer(g, userId);
+        if (p == null)
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
+        if (!"HUNTER".equals(p.getRole()))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "hunters only");
+
+        String kind = g.getShopBonusKind();
+        if (kind == null)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "no bonus item available");
+
+        // Option de sécurité : éviter d’écraser une autre action importante
+        Game.Action ca = g.getCurrentAction();
+        if (ca != null && ca.getResolvedAtMillis() == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "another action is pending");
+        }
+
+        Game.Action a = new Game.Action();
+        a.setMode("MARCHAND_BONUS_BUY");
+        a.setOwnerId(userId);
+        a.setLocation(null);
+        a.setTargetId(null);
+        a.setRoll(null);
+
+        java.util.List<String> lines = new java.util.ArrayList<>();
+
+        String kindFr = switch (kind) {
+            case "POTION"       -> "une potion";
+            case "ELIXIR"       -> "un élixir";
+            case "EQUIP_WEAPON" -> "une arme du marchand";
+            case "EQUIP_ARMOR"  -> "une armure du marchand";
+            default             -> "un objet du marchand";
+        };
+
+        lines.add("Marchand itinérant — "
+                + nameOf(g, userId)
+                + " souhaite acheter " + kindFr + ". Il doit choisir un mode de paiement.");
+        a.setBreakdownLines(lines);
+        a.setResolvedAtMillis(null);
+
+        g.setCurrentAction(a);
+
+        save(g);
+
+        final String fUserId = userId;
+        afterCommit(() -> {
+            // juste pour que le front ouvre la modale d’action
+            live.actionStarted(g, "MARCHAND_BONUS_BUY", userId, null, null);
+        });
+
+        return g;
+    }
+
+    @Transactional
+    public Game buyShopBonus(String gameId, String userId, String payment) {
+        Game g = findOr404(gameId);
+
+        if (g.getPhase() != Phase.PHASE4)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE4");
+
+        var p = findPlayer(g, userId);
+        if (p == null)
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
+        if (!"HUNTER".equals(p.getRole()))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "hunters only");
+
+        if (payment == null || (!"RESOURCE".equals(payment) && !"GOLD".equals(payment))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid payment mode");
+        }
+
+        String kind = g.getShopBonusKind();
+        if (kind == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "no bonus item available");
+        }
+
+        String message;
+
+        switch (kind) {
+            case "POTION" -> {
+                // OPTION 1 : ressources (eau + herbes)
+                if ("RESOURCE".equals(payment)) {
+                    final int waterCost = 4;
+                    final int herbsCost = 3;
+
+                    if (p.getWater() < waterCost || p.getHerbs() < herbsCost) {
+                        throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
+                    }
+
+                    p.setWater(p.getWater() - waterCost);
+                    p.setHerbs(p.getHerbs() - herbsCost);
+                }
+                // OPTION 2 : or
+                else {
+                    int baseGold = 60;
+
+                    if (g.isShopPricesIncreasedThisRaid()) {
+                        baseGold += 50;
+                    }
+                    if (p.isCharismaticThisRaid()) {
+                        baseGold = Math.max(0, baseGold - 20);
+                    }
+                    if (p.getGold() < baseGold) {
+                        throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
+                    }
+                    p.setGold(p.getGold() - baseGold);
+                }
+
+                String potionId = drawFromDeck(g.getPotionDeck(), g.getPotionDiscard());
+                if (potionId == null) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "no potions left");
+                }
+
+                if (p.getPotions() == null) p.setPotions(new java.util.ArrayList<>());
+                p.getPotions().add(potionId);
+
+                message = nameOf(g, userId) + " achète une potion (" + potionId
+                        + ") via le marchand itinérant (" + (payment.equals("RESOURCE") ? "ressources" : "or") + ").";
+                addHistory(g, message);
+            }
+            case "ELIXIR" -> {
+                if ("RESOURCE".equals(payment)) {
+                    final int waterCost = 6;
+                    final int herbsCost = 6;
+
+                    if (p.getWater() < waterCost || p.getHerbs() < herbsCost) {
+                        throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
+                    }
+
+                    p.setWater(p.getWater() - waterCost);
+                    p.setHerbs(p.getHerbs() - herbsCost);
+                } else {
+                    int baseGold = 120;
+
+                    if (g.isShopPricesIncreasedThisRaid()) {
+                        baseGold += 50;
+                    }
+                    if (p.isCharismaticThisRaid()) {
+                        baseGold = Math.max(0, baseGold - 20);
+                    }
+
+                    if (p.getGold() < baseGold) {
+                        throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
+                    }
+                    p.setGold(p.getGold() - baseGold);
+                }
+
+                String elixirId = drawFromDeck(g.getElixirDeck(), g.getElixirDiscard());
+                if (elixirId == null) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "no elixirs left");
+                }
+
+                if (p.getPotions() == null) p.setPotions(new java.util.ArrayList<>());
+                p.getPotions().add(elixirId);
+
+                message = nameOf(g, userId) + " achète un élixir (" + elixirId
+                        + ") via le marchand itinérant (" + (payment.equals("RESOURCE") ? "ressources" : "or") + ").";
+                addHistory(g, message);
+            }
+            case "EQUIP_WEAPON" -> {
+                if ("RESOURCE".equals(payment)) {
+                    final int woodCost = 6;
+                    final int ironCost = 6;
+
+                    if (p.getWood() < woodCost || p.getIron() < ironCost) {
+                        throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
+                    }
+                    p.setWood(p.getWood() - woodCost);
+                    p.setIron(p.getIron() - ironCost);
+                } else {
+                    int baseGold = 150;
+
+                    if (g.isShopPricesIncreasedThisRaid()) {
+                        baseGold += 50;
+                    }
+                    if (p.isCharismaticThisRaid()) {
+                        baseGold = Math.max(0, baseGold - 20);
+                    }
+
+                    if (p.getGold() < baseGold) {
+                        throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
+                    }
+                    p.setGold(p.getGold() - baseGold);
+                }
+
+                int tier = merchantWeaponTierForHunters(g);
+                String weaponId = merchantWeaponIdForTier(tier);
+
+                p.setWeapon(weaponId);
+
+                switch (tier) {
+                    case 1 -> p.setAttackDice("D8");
+                    case 2 -> p.setAttackDice("D12");
+                    case 3 -> p.setAttackDice("D20");
+                    default -> { /* éventuellement rien */ }
+                }
+
+                message = nameOf(g, userId)
+                        + " achète une arme de tier " + tier
+                        + " (" + weaponId + ") via le marchand itinérant ("
+                        + (payment.equals("RESOURCE") ? "ressources" : "or") + ").";
+                addHistory(g, message);
+            }
+            case "EQUIP_ARMOR" -> {
+                if ("RESOURCE".equals(payment)) {
+                    final int woodCost = 6;
+                    final int ironCost = 6;
+
+                    if (p.getWood() < woodCost || p.getIron() < ironCost) {
+                        throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
+                    }
+                    p.setWood(p.getWood() - woodCost);
+                    p.setIron(p.getIron() - ironCost);
+                } else {
+                    int baseGold = 150;
+
+                    if (g.isShopPricesIncreasedThisRaid()) {
+                        baseGold += 50;
+                    }
+                    if (p.isCharismaticThisRaid()) {
+                        baseGold = Math.max(0, baseGold - 20);
+                    }
+
+                    if (p.getGold() < baseGold) {
+                        throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
+                    }
+                    p.setGold(p.getGold() - baseGold);
+                }
+
+                int tier = merchantArmorTierForHunters(g);
+                String armorId = merchantArmorIdForTier(tier);
+
+                p.setArmor(armorId);
+
+                switch (tier) {
+                    case 1 -> p.setDefenseDice("D8");
+                    case 2 -> p.setDefenseDice("D12");
+                    case 3 -> p.setDefenseDice("D20");
+                    default -> { /* rien */ }
+                }
+
+                message = nameOf(g, userId)
+                        + " achète une armure de tier " + tier
+                        + " (" + armorId + ") via le marchand itinérant ("
+                        + (payment.equals("RESOURCE") ? "ressources" : "or") + ").";
+                addHistory(g, message);
+            }
+            default -> throw new ResponseStatusException(HttpStatus.CONFLICT, "invalid bonus kind");
+        }
+
+        // Bonus consommé + action fermée
+        g.setShopBonusKind(null);
+        g.setCurrentAction(null);
+
+        rebuildEquipmentMods(g);
+
+        save(g);
+
+        final String fMessage = message;
+        final String fUserId = userId;
+
+        afterCommit(() -> {
+            pushLive(g, fMessage);
+            live.actionResolved(g, "MARCHAND_BONUS_BUY", fUserId, null);
+        });
+
+        return g;
+    }
+
+    @Transactional
+    public Game cancelShopBonusPurchase(String gameId, String userId) {
+        Game g = findOr404(gameId);
+
+        if (g.getPhase() != Phase.PHASE4)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE4");
+
+        var p = findPlayer(g, userId);
+        if (p == null)
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
+        if (!"HUNTER".equals(p.getRole()))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "hunters only");
+
+        if (g.getShopBonusKind() == null)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "no bonus item available");
+
+        Game.Action a = g.getCurrentAction();
+        if (a == null || !"MARCHAND_BONUS_BUY".equals(a.getMode()) || !userId.equals(a.getOwnerId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "no merchant buy in progress");
+        }
+
+        // On ferme juste l’action d’achat, on laisse le bonus dispo dans la boutique
+        g.setCurrentAction(null);
+
+        String msg = nameOf(g, userId) + " renonce à acheter l’objet du marchand itinérant.";
+        addHistory(g, msg);
+
+        save(g);
+
+        final String fMsg = msg;
+        final String fUserId = userId;
+        afterCommit(() -> {
+            pushLive(g, fMsg);
+            // Pour que le front ferme la modale
+            live.actionResolved(g, "MARCHAND_BONUS_BUY", fUserId, null);
+        });
+
+        return g;
+    }
+
+    //ACTIONS VAMPIRE
+    @Transactional
+    public void resolveCataclysme(String gameId,
+                                  String playerId,
+                                  WeatherStatus first,
+                                  WeatherStatus second) {
+
+        Game g = findOr404(gameId);
+
+        if (g.getStatus() != GameStatus.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "game not active");
+        }
+
+        Player p = findPlayer(g, playerId);
+        if (p == null || !"VAMPIRE".equals(p.getRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "vampire uniquement");
+        }
+
+        if (g.getPhase() != Phase.PHASE2) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Cataclysme ne peut être résolu qu'en PHASE2.");
+        }
+
+        Game.Action ca = g.getCurrentAction();
+        if (ca == null || !"CATACLYSME".equals(ca.getMode()) || !playerId.equals(ca.getOwnerId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "aucun Cataclysme en cours pour ce joueur.");
+        }
+
+        if (first == null || second == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "choix météo invalide");
+        }
+        if (first == second) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "les deux statuts météo doivent être différents.");
+        }
+
+        // 1) Appliquer les 2 statuts sur le raid
+        g.setWeatherStatus(first);
+        g.setSecondaryWeatherStatus(second);
+
+        // 2) Textes individuels
+        String name1 = weatherNameFr(first);
+        String desc1 = weatherDescFr(first);
+        String name2 = weatherNameFr(second);
+        String desc2 = weatherDescFr(second);
+
+        g.setWeatherStatusNameFr(name1);
+        g.setWeatherDescriptionFr(desc1);
+        g.setSecondaryWeatherStatusNameFr(name2);
+        g.setSecondaryWeatherDescriptionFr(desc2);
+
+        // 2.bis) résumé lisible pour l’historique / messages
+        String summaryName = name1 + " + " + name2;
+        String summaryDesc = "Cataclysme: " + name1 + " et " + name2 + " s'abattent sur ce raid.";
+
+        String hist = nameOf(g, playerId)
+                + " déclenche un Cataclysme : " + summaryName + ".";
+        addHistory(g, hist);
+
+        // 3) Recalcule les mods météo
+        rebuildWeatherMods(g);
+
+        // 4) Marquer l’action comme résolue, mais la garder pour le spectate
+        ca.setResolvedAtMillis(System.currentTimeMillis());
+        ca.setTargetId(first.name() + "," + second.name());
+
+        // Messages de centre (optionnel, mais sympa)
+        var msgs = new ArrayList<String>();
+        msgs.add("Météo — " + summaryName);
+        msgs.add(summaryDesc);
+        g.setMessages(msgs);
+
+        save(g);
+
+        Game gAfter = g;
+        afterCommit(() -> {
+            live.actionResolved(gAfter, "CATACLYSME", playerId, null);
+            live.raidModsUpdated(gAfter);
+            live.phaseChanged(gAfter);
+        });
+    }
+
+    @Transactional
+    public Game rollShadowClones(String gameId, String playerId) {
+        Game g = findOr404(gameId);
+
+        if (g.getStatus() != GameStatus.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "game not active");
+        }
+        if (g.getPhase() != Phase.PHASE2) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE2");
+        }
+
+        Player p = findPlayer(g, playerId);
+        if (p == null || !"VAMPIRE".equals(p.getRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "vampire uniquement");
+        }
+
+        Game.Action a = g.getCurrentAction();
+        if (a == null || !"CLONES_OMBRE".equals(a.getMode()) || !playerId.equals(a.getOwnerId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "aucune action Clones des ombres en cours pour ce joueur.");
+        }
+
+        if (a.getRoll() != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "dé déjà lancé.");
+        }
+
+        int roll = 1 + RND.nextInt(4); // D4
+        a.setRoll(roll);
+
+        a.getBreakdownLines().add(
+                nameOf(g, playerId) + " invoque " + roll + " clone"
+                        + (roll > 1 ? "s" : "") + " des ombres."
+        );
+
+        addHistory(g, "Clones des ombres — " + nameOf(g, playerId)
+                + " contrôle " + roll + " clone" + (roll > 1 ? "s" : "") + ".");
+
+        save(g);
+
+        Game gAfter = g;
+        afterCommit(() -> {
+            // juste pour forcer un GET propre + affichage du résultat
+            live.actionResolved(gAfter, "CLONES_OMBRE", playerId, null);
+            live.phaseChanged(gAfter);
+        });
+
+        return g;
+    }
+
+    @Transactional
+    public Game resolveShadowClones(String gameId, String playerId, java.util.List<String> locations) {
+        Game g = findOr404(gameId);
+
+        if (g.getStatus() != GameStatus.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "game not active");
+        }
+        if (g.getPhase() != Phase.PHASE2) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE2");
+        }
+
+        Player p = findPlayer(g, playerId);
+        if (p == null || !"VAMPIRE".equals(p.getRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "vampire uniquement");
+        }
+
+        Game.Action a = g.getCurrentAction();
+        if (a == null || !"CLONES_OMBRE".equals(a.getMode()) || !playerId.equals(a.getOwnerId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "aucune action Clones des ombres en cours pour ce joueur.");
+        }
+
+        if (a.getResolvedAtMillis() != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Les clones des ombres ont déjà été résolus pour ce raid.");
+        }
+
+        if (a.getRoll() == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "le dé n'a pas encore été lancé.");
+        }
+
+        int expected = a.getRoll();
+        if (locations == null || locations.size() != expected) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "tu dois choisir exactement " + expected + " lieux.");
+        }
+
+        for (String loc : locations) {
+            if (g.getGarlicBlockedLocations() != null
+                    && g.getGarlicBlockedLocations().contains(loc)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Les clones ne peuvent pas attaquer un lieu protégé par une fumigation d'ail.");
+            }
+        }
+
+
+        // CUMULER avec les clones déjà présents sur ce raid
+        java.util.List<String> all = g.getClonesLocations();
+        if (all == null) {
+            all = new java.util.ArrayList<>();
+        }
+        all.addAll(locations);           // on ajoute les nouveaux clones
+        g.setClonesLocations(all);
+
+        a.setResolvedAtMillis(System.currentTimeMillis());
+        a.setTargetId(String.join(",", locations));
+
+        String niceList = locations.stream()
+                .map(this::labelLieuFr)
+                .reduce((aa, bb) -> aa + ", " + bb)
+                .orElse("");
+
+        String hist = "Clones des ombres — " + nameOf(g, playerId)
+                + " envoie ses clones attaquer : " + niceList + ".";
+        addHistory(g, hist);
+
+        g.setCurrentAction(null);
+
+        refreshPrephaseRevealMessages(g);
+
+        save(g);
+
+        Game gAfter = g;
+        afterCommit(() -> {
+            // Notifie le front que l’action est terminée
+            live.actionResolved(gAfter, "CLONES_OMBRE", playerId, null);
+            // Et heartbeat classique
+            live.phaseChanged(gAfter);
+        });
+
+        return g;
+    }
+
+    /**
+     * Annule toutes les préparations d'actions PREPHASE3 des chasseurs
+     * pour le raid courant :
+     */
+    private void cancelHunterPrephase3Actions(Game g) {
+        // Feux de camp
+        if (g.getCampfireLocations() != null) {
+            g.getCampfireLocations().clear();
+        }
+
+        // Filets
+        if (g.getNetHunters() != null) {
+            g.getNetHunters().clear();
+        }
+
+        // Fosses
+        if (g.getPitHunters() != null) {
+            g.getPitHunters().clear();
+        }
+        if (g.getPitTargetsByHunter() != null) {
+            g.getPitTargetsByHunter().clear();
+        }
+        if (g.getPitIndexByHunter() != null) {
+            g.getPitIndexByHunter().clear();
+        }
+
+        // Provocation
+        if (g.getProvokedTargetByEnemy() != null) g.getProvokedTargetByEnemy().clear();
+
+        // Embush
+        if (g.getAmbushHuntersByEnemy() != null) g.getAmbushHuntersByEnemy().clear();
+
+        // Incendiaire
+        if (g.getIncendiaireLocationByHunter() != null) {
+            g.getIncendiaireLocationByHunter().clear();
+        }
+
+        Game.Action ca = g.getCurrentAction();
+        if (ca != null && ("NET".equals(ca.getMode())
+                || "PIT".equals(ca.getMode())
+                || "INCENDIAIRE".equals(ca.getMode())
+                || "PROVOCATION".equals(ca.getMode())
+                || "AMBUSH".equals(ca.getMode())
+                || "EAU_BENITE".equals(ca.getMode()))) {
+            g.setCurrentAction(null);
+        }
+    }
+
+    @Transactional
+    public Game resolveImageMiroirSetup(String gameId, String playerId, String loc) {
+        Game g = findOr404(gameId);
+
+        if (g.getStatus() != GameStatus.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "game not active");
+        }
+        if (g.getPhase() != Phase.PHASE2) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE2");
+        }
+
+        Player p = findPlayer(g, playerId);
+        if (p == null || !"VAMPIRE".equals(p.getRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "vampire uniquement");
+        }
+
+        Game.Action a = g.getCurrentAction();
+        if (a == null || !"IMAGE_MIROIR_SETUP".equals(a.getMode()) || !playerId.equals(a.getOwnerId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "aucune action Image miroir en cours pour ce joueur.");
+        }
+
+        if (loc == null || loc.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "loc required");
+        }
+
+        if (p.getHand() == null || !p.getHand().contains(loc)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "lieu non présent dans la main");
+        }
+
+        // Fumigation : on ne peut pas projeter l'image miroir sur un lieu fumigé
+        if (g.getGarlicBlockedLocations() != null
+                && g.getGarlicBlockedLocations().contains(loc)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Ce lieu est protégé par une fumigation d'ail.");
+        }
+
+        // Cumul des lieux alternatifs
+        g.setMirrorOwnerId(playerId);
+        java.util.List<String> alts = g.getMirrorAltLocations();
+        if (alts == null) {
+            alts = new java.util.ArrayList<>();
+        }
+        if (!alts.contains(loc)) {
+            alts.add(loc);
+        }
+        g.setMirrorAltLocations(alts);
+
+        // Tant qu’aucun choix final n’a été fait
+        g.setMirrorChosenLocation(null);
+
+        a.setResolvedAtMillis(System.currentTimeMillis());
+        g.setCurrentAction(null);
+
+        save(g);
+
+        Game gAfter = g;
+        afterCommit(() -> {
+            live.actionResolved(gAfter, "IMAGE_MIROIR_SETUP", playerId, loc);
+            live.phaseChanged(gAfter);
+        });
+
+        return g;
+    }
+
+    @Transactional
+    public Game resolveImageMiroirChoice(String gameId, String playerId, String loc) {
+        Game g = findOr404(gameId);
+
+        if (g.getStatus() != GameStatus.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "game not active");
+        }
+        if (g.getPhase() != Phase.PREPHASE3) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Image miroir se résout en PREPHASE3.");
+        }
+
+        Player p = findPlayer(g, playerId);
+        if (p == null || !"VAMPIRE".equals(p.getRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "vampire uniquement");
+        }
+
+        Game.Action a = g.getCurrentAction();
+        if (a == null || !"IMAGE_MIROIR_RESOLVE".equals(a.getMode()) || !playerId.equals(a.getOwnerId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "aucune résolution Image miroir en cours.");
+        }
+
+        String ownerId = g.getMirrorOwnerId();
+        java.util.List<String> alts = g.getMirrorAltLocations();
+
+        if (ownerId == null || alts == null || alts.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "aucune Image miroir active.");
+        }
+
+        // Lieu principal actuel sur le centre
+        String primary = g.getCenter().stream()
+                .filter(cb -> cb.getPlayerId().equals(ownerId))
+                .map(CenterBoard::getCard)
+                .findFirst()
+                .orElse(null);
+
+        boolean isPrimary = primary != null && primary.equals(loc);
+        boolean isAlt     = alts.contains(loc);
+
+        if (!isPrimary && !isAlt) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "lieu choisi invalide pour Image miroir.");
+        }
+
+        // Fumigation : impossible de se matérialiser sur un lieu fumigé
+        if (g.getGarlicBlockedLocations() != null
+                && g.getGarlicBlockedLocations().contains(loc)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Ce lieu est protégé par une fumigation d'ail.");
+        }
+
+        g.setMirrorChosenLocation(loc);
+
+        // Si le vampire change de lieu, on met à jour la carte du centre + on swappe les cartes lieux
+        if (primary != null && !loc.equals(primary)) {
+            for (CenterBoard cb : g.getCenter()) {
+                if (cb.getPlayerId().equals(ownerId)) {
+
+                    String oldCard = cb.getCard(); // lieu joué au début du raid
+                    String newLoc  = loc;          // primary ou alt choisi via Image miroir
+
+                    if (!java.util.Objects.equals(oldCard, newLoc)) {
+                        cb.setCard(newLoc);
+
+                        var hand = p.getHand();
+                        if (hand == null) {
+                            hand = new java.util.ArrayList<>();
+                            p.setHand(hand);
+                        }
+
+                        // newLoc vient de la main (vérifié côté setup), on la remet à la place de l'ancien
+                        hand.remove(newLoc);
+                        hand.add(oldCard);
+                    }
+
+                    break;
+                }
+            }
+        }
+
+        // Optionnel : nettoyer les alts une fois le choix fait
+        if (g.getMirrorAltLocations() != null) {
+            g.getMirrorAltLocations().clear();
+        }
+
+        a.setResolvedAtMillis(System.currentTimeMillis());
+        g.setCurrentAction(null);
+
+        String hist = "Image miroir — " + nameOf(g, playerId)
+                + " choisit de se manifester sur " + labelLieuFr(loc) + ".";
+        addHistory(g, hist);
+
+        refreshPrephaseRevealMessages(g);
+        setupUnstableAndPrephaseTimeout(g);
+
+        save(g);
+
+        Game gAfter = g;
+        afterCommit(() -> {
+            live.actionResolved(gAfter, "IMAGE_MIROIR_RESOLVE", playerId, loc);
+            live.phaseChanged(gAfter);
+        });
+
+        return g;
+    }
+
+    @Transactional
+    public Game resolveDarkMark(String gameId, String playerId, String targetId) {
+        Game g = findOr404(gameId);
+
+        if (g.getStatus() != GameStatus.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "game not active");
+        }
+        if (g.getPhase() != Phase.PREPHASE3) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Marque ténébreuse se résout en PREPHASE3.");
+        }
+
+        Player vamp = findPlayer(g, playerId);
+        if (vamp == null || !"VAMPIRE".equals(vamp.getRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "vampire uniquement");
+        }
+
+        Game.Action a = g.getCurrentAction();
+        if (a == null
+                || !"MARQUE_TENEBREUSE".equals(a.getMode())
+                || !playerId.equals(a.getOwnerId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "aucune Marque ténébreuse en cours pour ce joueur.");
+        }
+
+        if (targetId == null || targetId.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "targetId required");
+        }
+
+        Player target = findPlayer(g, targetId);
+        if (target == null || !"HUNTER".equals(target.getRole())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "la cible doit être un chasseur.");
+        }
+
+        if (target.getHp() <= 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "la cible doit être vivante.");
+        }
+
+        if (g.getDarkMarkedHunters() == null) {
+            g.setDarkMarkedHunters(new java.util.HashSet<>());
+        }
+
+        // Marque permanente
+        g.getDarkMarkedHunters().add(target.getId());
+
+        // Puce DSP pour ce raid
+        addRaidMod(g, target.getId(), "MARKED", 0, "CORRUPTION:MARK:DSP");
+
+        String hist = "Marque ténébreuse — "
+                + nameOf(g, vamp.getId())
+                + " marque " + nameOf(g, target.getId())
+                + ": il augmentera sa corruption de 1 à chaque raid où il croise le vampire, "
+                + "tant qu'il n'est pas purifié.";
+        addHistory(g, hist);
+
+        a.setTargetId(target.getId());
+        a.setResolvedAtMillis(System.currentTimeMillis());
+        g.setCurrentAction(null);
+
+        // On relance la mécanique de préphase (30s, etc.)
+        setupUnstableAndPrephaseTimeout(g);
+
+        save(g);
+
+        Game gAfter = g;
+        afterCommit(() -> {
+            live.actionResolved(gAfter, "MARQUE_TENEBREUSE", playerId, target.getId());
+            live.phaseChanged(gAfter);
+        });
+
+        return g;
+    }
+
+    private boolean isDarkMarked(Game g, String playerId) {
+        return g.getDarkMarkedHunters() != null
+                && g.getDarkMarkedHunters().contains(playerId);
+    }
+
+    private void applyDarkMarkCorruptionOncePerRaid(Game g, Player hunter) {
+        if (g.getDarkMarkCorruptedThisRaid() == null) {
+            g.setDarkMarkCorruptedThisRaid(new java.util.HashSet<>());
+        }
+        java.util.Set<String> done = g.getDarkMarkCorruptedThisRaid();
+        if (done.contains(hunter.getId())) return; // déjà pris 1 corruption ce raid
+
+        int before = hunter.getCorruption();
+        if (before >= 3) return; // pas au-delà du max
+
+        hunter.setCorruption(before + 1);
+
+        done.add(hunter.getId());
+
+        if(hunter.getCorruption() == 3) {
+            hunter.setRole("SERVANT");
+            discardAllActionsOf(g, hunter);
+        }
+
+        String line = "Marque ténébreuse — "
+                + nameOf(g, hunter.getId())
+                + " subit la corruption de la marque qui augmente de 1 -> niveau " + (before + 1) + ".";
+        addHistory(g, line);
+    }
+
+    private void cleanseDarkMark(Game g, Player hunter) {
+        // 1) Supprimer le flag permanent
+        if (g.getDarkMarkedHunters() != null) {
+            g.getDarkMarkedHunters().remove(hunter.getId());
+        }
+        if (g.getDarkMarkCorruptedThisRaid() != null) {
+            g.getDarkMarkCorruptedThisRaid().remove(hunter.getId());
+        }
+
+        // 2) Supprimer la puce DISPLAY
+        if (g.getRaidMods() != null) {
+            var list = g.getRaidMods().get(hunter.getId());
+            if (list != null) {
+                list.removeIf(m -> {
+                    String src = m.getSource();
+                    return src != null
+                            && src.startsWith("CORRUPTION:MARK")
+                            && src.endsWith(":DSP");
+                });
+            }
+        }
+    }
+
+    @Transactional
+    public Game resolveHolyWater(String gameId, String playerId, String mode) {
+        Game g = findOr404(gameId);
+
+        if (g.getStatus() != GameStatus.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "game not active");
+        }
+        if (g.getPhase() != Phase.PREPHASE3) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PREPHASE3");
+        }
+
+        Player p = findPlayer(g, playerId);
+        if (p == null || !"HUNTER".equals(p.getRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "chasseur uniquement");
+        }
+
+        Game.Action a = g.getCurrentAction();
+        if (a == null || !"EAU_BENITE".equals(a.getMode()) || !playerId.equals(a.getOwnerId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "aucune Eau bénite en cours pour ce joueur.");
+        }
+
+        if (p.getActions() == null || !p.getActions().contains(Action.EAU_BENITE.name())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "aucune carte Eau bénite dans votre inventaire.");
+        }
+
+        String choice = (mode == null ? "" : mode.trim().toUpperCase());
+        if (choice.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "mode required");
+        }
+
+        String hist;
+
+        switch (choice) {
+            case "REDUCE" -> {
+                int before = p.getCorruption();
+                if (before > 0) {
+                    p.setCorruption(before - 1);
+                    hist = "Eau bénite — " + nameOf(g, p.getId())
+                            + " purifie une partie de sa corruption (niveau "
+                            + p.getCorruption() + ").";
+                } else {
+                    hist = "Eau bénite — " + nameOf(g, p.getId())
+                            + " est déjà indemne de corruption, la purification est sans effet.";
+                }
+                addHistory(g, hist);
+                // on met à jour les mods de corruption pour le raid en cours
+                rebuildCorruptionMods(g);
+            }
+            case "CLEANSE" -> {
+                if (!isDarkMarked(g, p.getId())) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "aucune Marque ténébreuse à purifier.");
+                }
+                cleanseDarkMark(g, p);
+                hist = "Eau bénite — " + nameOf(g, p.getId())
+                        + " dissipe la Marque ténébreuse.";
+                addHistory(g, hist);
+            }
+            case "ATTACK" -> {
+                // +4 dégâts sacrés lors de la prochaine attaque contre le vampire
+                RaidEffects fx = (g.getRaidEffects() != null)
+                        ? g.getRaidEffects().get(p.getId())
+                        : null;
+                if (fx == null) {
+                    fx = new RaidEffects();
+                    if (g.getRaidEffects() == null) {
+                        g.setRaidEffects(new java.util.HashMap<>());
+                    }
+                    g.getRaidEffects().put(p.getId(), fx);
+                }
+                fx.setHolyWaterAttack(true);
+
+                hist = "Eau bénite — " + nameOf(g, p.getId())
+                        + " consacre ses armes pour ce raid: ses attaques brûleront le vampire.";
+                addHistory(g, hist);
+            }
+            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "mode invalide");
+        }
+
+        // La carte est consommée quel que soit le choix
+        p.getActions().remove(Action.EAU_BENITE.name());
+
+        a.setResolvedAtMillis(System.currentTimeMillis());
+        g.setCurrentAction(null);
+
+        setupUnstableAndPrephaseTimeout(g);
+
+        save(g);
+
+        Game gAfter = g;
+        final String fChoice = choice;
+
+        afterCommit(() -> {
+            live.actionResolved(gAfter, "EAU_BENITE", playerId, fChoice);
+            live.phaseChanged(gAfter);
+        });
+
+        return g;
+    }
+
+    /**
+     * Retourne true si AU MOINS un chasseur possède Eau bénite ET
+     * peut en faire un usage en PREPHASE3 :
+     *  - réduire sa corruption (corruption > 0), ou
+     *  - enlever une Marque ténébreuse, ou
+     *  - préparer une attaque (même lieu qu'un vampire/serviteur vivant).
+     */
+    private boolean hasUsableHolyWaterOption(Game g) {
+        for (Player p : g.getPlayers()) {
+            if (!"HUNTER".equals(p.getRole())) continue;
+
+            List<String> actions = p.getActions();
+            if (actions == null || !actions.contains(Action.EAU_BENITE.name())) continue;
+
+            boolean canReduce = p.getCorruption() > 0;
+            boolean canCleanse = isDarkMarked(g, p.getId());
+
+            boolean canAttack = false;
+            String loc = locationOf(g, p.getId());
+            if (loc != null) {
+                for (Player q : g.getPlayers()) {
+                    if (q.getHp() <= 0) continue;
+                    if (!"VAMPIRE".equals(q.getRole()) && !"SERVANT".equals(q.getRole())) continue;
+
+                    String locQ = locationOf(g, q.getId());
+                    if (locQ != null && locQ.equals(loc)) {
+                        canAttack = true;
+                        break;
+                    }
+                }
+            }
+
+            if (canReduce || canCleanse || canAttack) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Transactional
+    public Game resolveOccultWeakening(String gameId, String playerId, String targetId) {
+        Game g = findOr404(gameId);
+
+        if (g.getStatus() != GameStatus.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "game not active");
+        }
+        if (g.getPhase() != Phase.PREPHASE3) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Affaiblissement occulte se résout en PREPHASE3.");
+        }
+
+        Player vamp = findPlayer(g, playerId);
+        if (vamp == null || !"VAMPIRE".equals(vamp.getRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "vampire uniquement");
+        }
+
+        Game.Action a = g.getCurrentAction();
+        if (a == null
+                || !"AFFAIBLISSEMENT_OCCULTE".equals(a.getMode())
+                || !playerId.equals(a.getOwnerId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "aucun Affaiblissement occulte en cours pour ce joueur.");
+        }
+
+        if (targetId == null || targetId.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "targetId required");
+        }
+
+        Player target = findPlayer(g, targetId);
+        if (target == null || !"HUNTER".equals(target.getRole())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "la cible doit être un chasseur.");
+        }
+
+        if (target.getHp() <= 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "la cible doit être vivante.");
+        }
+
+        // --- Appliquer le malus d'attaque -2 pour CE raid ---
+        addRaidMod(g, target.getId(), "ATTACK", -2, "ACTION:WEAKENING:ENG");
+
+        String hist = "Affaiblissement occulte — "
+                + nameOf(g, vamp.getId())
+                + " sape la force de " + nameOf(g, target.getId())
+                + " : -2 à son jet d'attaque ce raid.";
+        addHistory(g, hist);
+
+        a.setTargetId(target.getId());
+        a.setResolvedAtMillis(System.currentTimeMillis());
+        g.setCurrentAction(null);
+
+        // Réévalue la préphase (relance 30s ou avance vers PHASE3 si plus rien à faire)
+        setupUnstableAndPrephaseTimeout(g);
+
+        save(g);
+
+        Game gAfter = g;
+        afterCommit(() -> {
+            live.actionResolved(gAfter, "AFFAIBLISSEMENT_OCCULTE", playerId, target.getId());
+            live.phaseChanged(gAfter);
+        });
+
+        return g;
+    }
+
+    private boolean hasUsableSecretPassageOption(Game g) {
+        for (Player p : g.getPlayers()) {
+            if (!"VAMPIRE".equals(p.getRole())) continue;
+
+            List<String> actions = p.getActions();
+            if (actions == null || !actions.contains(Action.PASSAGE_SECRET.name())) continue;
+
+            String loc = locationOf(g, p.getId());
+            // Passage secret n’est jouable que si le vampire est au Manoir
+            if ("manor".equals(loc)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Transactional
+    public Game resolveSecretPassage(String gameId, String playerId, String destination) {
+        Game g = findOr404(gameId);
+
+        if (g.getStatus() != GameStatus.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "game not active");
+        }
+        if (g.getPhase() != Phase.PREPHASE3) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Passage secret se résout en PREPHASE3.");
+        }
+
+        Player vamp = findPlayer(g, playerId);
+        if (vamp == null || !"VAMPIRE".equals(vamp.getRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "vampire uniquement");
+        }
+
+        Game.Action a = g.getCurrentAction();
+        if (a == null
+                || !"PASSAGE_SECRET".equals(a.getMode())
+                || !playerId.equals(a.getOwnerId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "aucun Passage secret en cours pour ce joueur.");
+        }
+
+        String currentLoc = locationOf(g, playerId);
+        if (!"manor".equals(currentLoc)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Passage secret n'est utilisable que depuis le Manoir.");
+        }
+
+        if (destination == null || destination.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "destination required");
+        }
+        destination = destination.trim();
+
+        // Construire la liste des lieux autorisés
+        java.util.Set<String> allowed = new java.util.HashSet<>();
+        // Lieux de base
+        allowed.add("forest");
+        allowed.add("quarry");
+        allowed.add("lac");
+        allowed.add("manor");
+
+        // Infras construites -> lieux associés
+        if (g.getBuiltInfras() != null) {
+            for (Infra infra : g.getBuiltInfras()) {
+                switch (infra) {
+                    case SAWMILL    -> allowed.add("sawmill");
+                    case MINE       -> allowed.add("mine");
+                    case LIBRARY    -> allowed.add("library");
+                    case LABORATORY -> allowed.add("laboratory");
+                    case BALLROOM   -> allowed.add("ballroom");
+                    case ALTAR      -> allowed.add("altar");
+                    case FORGE      -> allowed.add("forge");
+                }
+            }
+        }
+
+        if (!allowed.contains(destination)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "destination invalide pour Passage secret.");
+        }
+        if (destination.equals(currentLoc)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Passage secret doit mener à un autre lieu que le Manoir.");
+        }
+
+        // Fumigation : impossible d'utiliser Passage secret vers un lieu fumigé
+        if (g.getGarlicBlockedLocations() != null
+                && g.getGarlicBlockedLocations().contains(destination)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Ce lieu est protégé par une fumigation d'ail.");
+        }
+
+        // Mettre à jour le centre : le vampire change de lieu
+        CenterBoard cb = g.getCenter().stream()
+                .filter(c -> playerId.equals(c.getPlayerId()))
+                .findFirst()
+                .orElse(null);
+
+        if (cb == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Impossible de trouver la carte de lieu du vampire.");
+        }
+
+        // même logique que pour assignTarget / assignHarvest : on swappe les cartes lieu
+        String oldCard = cb.getCard();
+        String newLoc  = destination;
+
+        if (!java.util.Objects.equals(oldCard, newLoc)) {
+            cb.setCard(newLoc);       // le pion passe sur newLoc
+            vamp.getHand().remove(newLoc);      // on "dépense" la carte de destination
+            vamp.getHand().add(oldCard);        // on récupère l’ancienne carte de lieu dans la main
+        }
+
+
+        // Historique
+        String msg = "Passage secret — "
+                + nameOf(g, playerId)
+                + " quitte le Manoir et rejoint " + labelLieuFr(destination) + ".";
+        addHistory(g, msg);
+
+        // On clôt l'action
+        a.setLocation(destination);
+        a.setTargetId(null);
+        a.setResolvedAtMillis(System.currentTimeMillis());
+        g.setCurrentAction(null);
+
+        refreshPrephaseRevealMessages(g);
+
+        // On relance la mécanique de préphase (combats à venir potentiellement modifiés)
+        setupUnstableAndPrephaseTimeout(g);
+
+        save(g);
+
+        Game gAfter = g;
+        final String dest = destination;
+
+        afterCommit(() -> {
+            live.actionResolved(gAfter, "PASSAGE_SECRET", playerId, dest);
+            live.phaseChanged(gAfter);
+        });
+
+        return g;
+    }
 
 // Corruption
     /**
@@ -4675,6 +8717,16 @@ public class GameService {
             } else if (lvl == 3) {
                 // L3 : pas de debuff chiffré — seulement la puce “serviteur”
                 addRaidMod(g, p.getId(), "SERVITEUR",   0, "CORRUPTION:L3:DSP");
+            }
+        }
+        // --- Marque ténébreuse : puce DSP permanente tant que le chasseur est marqué ---
+        if (g.getDarkMarkedHunters() != null && !g.getDarkMarkedHunters().isEmpty()) {
+            for (String pid : g.getDarkMarkedHunters()) {
+                // sécurité : s'assurer que le joueur existe
+                Player h = findPlayer(g, pid);
+                if (h == null) continue;
+
+                addRaidMod(g, pid, "MARKED", 0, "CORRUPTION:MARK:DSP");
             }
         }
     }
@@ -4729,7 +8781,6 @@ public class GameService {
                             var unstable = g.getPlayers().stream()
                                     .filter(pp -> pp.getId().equals(unstableId)).findFirst().orElse(null);
                             if (unstable != null) {
-                                if (unstable.getHand() == null) unstable.setHand(new java.util.ArrayList<>());
                                 unstable.getHand().add(oldCard);
                                 unstable.getHand().remove(newLoc);
                             }
@@ -4781,9 +8832,6 @@ public class GameService {
     public Game assignUnstableHarvest(String gameId, String userId, String unstableId, String loc) {
         Game g = findOr404(gameId);
 
-        log.info("[{}] assign-harvest ENTER unstableId={}", gameId, unstableId);
-
-
         if (g.getPhase() != Phase.PREPHASE3)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PREPHASE3");
 
@@ -4817,7 +8865,6 @@ public class GameService {
                         var unstable = g.getPlayers().stream()
                                 .filter(pp -> pp.getId().equals(unstableId)).findFirst().orElse(null);
                         if (unstable != null) {
-                            if (unstable.getHand() == null) unstable.setHand(new java.util.ArrayList<>());
                             unstable.getHand().add(oldCard);
                             unstable.getHand().remove(newLoc);
                         }
@@ -4860,8 +8907,6 @@ public class GameService {
     public Game assignUnstableNothing(String gameId, String userId, String unstableId) {
         Game g = findOr404(gameId);
 
-        log.info("[{}] assign-nothing ENTER unstableId={}", gameId, unstableId);
-
         if (g.getPhase() != Phase.PREPHASE3)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PREPHASE3");
 
@@ -4874,16 +8919,11 @@ public class GameService {
         var eligL = g.getUnstableEligibleLocations();
         boolean inTargets  = eligT != null && eligT.containsKey(unstableId);
         boolean inLocations= eligL != null && eligL.containsKey(unstableId);
-        log.info("[{}] assign-nothing check: inTargets={}, inLocations={}, keysT={}, keysL={}",
-                g.getId(), inTargets, inLocations,
-                (eligT!=null? eligT.keySet() : java.util.Set.of()),
-                (eligL!=null? eligL.keySet() : java.util.Set.of()));
 
         boolean eligibleNow = inTargets || inLocations;
 
         // --- Idempotence : si déjà consommé/expiré, on répond OK et on force juste un refresh
         if (!eligibleNow) {
-            log.info("[{}] assign-nothing NOOP (already decided or expired) for {}", g.getId(), unstableId);
             save(g);
             afterCommit(() -> live.phaseChanged(g));
             return g;
@@ -4950,6 +8990,8 @@ public class GameService {
         boolean targetHasSilverPlate = (target != null
                 && H_ARMOR_T3_PLATE_SILVER.equals(target.getArmor()));
 
+        boolean isSacredRosaryUsed = false;
+
         String altarCode = Infra.ALTAR.locationCode();
         RoundFight fight = g.getCurrentCombat();
 
@@ -4985,18 +9027,49 @@ public class GameService {
 
             if (target != null && roll > 3) {
                 // Morsure réussie côté D6
-                if (targetHasSilverPlate) {
-                    // Armure de plates en argent : on laisse la cible décider, pas de corruption ici
+
+                boolean targetHasSacredRosary = (target != null && target.isSacredRosary());
+
+                if (targetHasSacredRosary) {
+                    // Chapelet sacré : la morsure est entièrement annulée
+
+                    // Consommer l'effet persistant
+                    target.setSacredRosary(false);
+
+                    // Retirer la puce DISPLAY ACTION:SACRED_ROSARY:DSP
+                    if (g.getRaidMods() != null) {
+                        var mods = g.getRaidMods().get(target.getId());
+                        if (mods != null) {
+                            mods.removeIf(m -> {
+                                String s = m.getSource();
+                                return s != null && s.startsWith("ACTION:SACRED_ROSARY");
+                            });
+                        }
+                    }
+
+                    isSacredRosaryUsed = true;
+
+                    String line = "Chapelet sacré — "
+                            + nameOf(g, target.getId())
+                            + " invoque une protection divine: la morsure du vampire est annulée.";
+                    addHistory(g, line);
+
+                    // Pas de corruption, pas de transformation en serviteur, pas d'autel profané
+                    // On marque simplement la morsure comme résolue
+                    b.setResolvedAtMillis(System.currentTimeMillis());
+
+                    // On a touché aux raidMods → forcer un refresh côté front
+                    sendMods = true;
+
+                } else if (targetHasSilverPlate) {
+                    // Armure de plates en argent : comportement existant
                     addHistory(g, "Armure de plates en argent — "
                             + nameOf(g, target.getId())
                             + " peut tenter de repousser la morsure en lançant un d4.");
-                    // IMPORTANT :
-                    //  - pas de modification de corruption,
-                    //  - pas d'appel à onAltarBite,
-                    //  - pas de rebuildCorruptionMods,
-                    //  - pas de resolvedAtMillis : la morsure reste "en cours".
+                    // Pas de corruption ici, pas de onAltarBite, pas de resolvedAtMillis
+                    // (on attend le D4)
                 } else {
-                    // Comportement d'origine : on applique immédiatement la corruption
+                    // Comportement d'origine : on applique la corruption tout de suite
                     int before = target.getCorruption();
                     int after  = Math.min(3, before + 1);
                     target.setCorruption(after);
@@ -5026,6 +9099,7 @@ public class GameService {
 
                     b.setResolvedAtMillis(System.currentTimeMillis());
                 }
+
             } else {
                 // Échec de la morsure (ou pas de cible pour une raison X)
                 addHistory(g, nameOf(g, b.getAttackerId()) + " échoue sa tentative de morsure.");
@@ -5034,19 +9108,20 @@ public class GameService {
 
             save(g);
 
-            final boolean sendModsF      = sendMods;
-            final int rollF              = roll;
-            final String attF            = b.getAttackerId();
-            final String tgtF            = b.getTargetId();
-            final Integer newCF          = (target != null) ? target.getCorruption() : null;
-            final boolean becameServantF = becameServant;
+            final boolean sendModsF          = sendMods;
+            final int rollF                  = roll;
+            final String attF                = b.getAttackerId();
+            final String tgtF                = b.getTargetId();
+            final Integer newCF              = (target != null) ? target.getCorruption() : null;
+            final boolean becameServantF     = becameServant;
+            final boolean isSacredRosaryUsedF = isSacredRosaryUsed;
 
             afterCommit(() -> {
                 if (sendModsF) {
                     live.raidModsUpdated(g);
                 }
                 // Ici rollF = D6
-                live.biteRolled(g, rollF, attF, tgtF, newCF, becameServantF);
+                live.biteRolled(g, rollF, attF, tgtF, newCF, becameServantF, isSacredRosaryUsedF);
             });
 
             return g;
@@ -5126,13 +9201,14 @@ public class GameService {
         final String tgtF2            = b.getTargetId();
         final Integer newCF2          = (target != null) ? target.getCorruption() : null;
         final boolean becameServantF2 = becameServant2;
+        final boolean isSacredRosaryUsedF = isSacredRosaryUsed;
 
         afterCommit(() -> {
             if (sendModsF2) {
                 live.raidModsUpdated(g);
             }
             // Ici rollF2 = D4
-            live.biteRolled(g, rollF2, attF2, tgtF2, newCF2, becameServantF2);
+            live.biteRolled(g, rollF2, attF2, tgtF2, newCF2, becameServantF2, isSacredRosaryUsedF);
         });
 
         return g;
@@ -5147,7 +9223,6 @@ public class GameService {
         if (inv == null || inv.isEmpty()) return;
 
         boolean wasHunter = "HUNTER".equals(p.getRole());
-        boolean wasVamp   = "VAMPIRE".equals(p.getRole());
 
         // On travaille sur une copie pour éviter les soucis pendant le clear()
         var copy = new java.util.ArrayList<>(inv);
@@ -5155,8 +9230,6 @@ public class GameService {
         for (String card : copy) {
             if (wasHunter) {
                 discardHunterAction(g, card);
-            } else if (wasVamp) {
-                discardVampAction(g, card);
             }
             // on ne supprime pas ici élément par élément, on videra la liste à la fin
         }
@@ -5299,17 +9372,30 @@ public class GameService {
         if (actionsLeft <= 0)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "no actions left");
 
+        final int baseCost = 50;
+        int costSouls = baseCost;
+        int costGold  = baseCost;
+
+        if (isHunter) {
+            // +50 si Avidité nocturne
+            if (g.isShopPricesIncreasedThisRaid()) {
+                costGold += 50;
+            }
+            // -20 si ce chasseur est charismatique
+            if (p.isCharismaticThisRaid()) {
+                costGold = Math.max(0, costGold - 20);
+            }
+        }
+
         // paiement
         if (isVamp) {
-            if (p.getSouls() < 50)
+            if (p.getSouls() < costSouls)
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
-            p.setSouls(p.getSouls() - 50);
+            p.setSouls(p.getSouls() - costSouls);
         } else if (isHunter) {
-            if (p.getGold() < 50)
+            if (p.getGold() < costGold)
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
-            p.setGold(p.getGold() - 50);
-        } else {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "invalid role for actions deck");
+            p.setGold(p.getGold() - costGold);
         }
 
         // Tirage (gère le reshuffle auto si deck vide + défausse non vide)
@@ -5353,7 +9439,17 @@ public class GameService {
         if (!"HUNTER".equals(p.getRole()))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "hunters only");
 
-        int cost = 50 * qty;
+        final int baseUnitCost = 50;
+        int unitCost = baseUnitCost;
+
+        if (g.isShopPricesIncreasedThisRaid()) {
+            unitCost += 50;
+        }
+        if (p.isCharismaticThisRaid()) {
+            unitCost = Math.max(0, unitCost - 20);
+        }
+
+        int cost = unitCost * qty;
         if (p.getGold() < cost)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "not enough gold");
 
@@ -5367,6 +9463,66 @@ public class GameService {
         final int fCost = cost;
 
         afterCommit(() -> live.silverBought(g, userId, fQty, fCost));
+        return g;
+    }
+
+    @Transactional
+    public Game buyHolyWaterAction(String gameId, String userId) {
+        Game g = findOr404(gameId);
+
+        if (g.getPhase() != Phase.PHASE4)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE4");
+
+        var p = findPlayer(g, userId);
+        if (p == null)
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
+
+        if (!"HUNTER".equals(p.getRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "hunters only");
+        }
+
+        // Coût de base
+        final int baseGoldCost = 50;
+        final int waterCost    = 3;
+
+        int costGold = baseGoldCost;
+
+        if (g.isShopPricesIncreasedThisRaid()) {
+            costGold += 50;
+        }
+        if (p.isCharismaticThisRaid()) {
+            costGold = Math.max(0, costGold - 20);
+        }
+
+        // Vérif ressources
+        if (p.getWater() < waterCost || p.getGold() < costGold) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
+        }
+
+        // Paiement
+        p.setWater(p.getWater() - waterCost);
+        p.setGold(p.getGold() - costGold);
+
+        // Ajout direct de la carte dans la main
+        if (p.getActions() == null) {
+            p.setActions(new java.util.ArrayList<>());
+        }
+        p.getActions().add("EAU_BENITE");
+
+        addHistory(g,
+                nameOf(g, userId)
+                        + " achète une carte Eau bénite ("
+                        + waterCost + " eaux pures, " + costGold + " or)."
+        );
+
+        save(g);
+
+        final int fCostGold  = costGold;
+        final int fCostWater = waterCost;
+        afterCommit(() -> {
+            live.holyWaterActionBought(g, userId, fCostWater, fCostGold);
+        });
+
         return g;
     }
 
@@ -5450,8 +9606,8 @@ public class GameService {
                 p.setWood(p.getWood() - 1);
                 p.setIron(p.getIron() - 1);
                 p.setWater(p.getWater() - 1);
-                p.setSouls(p.getSouls() + 20);
-                addHistory(g, nameOf(g, userId) + " transmute: 1 bois + 1 fer + 1 eau → +20 âmes.");
+                p.setSouls(p.getSouls() + 30);
+                addHistory(g, nameOf(g, userId) + " transmute: 1 bois + 1 fer + 1 eau → +30 âmes.");
             }
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "unknown recipe");
         }
@@ -5901,9 +10057,6 @@ public class GameService {
         String cardCode = infra.locationCode(); // "sawmill" ou "mine"
 
         for (var p : g.getPlayers()) {
-            if (p.getHand() == null) {
-                p.setHand(new java.util.ArrayList<>());
-            }
             p.getHand().add(cardCode);
         }
     }
@@ -6064,7 +10217,6 @@ public class GameService {
         } else {
             // 3) Aucun effet de lieu → PHASE3 classique
             applyPhaseEntry(g, Phase.PHASE3);
-            prepareFirstTrapAction(g);
 
             save(g);
 
@@ -7556,23 +11708,76 @@ public class GameService {
         g.setLaboratoryToDestroy(true);
     }
 
-    private void destroyLaboratoryIfNeeded(Game g) {
-        if (!g.isLaboratoryToDestroy()) {
+    private void destroyRaidInfrasAtEnd(Game g) {
+        // 1) Construire l'ensemble des infras à détruire
+        java.util.EnumSet<Infra> toDestroy = java.util.EnumSet.noneOf(Infra.class);
+
+        if (g.getInfrasToDestroyEndOfRaid() != null) {
+            toDestroy.addAll(g.getInfrasToDestroyEndOfRaid());
+        }
+        if (g.isLaboratoryToDestroy()) {
+            toDestroy.add(Infra.LABORATORY);
+        }
+
+        if (toDestroy.isEmpty()) {
             return;
         }
 
+        // 2) Retirer les cartes de lieux correspondantes de la main des joueurs
         for (var p : g.getPlayers()) {
             var hand = p.getHand();
-            if (hand == null || hand.isEmpty()) continue;
 
-            hand.remove("laboratory");
+            for (Infra infra : toDestroy) {
+                String locCode = infra.locationCode();
+                if (locCode == null) continue;
+                hand.removeIf(card -> card.equals(locCode));
+            }
         }
 
-        if (g.getBuiltInfras() != null && g.getBuiltInfras().contains(Infra.LABORATORY)) {
-            g.getBuiltInfras().remove(Infra.LABORATORY);
-            addHistory(g, "Laboratoire occulte — le laboratoire est réduit en ruines après l'explosion.");
+        // 3) Enlever les infras construites + effets permanents associés
+        if (g.getBuiltInfras() != null) {
+            for (Infra infra : toDestroy) {
+                if (!g.getBuiltInfras().contains(infra)) continue;
+
+                g.getBuiltInfras().remove(infra);
+
+                String locCode = infra.locationCode();
+                String label = (locCode != null ? labelLieuFr(locCode) : infra.name());
+
+                switch (infra) {
+                    case LABORATORY -> {
+                        // Explosion du labo / destruction via Incendiaire
+                        g.getMonsters().clear();
+                        addHistory(g, "Laboratoire occulte — le laboratoire est réduit en ruines.");
+                    }
+                    case BALLROOM -> {
+                        g.setBallroomDeathDance(false);
+                        g.setBallroomSneakAttack(false);
+                        g.setBallroomBloodWaltz(false);
+                        g.setBallroomBloodWaltzBestRoll(null);
+                        g.setBallroomBloodWaltzRolls(new java.util.ArrayList<>());
+                        addHistory(g, label + " est détruit par les flammes.");
+                    }
+                    case ALTAR -> {
+                        g.setAltarCorrupted(null);
+                        g.setAltarBiteOccurredThisRaid(false);
+                        g.setAltarVampTookDamageThisRaid(false);
+                        addHistory(g, "L'autel est réduit en cendres.");
+                    }
+                    case SAWMILL, MINE, LIBRARY, FORGE -> {
+                        addHistory(g, label + " est détruit par les flammes.");
+                    }
+                    default -> {
+                        addHistory(g, label + " est détruit.");
+                    }
+                }
+            }
         }
 
+        // 4) Reset des flags pour le prochain raid
+        if (g.getInfrasToDestroyEndOfRaid() != null) {
+            g.getInfrasToDestroyEndOfRaid().clear();
+        }
         g.setLaboratoryToDestroy(false);
     }
 
