@@ -78,7 +78,8 @@ interface ForgeOption {
               </div>
 
               <div class="mods-badge-potion" *ngIf="m.source?.startsWith('POTION:')">
-                <img class="mod-ico" src="/assets/icons/potion-icon.png" alt="potion"/>
+                <img class="mod-ico" [src]="isElixirMod(mod) ? 'assets/icons/elixir-icon.png' : 'assets/icons/potion-icon.png'" 
+                alt="potion_or_elixir"/>
               </div>
 
               <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
@@ -149,7 +150,8 @@ interface ForgeOption {
             </div>
 
             <div class="mods-badge-potion" *ngIf="m.source?.startsWith('POTION:')">
-              <img class="mod-ico" src="/assets/icons/potion-icon.png" alt="potion"/>
+              <img class="mod-ico" [src]="isElixirMod(mod) ? 'assets/icons/elixir-icon.png' : 'assets/icons/potion-icon.png'" 
+              alt="potion_or_elixir"/>
             </div>
 
             <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
@@ -324,7 +326,8 @@ interface ForgeOption {
             </div>
 
             <div class="mods-badge-potion" *ngIf="m.source?.startsWith('POTION:')">
-              <img class="mod-ico" src="/assets/icons/potion-icon.png" alt="potion"/>
+              <img class="mod-ico" [src]="isElixirMod(mod) ? 'assets/icons/elixir-icon.png' : 'assets/icons/potion-icon.png'" 
+              alt="potion_or_elixir"/>
             </div>
 
             <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
@@ -389,7 +392,10 @@ interface ForgeOption {
                   (click)="onPotionClick(potion, i)"
                   [title]="canUsePotionNow(potion)
                     ? ''
-                    : 'Disponible uniquement en PREPHASE3'">
+                    : ((game.weather?.status === 'BLIZZARD'
+                        || game.weather?.secondaryStatus === 'BLIZZARD')
+                        ? 'Potions gelées'
+                        : 'Disponible uniquement en PREPHASE3')">
             {{ potionLabelFr(potion) }}
           </button>
 
@@ -402,7 +408,10 @@ interface ForgeOption {
                   (click)="onPotionClick(potion, i)"
                   [title]="canUsePotionNow(potion)
                     ? ''
-                    : 'Disponible uniquement en PREPHASE3'">
+                    : ((game.weather?.status === 'BLIZZARD'
+                        || game.weather?.secondaryStatus === 'BLIZZARD')
+                        ? 'Potions gelées'
+                        : 'Disponible uniquement en PREPHASE3')">
             {{ potionLabelFr(potion) }}
           </button>
         </div>   
@@ -413,7 +422,7 @@ interface ForgeOption {
           <button
             style="margin-left:.5rem"
             *ngIf="me?.role === 'VAMPIRE'"
-            [disabled]="game.phase !== 'PHASE2'"
+            [disabled]="game.phase !== 'PHASE2' || isWindActive"
             (click)="openBuildModal()"
           >
             Construire un lieu
@@ -639,7 +648,7 @@ interface ForgeOption {
                   </div>
 
                   <div class="mods-badge-potion" *ngIf="m.source?.startsWith('POTION:')">
-                    <img class="mod-ico" src="/assets/icons/potion-icon.png" alt="potion"/>
+                    <img class="mod-ico" [src]="isElixirMod(mod) ? 'assets/icons/elixir-icon.png' : 'assets/icons/potion-icon.png'" alt="potion_or_elixir"/>
                   </div>
 
                   <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
@@ -732,7 +741,7 @@ interface ForgeOption {
                   </div>
 
                   <div class="mods-badge-potion" *ngIf="m.source?.startsWith('POTION:')">
-                    <img class="mod-ico" src="/assets/icons/potion-icon.png" alt="potion"/>
+                    <img class="mod-ico" [src]="isElixirMod(mod) ? 'assets/icons/elixir-icon.png' : 'assets/icons/potion-icon.png'" alt="potion_or_elixir"/>
                   </div>
 
                   <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
@@ -794,7 +803,7 @@ interface ForgeOption {
                   </div>
 
                   <div class="mods-badge-potion" *ngIf="m.source?.startsWith('POTION:')">
-                    <img class="mod-ico" src="/assets/icons/potion-icon.png" alt="potion"/>
+                    <img class="mod-ico" [src]="isElixirMod(mod) ? 'assets/icons/elixir-icon.png' : 'assets/icons/potion-icon.png'" alt="potion_or_elixir"/>
                   </div>
 
                   <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
@@ -955,7 +964,7 @@ interface ForgeOption {
                   </div>
                   
                   <div class="mods-badge-potion" *ngIf="m.source?.startsWith('POTION:')">
-                    <img class="mod-ico" src="/assets/icons/potion-icon.png" alt="potion"/>
+                    <img class="mod-ico" [src]="isElixirMod(mod) ? 'assets/icons/elixir-icon.png' : 'assets/icons/potion-icon.png'" alt="potion_or_elixir"/>
                   </div>
 
                   <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
@@ -1815,26 +1824,26 @@ interface ForgeOption {
 
               <ng-container *ngIf="!cataclysmeLabelPair; else cataclysmeDone">
 
-                <p><b>Premier statut</b>:</p>
-                <div class="action-targets">
-                  <button
-                    type="button"
-                    *ngFor="let ws of weatherFirstChoices"
-                    (click)="selectedWeather1 = ws"
-                    [class.selected]="selectedWeather1 === ws"
-                    [disabled]="actionResolving">
-                    {{ labelWeather(ws) }}
-                  </button>
-                </div>
-
-                <p style="margin-top:.5rem"><b>Deuxième statut</b>:</p>
+                <p><b>Second statut</b>:</p>
                 <div class="action-targets">
                   <button
                     type="button"
                     *ngFor="let ws of weatherSecondChoices"
-                    (click)="selectedWeather2 = ws"
+                    (click)="onSelectWeather2(ws)"
                     [class.selected]="selectedWeather2 === ws"
-                    [disabled]="actionResolving">
+                    [disabled]="actionResolving || selectedWeather3 === ws">
+                    {{ labelWeather(ws) }}
+                  </button>
+                </div>
+
+                <p style="margin-top:.5rem"><b>Troisième statut</b>:</p>
+                <div class="action-targets">
+                  <button
+                    type="button"
+                    *ngFor="let ws of weatherThirdChoices"
+                    (click)="onSelectWeather3(ws)"
+                    [class.selected]="selectedWeather3 === ws"
+                    [disabled]="actionResolving || selectedWeather2 === ws">
                     {{ labelWeather(ws) }}
                   </button>
                 </div>
@@ -1844,9 +1853,9 @@ interface ForgeOption {
                   style="margin-top:.75rem"
                   (click)="onCataclysmeConfirm()"
                   [disabled]="
-                    !selectedWeather1 ||
                     !selectedWeather2 ||
-                    selectedWeather1 === selectedWeather2 ||
+                    !selectedWeather3 ||
+                    selectedWeather2 === selectedWeather3 ||
                     actionResolving
                   ">
                   Valider cette combinaison
@@ -2020,24 +2029,7 @@ interface ForgeOption {
           </ng-container>
 
           <!-- ========== LUNE SANGLANTE (PRÉPHASE3 : buff de combat) ========== -->
-          <ng-container *ngIf="actionMode === 'BLOOD_MOON'">
-            <!-- Vue ACTEUR -->
-            <ng-container *ngIf="isActionActor; else luneSanglanteSpectate">
-              <p class="breakdown">
-                Vous invoquez la <b>Lune sanglante</b> : la pleine lune se teinte de rouge.
-                Pour ce raid, vous gagnez <b>+3 en attaque</b> et les chasseurs subissent
-                <b>-3 en défense</b>.
-              </p>
-            </ng-container>
-
-            <!-- Vue SPECTATEUR -->
-            <ng-template #luneSanglanteSpectate>
-              <p class="breakdown">
-                Le vampire invoque la Lune sanglante : la pleine lune devient rouge,
-                renforçant ses attaques et affaiblissant les chasseurs.
-              </p>
-            </ng-template>
-          </ng-container>
+          <ng-container *ngIf="actionMode === 'BLOOD_MOON'"></ng-container>
 
           <!-- ========== MARQUE TÉNÉBREUSE ========== -->
           <ng-container *ngIf="actionMode === 'MARQUE_TENEBREUSE'">
@@ -2173,7 +2165,7 @@ interface ForgeOption {
   </div>
   <!-- ===== MODALE CHOIX DE CONSTRUCTION ===== -->
   <div class="modal-backdrop" *ngIf="buildModalOpen">
-    <div class="modal construction-modal">
+    <div class="modal construction-modal" [style.backgroundImage]="setImageBackground('construire')">
         <h2>Construire un lieu</h2>
         <p>Choisissez l’infrastructure à construire :</p>
 
@@ -3648,7 +3640,8 @@ interface ForgeOption {
   }
 
   .weather-desc, .weather-note{
-    max-width: 48ch;
+    max-width: 60ch;
+    white-space: pre-line;
     margin: 0;
     text-shadow: 0 2px 6px rgba(0,0,0,.55);
     opacity:.95;
@@ -4326,11 +4319,12 @@ export class GameComponent {
 
   clonesSelectedLocations: string[] = [];
 
-  selectedWeather1: string | null = null;
   selectedWeather2: string | null = null;
+  selectedWeather3: string | null = null;
 
-  weatherFirstChoices: string[] = ['STORM', 'RAIN', 'BLIZZARD'];
-  weatherSecondChoices: string[] = ['DUSK', 'NIGHT_DARK', 'NIGHT_CLEAR', 'FULL_MOON'];
+  weatherSecondChoices: string[] = ['WIND', 'STORM', 'RAIN', 'BLIZZARD'];
+  weatherThirdChoices: string[] = ['WIND', 'STORM', 'RAIN', 'BLIZZARD'];
+
 
   // Pour éviter de réafficher 15 fois la modale Présence écrasante
   private actionTimeoutId: any = null;
@@ -4886,6 +4880,10 @@ export class GameComponent {
       }
     }
 
+    if (s.startsWith('WEATHER:WIND:')) {
+      return 'cyclone';
+    }
+
 
     return (m as any).labelFr || this.chipOf(m);
   }
@@ -4905,6 +4903,15 @@ export class GameComponent {
     }
 
     if (s.startsWith('WEATHER:')) {
+      // Cas spé : Vent violent DSP avec distinction côté chasseur / domaine
+      if (s.startsWith('WEATHER:WIND:HUNTER')) {
+        return 'Réparations du village: ce chasseur perd 1 ressource aléatoire (bois, fer ou pierre).';
+      }
+      if (s.startsWith('WEATHER:WIND:VAMP')) {
+        return 'Réparations du domaine: perte de ressources aléatoires pour chaque construction.';
+      }
+
+      // Fallback générique (comme avant)
       const g = this.game;
       const w = g?.weather;
       if (!w) return 'Effets météo';
@@ -5248,7 +5255,7 @@ export class GameComponent {
   }
 
   // Image de fond une fois la météo tirée
-  setImageBackground(modal:'weather'|'location'|'bite'|'corruption'|'construction'): string | null {
+  setImageBackground(modal:'weather'|'location'|'bite'|'corruption'|'construction'|'construire'): string | null {
 
     if (modal === 'weather') {
       const ws = this.game?.weather?.status;
@@ -5270,12 +5277,17 @@ export class GameComponent {
       if(this.buildChoice === 'MINE') return "url('/assets/locations/quarry.png')";
       else return "url('/assets/locations/manor.png')"
     }
+    if(modal === 'construire') return "url('/assets/actions/build.png')";
+
     return 'none';
   }
 
   // chemin de l'icône météo
   weatherIconSrc(ws?: string | null): string {
     if (!ws) return '';
+
+    if(ws.includes('WIND')) return `/assets/weather/icon-wind.png`;
+    if(ws.includes('BLOOD_MOON')) return `/assets/weather/icon-red_moon.png`;
     return `/assets/weather/icon-${ws.toLowerCase()}.png`;
   }
 
@@ -6328,6 +6340,14 @@ export class GameComponent {
     const g = this.game;
     if (!g) return false;
 
+    const ws  = g.weather?.status;
+    const wss = g.weather?.secondaryStatus;
+
+    // Sous blizzard : potions inutilisables
+    if (ws === 'BLIZZARD' || wss === 'BLIZZARD') {
+      return false;
+    }
+
     // Web app : fenêtre unique de préparation avant les duels
     if (g.phase === 'PREPHASE3' && g.hasUpcomingCombat) {
       return this.imInUpcomingCombat();
@@ -6409,6 +6429,20 @@ export class GameComponent {
       case 'VIE': return 'Potion de vie';
       default: return id;
     }
+  }
+
+  isElixirMod(mod: { source?: string | null } | null | undefined): boolean {
+    const src = mod?.source || '';
+    if (!src.startsWith('POTION:')) return false;
+
+    // "POTION:RAGE" ou "POTION:RAGE:DSP" → on récupère "RAGE"
+    const type = src.split(':')[1] || '';
+
+    return type === 'RAGE'
+        || type === 'RESILIENCE'
+        || type === 'RAPIDITE'
+        || type === 'INVISIBILITE'
+        || type === 'INVULNERABILITE';
   }
 
   usePotion(type: string) {
@@ -6647,11 +6681,10 @@ export class GameComponent {
       }
 
       case 'BLESSED_STAKE': {
-        if (g.phase !== 'PREPHASE3') return false;
-        if (me.role !== 'HUNTER') return false;
+        if (!me) return false;
         if (me?.isBlessedStake) return false;
-
-        return this.hasRealEnemyOnMyLocation();
+        if (g.phase === 'PREPHASE3' && me.role === 'HUNTER') return true;
+        return false;
       }
 
       case 'SACRED_ROSARY': {
@@ -7369,21 +7402,30 @@ export class GameComponent {
     });
   }
 
+  onSelectWeather2(ws: string) {
+    this.selectedWeather2 = ws;
+    if (this.selectedWeather3 === ws) {
+      this.selectedWeather3 = null;
+    }
+  }
+
+  onSelectWeather3(ws: string) {
+    this.selectedWeather3 = ws;
+    if (this.selectedWeather2 === ws) {
+      this.selectedWeather2 = null;
+    }
+  }
+
   onCataclysmeConfirm() {
     if (!this.game || !this.isActionActor) return;
-    if (!this.selectedWeather1 || !this.selectedWeather2) return;
-    if (this.selectedWeather1 === this.selectedWeather2) return;
+    if (!this.selectedWeather2 || !this.selectedWeather3) return;
+    if (this.selectedWeather2 === this.selectedWeather3) return;
 
     this.actionResolving = true;
-    this.api.resolveCataclysme(this.game.id, this.selectedWeather1, this.selectedWeather2)
+    this.api.resolveCataclysme(this.game.id, this.selectedWeather2, this.selectedWeather3)
       .subscribe({
-        next: () => {
-          this.actionResolving = false;
-        },
-        error: e => {
-          this.actionResolving = false;
-          this.showError(e);
-        }
+        next: () => { this.actionResolving = false; },
+        error: e => { this.actionResolving = false; this.showError(e); }
       });
   }
 
@@ -7397,10 +7439,10 @@ export class GameComponent {
         return 'Brouillard protecteur';
       case 'AURORA':
         return 'Aurore';
-      case 'WIND':
-        return 'Vent violent';
       case 'CLOUDY':
         return 'Ciel couvert';
+      case 'WIND':
+        return 'Cyclone';
       case 'STORM':
         return 'Orage';
       case 'RAIN':
@@ -7747,8 +7789,8 @@ export class GameComponent {
       this.trapCurrentIndex = 0;
       this.showActionModal = false;
       this.incendiaireChoices = [];
-      this.selectedWeather1 = null;
       this.selectedWeather2 = null;
+      this.selectedWeather3 = null;
       return;
     }
 
@@ -7826,8 +7868,8 @@ export class GameComponent {
       this.trapEnemies = [];
       this.trapCurrentIndex = 0;
       this.incendiaireChoices = [];
-      this.selectedWeather1 = null;
       this.selectedWeather2 = null;
+      this.selectedWeather3 = null;
     }
 
     // 7) CLONES_OMBRE: D4 + choix de lieux
@@ -8780,6 +8822,12 @@ export class GameComponent {
       return 'Se déplacer au Manoir pour construire la forge ?';
     }
     return '';
+  }
+
+  get isWindActive(): boolean {
+    const w = this.game?.weather;
+    if (!w) return false;
+    return w.status === 'WIND' || w.secondaryStatus === 'WIND';
   }
 
   doBuild() {

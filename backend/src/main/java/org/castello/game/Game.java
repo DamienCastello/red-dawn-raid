@@ -25,7 +25,7 @@ public class Game {
 
     // --- Step 3: messages & fenêtre d’actions ---
     private List<String> messages = new ArrayList<>();   // messages à afficher (préphase3 / phase3)
-    private final Set<String> readyForPhase3 = new HashSet<>(); // joueurs ayant cliqué “j’ai fini”
+    private Set<String> readyForPhase3 = new HashSet<>(); // joueurs ayant cliqué “j’ai fini”
 
     // --- PHASE3 : file de combats + combat courant ---
     private List<RoundFight> combatsQueue = new ArrayList<>();
@@ -36,10 +36,13 @@ public class Game {
     private Integer weatherRoll;
     private WeatherStatus weatherStatus;
     private WeatherStatus secondaryWeatherStatus;
+    private WeatherStatus thirdWeatherStatus;
     private String weatherStatusNameFr;
     private String weatherDescriptionFr;
     private String secondaryWeatherStatusNameFr;
     private String secondaryWeatherDescriptionFr;
+    private String thirdWeatherStatusNameFr;
+    private String thirdWeatherDescriptionFr;
 
     // --- Buffs/Debuffs du raid (affichage + calcul) ---
     private Map<String, List<StatMod>> raidMods = new HashMap<>();
@@ -398,6 +401,7 @@ public class Game {
 
     // skip/ready
     public Set<String> getReadyForPhase3() { return readyForPhase3; }
+    public void setReadyForPhase3(Set<String> s) { this.readyForPhase3 = s; }
 
     // fight
     public List<RoundFight> getCombatsQueue() { return combatsQueue; }
@@ -416,6 +420,8 @@ public class Game {
     public void setWeatherStatus(WeatherStatus weatherStatus) { this.weatherStatus = weatherStatus; }
     public WeatherStatus getSecondaryWeatherStatus() { return secondaryWeatherStatus; }
     public void setSecondaryWeatherStatus(WeatherStatus secondaryWeatherStatus) { this.secondaryWeatherStatus = secondaryWeatherStatus; }
+    public WeatherStatus getThirdWeatherStatus() { return thirdWeatherStatus; }
+    public void setThirdWeatherStatus(WeatherStatus thirdWeatherStatus) { this.thirdWeatherStatus = thirdWeatherStatus; }
     public String getWeatherStatusNameFr() { return weatherStatusNameFr; }
     public void setWeatherStatusNameFr(String weatherStatusNameFr) { this.weatherStatusNameFr = weatherStatusNameFr; }
     public String getWeatherDescriptionFr() { return weatherDescriptionFr; }
@@ -424,6 +430,10 @@ public class Game {
     public void setSecondaryWeatherStatusNameFr(String v) { this.secondaryWeatherStatusNameFr = v; }
     public String getSecondaryWeatherDescriptionFr() { return secondaryWeatherDescriptionFr; }
     public void setSecondaryWeatherDescriptionFr(String v) { this.secondaryWeatherDescriptionFr = v; }
+    public String getThirdWeatherStatusNameFr() { return thirdWeatherStatusNameFr; }
+    public void setThirdWeatherStatusNameFr(String v) { this.thirdWeatherStatusNameFr = v; }
+    public String getThirdWeatherDescriptionFr() { return thirdWeatherDescriptionFr; }
+    public void setThirdWeatherDescriptionFr(String v) { this.thirdWeatherDescriptionFr = v; }
 
     // buffs/debuffs
     public Map<String, List<StatMod>> getRaidMods() { return raidMods; }

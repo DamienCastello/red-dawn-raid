@@ -142,7 +142,10 @@ public class GameService {
                 g.getWeatherDescriptionFr(),
                 (g.getSecondaryWeatherStatus() != null ? g.getSecondaryWeatherStatus().name() : null),
                 g.getSecondaryWeatherStatusNameFr(),
-                g.getSecondaryWeatherDescriptionFr()
+                g.getSecondaryWeatherDescriptionFr(),
+                (g.getThirdWeatherStatus() != null ? g.getThirdWeatherStatus().name() : null),
+                g.getThirdWeatherStatusNameFr(),
+                g.getThirdWeatherDescriptionFr()
         );
 
         // Players
@@ -769,8 +772,8 @@ public class GameService {
             case 1  -> WeatherStatus.SUNNY;
             case 2  -> WeatherStatus.FOG;
             case 3  -> WeatherStatus.AURORA;
-            case 4  -> WeatherStatus.WIND;
-            case 5  -> WeatherStatus.CLOUDY;
+            case 4  -> WeatherStatus.CLOUDY;
+            case 5  -> WeatherStatus.WIND;
             case 6  -> WeatherStatus.STORM;
             case 7  -> WeatherStatus.RAIN;
             case 8  -> WeatherStatus.BLIZZARD;
@@ -787,7 +790,7 @@ public class GameService {
             case SUNNY      -> "Jour ensoleillé";
             case FOG        -> "Brouillard protecteur";
             case AURORA     -> "Aurore";
-            case WIND       -> "Vent violent";
+            case WIND       -> "Cyclone";
             case CLOUDY     -> "Ciel couvert";
             case STORM      -> "Orage";
             case RAIN       -> "Pluie diluvienne";
@@ -802,19 +805,22 @@ public class GameService {
 
     private String weatherDescFr(WeatherStatus ws){
         return switch (ws) {
-            case SUNNY      -> "La lumière domine. +1 attaque pour les chasseurs et –1 défense pour le vampire.";
-            case FOG        -> "La brume étouffe les sons et couvre l'approche. +1 attaque des chasseurs.";
-            case AURORA     -> "La lumière progresse. -1 défense pour le vampire.";
-            case WIND       -> "Les rafales dispersent le matériel. +1 de coût en ressource pour les constructions.";
-            case CLOUDY     -> "Lumière terne, ombres sans mordant. Aucun effet.";
-            case STORM      -> "La foudre déstabilise au combat. -2 défense pour tous.";
-            case RAIN       -> "La pluie torrentielle alourdit chaque geste. -2 attaque pour tous.";
-            case BLIZZARD   -> "Froid mordant. Potions gelées et -1 attaque pour tous.";
-            case DUSK       -> "Les ombres progressent. +1 défense du vampire.";
-            case NIGHT_DARK -> "Les ombres dominent. +1 attaque du vampire. Les chasseurs ne peuvent utiliser de pièges.";
-            case NIGHT_CLEAR-> "La lune éclaire légèrement et le vampire gagne en puissance. +1 attaque du vampire et –1 défense pour les chasseurs.";
-            case FULL_MOON  -> "La pleine lune exalte le sang ancien. +2 attaque du vampire.";
-            case BLOOD_MOON  -> "La pleine lune exalte le sang ancien. +2 attaque du vampire.";
+            case SUNNY      -> "La lumière domine.\n+1 attaque pour les chasseurs et –1 défense pour le vampire.";
+            case FOG        -> "La brume étouffe les sons et couvre l'approche.\n+1 attaque des chasseurs.";
+            case AURORA     -> "La lumière progresse.\n-1 défense pour le vampire.";
+            case WIND       -> "Un cyclone dévaste la région.\n" +
+                    "Le vampire ne peut construire ce raid.\n" +
+                    "Chaque chasseur perd 1 ressource de construction aléatoire.\n" +
+                    "Le domaine perd ensuite 1 ressource de construction aléatoire par construction.";
+            case CLOUDY     -> "Lumière terne.\n-1 attaque pour le vampire.";
+            case STORM      -> "La foudre déstabilise au combat.\n-2 défense pour tous.";
+            case RAIN       -> "La pluie torrentielle alourdit chaque geste.\n-2 attaque pour tous.";
+            case BLIZZARD   -> "Froid mordant.\nPotions gelées et -1 attaque pour tous.";
+            case DUSK       -> "Les ombres progressent.\n+1 défense du vampire.";
+            case NIGHT_DARK -> "Les ombres dominent.\n+1 attaque du vampire. Les chasseurs ne peuvent utiliser de pièges.";
+            case NIGHT_CLEAR-> "La lune éclaire légèrement et le vampire gagne en puissance.\n+1 attaque du vampire et –1 défense pour les chasseurs.";
+            case FULL_MOON  -> "La pleine lune exalte le sang ancien.\n+2 attaque du vampire.";
+            case BLOOD_MOON  -> "La Pleine lune devient Lune sanglante.\n+3 Attaque pour le vampire et serviteurs, -3 Défense pour les chasseurs ce raid.";
         };
     }
 
@@ -1116,12 +1122,19 @@ public class GameService {
         for (var p : g.getPlayers()) {
             if ("HUNTER".equals(p.getRole())) {
                 p.getActions().addAll(List.of(
-                        "MARCHAND_ITINERANT", "MARCHAND_ITINERANT", "MARCHAND_ITINERANT", "CHARISMATIQUE", "SACRED_ROSARY", "SACRED_ROSARY", "BLESSED_STAKE", "BLESSED_STAKE", "AMBUSH", "AMBUSH", "EAU_BENITE", "EAU_BENITE", "PROVOCATION", "PROVOCATION", "EAU_BENITE", "INCENDIAIRE", "INCENDIAIRE", "NET", "PIT", "FUMIGATION_AIL", "FUMIGATION_AIL", "PISTEUR", "PISTEUR"
+                        "MARCHAND_ITINERANT", "MARCHAND_ITINERANT", "MARCHAND_ITINERANT",
+                        "CHARISMATIQUE", "SACRED_ROSARY", "SACRED_ROSARY", "BLESSED_STAKE", "BLESSED_STAKE",
+                        "AMBUSH", "AMBUSH", "EAU_BENITE", "EAU_BENITE", "PROVOCATION", "PROVOCATION",
+                        "EAU_BENITE", "INCENDIAIRE", "INCENDIAIRE", "NET", "PIT", "FUMIGATION_AIL",
+                        "FUMIGATION_AIL", "PISTEUR", "PISTEUR"
                 ));
             }
             if ("VAMPIRE".equals(p.getRole())) {
                 p.getActions().addAll(List.of(
-                        "AVIDITE_NOCTURNE", "AVIDITE_NOCTURNE", "VOILE_DE_BRUME", "BLOOD_MOON", "AFFAIBLISSEMENT_OCCULTE", "IMAGE_MIROIR", "IMAGE_MIROIR", "PASSAGE_SECRET", "PASSAGE_SECRET", "PASSAGE_SECRET", "FAIM_IRREPRESSIBLE",  "CATACLYSME", "CLONES_OMBRE", "CLONES_OMBRE", "MARQUE_TENEBREUSE", "PRESENCE_ECRASANTE", "PRESENCE_ECRASANTE"
+                        "AVIDITE_NOCTURNE", "AVIDITE_NOCTURNE", "VOILE_DE_BRUME", "BLOOD_MOON",
+                        "AFFAIBLISSEMENT_OCCULTE", "IMAGE_MIROIR", "IMAGE_MIROIR", "PASSAGE_SECRET",
+                        "PASSAGE_SECRET", "PASSAGE_SECRET", "FAIM_IRREPRESSIBLE",  "CATACLYSME", "CATACLYSME",
+                        "CLONES_OMBRE", "CLONES_OMBRE", "MARQUE_TENEBREUSE", "PRESENCE_ECRASANTE", "PRESENCE_ECRASANTE"
                 ));
             }
         }
@@ -1279,10 +1292,13 @@ public class GameService {
                 g.setWeatherRoll(null);
                 g.setWeatherStatus(null);
                 g.setSecondaryWeatherStatus(null);
+                g.setThirdWeatherStatus(null);
                 g.setWeatherStatusNameFr(null);
                 g.setWeatherDescriptionFr(null);
                 g.setSecondaryWeatherStatusNameFr(null);
                 g.setSecondaryWeatherDescriptionFr(null);
+                g.setThirdWeatherStatusNameFr(null);
+                g.setThirdWeatherDescriptionFr(null);
                 g.setMessages(new ArrayList<>(List.of("Tirage météo ...")));
 
                 // reset des effets one-shot de raid
@@ -1499,6 +1515,13 @@ public class GameService {
         }
     }
 
+    /**
+     * Prépare la PREPHASE3 :
+     * - calcule s'il y a combat à venir et/ou des actions de préphase intéressantes,
+     * - initialise readyForPhase3 en marquant "auto-prêt" ceux qui n'ont
+     *   ni combat ni action jouable,
+     * - lance soit le timer long de préphase, soit l'avance rapide vers PHASE3.
+     */
     private void setupUnstableAndPrephaseTimeout(Game g) {
         // 0) Image miroir en attente → on NE lance PAS la préphase
         boolean mirrorPending =
@@ -1515,11 +1538,17 @@ public class GameService {
             return;
         }
 
+        if (g.getReadyForPhase3() == null) {
+            g.setReadyForPhase3(new java.util.HashSet<>());
+        }
+
         boolean hasPendingUnstable =
-                !(g.getUnstableEligibleTargets().isEmpty() && g.getUnstableEligibleLocations().isEmpty());
+                !(g.getUnstableEligibleTargets().isEmpty()
+                        && g.getUnstableEligibleLocations().isEmpty());
+
         boolean upcoming = computeHasUpcomingCombat(g);
 
-        // 2) Incendiaire
+        // 2) Incendiaire (chasseurs)
         boolean hasIncendiaire = false;
         for (Player p : g.getPlayers()) {
             if (!"HUNTER".equals(p.getRole())) continue;
@@ -1557,10 +1586,40 @@ public class GameService {
             }
         }
 
-        // 5) Eau bénite (chasseurs)
-        boolean hasHolyWaterOption = hasUsableHolyWaterOption(g);
+        // 5) Eau bénite (nouvelle logique : par joueur)
+        boolean hasHolyWaterOption = false;
+        for (Player p : g.getPlayers()) {
+            if (hasUsableHolyWaterForPlayer(g, p)) {
+                hasHolyWaterOption = true;
+                break;
+            }
+        }
 
-        // 6) Passage secret (vampire)
+        // 6) Pieu béni (chasseurs)
+        boolean hasBlessedStake = false;
+        for (Player p : g.getPlayers()) {
+            if (!"HUNTER".equals(p.getRole())) continue;
+            List<String> actions = p.getActions();
+            if (actions == null) continue;
+            if (actions.contains(Action.BLESSED_STAKE.name()) && !p.isBlessedStake()) {
+                hasBlessedStake = true;
+                break;
+            }
+        }
+
+        // 7) Chapelet sacré (chasseurs)
+        boolean hasSacredRosary = false;
+        for (Player p : g.getPlayers()) {
+            if (!"HUNTER".equals(p.getRole())) continue;
+            List<String> actions = p.getActions();
+            if (actions == null) continue;
+            if (actions.contains(Action.SACRED_ROSARY.name()) && !p.isSacredRosary()) {
+                hasSacredRosary = true;
+                break;
+            }
+        }
+
+        // 8) Passage secret (vampire)
         boolean hasSecretPassageOption = hasUsableSecretPassageOption(g);
 
         // "quelque chose à faire en préphase" ?
@@ -1571,36 +1630,121 @@ public class GameService {
                         || hasFogOption
                         || hasDarkMarkOption
                         || hasHolyWaterOption
+                        || hasBlessedStake
+                        || hasSacredRosary
                         || hasSecretPassageOption;
 
-        // Ici, on étend la sémantique de hasUpcomingCombat :
-        // "il y a soit un combat à venir, soit au moins une carte de préphase intéressante"
+        // Sémantique étendue : vrai combat OU au moins une carte de préphase intéressante
         g.setHasUpcomingCombat(
                 upcoming
                         || hasIncendiaire
                         || hasFogOption
                         || hasDarkMarkOption
                         || hasHolyWaterOption
+                        || hasBlessedStake
+                        || hasSacredRosary
                         || hasSecretPassageOption
         );
 
+        // --- Initialisation de readyForPhase3 ---
         g.getReadyForPhase3().clear();
-        if (upcoming) {
-            var participants = participantsOfUpcomingCombat(g);
-            for (var p : g.getPlayers()) {
-                if (!participants.contains(p.getId())) {
-                    g.getReadyForPhase3().add(p.getId());
+
+        java.util.Set<String> participants =
+                upcoming ? participantsOfUpcomingCombat(g) : java.util.Set.of();
+
+        for (Player p : g.getPlayers()) {
+            String pid = p.getId();
+
+            // Morts : jamais besoin de cliquer
+            if (p.getHp() <= 0) {
+                g.getReadyForPhase3().add(pid);
+                continue;
+            }
+
+            boolean mustClick = false;
+
+            // 1) S'il participe au combat, il doit cliquer
+            if (upcoming && participants.contains(pid)) {
+                mustClick = true;
+            }
+
+            // 2) Regarder s'il a au moins UNE action de préphase jouable
+            boolean hasPrephaseAction = false;
+            List<String> acts = p.getActions();
+
+            if (acts != null && !acts.isEmpty()) {
+                // --- Côté CHASSEUR ---
+                if ("HUNTER".equals(p.getRole())) {
+                    String loc = locationOf(g, pid);
+
+                    // INCENDIAIRE
+                    if (!hasPrephaseAction
+                            && loc != null
+                            && acts.contains(Action.INCENDIAIRE.name())
+                            && hasIncendiaireTargetsOnLocation(g, loc)) {
+                        hasPrephaseAction = true;
+                    }
+
+                    // EAU_BENITE : version *par joueur*
+                    if (!hasPrephaseAction
+                            && hasUsableHolyWaterForPlayer(g, p)) {
+                        hasPrephaseAction = true;
+                    }
+
+                    // PIEU BÉNI
+                    if (!hasPrephaseAction
+                            && acts.contains(Action.BLESSED_STAKE.name())
+                            && !p.isBlessedStake()) {
+                        if (loc != null && hasIncendiaireTargetsOnLocation(g, loc)) {
+                            hasPrephaseAction = true;
+                        }
+                    }
+
+                    // CHAPELET SACRÉ : jouable en PREPHASE3 tant qu’il n’est pas déjà actif
+                    if (!hasPrephaseAction
+                            && acts.contains(Action.SACRED_ROSARY.name())
+                            && !p.isSacredRosary()) {
+                        hasPrephaseAction = true;
+                    }
                 }
+
+                // --- Côté VAMPIRE ---
+                if ("VAMPIRE".equals(p.getRole())) {
+                    if (!hasPrephaseAction
+                            && acts.contains(Action.VOILE_DE_BRUME.name())) {
+                        hasPrephaseAction = true;
+                    }
+
+                    if (!hasPrephaseAction
+                            && acts.contains(Action.MARQUE_TENEBREUSE.name())) {
+                        hasPrephaseAction = true;
+                    }
+
+                    if (!hasPrephaseAction
+                            && acts.contains(Action.PASSAGE_SECRET.name())
+                            && hasUsableSecretPassageOption(g)) {
+                        hasPrephaseAction = true;
+                    }
+                }
+            }
+
+            if (hasPrephaseAction) {
+                mustClick = true;
+            }
+
+            // 3) Si pas de combat pour lui ET aucune action jouable → auto-ready
+            if (!mustClick) {
+                g.getReadyForPhase3().add(pid);
             }
         }
 
+        // --- Timer comme avant ---
         if (hasPrephaseActivity) {
-            log.info("ENTER IN IF newversion={}", g.getPrephaseTimerVersion() + 1 );
             int newVersion = g.getPrephaseTimerVersion() + 1;
             g.setPrephaseTimerVersion(newVersion);
             schedulePrephaseTimeout(g.getId(), 30_000, newVersion);
         } else {
-            log.info("ENTER IN ELSE");
+            // aucun combat, aucune action préphase : on saute vite vers PHASE3
             scheduleAdvance(g.getId(), Phase.PREPHASE3, Phase.PHASE3, 4000);
         }
     }
@@ -2154,78 +2298,34 @@ public class GameService {
     }
 
     // Tout le monde prêt pour PHASE3 ?
+    /**
+     * Tous les joueurs "vivants" sont-ils prêts pour passer en PHASE3 ?
+     * On se base UNIQUEMENT sur readyForPhase3, pour éviter les divergences
+     * avec la logique front.
+     */
     private boolean allReadyForPhase3(@NonNull Game g) {
-        // Ensemble des joueurs qui doivent CLIQUER sur "J'ai fini"
-        java.util.Set<String> needed = new java.util.HashSet<>();
-
-        // 1) Combattants potentiels (vrai combat, pas juste "actions intéressantes")
-        boolean upcomingCombat = computeHasUpcomingCombat(g);
-        if (upcomingCombat) {
-            needed.addAll(participantsOfUpcomingCombat(g));
-        }
-
-        // 2) Joueurs qui ont encore des actions de préphase jouables
-        if (g.getPlayers() != null) {
-            for (Player p : g.getPlayers()) {
-                if (p.getHp() <= 0) continue;
-
-                java.util.List<String> acts = p.getActions();
-                if (acts == null || acts.isEmpty()) continue;
-
-                // --- Côté CHASSEUR ---
-                if ("HUNTER".equals(p.getRole())) {
-                    String loc = locationOf(g, p.getId());
-
-                    // Incendiaire : même logique que dans setupUnstableAndPrephaseTimeout
-                    if (acts.contains(Action.INCENDIAIRE.name())
-                            && loc != null
-                            && hasIncendiaireTargetsOnLocation(g, loc)) {
-                        needed.add(p.getId());
-                        continue;
-                    }
-
-                    // Eau bénite : on réutilise ton helper global
-                    if (acts.contains(Action.EAU_BENITE.name())
-                            && hasUsableHolyWaterOption(g)) {
-                        needed.add(p.getId());
-                        continue;
-                    }
-                }
-
-                // --- Côté VAMPIRE ---
-                if ("VAMPIRE".equals(p.getRole())) {
-
-                    // Voile de brume : si le vampire a la carte, on considère qu'il a une option de préphase
-                    if (acts.contains(Action.VOILE_DE_BRUME.name())) {
-                        needed.add(p.getId());
-                        continue;
-                    }
-
-                    // Marque ténébreuse : même logique que ton hasDarkMarkOption (juste "a la carte")
-                    if (acts.contains(Action.MARQUE_TENEBREUSE.name())) {
-                        needed.add(p.getId());
-                        continue;
-                    }
-
-                    // Passage secret : seulement s'il est vraiment jouable
-                    if (acts.contains(Action.PASSAGE_SECRET.name())
-                            && hasUsableSecretPassageOption(g)) {
-                        needed.add(p.getId());
-                        continue;
-                    }
-                }
-            }
-        }
-
-        // S'il n'y a ni combat réel ni actions préphase jouables,
-        // on considère que tout le monde est déjà "prêt".
-        if (needed.isEmpty()) {
+        if (g.getPlayers() == null || g.getPlayers().isEmpty()) {
             return true;
         }
 
-        // Sinon : on avance uniquement si TOUS les joueurs concernés ont cliqué "J'ai fini"
-        return g.getReadyForPhase3().containsAll(needed);
+        java.util.Set<String> ready = g.getReadyForPhase3();
+        if (ready == null) {
+            return false;
+        }
+
+        for (Player p : g.getPlayers()) {
+            if (p.getHp() <= 0) {
+                // morts : on ne leur demande rien
+                continue;
+            }
+            if (!ready.contains(p.getId())) {
+                return false;
+            }
+        }
+
+        return true;
     }
+
 
     @Transactional
     public Game skipAction(String gameId, String playerId) {
@@ -2239,11 +2339,14 @@ public class GameService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not a player of this game");
 
         // 1) Marque le joueur comme "prêt"
+        if (g.getReadyForPhase3() == null) {
+            g.setReadyForPhase3(new java.util.HashSet<>());
+        }
         g.getReadyForPhase3().add(playerId);
         int ready = g.getReadyForPhase3().size();
         int total = g.getPlayers().size();
 
-        // 2) Decide si on avance maintenant
+        // 2) Décide si on avance maintenant
         boolean hasPendingUnstable =
                 !(g.getUnstableEligibleTargets().isEmpty()
                         && g.getUnstableEligibleLocations().isEmpty());
@@ -2254,7 +2357,7 @@ public class GameService {
                         && allReadyForPhase3(g);
 
         if (advanceNow) {
-            // ⚠️ NE PLUS appeler applyPhaseEntry(PHASE3) ici
+            // NE PLUS appeler applyPhaseEntry(PHASE3) ici
             // → on passe par le helper unifié qui gère les effets de lieu
             finishPrephaseAndMaybeStartLocationEffects(g, gameId);
             // Toute la persistance + events (phaseChanged, locationEffectStarted, etc.)
@@ -3775,23 +3878,27 @@ public class GameService {
             list.removeIf(m -> m.getSource() != null && m.getSource().startsWith("WEATHER:"));
         }
 
-        WeatherStatus ws1 = g.getWeatherStatus();
-        WeatherStatus ws2 = g.getSecondaryWeatherStatus();
+        WeatherStatus ws1 = g.getWeatherStatus();            // base
+        WeatherStatus ws2 = g.getSecondaryWeatherStatus();   // extra 2
+        WeatherStatus ws3 = g.getThirdWeatherStatus();       // extra 3
 
         // 2) si pas de météo active => on s’arrête
-        if (ws1 == null && ws2 == null) return;
+        if (ws1 == null && ws2 == null && ws3 == null) return;
 
         // 3) s'assurer qu'il y a une liste pour chaque joueur
         for (var p : g.getPlayers()) {
             g.getRaidMods().computeIfAbsent(p.getId(), __ -> new java.util.ArrayList<>());
         }
 
-        // 4) Appliquer les effets d'UN ou DEUX statuts
+        // 4) Appliquer les effets d'UN, DEUX ou TROIS statuts
         if (ws1 != null) {
             applyWeatherStatusMods(g, ws1);
         }
         if (ws2 != null) {
             applyWeatherStatusMods(g, ws2);
+        }
+        if (ws3 != null) {
+            applyWeatherStatusMods(g, ws3);
         }
     }
 
@@ -3815,8 +3922,23 @@ public class GameService {
                     if ("VAMPIRE".equals(p.getRole()) || "SERVANT".equals(p.getRole()))
                         g.getRaidMods().get(p.getId()).add(new StatMod("DEFENSE", -1, "WEATHER:AURORA"));
             }
-            case WIND     -> { /* pas de mod de combat */ }
-            case CLOUDY   -> { /* aucun mod */ }
+            case CLOUDY -> {
+                for (var p : g.getPlayers()) {
+                    if ("VAMPIRE".equals(p.getRole()) || "SERVANT".equals(p.getRole()))
+                        g.getRaidMods().get(p.getId()).add(new StatMod("ATTACK", -1, "WEATHER:CLOUDY"));
+                }
+            }
+            case WIND -> {
+                for (var p : g.getPlayers()) {
+                    if ("HUNTER".equals(p.getRole())) {
+                        g.getRaidMods().get(p.getId())
+                                .add(new StatMod("CONSTRUCTION", 0, "WEATHER:WIND:HUNTER:DSP"));
+                    } else if ("VAMPIRE".equals(p.getRole()) || "SERVANT".equals(p.getRole())) {
+                        g.getRaidMods().get(p.getId())
+                                .add(new StatMod("CONSTRUCTION", 0, "WEATHER:WIND:VAMP:DSP"));
+                    }
+                }
+            }
             case STORM    -> {
                 for (var p : g.getPlayers())
                     g.getRaidMods().get(p.getId()).add(new StatMod("DEFENSE", -2, "WEATHER:STORM"));
@@ -3910,16 +4032,15 @@ public class GameService {
         WeatherStatus ws = mapRollToWeather(roll);
         g.setWeatherStatus(ws);
 
-        // Reset du second statut pour un raid “normal”
-        g.setSecondaryWeatherStatus(null);
-        g.setSecondaryWeatherStatusNameFr(null);
-        g.setSecondaryWeatherDescriptionFr(null);
-
         g.setWeatherStatusNameFr(weatherNameFr(ws));
         g.setWeatherDescriptionFr(weatherDescFr(ws));
 
         // Recalcule les mods météo (affichage/combat)
         rebuildWeatherMods(g);
+
+        if (ws == WeatherStatus.WIND) {
+            applyWindRepairs(g);
+        }
 
         // Historique
         addHistory(g, "Météo — " + g.getWeatherStatusNameFr());
@@ -3936,7 +4057,109 @@ public class GameService {
         g.setMessages(msgs);
     }
 
-// ressources
+    private void applyWindRepairs(@NonNull Game g) {
+        // 1) Chasseurs : -1 ressource aléatoire chacun (réparations du village)
+        for (Player p : g.getPlayers()) {
+            if (!"HUNTER".equals(p.getRole())) continue;
+
+            String type = loseOneRandomBuildResource(p);
+            if (type == null) continue;
+
+            String who = nameOf(g, p.getId());
+            String resFr = switch (type) {
+                case "WOOD" -> "bois";
+                case "IRON" -> "fer";
+                case "STONE" -> "pierre";
+                default -> "ressource";
+            };
+
+            addHistory(g,
+                    "Cyclone — " + who
+                            + " perd 1 " + resFr
+                            + " pour réparer le village."
+            );
+        }
+
+        // 2) Domaine : -1 ressource aléatoire par construction
+        int nbInfras = countDomainConstructions(g); // à adapter à ta structure d'infras
+        if (nbInfras <= 0) {
+            return;
+        }
+
+        java.util.List<Player> vampSide = g.getPlayers().stream()
+                .filter(p -> "VAMPIRE".equals(p.getRole()) || "SERVANT".equals(p.getRole()))
+                .toList();
+
+        if (vampSide.isEmpty()) {
+            return;
+        }
+
+        for (int i = 0; i < nbInfras; i++) {
+            Player payer = pickRandomWithBuildResources(vampSide);
+            if (payer == null) break; // plus personne n’a de ressources de construction
+
+            String type = loseOneRandomBuildResource(payer);
+            if (type == null) break;
+
+            String who = nameOf(g, payer.getId());
+            String resFr = switch (type) {
+                case "WOOD" -> "bois";
+                case "IRON" -> "fer";
+                case "STONE" -> "pierre";
+                default -> "ressource";
+            };
+
+            addHistory(g,
+                    "Cyclone — " + who
+                            + " dépense 1 " + resFr
+                            + " pour réparer le domaine."
+            );
+        }
+    }
+
+    /**
+     * Retire 1 ressource de construction aléatoire (bois / fer, pierre plus tard).
+     * @return "WOOD" | "IRON" | "STONE" | null si aucune ressource à retirer
+     */
+    private String loseOneRandomBuildResource(Player p) {
+        java.util.List<String> pool = new java.util.ArrayList<>();
+
+        if (p.getWood() > 0) pool.add("WOOD");
+        if (p.getIron() > 0) pool.add("IRON");
+        if (p.getStone() > 0) pool.add("STONE");
+
+        if (pool.isEmpty()) return null;
+
+        String type = pool.get(RND.nextInt(pool.size()));
+        switch (type) {
+            case "WOOD" -> p.setWood(p.getWood() - 1);
+            case "IRON" -> p.setIron(p.getIron() - 1);
+            case "STONE" -> p.setStone(p.getStone() - 1);
+        }
+
+        return type;
+    }
+
+    /**
+     * Choisit un joueur vamp-side ayant au moins 1 ressource de construction.
+     */
+    private Player pickRandomWithBuildResources(java.util.List<Player> players) {
+        java.util.List<Player> candidates = players.stream()
+                .filter(p -> p.getWood() > 0 || p.getIron() > 0 || p.getStone() > 0)
+                .toList();
+        if (candidates.isEmpty()) return null;
+        return candidates.get(RND.nextInt(candidates.size()));
+    }
+
+    /**
+     * Nombre de constructions du domaine.
+     */
+    private int countDomainConstructions(Game g) {
+        if (g.getBuiltInfras() == null) return 0;
+        return g.getBuiltInfras().size();
+    }
+
+    // ressources
     private int rollD100Tens() { return RND.nextInt(10) * 10; }
 
     private void grant(Player p, String res, int qty) {
@@ -4265,6 +4488,15 @@ public class GameService {
         if (!allowed.contains(playerId))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "you are not part of the upcoming combat");
 
+        WeatherStatus ws1 = g.getWeatherStatus();
+        WeatherStatus ws2 = g.getSecondaryWeatherStatus();
+        if (ws1 == WeatherStatus.BLIZZARD || ws2 == WeatherStatus.BLIZZARD) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Impossible d'utiliser des potions sous le blizzard: elles sont gelées."
+            );
+        }
+
         // bloque les instables qui succombent à la corruption
         if (g.getPhase() == Phase.PREPHASE3 && hasSuccumbedToCorruption(g, playerId)) {
             throw new ResponseStatusException(
@@ -4291,15 +4523,19 @@ public class GameService {
                 if (g.getRaidMods() == null) g.setRaidMods(new HashMap<>());
                 g.getRaidMods().computeIfAbsent(playerId, __ -> new ArrayList<>())
                         .add(new StatMod("ATTACK", +1, "POTION:FORCE"));
-                addHistory(g, nameOf(g, playerId) + " utilise une Potion de force.");
-                feedText = nameOf(g, playerId) + " boit une Potion de force !";
+                discardPotion(g, type.name());
+
+                addHistory(g, nameOf(g, playerId) + " utilise une potion de force.");
+                feedText = nameOf(g, playerId) + " boit une potion de force !";
             }
             case ENDURANCE -> {
                 if (g.getRaidMods() == null) g.setRaidMods(new HashMap<>());
                 g.getRaidMods().computeIfAbsent(playerId, __ -> new ArrayList<>())
                         .add(new StatMod("DEFENSE", +1, "POTION:ENDURANCE"));
-                addHistory(g, nameOf(g, playerId) + " utilise une Potion d’endurance.");
-                feedText = nameOf(g, playerId) + " boit une Potion d’endurance !";
+                discardPotion(g, type.name());
+
+                addHistory(g, nameOf(g, playerId) + " utilise une potion d’endurance.");
+                feedText = nameOf(g, playerId) + " boit une potion d’endurance !";
             }
             case VIE -> {
                 int before = p.getHp();
@@ -4310,8 +4546,10 @@ public class GameService {
                         : 20;
                 p.setHp(Math.min(max, p.getHp() + 10));
                 int healed = p.getHp() - before;
-                addHistory(g, nameOf(g, playerId) + " utilise une Potion de vie et regénère " + healed + " pv.");
-                feedText = nameOf(g, playerId) + " boit une Potion de vie !";
+                discardPotion(g, type.name());
+
+                addHistory(g, nameOf(g, playerId) + " utilise une potion de vie et regénère " + healed + " pv.");
+                feedText = nameOf(g, playerId) + " boit une potion de vie !";
             }
             case FOCALISATION -> {
                 var fx = raidFx(g, playerId);
@@ -4319,9 +4557,11 @@ public class GameService {
 
                 g.getRaidMods().computeIfAbsent(playerId, __ -> new ArrayList<>())
                         .add(new StatMod("FOCALISATION", 0, "POTION:FOCALISATION:DSP"));
+                discardPotion(g, type.name());
+
                 addHistory(g, nameOf(g, playerId)
-                        + " utilise une Potion de focalisation.");
-                feedText = nameOf(g, playerId) + " boit une Potion de focalisation !";
+                        + " utilise une potion de focalisation.");
+                feedText = nameOf(g, playerId) + " boit une potion de focalisation !";
             }
             case SANGSUE -> {
                 var fx = raidFx(g, playerId);
@@ -4329,9 +4569,11 @@ public class GameService {
 
                 g.getRaidMods().computeIfAbsent(playerId, __ -> new ArrayList<>())
                         .add(new StatMod("SANGSUE", 0, "POTION:SANGSUE:DSP"));
+                discardPotion(g, type.name());
+
                 addHistory(g, nameOf(g, playerId) +
-                        " utilise une Potion de sangsue.");
-                feedText = nameOf(g, playerId) + " boit une Potion de sangsue !";
+                        " utilise une potion de sangsue.");
+                feedText = nameOf(g, playerId) + " boit une potion de sangsue !";
             }
             case RAGE -> {
                 var fx = raidFx(g, playerId);
@@ -4340,9 +4582,11 @@ public class GameService {
                 g.getRaidMods().computeIfAbsent(playerId, __ -> new ArrayList<>())
                         .add(new StatMod("RAGE", 0, "POTION:RAGE:DSP"));
 
+                discardElixir(g, type.name());
+
                 addHistory(g, nameOf(g, playerId)
-                        + " utilise une Potion de rage.");
-                feedText = nameOf(g, playerId) + " boit une Potion de rage !";
+                        + " utilise un elixir de rage.");
+                feedText = nameOf(g, playerId) + " boit un elixir de rage !";
             }
             case RESILIENCE -> {
                 var fx = raidFx(g, playerId);
@@ -4351,9 +4595,11 @@ public class GameService {
                 g.getRaidMods().computeIfAbsent(playerId, __ -> new ArrayList<>())
                         .add(new StatMod("RESILIENCE", 0, "POTION:RESILIENCE:DSP"));
 
+                discardElixir(g, type.name());
+
                 addHistory(g, nameOf(g, playerId)
-                        + " utilise une Potion de résilience.");
-                feedText = nameOf(g, playerId) + " boit une Potion de résilience !";
+                        + " utilise un elixir de résilience.");
+                feedText = nameOf(g, playerId) + " boit un elixir de résilience !";
             }
             case RAPIDITE -> {
                 var fx = raidFx(g, playerId);
@@ -4362,9 +4608,11 @@ public class GameService {
                 g.getRaidMods().computeIfAbsent(playerId, __ -> new ArrayList<>())
                         .add(new StatMod("RAPIDITE", 0, "POTION:RAPIDITE:DSP"));
 
+                discardElixir(g, type.name());
+
                 addHistory(g, nameOf(g, playerId)
-                        + " utilise une Potion de rapidité.");
-                feedText = nameOf(g, playerId) + " boit une Potion de rapidité !";
+                        + " utilise un elixir de rapidité.");
+                feedText = nameOf(g, playerId) + " boit un elixir de rapidité !";
             }
             case INVISIBILITE -> {
                 var fx = raidFx(g, playerId);
@@ -4373,9 +4621,11 @@ public class GameService {
                 g.getRaidMods().computeIfAbsent(playerId, __ -> new ArrayList<>())
                         .add(new StatMod("INVISIBILITE", 0, "POTION:INVISIBILITE:DSP"));
 
+                discardElixir(g, type.name());
+
                 addHistory(g, nameOf(g, playerId)
-                        + " utilise une Potion d’invisibilité.");
-                feedText = nameOf(g, playerId) + " boit une Potion d’invisibilité !";
+                        + " utilise un elixir d’invisibilité.");
+                feedText = nameOf(g, playerId) + " boit un elixir d’invisibilité !";
             }
             case INVULNERABILITE -> {
                 var fx = raidFx(g, playerId);
@@ -4384,18 +4634,17 @@ public class GameService {
                 g.getRaidMods().computeIfAbsent(playerId, __ -> new ArrayList<>())
                         .add(new StatMod("INVULNERABILITE", 0, "POTION:INVULNERABILITE:DSP"));
 
+                discardElixir(g, type.name());
+
                 addHistory(g, nameOf(g, playerId)
-                        + " utilise une Potion d’invulnérabilité.");
-                feedText = nameOf(g, playerId) + " boit une Potion d’invulnérabilité !";
+                        + " utilise un elixir d’invulnérabilité.");
+                feedText = nameOf(g, playerId) + " boit un elixir d’invulnérabilité !";
             }
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "unknown potion");
         }
 
         // consommer l’item sur le Player
         inv.remove(type.name());
-
-        // 4) l’envoyer en défausse
-        discardPotion(g, type.name());
 
         // --- commit
         save(g);
@@ -5052,15 +5301,6 @@ public class GameService {
                                         && ("VAMPIRE".equals(pl.getRole()) || "SERVANT".equals(pl.getRole()))
                         );
 
-                if (!hasEnemy) {
-                    boolean monstersHere = monstersOnLocation(g, loc).stream()
-                            .anyMatch(m -> m.hp > 0);
-                    if (!monstersHere) {
-                        throw new ResponseStatusException(HttpStatus.CONFLICT,
-                                "Pieu béni n’a d’effet que s’il y a un ennemi sur ton lieu.");
-                    }
-                }
-
                 // Consommer la carte dans l'inventaire
                 if (inv == null || !inv.remove(type.name())) {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "action not in inventory");
@@ -5619,7 +5859,7 @@ public class GameService {
                 Game.Action a = new Game.Action();
                 a.setMode("PRESENCE_ECRASANTE");
                 a.setOwnerId(playerId);
-                a.setLocation(vampLoc); // utile si tu veux afficher "au Manoir", etc.
+                a.setLocation(vampLoc);
                 a.setTargetId(null);
 
                 java.util.List<String> breakdown = new java.util.ArrayList<>();
@@ -5666,12 +5906,9 @@ public class GameService {
                 discardVampAction(g, type.name());
 
                 g.setWeatherStatus(WeatherStatus.NIGHT_DARK);
-                g.setSecondaryWeatherStatus(null);
 
                 g.setWeatherStatusNameFr(weatherNameFr(WeatherStatus.NIGHT_DARK));
                 g.setWeatherDescriptionFr(weatherDescFr(WeatherStatus.NIGHT_DARK));
-                g.setSecondaryWeatherStatusNameFr(null);
-                g.setSecondaryWeatherDescriptionFr(null);
 
                 // Rebuild des mods météo (WEATHER:...)
                 rebuildWeatherMods(g);
@@ -5734,9 +5971,9 @@ public class GameService {
 
                 // Vérifier que la météo contient FULL_MOON (principal ou secondaire)
                 WeatherStatus ws1 = g.getWeatherStatus();
-                WeatherStatus ws2 = g.getSecondaryWeatherStatus();
+
                 boolean hasFullMoon =
-                        (ws1 == WeatherStatus.FULL_MOON) || (ws2 == WeatherStatus.FULL_MOON);
+                        (ws1 == WeatherStatus.FULL_MOON);
 
                 if (!hasFullMoon) {
                     throw new ResponseStatusException(
@@ -5750,23 +5987,17 @@ public class GameService {
                 discardVampAction(g, type.name());
 
                 // Transformer la Pleine lune concernée en Lune sanglante
-                if (ws1 == WeatherStatus.FULL_MOON) {
-                    g.setWeatherStatus(WeatherStatus.BLOOD_MOON);
-                    g.setWeatherStatusNameFr(weatherNameFr(WeatherStatus.BLOOD_MOON));
-                    g.setWeatherDescriptionFr(weatherDescFr(WeatherStatus.BLOOD_MOON));
-                }
-                if (ws2 == WeatherStatus.FULL_MOON) {
-                    g.setSecondaryWeatherStatus(WeatherStatus.BLOOD_MOON);
-                    g.setSecondaryWeatherStatusNameFr("Lune sanglante");
-                    g.setSecondaryWeatherDescriptionFr("La pleine lune se teinte d'un rouge sanglant.");
-                }
+                g.setWeatherStatus(WeatherStatus.BLOOD_MOON);
+                g.setWeatherStatusNameFr(weatherNameFr(WeatherStatus.BLOOD_MOON));
+                g.setWeatherDescriptionFr(weatherDescFr(WeatherStatus.BLOOD_MOON));
+
 
                 // Rebuilder les mods météo
                 rebuildWeatherMods(g);
 
                 // Historique / feed
                 String msg = nameOf(g, playerId)
-                        + " invoque la Lune sanglante : la pleine lune devient rouge.";
+                        + " invoque la Lune sanglante: la pleine lune devient rouge.";
                 addHistory(g, msg);
                 feedText = msg;
 
@@ -5780,7 +6011,6 @@ public class GameService {
                 a.setResolvedAtMillis(System.currentTimeMillis());
 
                 java.util.List<String> breakdown = new java.util.ArrayList<>();
-                breakdown.add("La Pleine lune devient Lune sanglante.");
                 breakdown.add("+3 Attaque pour le vampire et serviteurs, -3 Défense pour les chasseurs ce raid.");
                 a.setBreakdownLines(breakdown);
 
@@ -7770,8 +8000,8 @@ public class GameService {
     @Transactional
     public void resolveCataclysme(String gameId,
                                   String playerId,
-                                  WeatherStatus first,
-                                  WeatherStatus second) {
+                                  WeatherStatus secondChoice,
+                                  WeatherStatus thirdChoice) {
 
         Game g = findOr404(gameId);
 
@@ -7795,48 +8025,79 @@ public class GameService {
                     "aucun Cataclysme en cours pour ce joueur.");
         }
 
-        if (first == null || second == null) {
+        if (secondChoice == null || thirdChoice == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "choix météo invalide");
         }
-        if (first == second) {
+        if (secondChoice == thirdChoice) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "les deux statuts météo doivent être différents.");
         }
 
-        // 1) Appliquer les 2 statuts sur le raid
-        g.setWeatherStatus(first);
-        g.setSecondaryWeatherStatus(second);
+        // évite d'empiler plusieurs Cataclysmes
+        if (g.getSecondaryWeatherStatus() != null || g.getThirdWeatherStatus() != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Cataclysme impossible : des statuts météo supplémentaires sont déjà actifs.");
+        }
 
-        // 2) Textes individuels
-        String name1 = weatherNameFr(first);
-        String desc1 = weatherDescFr(first);
-        String name2 = weatherNameFr(second);
-        String desc2 = weatherDescFr(second);
+        WeatherStatus base = g.getWeatherStatus();
 
-        g.setWeatherStatusNameFr(name1);
-        g.setWeatherDescriptionFr(desc1);
-        g.setSecondaryWeatherStatusNameFr(name2);
-        g.setSecondaryWeatherDescriptionFr(desc2);
+        // WIND déjà présent AVANT Cataclysme ? (base uniquement, car secondary/third sont null ici)
+        boolean windAlreadyApplied = (base == WeatherStatus.WIND);
 
-        // 2.bis) résumé lisible pour l’historique / messages
-        String summaryName = name1 + " + " + name2;
-        String summaryDesc = "Cataclysme: " + name1 + " et " + name2 + " s'abattent sur ce raid.";
+        // extras = choix qui ne doublonnent pas la base
+        var extras = new ArrayList<WeatherStatus>(2);
+        if (base == null || secondChoice != base) extras.add(secondChoice);
+        if (base == null || thirdChoice  != base) extras.add(thirdChoice);
+
+        WeatherStatus extra2 = extras.size() >= 1 ? extras.get(0) : null;
+        WeatherStatus extra3 = extras.size() >= 2 ? extras.get(1) : null;
+
+        g.setSecondaryWeatherStatus(extra2);
+        g.setThirdWeatherStatus(extra3);
+
+        // textes extras (base inchangée)
+        if (extra2 != null) {
+            g.setSecondaryWeatherStatusNameFr(weatherNameFr(extra2));
+            g.setSecondaryWeatherDescriptionFr(weatherDescFr(extra2));
+        } else {
+            g.setSecondaryWeatherStatusNameFr(null);
+            g.setSecondaryWeatherDescriptionFr(null);
+        }
+
+        if (extra3 != null) {
+            g.setThirdWeatherStatusNameFr(weatherNameFr(extra3));
+            g.setThirdWeatherDescriptionFr(weatherDescFr(extra3));
+        } else {
+            g.setThirdWeatherStatusNameFr(null);
+            g.setThirdWeatherDescriptionFr(null);
+        }
+
+        // résumé lisible
+        String baseName = (base != null ? weatherNameFr(base) : "Météo");
+        String summaryName = baseName
+                + (extra2 != null ? " + " + weatherNameFr(extra2) : "")
+                + (extra3 != null ? " + " + weatherNameFr(extra3) : "");
 
         String hist = nameOf(g, playerId)
-                + " déclenche un Cataclysme : " + summaryName + ".";
+                + " déclenche un Cataclysme: "
+                + weatherNameFr(secondChoice) + " + " + weatherNameFr(thirdChoice)
+                + ".";
         addHistory(g, hist);
 
-        // 3) Recalcule les mods météo
+        // mods météo (doit prendre en compte thirdWeatherStatus)
         rebuildWeatherMods(g);
 
-        // 4) Marquer l’action comme résolue, mais la garder pour le spectate
-        ca.setResolvedAtMillis(System.currentTimeMillis());
-        ca.setTargetId(first.name() + "," + second.name());
+        // effet WIND si WIND arrive via extras et n'était pas déjà là via la base
+        if (!windAlreadyApplied && (extra2 == WeatherStatus.WIND || extra3 == WeatherStatus.WIND)) {
+            applyWindRepairs(g);
+        }
 
-        // Messages de centre (optionnel, mais sympa)
+        ca.setResolvedAtMillis(System.currentTimeMillis());
+        ca.setTargetId(secondChoice.name() + "," + thirdChoice.name());
+
         var msgs = new ArrayList<String>();
         msgs.add("Météo — " + summaryName);
-        msgs.add(summaryDesc);
+        msgs.add("Le vampire déchire le ciel.");
         g.setMessages(msgs);
 
         save(g);
@@ -8431,41 +8692,58 @@ public class GameService {
     }
 
     /**
-     * Retourne true si AU MOINS un chasseur possède Eau bénite ET
-     * peut en faire un usage en PREPHASE3 :
-     *  - réduire sa corruption (corruption > 0), ou
-     *  - enlever une Marque ténébreuse, ou
-     *  - préparer une attaque (même lieu qu'un vampire/serviteur vivant).
+     * Est-ce que ce joueur a vraiment une Eau bénite jouable MAINTENANT ?
+     * (équivalent back de canPlayHolyWaterkHere côté front)
      */
-    private boolean hasUsableHolyWaterOption(Game g) {
-        for (Player p : g.getPlayers()) {
-            if (!"HUNTER".equals(p.getRole())) continue;
+    private boolean hasUsableHolyWaterForPlayer(@NonNull Game g, @NonNull Player p) {
+        // 1) Il lui faut la carte
+        List<String> acts = p.getActions();
+        if (acts == null || !acts.contains(Action.EAU_BENITE.name())) {
+            return false;
+        }
 
-            List<String> actions = p.getActions();
-            if (actions == null || !actions.contains(Action.EAU_BENITE.name())) continue;
+        // 2) Rôle + phase
+        if (!"HUNTER".equals(p.getRole())) return false;
+        if (g.getPhase() != Phase.PREPHASE3) return false;
 
-            boolean canReduce = p.getCorruption() > 0;
-            boolean canCleanse = isDarkMarked(g, p.getId());
+        // 3) Lieu du chasseur
+        String loc = locationOf(g, p.getId());
+        if (loc == null) return false;
 
-            boolean canAttack = false;
-            String loc = locationOf(g, p.getId());
-            if (loc != null) {
-                for (Player q : g.getPlayers()) {
-                    if (q.getHp() <= 0) continue;
-                    if (!"VAMPIRE".equals(q.getRole()) && !"SERVANT".equals(q.getRole())) continue;
-
-                    String locQ = locationOf(g, q.getId());
-                    if (locQ != null && locQ.equals(loc)) {
-                        canAttack = true;
-                        break;
-                    }
+        // 4) Présence écrasante peut bloquer les actions des chasseurs sur le même lieu que le vampire
+        if (g.isHunterActionsBlockedThisRaid()) {
+            Player vamp = g.getPlayers().stream()
+                    .filter(pl -> "VAMPIRE".equals(pl.getRole()))
+                    .findFirst()
+                    .orElse(null);
+            if (vamp != null) {
+                String vampLoc = locationOf(g, vamp.getId());
+                if (vampLoc != null && vampLoc.equals(loc)) {
+                    // Bloqué sur ce lieu
+                    return false;
                 }
             }
+        }
 
-            if (canReduce || canCleanse || canAttack) {
+        // 5) Y a-t-il au moins UNE cible valide sur ce lieu ?
+        //    (ici : un chasseur vivant avec corruption > 0 ; tu peux étendre à "marqué" si tu as un helper)
+        var groups = groupPlayersByLocation(g); // loc -> List<Player>
+        var onLoc = groups.get(loc);
+        if (onLoc == null || onLoc.isEmpty()) return false;
+
+        for (Player target : onLoc) {
+            if (!"HUNTER".equals(target.getRole())) continue;
+            if (target.getHp() <= 0) continue;
+
+            Integer corr = target.getCorruption();
+            if (corr != null && corr > 0) {
                 return true;
             }
+
+            // Si tu as un helper du genre hasDarkMarkThisRaid(g, targetId), tu peux ajouter :
+            // if (hasDarkMarkThisRaid(g, target.getId())) return true;
         }
+
         return false;
     }
 
@@ -9305,6 +9583,10 @@ public class GameService {
         discardCard(g.getPotionDiscard(), cardId);
     }
 
+    private void discardElixir(Game g, String cardId) {
+        discardCard(g.getElixirDiscard(), cardId);
+    }
+
     @Transactional
     public Game buyPotion(String gameId, String userId) {
         Game g = findOr404(gameId);
@@ -9840,6 +10122,14 @@ public class GameService {
         if (g.getPhase() != Phase.PHASE2) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "construction possible uniquement en phase 2");
+        }
+
+        if (g.getWeatherStatus() == WeatherStatus.WIND
+                || g.getSecondaryWeatherStatus() == WeatherStatus.WIND) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Impossible de construire ce raid à cause du cyclone."
+            );
         }
 
         if (!"VAMPIRE".equals(p.getRole())) {
