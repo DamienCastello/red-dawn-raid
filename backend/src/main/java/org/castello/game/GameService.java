@@ -820,7 +820,7 @@ public class GameService {
             case NIGHT_DARK -> "Les ombres dominent.\n+1 attaque du vampire. Les chasseurs ne peuvent utiliser de pièges.";
             case NIGHT_CLEAR-> "La lune éclaire légèrement et le vampire gagne en puissance.\n+1 attaque du vampire et –1 défense pour les chasseurs.";
             case FULL_MOON  -> "La pleine lune exalte le sang ancien.\n+2 attaque du vampire.";
-            case BLOOD_MOON  -> "La Pleine lune devient Lune sanglante.\n+3 Attaque pour le vampire et serviteurs, -3 Défense pour les chasseurs ce raid.";
+            case BLOOD_MOON  -> "La Pleine lune devient Lune sanglante.\n+4 Attaque du vampire.";
         };
     }
 
@@ -3978,11 +3978,7 @@ public class GameService {
                 for (var p : g.getPlayers()) {
                     if ("VAMPIRE".equals(p.getRole()) || "SERVANT".equals(p.getRole())) {
                         g.getRaidMods().get(p.getId())
-                                .add(new StatMod("ATTACK", +3, "WEATHER:BLOOD_MOON"));
-                    }
-                    if ("HUNTER".equals(p.getRole())) {
-                        g.getRaidMods().get(p.getId())
-                                .add(new StatMod("DEFENSE", -3, "WEATHER:BLOOD_MOON"));
+                                .add(new StatMod("ATTACK", +4, "WEATHER:BLOOD_MOON"));
                     }
                 }
             }
@@ -6011,7 +6007,7 @@ public class GameService {
                 a.setResolvedAtMillis(System.currentTimeMillis());
 
                 java.util.List<String> breakdown = new java.util.ArrayList<>();
-                breakdown.add("+3 Attaque pour le vampire et serviteurs, -3 Défense pour les chasseurs ce raid.");
+                breakdown.add("+4 Attaque pour le vampire et serviteurs.");
                 a.setBreakdownLines(breakdown);
 
                 g.setCurrentAction(a);
@@ -11671,16 +11667,16 @@ public class GameService {
                 defDice   = "D4";
             }
             case GARGOYLE -> {
-                soulsCost = 200;
+                soulsCost = 250;
                 hp        = 10;
-                atkDice   = "D8";
-                defDice   = "D6";
+                atkDice   = "D6";
+                defDice   = "D8";
             }
             case ABERRATION -> {
-                soulsCost = 300;
+                soulsCost = 500;
                 hp        = 15;
-                atkDice   = "D12";
-                defDice   = "D8";
+                atkDice   = "D8";
+                defDice   = "D12";
             }
             default -> throw new IllegalArgumentException("unsupported monster type: " + type);
         }

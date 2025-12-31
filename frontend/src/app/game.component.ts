@@ -78,7 +78,7 @@ interface ForgeOption {
               </div>
 
               <div class="mods-badge-potion" *ngIf="m.source?.startsWith('POTION:')">
-                <img class="mod-ico" [src]="isElixirMod(mod) ? 'assets/icons/elixir-icon.png' : 'assets/icons/potion-icon.png'" 
+                <img class="mod-ico" [src]="isElixirMod(m) ? 'assets/icons/elixir-icon.png' : 'assets/icons/potion-icon.png'" 
                 alt="potion_or_elixir"/>
               </div>
 
@@ -150,7 +150,7 @@ interface ForgeOption {
             </div>
 
             <div class="mods-badge-potion" *ngIf="m.source?.startsWith('POTION:')">
-              <img class="mod-ico" [src]="isElixirMod(mod) ? 'assets/icons/elixir-icon.png' : 'assets/icons/potion-icon.png'" 
+              <img class="mod-ico" [src]="isElixirMod(m) ? 'assets/icons/elixir-icon.png' : 'assets/icons/potion-icon.png'" 
               alt="potion_or_elixir"/>
             </div>
 
@@ -326,7 +326,7 @@ interface ForgeOption {
             </div>
 
             <div class="mods-badge-potion" *ngIf="m.source?.startsWith('POTION:')">
-              <img class="mod-ico" [src]="isElixirMod(mod) ? 'assets/icons/elixir-icon.png' : 'assets/icons/potion-icon.png'" 
+              <img class="mod-ico" [src]="isElixirMod(m) ? 'assets/icons/elixir-icon.png' : 'assets/icons/potion-icon.png'" 
               alt="potion_or_elixir"/>
             </div>
 
@@ -648,7 +648,7 @@ interface ForgeOption {
                   </div>
 
                   <div class="mods-badge-potion" *ngIf="m.source?.startsWith('POTION:')">
-                    <img class="mod-ico" [src]="isElixirMod(mod) ? 'assets/icons/elixir-icon.png' : 'assets/icons/potion-icon.png'" alt="potion_or_elixir"/>
+                    <img class="mod-ico" [src]="isElixirMod(m) ? 'assets/icons/elixir-icon.png' : 'assets/icons/potion-icon.png'" alt="potion_or_elixir"/>
                   </div>
 
                   <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
@@ -741,7 +741,7 @@ interface ForgeOption {
                   </div>
 
                   <div class="mods-badge-potion" *ngIf="m.source?.startsWith('POTION:')">
-                    <img class="mod-ico" [src]="isElixirMod(mod) ? 'assets/icons/elixir-icon.png' : 'assets/icons/potion-icon.png'" alt="potion_or_elixir"/>
+                    <img class="mod-ico" [src]="isElixirMod(m) ? 'assets/icons/elixir-icon.png' : 'assets/icons/potion-icon.png'" alt="potion_or_elixir"/>
                   </div>
 
                   <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
@@ -803,7 +803,7 @@ interface ForgeOption {
                   </div>
 
                   <div class="mods-badge-potion" *ngIf="m.source?.startsWith('POTION:')">
-                    <img class="mod-ico" [src]="isElixirMod(mod) ? 'assets/icons/elixir-icon.png' : 'assets/icons/potion-icon.png'" alt="potion_or_elixir"/>
+                    <img class="mod-ico" [src]="isElixirMod(m) ? 'assets/icons/elixir-icon.png' : 'assets/icons/potion-icon.png'" alt="potion_or_elixir"/>
                   </div>
 
                   <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
@@ -964,7 +964,7 @@ interface ForgeOption {
                   </div>
                   
                   <div class="mods-badge-potion" *ngIf="m.source?.startsWith('POTION:')">
-                    <img class="mod-ico" [src]="isElixirMod(mod) ? 'assets/icons/elixir-icon.png' : 'assets/icons/potion-icon.png'" alt="potion_or_elixir"/>
+                    <img class="mod-ico" [src]="isElixirMod(m) ? 'assets/icons/elixir-icon.png' : 'assets/icons/potion-icon.png'" alt="potion_or_elixir"/>
                   </div>
 
                   <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
@@ -989,7 +989,7 @@ interface ForgeOption {
             </div>
           </ng-container>
           <div class="icon-halo oval"
-              [ngClass]="isVampSideEntity(r.defenderId) ? 'round' : 'oval'">
+              [ngClass]="entityHaloIcon(r.defenderId)">
             <img class="icon-side"
                 [src]="entityRoleIcon(r.defenderId,'armor')"
                 alt="défense"/>
@@ -2165,55 +2165,58 @@ interface ForgeOption {
   </div>
   <!-- ===== MODALE CHOIX DE CONSTRUCTION ===== -->
   <div class="modal-backdrop" *ngIf="buildModalOpen">
-    <div class="modal construction-modal" [style.backgroundImage]="setImageBackground('construire')">
-        <h2>Construire un lieu</h2>
-        <p>Choisissez l’infrastructure à construire :</p>
-
-        <div class="modal-button-row">
-          <button *ngIf="!(game?.builtInfras?.includes('SAWMILL'))"
-           (click)="onChooseInfra('SAWMILL')">
-            Scierie<br />
-            <small>(Forêt · 5 pierres, 3 fers)</small>
-          </button>
-
-          <button *ngIf="!(game?.builtInfras?.includes('MINE'))"
-           (click)="onChooseInfra('MINE')">
-            Mine<br />
-            <small>(Carrière · 6 bois, 2 fers)</small>
-          </button>
-
-          <button *ngIf="!(game?.builtInfras?.includes('LIBRARY'))"
-           (click)="onChooseInfra('LIBRARY')">
-            Bibliothèque<br />
-            <small>(Manoir · 8 bois, 4 pierres, 2 fers)</small>
-          </button>
-
-          <button *ngIf="!(game?.builtInfras?.includes('LABORATORY'))"
-          (click)="onChooseInfra('LABORATORY')">
-            Laboratoire<br />
-            <small>(Manoir · 5 eaux pures, 5 herbes médicinales, 3 pierres, 50 âmes)</small>
-          </button>
-
-          <button *ngIf="!(game?.builtInfras?.includes('BALLROOM'))"
-          (click)="onChooseInfra('BALLROOM')">
-            Salle de bal<br />
-            <small>(Manoir · 8 pierres, 2 fers, 50 âmes)</small>
-          </button>
-
-          <button *ngIf="!(game?.builtInfras?.includes('ALTAR'))"
-                  (click)="onChooseInfra('ALTAR')">
-            Autel<br />
-            <small>(Manoir · 4 pierres, 2 bois, 2 fers, 50 âmes)</small>
-          </button>
-
-          <button *ngIf="!(game?.builtInfras?.includes('FORGE'))"
-                  (click)="onChooseInfra('FORGE')">
-            Forge<br />
-            <small>(Manoir · 8 fers, 4 pierres, 2 bois)</small>
-          </button>
+    <div class="modal construction-modal choices" [style.backgroundImage]="setImageBackground('construire')">
+        <div>
+          <h2 class="bg-badge">Construire un lieu</h2>
         </div>
 
-        <button class="btn-secondary" (click)="closeBuildModal()">Annuler</button>
+        <div>
+          <div class="modal-button-row">
+            <button *ngIf="!(game?.builtInfras?.includes('SAWMILL'))"
+            (click)="onChooseInfra('SAWMILL')">
+              Scierie<br />
+              <small>(Forêt · 5 pierres, 3 fers)</small>
+            </button>
+
+            <button *ngIf="!(game?.builtInfras?.includes('MINE'))"
+            (click)="onChooseInfra('MINE')">
+              Mine<br />
+              <small>(Carrière · 6 bois, 2 fers)</small>
+            </button>
+
+            <button *ngIf="!(game?.builtInfras?.includes('LIBRARY'))"
+            (click)="onChooseInfra('LIBRARY')">
+              Bibliothèque<br />
+              <small>(Manoir · 8 bois, 4 pierres, 2 fers)</small>
+            </button>
+
+            <button *ngIf="!(game?.builtInfras?.includes('LABORATORY'))"
+            (click)="onChooseInfra('LABORATORY')">
+              Laboratoire<br />
+              <small>(Manoir · 5 eaux pures, 5 herbes médicinales, 3 pierres, 50 âmes)</small>
+            </button>
+
+            <button *ngIf="!(game?.builtInfras?.includes('BALLROOM'))"
+            (click)="onChooseInfra('BALLROOM')">
+              Salle de bal<br />
+              <small>(Manoir · 8 pierres, 2 fers, 50 âmes)</small>
+            </button>
+
+            <button *ngIf="!(game?.builtInfras?.includes('ALTAR'))"
+                    (click)="onChooseInfra('ALTAR')">
+              Autel<br />
+              <small>(Manoir · 4 pierres, 2 bois, 2 fers, 50 âmes)</small>
+            </button>
+
+            <button *ngIf="!(game?.builtInfras?.includes('FORGE'))"
+                    (click)="onChooseInfra('FORGE')">
+              Forge<br />
+              <small>(Manoir · 8 fers, 4 pierres, 2 bois)</small>
+            </button>
+          </div>
+
+          <button class="btn-secondary" (click)="closeBuildModal()">Annuler</button>
+        </div>       
     </div>
   </div>
   <!-- ===== MODALE CONFIRMATION CONSTRUCTION ===== -->
@@ -2818,24 +2821,52 @@ interface ForgeOption {
               <div class="experiment-row">
                 <div class="experiment-col">
                   <h3>Type de créature</h3>
-                  <button type="button"
-                          class="effect-option"
-                          (click)="onExperimentMonsterClick('REVENANT')"
-                          [class.selected]="experimentMonsterType === 'REVENANT'">
-                    Revenant
-                  </button>
-                  <button type="button"
-                          class="effect-option"
-                          (click)="onExperimentMonsterClick('GARGOYLE')"
-                          [class.selected]="experimentMonsterType === 'GARGOYLE'">
-                    Gargouille
-                  </button>
-                  <button type="button"
-                          class="effect-option"
-                          (click)="onExperimentMonsterClick('ABERRATION')"
-                          [class.selected]="experimentMonsterType === 'ABERRATION'">
-                    Aberration
-                  </button>
+                  <div class="monster-pick-grid">
+                    <!-- REVENANT -->
+                    <button type="button"
+                            class="monster-pick"
+                            (click)="onExperimentMonsterClick('REVENANT')"
+                            [class.selected]="experimentMonsterType === 'REVENANT'">
+                      <img class="monster-img" src="/assets/monster/revenant.png" alt="Revenant" />
+                      <div class="monster-name">Revenant</div>
+                      <div class="monster-stats">
+                        <div>Coût : {{ experimentMonsterMeta.REVENANT.cost }}</div>
+                        <div>PV : {{ experimentMonsterMeta.REVENANT.hp }}</div>
+                        <div>ATK : {{ experimentMonsterMeta.REVENANT.atkDice }}</div>
+                        <div>DEF : {{ experimentMonsterMeta.REVENANT.defDice }}</div>
+                      </div>
+                    </button>
+
+                    <!-- GARGOYLE -->
+                    <button type="button"
+                            class="monster-pick"
+                            (click)="onExperimentMonsterClick('GARGOYLE')"
+                            [class.selected]="experimentMonsterType === 'GARGOYLE'">
+                      <img class="monster-img" src="/assets/monster/gargouille.png" alt="Gargouille" />
+                      <div class="monster-name">Gargouille</div>
+                      <div class="monster-stats">
+                        <div>Coût : {{ experimentMonsterMeta.GARGOYLE.cost }}</div>
+                        <div>PV : {{ experimentMonsterMeta.GARGOYLE.hp }}</div>
+                        <div>ATK : {{ experimentMonsterMeta.GARGOYLE.atkDice }}</div>
+                        <div>DEF : {{ experimentMonsterMeta.GARGOYLE.defDice }}</div>
+                      </div>
+                    </button>
+
+                    <!-- ABERRATION -->
+                    <button type="button"
+                            class="monster-pick"
+                            (click)="onExperimentMonsterClick('ABERRATION')"
+                            [class.selected]="experimentMonsterType === 'ABERRATION'">
+                      <img class="monster-img" src="/assets/monster/aberration.png" alt="Aberration" />
+                      <div class="monster-name">Aberration</div>
+                      <div class="monster-stats">
+                        <div>Coût : {{ experimentMonsterMeta.ABERRATION.cost }}</div>
+                        <div>PV : {{ experimentMonsterMeta.ABERRATION.hp }}</div>
+                        <div>ATK : {{ experimentMonsterMeta.ABERRATION.atkDice }}</div>
+                        <div>DEF : {{ experimentMonsterMeta.ABERRATION.defDice }}</div>
+                      </div>
+                    </button>
+                  </div>
                 </div>
 
                 <div class="experiment-col">
@@ -4139,6 +4170,10 @@ interface ForgeOption {
     background-size: cover;
     background-position: center;
   }
+  
+  .modal.construction-modal.choices {
+    justify-content: space-around;
+  }
 
   .modal.construction-modal .bg-badge{
     display: inline-block;
@@ -4220,6 +4255,49 @@ interface ForgeOption {
   .location-effect-result {
     margin-top: 0.75rem;
     font-style: italic;
+  }
+
+  .monster-pick-grid{
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: .75rem;
+  }
+
+  .monster-pick{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .35rem;
+    padding: .5rem;
+    border: 1px solid rgba(255,255,255,.2);
+    border-radius: .75rem;
+    background: rgba(0,0,0,.25);
+    cursor: pointer;
+  }
+
+  .monster-pick.selected{
+    outline: 2px solid rgba(255,255,255,.6);
+  }
+
+  .monster-img{
+    height: 300px;
+    width: auto;
+    max-width: 100%;
+    object-fit: contain;
+    display: block;
+  }
+
+  .monster-name{
+    color: white;
+    font-weight: 700;
+  }
+
+  .monster-stats{
+    font-size: .9rem;
+    opacity: .9;
+    color: white;
+    text-align: center;
+    line-height: 1.2rem;
   }
 `]
 })
@@ -4413,6 +4491,12 @@ export class GameComponent {
   experimentLocation: string | null = null;
   experimentSubmitting = false;
   experimentPossibleLocations: string[] = [];
+
+  experimentMonsterMeta = {
+    REVENANT:   { cost: 100, hp: 5,  atkDice: 'D6',  defDice: 'D4' },
+    GARGOYLE:   { cost: 200, hp: 10, atkDice: 'D8',  defDice: 'D6' },
+    ABERRATION: { cost: 300, hp: 15, atkDice: 'D12', defDice: 'D8' },
+  } as const;
 
   // ALTAR
   altarTargets: { id: string; username: string; hp: number; corruption: number }[] = [];
@@ -5095,8 +5179,15 @@ export class GameComponent {
   getRole(p?: SPlayer): 'VAMPIRE'|'HUNTER'|'SERVANT'|undefined {
     return p?.role ;
   }
-  diceAsset(dice: string | undefined, color: 'red'|'blue'): string {
+  diceAsset(dice: string | undefined, color: 'red'|'blue'|'purple'): string {
     const d = (dice || 'D6').toLowerCase();
+
+    // Monstre => dossier monster + dés violets
+    if (color === 'purple') {
+      return `/assets/monster/${d}-purple.png`;
+    }
+
+    // comportement existant
     return `/assets/dices/${d}-${color}.png`;
   }
   roleIcon(role?: 'VAMPIRE'|'HUNTER'|'SERVANT'|undefined, name?: 'sword'|'armor'): string {
@@ -5139,11 +5230,11 @@ export class GameComponent {
     return m?.defenseDice;
   }
 
-  entityColor(id: string): 'red'|'blue' {
+  entityColor(id: string): 'red'|'blue'|'purple' {
     const p = this.getPlayer(id);
     if (p) return this.roleColorOf(p);
-    // Monstres = camp vampire
-    return 'red';
+
+    return 'purple';
   }
 
   entityRoleIcon(id: string, name: 'sword'|'armor'): string {
@@ -5151,18 +5242,27 @@ export class GameComponent {
     if (p) {
       return this.roleIcon(this.getRole(p), name);
     }
-    // Monstres : pour l’instant, icône du vampire
+
+    // Monstres : assets dédiés
+    if (this.getMonster(id)) {
+      return `/assets/monster/MONSTER-${name}.png`;
+    }
+
+    // fallback sécurité
     return `/assets/icons/VAMPIRE-${name}.png`;
   }
 
   entityHaloIcon(id: string){
-    if(this.getPlayer(id)?.role==='VAMPIRE'){
-      return 'round';
-    } else if (this.getPlayer(id)?.role==='HUNTER' || this.getPlayer(id)?.role==='SERVANT') {
-      return 'oval';
-    } else {
-      return 'round';
-    }
+    const p = this.getPlayer(id);
+
+    if (p?.role === 'VAMPIRE') return 'round';
+    if (p?.role === 'HUNTER' || p?.role === 'SERVANT') return 'oval';
+
+    // Monstre
+    if (this.getMonster(id)) return 'oval';
+
+    // fallback
+    return 'round';
   }
 
   isVampSideEntity(id: string): boolean {
