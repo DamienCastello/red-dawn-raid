@@ -57,6 +57,8 @@ public class Player {
     // --- CORRUPTION ---
     private int corruption; // 0 = sain, 1 = affaibli, 2 = instable, 3 = servant
 
+    private boolean leftGame = false;
+
     public Player() {}
 
     public Player(String id, String username) {
@@ -68,6 +70,9 @@ public class Player {
 
     public String getUsername() { return username; }
     public void setUsername(String username) { this.username = username; }
+
+    public boolean isLeftGame() { return leftGame; }
+    public void setLeftGame(boolean leftGame) { this.leftGame = leftGame; }
 
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }

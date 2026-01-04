@@ -9,6 +9,7 @@ import java.util.Map;
 public record GameSnapshot(
         String id,
         String status,
+        String winnerSide,
         int raid,
         String phase,
         WeatherView weather,
@@ -83,19 +84,21 @@ public record GameSnapshot(
     ) {}
 
     public record PlayerView(
-            String id, String username, String role,
+            String id, String username,
+            boolean leftGame,
+            String role,
             List<String> hand,
             List<String> potions,
             List<String> elixirs,
             List<String> actions,
             int hp, int corruption,
             String attackDice, String defenseDice,
+            String weapon, String armor,
             int wood, int herbs, int stone, int iron,
             int water, int gold, int souls, int silver,
             boolean isBlessedStake,
             boolean isSacredRosary,
             boolean charismaticThisRaid
-
     ) {}
 
     public record DecksView(Pile actionsVamp, Pile actionsHunters, Pile potions, Pile elixirs) {

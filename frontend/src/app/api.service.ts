@@ -4,9 +4,10 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 // === Types du snapshot (côté back) ===
 export type GameSnapshot = {
   id: string; status: string; raid: number; phase: Phase;
+  winnerSide?: 'HUNTERS' | 'VAMPIRE' | null;
   weather: { 
     roll: number|null; 
-    status: string|null; 
+    status: string|null;
     nameFr: string|null; 
     descFr: string|null; 
     secondaryStatus?: string | null;
@@ -14,20 +15,9 @@ export type GameSnapshot = {
     secondaryDescFr?: string | null;
   } | null;
 
-  players: Array<{
-    id: string; username: string; role: Player['role'];
-    hp: number; corruption: number;
-    attackDice: string; defenseDice: string;
-    wood: number; herbs: number; stone: number; iron: number;
-    water: number; gold: number; souls: number; silver: number;
-    hand: Player['hand']; actions: Player['actions'];
-    potions: Player['potions']; elixirs: Player['elixirs'];
-    isBlessedStake: boolean;
-    isSacredRosary: boolean;
-    charismaticThisRaid: boolean;
-  }>;
+  players: Player[];
 
-  center: Array<{ playerId: string; card: string; faceUp: boolean }>;
+  center: CenterBoard[];
   raidEffects: { [playerId: string]: RaidEffectsView };
   raidMods: Record<string, RawStatMod[]>;
   hasUpcomingCombat: boolean;
@@ -38,7 +28,7 @@ export type GameSnapshot = {
   readyForNextRaid?: string[];
   trades?: TradeView[];
 
-  currentBite?: { attackerId: string; targetId: string; location: string; roll: number|null; armorRoll: number|null; resolvedAtMillis: number|null } | null;
+  currentBite?: Bite | null;
 
   combatsQueue: RoundFight[];
   currentCombatIndex: number | null;
@@ -88,28 +78,30 @@ export type GameSnapshot = {
   ballroomWaltzBest: number;
   altarCorrupted: boolean;
 
-  history: Array<{ ts: number; raid: number; phase: Phase; text: string }>;
+  history: HistoryItem[];
   messages: string[];
   ts: number; whoami: string;
 };
 
 export interface HistoryItem {
   raid: number;
-  phase: string; // "PHASE0"..."PHASE4"
+  phase: Phase;
   ts: number;
   text: string;
 }
 
 export interface Bite {
-  id: string;
   attackerId: string;
   targetId: string;
+  location: string;
   roll?: number | null;
   armorRoll?: number | null;
   resolvedAtMillis?: number | null;
 }
 
 type Health = { status: string };
+
+export type PlayerRole = 'VAMPIRE'|'HUNTER'|'SERVANT';
 
 export type Phase = 'PHASE0'|'PHASE1'|'PHASE2'|'PREPHASE3'|'PHASE3'|'PHASE4';
 
@@ -135,27 +127,18 @@ export type RoundFight = {
 };
 
 export type Player = {
-  id: string;
-  username: string;
-  role: 'VAMPIRE'|'HUNTER'|'SERVANT';
-  hand: string[];
-  potions: string[];
-  elixirs: string[];
-  actions: string[];
-  hp: number;
-  attackDice: string;
-  defenseDice: string;  
-  wood: number;
-  herbs: number;
-  stone: number;
-  iron: number;
-  water: number;
-  gold: number;
-  souls: number;
-  silver: number;
-  corruption: number;
-  isBlessedStake: boolean;
-  isSacredRosary: boolean;
+    id: string; username: string; role: PlayerRole;
+    hp: number; corruption: number;
+    attackDice: string; defenseDice: string;
+    weapon: string; armor: string;
+    wood: number; herbs: number; stone: number; iron: number;
+    water: number; gold: number; souls: number; silver: number;
+    hand: string[]; actions: string[];
+    potions: string[]; elixirs: string[];
+    isBlessedStake: boolean;
+    isSacredRosary: boolean;
+    charismaticThisRaid: boolean;
+    leftGame: boolean;
 };
 
 type Monster = {
@@ -201,57 +184,29 @@ export interface DecksView {
   elixirs: Pile;
 }
 
-export type Game = {
-  id: string;
-  status: string;
-  raid: number;
-  phase: Phase;
-  players: Player[];
-  center: CenterBoard[];
-  hasUpcomingCombat?: boolean;
-  history?: HistoryItem[];
-  // compteurs
-  vampActionsLeft: number; vampActionsDiscard: number;
-  hunterActionsLeft: number; hunterActionsDiscard: number;
-  potionsLeft: number;    potionsDiscard: number;
-  // --- Step 3 ---
-  messages: string[];
-  prePhaseDeadlineMillis: number;                       // fin de fenêtre PREPHASE3 (ms epoch)
-    // --- PHASE3 Combats ---
-  combatsQueue?: RoundFight[];
-  currentCombatIndex?: number | null;
-  currentCombat?: RoundFight | null;
-  currentCombatNextAdvanceAtMillis?: number;
-  // --- METEO ---
-  weatherModalNotBeforeMillis?: number;
-  weatherRoll?: number|null;
-  weatherStatus?: string|null;
-  weatherStatusNameFr?: string|null;
-  weatherDescriptionFr?: string|null;
-  weatherPhaseDeadlineMillis?: number;
-  weatherShowUntilMillis?: number;
-  raidMods: Record<string, RawStatMod[]>;               // buffs/debuffs par joueur (affichage)
-  unstableEligibleTargets?: Record<string, string[]>;   // instableId -> [targetIds]
-  unstableTargetByPlayer?: Record<string, string>;      // instableId -> chosenTargetId
-  currentBite?: Bite | null;                            // morsure en cours (après dégâts)
-};
-
-export type BiteAttempt = {
-  id: string;
-  attackerId: string;
-  targetId: string;
-  location: string;
-  roll?: number|null;
-  resolvedAtMillis?: number|null;
-};
-
 export type RawStatMod = {
   stat: 'ATTACK'|'DEFENSE'|'MULTIPLE'|'INSTABLE'|'SERVITEUR'|'FOCALISATION';
   amount: number;
   source: string;
 };
 
-export type JoinResponse = { game: Game; playerId: string; playerToken: string };
+export type LobbyPlayer = Pick<
+  GameSnapshot['players'][number],
+  'id' | 'username' | 'leftGame' | 'role' | 'hp'
+>;
+
+export type LobbyGame = {
+  id: string;
+  status: string;
+  players: LobbyPlayer[];
+};
+
+export type EndedGameSummary = {
+  id: string;
+  status: string;
+  winnerSide: 'HUNTERS' | 'VAMPIRE' | null;
+  players: { id: string; username: string; role: string; hp: number; leftGame: boolean }[];
+};
 
 /** 
  * Détermine l’URL base de l’API selon le host courant (Option A : domaines séparés).
@@ -284,18 +239,28 @@ export class ApiService {
 
   // Games
   health()             { return this.http.get<Health>(`${this.base}/health`); }
-  listGames()          { return this.http.get<Game[]>(`${this.base}/games`); }
-  createGame()         { return this.http.post<Game>(`${this.base}/games`, {}); }
+  listGames()  { return this.http.get<LobbyGame[]>(`${this.base}/games`); }
+  createGame() { return this.http.post<LobbyGame>(`${this.base}/games`, {}); }
+
   
   getGame(id: string) {
     return this.http.get<GameSnapshot>(`${this.base}/games/${id}`);
   }
 
   joinGame(id: string) {
-    return this.http.post<JoinResponse>(`${this.base}/games/${id}/join`, {});
+    return this.http.post<void>(`${this.base}/games/${id}/join`, {});
   }
   startGame(id: string) {
-    return this.http.post<Game>(`${this.base}/games/${id}/start`, {}); // token via interceptor
+    return this.http.post<void>(`${this.base}/games/${id}/start`, {}); // token via interceptor
+  }
+  surrenderGame(id: string) {
+    return this.http.post<void>(`${this.base}/games/${id}/surrender`, {});
+  }
+  leaveGame(id: string) {
+    return this.http.post<void>(`${this.base}/games/${id}/leave`, {});
+  }
+  getEndedSummary(id: string) {
+    return this.http.get<EndedGameSummary>(`${this.base}/games/${id}/summary`);
   }
 
   selectLocation(id: string, card: string) {

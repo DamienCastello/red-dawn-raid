@@ -4,6 +4,7 @@ public class GameEvents {
     public enum Type {
         LOBBY_UPDATED,
         GAME_CREATED,
+        GAME_DELETED,
         RAID_MODS_UPDATED,
         CENTER_REVEALED,
         PHASE_CHANGED,

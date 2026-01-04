@@ -13,6 +13,8 @@ public class Game {
     private String id;
     private GameStatus status;
 
+    private String winnerSide;
+
     // état "tour/raid"
     private int raid;            // n° de raid (1 au start)
     private Phase phase;         // PHASE0 / PHASE1 / PHASE2 / PHASE3 / PHASE4
@@ -380,6 +382,9 @@ public class Game {
     public int getRound() { return raid; }
 
     public void setStatus(GameStatus status) { this.status = status; }
+
+    public String getWinnerSide() { return winnerSide; }
+    public void setWinnerSide(String winnerSide) { this.winnerSide = winnerSide; }
 
     // état de partie
     public int getRaid() { return raid; }

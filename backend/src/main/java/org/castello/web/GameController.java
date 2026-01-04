@@ -7,6 +7,7 @@ import org.castello.player.PlayerService;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import org.castello.web.dto.EndedGameSummary;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,11 +53,23 @@ public class GameController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void join(@PathVariable String id,
                      @RequestHeader("Authorization") String authorization) {
+
         var user = authService.requireUser(authorization);
         String username = user.getUsername();
+
+        // 1) garde ta règle "1 game par user"
         playerService.joinGame(user.getId(), id, username);
-        games.addOrUpdatePlayer(id, user.getId(), username);
+
+        try {
+            // 2) écrit dans le JSONB
+            games.addOrUpdatePlayer(id, user.getId(), username);
+        } catch (Exception e) {
+            // rollback "simple" côté SQL si le JSONB refuse
+            playerService.leaveGame(user.getId(), id);
+            throw e;
+        }
     }
+
 
     @PostMapping("/{id}/start")
     @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -65,6 +78,35 @@ public class GameController {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.start(id);
+    }
+
+    @PostMapping("/{id}/surrender")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void surrender(@PathVariable String id,
+                        @RequestHeader("Authorization") String authorization) {
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+        games.surrender(id, user.getId());
+    }
+
+
+    @PostMapping("/{id}/leave")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void leave(@PathVariable String id,
+                      @RequestHeader("Authorization") String authorization) {
+
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+
+        games.leave(id, user.getId());        // JSONB: leftGame=true
+        playerService.leaveGame(user.getId(), id); // SQL: delete PlayerEntity
+    }
+
+    @GetMapping("/{id}/summary")
+    public EndedGameSummary summary(@PathVariable String id,
+                                    @RequestHeader("Authorization") String authorization) {
+        authService.requireUser(authorization);
+        return games.viewEndedSummary(id);
     }
 
     @PostMapping("/{id}/advance")

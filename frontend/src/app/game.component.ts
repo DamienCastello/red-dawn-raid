@@ -1,7 +1,7 @@
 import { Component, inject, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { ApiService, GameSnapshot, RawStatMod, Phase, TradeView, Pile } from './api.service';
+import { ApiService, GameSnapshot, RawStatMod, Phase, Pile } from './api.service';
 import { LiveService, GameEvent } from './live.service';
 
 type RoundFightView = GameSnapshot['combatsQueue'][number];
@@ -30,7 +30,18 @@ interface ForgeOption {
   imports: [CommonModule],
   template: `
   <main class="container">
-    <button class="lobby-btn" (click)="back()">← Retour Lobby</button>
+    <button class="lobby-btn" *ngIf="!isGameEnded && !isMeDead" (click)="back()">← Retour Lobby</button>
+    <button class="leave-btn"
+            *ngIf="!isGameEnded && !isMeDead"
+            (click)="leave()">
+      Abandonner
+    </button>
+
+    <button class="leave-btn"
+            *ngIf="!isGameEnded && isMeDead"
+            (click)="leaveAfterDeath()">
+      Quitter
+    </button>
     <h2 style="margin: 0px;">Raid {{ game?.raid }} — {{ game?.phase || '...' }}</h2>
 
     <div *ngIf="errorMsg" style="background:#fee;border:1px solid #f99;padding:.5rem;margin:.5rem 0">
@@ -40,7 +51,7 @@ interface ForgeOption {
     <!-- BOARD HAUT: chasseurs -->
     <section class="board-wide players-grid">
 
-      <div *ngFor="let p of hunterPlayers; trackBy: trackById"
+      <div *ngFor="let p of HunterAndServantPlayers; trackBy: trackById"
           class="player-card"
           [style.opacity]="isCurrent(p) ? 1 : .9"
           style="padding:.5rem; border:1px dashed #bbb; background:#f7f7ff; border-radius:8px">
@@ -184,7 +195,7 @@ interface ForgeOption {
               <b>Préparation des actions</b>
               <span *ngIf="remainingPrePhaseSeconds > 0"> ({{ remainingPrePhaseSeconds }}s)</span>
 
-              <div *ngIf="me && game?.hasUpcomingCombat" style="margin-top:.5rem">
+              <div *ngIf="!isMeDead && me && game?.hasUpcomingCombat" style="margin-top:.5rem">
                 <button *ngIf="!pendingUnstable() && 
                   (imInUpcomingCombat() 
                   || canUseHunterPrephaseActions()
@@ -422,7 +433,7 @@ interface ForgeOption {
           <button
             style="margin-left:.5rem"
             *ngIf="me?.role === 'VAMPIRE'"
-            [disabled]="game.phase !== 'PHASE2' || isWindActive"
+            [disabled]="game.phase !== 'PHASE2' || isWindActive || isMeDead" 
             (click)="openBuildModal()"
           >
             Construire un lieu
@@ -490,7 +501,7 @@ interface ForgeOption {
     </div>
   </div>
   <!-- === MODALE ROLL (joueur concerné) === -->
-  <div *ngIf="showRollModal && currentCombat as r" class="modal-backdrop">
+  <div *ngIf="showRollModal && !isGameEnded && currentCombat as r" class="modal-backdrop">
     <div class="modal location-modal" [style.backgroundImage]="setImageBackground('location')">
       <h3 style="margin-top:0" class="bg-badge">
         {{ modalTitle(r) }}
@@ -513,9 +524,9 @@ interface ForgeOption {
               <!-- Icône (à gauche) -->
               <div class="icon-bubble oval">
                 <div class="icon-halo"
-                    [ngClass]="(getPlayer(r.attackerId)?.role === 'VAMPIRE') ? 'round' : 'oval'">
+                    [ngClass]="entityHaloIcon(r.attackerId, 'attack')">
                   <img class="icon-side"
-                      [src]="roleIcon(getRole(getPlayer(r.attackerId)),'sword')"
+                      [src]="entityRoleIcon(r.attackerId,'sword')"
                       alt="attaque"/>
                 </div>
               </div>
@@ -679,7 +690,8 @@ interface ForgeOption {
             <div class="roll-row">
               <!-- Icône à gauche -->
               <div class="icon-bubble oval">
-                <div class="icon-halo oval">
+                <div class="icon-halo oval"
+                    [ngClass]="entityHaloIcon(r.defenderId, 'defense')">
                   <img class="icon-side"
                       [src]="roleIcon(getRole(getPlayer(r.defenderId)),'armor')"
                       alt="défense"/>
@@ -778,7 +790,7 @@ interface ForgeOption {
   </div>
 
   <!-- === MODALE SPECTATEUR === -->
-  <div *ngIf="showSpectatorModal && currentCombat as r" class="modal-backdrop">
+  <div *ngIf="showSpectatorModal && !isGameEnded && currentCombat as r" class="modal-backdrop">
     <div class="modal location-modal spectate" 
         [class.has-focus]="hasFocus(r.attackerId) || hasFocus(r.defenderId)"
         [class.bite-active]="!!game?.currentBite && !isBeforeBiteModal"
@@ -829,7 +841,7 @@ interface ForgeOption {
           </ng-container>
 
           <div class="icon-halo oval"
-              [ngClass]="entityHaloIcon(r.attackerId)">
+              [ngClass]="entityHaloIcon(r.attackerId, 'attack')">
             <img class="icon-side"
                 [src]="entityRoleIcon(r.attackerId,'sword')"
                 alt="attaque"/>
@@ -989,7 +1001,7 @@ interface ForgeOption {
             </div>
           </ng-container>
           <div class="icon-halo oval"
-              [ngClass]="entityHaloIcon(r.defenderId)">
+              [ngClass]="entityHaloIcon(r.defenderId, 'defense')">
             <img class="icon-side"
                 [src]="entityRoleIcon(r.defenderId,'armor')"
                 alt="défense"/>
@@ -1053,7 +1065,7 @@ interface ForgeOption {
     </div>
   </div>
   <!-- === MODALE MORSURE (PHASE3, quand currentBite actif) === -->
-  <div *ngIf="showBiteModal" class="modal-backdrop">
+  <div *ngIf="showBiteModal && !isGameEnded" class="modal-backdrop">
     <div class="modal bite-modal" [style.backgroundImage]="setImageBackground('bite')">
       <h3 class="bg-badge">Tentative de morsure</h3>
 
@@ -1178,7 +1190,7 @@ interface ForgeOption {
     </div>
   </div>
   <!-- ===== MODALE BOUTIQUE / TRANSMUTATION (Phase 4) ===== -->
-  <div *ngIf="shopOpen" class="modal-backdrop">
+  <div *ngIf="shopOpen && !isGameEnded" class="modal-backdrop">
     <div class="modal trade-modal"
         [class.hunters]="isHunter"
         [class.vampires]="isVampireSide">
@@ -1317,7 +1329,7 @@ interface ForgeOption {
                   {{ r }} <small>(x{{ resOf(me, r) }})</small>
                 </div>
                 <div class="actions">
-                  <button (click)="onSell(r, 1)" [disabled]="resOf(me, r) < 1">-1</button>
+                  <button (click)="onSell(r, 1)" [disabled]="resOf(me, r) < 1 || isMeDead">-1</button>
                 </div>
               </div>
             </div>
@@ -1328,15 +1340,15 @@ interface ForgeOption {
             <ul class="recipes">
               <li>
                 <span>2 🪵 + 1 💧 → +2 ⛓️</span>
-                <button (click)="onTransmute('WOOD_TO_IRON')" [disabled]="me?.wood!<2 || me?.water!<1">Transmuter</button>
+                <button (click)="onTransmute('WOOD_TO_IRON')" [disabled]="me?.wood!<2 || me?.water!<1 || isMeDead">Transmuter</button>
               </li>
               <li>
                 <span>2 ⛓️ + 1 💧 → +2 🪵</span>
-                <button (click)="onTransmute('IRON_TO_WOOD')" [disabled]="me?.iron!<2 || me?.water!<1">Transmuter</button>
+                <button (click)="onTransmute('IRON_TO_WOOD')" [disabled]="me?.iron!<2 || me?.water!<1 || isMeDead">Transmuter</button>
               </li>
               <li>
                 <span>1 🪵 + 1 ⛓️ + 1 💧 → +30 🕯️</span>
-                <button (click)="onTransmute('TRINITY_TO_SOULS')" [disabled]="me?.wood!<1 || me?.iron!<1 || me?.water!<1">Transmuter</button>
+                <button (click)="onTransmute('TRINITY_TO_SOULS')" [disabled]="me?.wood!<1 || me?.iron!<1 || me?.water!<1 || isMeDead">Transmuter</button>
               </li>
             </ul>
           </div>
@@ -1345,7 +1357,7 @@ interface ForgeOption {
         <div class="col">
           <div class="card">
             <h4>Proposer un échange</h4>
-            <div class="targets">
+            <div class="targets" *ngIf="!isMeDead">
               <button *ngFor="let p of eligibleTradeTargets"
                       (click)="selectTradeTarget(p.id)"
                       [class.active]="p.id===selectedTradeTargetId"
@@ -1431,7 +1443,7 @@ interface ForgeOption {
             </div>
             <div class="card">
               <h4>Statut</h4>
-              <div *ngIf="!waitingDone; else waitingTpl">
+              <div *ngIf="!isMeDead && !waitingDone; else waitingTpl">
                 <button class="finish" (click)="onFinishPhase4()">Ne rien faire</button>
               </div>
               <ng-template #waitingTpl>
@@ -1444,7 +1456,7 @@ interface ForgeOption {
     </div>
   </div>
   <!-- ===== MODALE ACTION ===== -->
-  <div class="modal-backdrop" *ngIf="showActionModal">
+  <div class="modal-backdrop" *ngIf="showActionModal && !isGameEnded">
     <div
       class="modal action-modal with-bg"
       [ngStyle]="{'background-image': actionBackgroundSrc(actionMode)}"
@@ -2608,7 +2620,7 @@ interface ForgeOption {
   </div>
   <!-- ===== MODALE SELECTION EFFET DE LIEU: FORGE ===== -->
   <div class="modal-backdrop"
-      *ngIf="game?.locationEffectPending 
+      *ngIf="game?.locationEffectPending
           && game?.locationEffectInfra === 'FORGE'
           && !locationActionModalOpen">
     <div class="modal construction-modal location-effect-modal"
@@ -2665,7 +2677,7 @@ interface ForgeOption {
   </div>
   <!-- ===== MODALE UTILISATION EFFET DE LIEU ===== -->
   <div class="modal-backdrop"
-      *ngIf="locationActionModalOpen 
+      *ngIf="locationActionModalOpen
               && (game?.locationEffectInfra === 'LIBRARY' 
                   || game?.locationEffectInfra === 'LABORATORY'
                   || game?.locationEffectInfra === 'ALTAR'
@@ -3042,6 +3054,29 @@ interface ForgeOption {
       </div>
     </div>
   </div>
+  <!-- Modale de mort (game pas finie) -->
+  <div class="modal-overlay" *ngIf="showDeathModal">
+    <div class="modal end-game-modal">
+      <h2>Vous êtes mort…</h2>
+      <p>Vous pouvez observer la partie ou retourner au lobby.</p>
+
+      <div class="end-game-actions">
+        <button (click)="observeAfterDeath()" style="margin-left:.5rem">Observer</button>
+        <button (click)="leaveAfterDeath()">Retour au lobby</button>
+      </div>
+    </div>
+  </div>
+  <!-- Modale de fin de partie -->
+  <div class="modal-overlay" *ngIf="isGameEnded">
+    <div class="modal end-game-modal">
+      <h2>{{ winnerTitle() }}</h2>
+      <p>{{ winnerSubtitle() }}</p>
+
+      <div class="end-game-actions">
+        <button (click)="leaveAfterEnd()">Retour au lobby</button>
+      </div>
+    </div>
+  </div>
   `,
   styles: [`
   /* Layout des boards */
@@ -3051,7 +3086,8 @@ interface ForgeOption {
     margin: 0 auto;
     padding: .5rem;
   }
-  .lobby-btn{ position: fixed; right: 40px; top: 10px; }
+  .leave-btn{ position: fixed; right: 40px; top: 10px; }
+  .lobby-btn{ position: fixed; right: 150px; top: 10px; }
   .board-wide{ width:100%; padding:.5rem; border:1px solid #ddd; margin:.5rem 0; background:#fff; }
   .players-grid{
     display: flex;
@@ -4299,6 +4335,44 @@ interface ForgeOption {
     text-align: center;
     line-height: 1.2rem;
   }
+  /* End game */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+
+  .end-game-modal {
+    background: #111;
+    color: #eee;
+    border-radius: 8px;
+    padding: 1.5rem 2rem;
+    max-width: 420px;
+    width: 90%;
+    box-shadow: 0 0 25px rgba(0,0,0,0.8);
+    text-align: center;
+  }
+
+  .end-game-modal h2 {
+    margin-top: 0;
+    margin-bottom: .5rem;
+  }
+
+  .end-game-modal p {
+    margin-top: 0;
+    margin-bottom: 1rem;
+  }
+
+  .end-game-actions button {
+    padding: .5rem 1.5rem;
+    border-radius: 4px;
+    border: none;
+    cursor: pointer;
+  }
 `]
 })
 export class GameComponent {
@@ -4322,6 +4396,18 @@ export class GameComponent {
 
   meId = sessionStorage.getItem('userId') || '';
   username = sessionStorage.getItem('username') || '';
+
+  deathModalOpen = false;
+  deathModalSeen = false;
+
+  get showDeathModal(): boolean {
+    return !this.isGameEnded && this.isMeDead && this.deathModalOpen;
+  }
+
+  get isMeDead(): boolean {
+    const me = this.game?.players?.find(p => p.id === this.meId);
+    return !!me && !me.leftGame && me.hp <= 0;
+  }
 
   selectedLocation: string | null = null;
   selectedAction: string | null = null;
@@ -4526,6 +4612,87 @@ export class GameComponent {
     ['gold','silver','souls','wood','herbs','stone','iron','water'] as const;
 
   back(){ this.router.navigate(['/lobby']); }
+
+  leave() {
+    if (!this.game) return;
+
+    const ok = window.confirm(
+      "Êtes-vous sûr de vouloir abandonner la partie ?\n" +
+      "Votre personnage meurt si vous abandonnez."
+    );
+    if (!ok) return;
+
+    this.api.surrenderGame(this.game.id).subscribe({
+      next: () => {
+      this.deathModalSeen = false;
+      this.deathModalOpen = true;
+      },
+      error: e => this.showError(e)
+    });
+  }
+
+  observeAfterDeath() {
+    this.deathModalOpen = false;
+    this.deathModalSeen = true;
+  }
+
+  leaveAfterDeath() {
+    if (!this.game) { this.router.navigate(['/lobby']); return; }
+
+    // là on quitte vraiment
+    this.api.leaveGame(this.game.id).subscribe({
+      next: () => {
+        sessionStorage.removeItem('gameId');
+        this.router.navigate(['/lobby']);
+      },
+      error: e => this.showError(e)
+    });
+  }
+
+  leaveAfterEnd() {
+    if (!this.game) { this.router.navigate(['/lobby']); return; }
+
+    this.api.leaveGame(this.game.id).subscribe({
+      next: () => {
+        sessionStorage.removeItem('gameId');
+        this.router.navigate(['/lobby']);
+      },
+      error: e => this.showError(e)
+    });
+  }
+
+  get isGameEnded(): boolean {
+    const g = this.game;
+    return !!g && g.status === 'ENDED' && !!g.winnerSide;
+  }
+
+  winnerTitle(): string {
+    const g = this.game;
+    if (!g || !g.winnerSide) return 'Fin de partie';
+
+    switch (g.winnerSide) {
+      case 'HUNTERS':
+        return 'Victoire des chasseurs';
+      case 'VAMPIRE':
+        return 'Victoire du vampire';
+      default:
+        return 'Fin de partie';
+    }
+  }
+
+  winnerSubtitle(): string {
+    const g = this.game;
+    if (!g || !g.winnerSide) return '';
+
+    switch (g.winnerSide) {
+      case 'HUNTERS':
+        return 'Le vampire est terrassé. Les chasseurs triomphent.';
+      case 'VAMPIRE':
+        return 'Plus aucun chasseur n’est debout. Le vampire règne sans partage.';
+      default:
+        return '';
+    }
+  }
 
   private showError(e:any){
     try{ this.errorMsg = e?.error?.message || 'Erreur'; } catch { this.errorMsg='Erreur'; }
@@ -4960,7 +5127,6 @@ export class GameComponent {
       switch (type) {
         case 'BLEED_WEAPON':   return 'saigne';
         case 'RANGED_WEAPON':  return 'tenu à distance';
-        case 'STUN_WEAPON':    return 'étourdi';
       }
     }
 
@@ -5174,7 +5340,7 @@ export class GameComponent {
     return this.game?.players.find(p => p.id === id);
   }
   roleColorOf(p?: SPlayer): 'red'|'blue' {
-    return (p?.role === 'VAMPIRE') ? 'red' : 'blue';
+    return (p?.role === 'VAMPIRE' || p?.role === 'SERVANT') ? 'red' : 'blue';
   }
   getRole(p?: SPlayer): 'VAMPIRE'|'HUNTER'|'SERVANT'|undefined {
     return p?.role ;
@@ -5237,39 +5403,55 @@ export class GameComponent {
     return 'purple';
   }
 
+  private servantEquipSide(p: SPlayer, name: 'sword'|'armor'): 'HUNTER'|'VAMPIRE' {
+    const code = (name === 'sword') ? p.weapon : p.armor;
+    if (!code) return 'HUNTER'; // pas d'équipement -> ancien chasseur
+
+    const c = code.toUpperCase();
+
+    // tes codes back sont du style H_WEAPON..., V_ARMOR..., etc.
+    if (c.startsWith('V_') || c.includes('V_WEAPON') || c.includes('V_ARMOR')) return 'VAMPIRE';
+    if (c.startsWith('H_') || c.includes('H_WEAPON') || c.includes('H_ARMOR')) return 'HUNTER';
+
+    // fallback (au pire)
+    return 'HUNTER';
+  }
+
   entityRoleIcon(id: string, name: 'sword'|'armor'): string {
     const p = this.getPlayer(id);
     if (p) {
-      return this.roleIcon(this.getRole(p), name);
+      if (p.role === 'SERVANT') {
+        const side = this.servantEquipSide(p, name);
+        return `/assets/icons/${side}-${name}.png`;
+      }
+      return `/assets/icons/${p.role}-${name}.png`;
     }
 
-    // Monstres : assets dédiés
     if (this.getMonster(id)) {
       return `/assets/monster/MONSTER-${name}.png`;
     }
 
-    // fallback sécurité
     return `/assets/icons/VAMPIRE-${name}.png`;
   }
 
-  entityHaloIcon(id: string){
+  entityHaloIcon(id: string, type: 'attack'|'defense'){
     const p = this.getPlayer(id);
 
-    if (p?.role === 'VAMPIRE') return 'round';
-    if (p?.role === 'HUNTER' || p?.role === 'SERVANT') return 'oval';
+    if (p?.role === 'VAMPIRE') {
+      if (type === 'attack') return 'round';
+      if (type === 'defense') return 'oval';
+    }
+    if (p?.role === 'SERVANT') {
+      if (p.weapon.startsWith('V_') && type === 'attack') return 'round';
+      return 'oval' 
+    }
+    if (p?.role === 'HUNTER') return 'oval';
 
     // Monstre
     if (this.getMonster(id)) return 'oval';
 
     // fallback
     return 'round';
-  }
-
-  isVampSideEntity(id: string): boolean {
-    const p = this.getPlayer(id);
-    if (p) return p.role === 'VAMPIRE';
-    // Monstres appartiennent au vampire
-    return true;
   }
 
   private locationOf(playerId?: string): string | null {
@@ -5457,8 +5639,14 @@ export class GameComponent {
       return fallback;
     }
 
-    if (source.startsWith('HIT:')) {
-      return '/assets/icons/HUNTER--sword.png';
+    if (source.startsWith('HIT:BLEED_WEAPON')) {
+      return '/assets/icons/bleed.png';
+    }
+      if (source.startsWith('HIT:STUN_WEAPON')) {
+      return '/assets/icons/stun.png';
+    }
+      if (source.startsWith('HIT:RANGED_WEAPON')) {
+      return '/assets/icons/range.png';
     }
 
     return fallback;
@@ -5518,6 +5706,14 @@ export class GameComponent {
     return this.game!.players.find(p => p.role === 'VAMPIRE')!;
   }
   get hunterPlayers(): SPlayer[] {
+    const list = (this.game?.players ?? []).filter(
+      p => (p.role === 'HUNTER') && p.id !== this.meId
+    );
+    // garder les serviteurs en premier puis les chasseurs
+    // return list.sort((a, b) => (a.role === b.role ? 0 : a.role === 'SERVANT' ? -1 : 1));
+    return list;
+  }
+  get HunterAndServantPlayers(): SPlayer[] {
     const list = (this.game?.players ?? []).filter(
       p => (p.role === 'HUNTER' || p.role === 'SERVANT') && p.id !== this.meId
     );
@@ -5609,6 +5805,16 @@ export class GameComponent {
           const previous = null;
 
           this.game = snap;
+
+          // === Sync waitingDone sur reload ===
+          const meId = this.meId;
+          if (snap.phase === 'PHASE4') {
+            this.waitingDone = !!(meId && snap.readyForNextRaid?.includes(meId));
+          } else {
+            // Dans toutes les autres phases, on reset proprement
+            this.waitingDone = false;
+          }
+
           this.handleWeatherReveal(snap);
 
           // Instables
@@ -5669,44 +5875,6 @@ export class GameComponent {
   this.seenEventKeys.add(key);
 
     switch (event.type) {
-      case 'WEATHER_ROLLED': {
-        const w = {
-          roll: event.payload.roll,
-          status: event.payload.status,
-          nameFr: event.payload.nameFr,
-          descFr: event.payload.descFr,
-        };
-
-        if (!this.game) {
-          // Pas encore de snapshot → récupère tout et lance l’anim proprement
-          this.api.getGame(this.gameId).subscribe({
-            next: g => { 
-              this.game = g;
-              // (optionnel) sécurité si le back a poussé WEATHER_ROLLED une micro-seconde avant d’écrire le roll
-              if (!g.weather || g.weather.roll == null) {
-                this.game = { ...g, weather: w } as GameSnapshot;
-              }
-              this.handleWeatherReveal(this.game!);
-              this.bumpHistoryScroll();
-            },
-            error: e => this.showError(e)
-          });
-        } else {
-          // Snapshot déjà présent → patch léger + anim
-          this.game = { ...(this.game as any), weather: w } as GameSnapshot;
-          this.handleWeatherReveal(this.game!);
-
-          // Sync propre un peu après pour récupérer mods/messages exacts
-          setTimeout(() => {
-            this.api.getGame(this.gameId).subscribe({
-              next: g => { this.game = g; this.bumpHistoryScroll(); },
-              error: e => this.showError(e)
-            });
-          }, 200);
-        }
-        break;
-      }
-
       case 'PHASE_CHANGED': {
         const next = (event?.payload?.phase as Phase | undefined) ?? undefined;
 
@@ -5728,6 +5896,27 @@ export class GameComponent {
           next: g => {
             const previous = this.game;
             this.game = g;
+
+            const me = g?.players?.find(p => p.id === this.meId);
+            const isDeadNow = !!me && !me.leftGame && me.hp <= 0;
+
+            if (!g || g.status !== 'ACTIVE') {
+              this.deathModalOpen = false;
+              this.deathModalSeen = false;
+            } else if (!isDeadNow) {
+              // vivant => reset
+              this.deathModalOpen = false;
+              this.deathModalSeen = false;
+            } else {
+              // mort + game active
+              if (!this.deathModalSeen) {
+                this.deathModalOpen = true;   // open une seule fois
+                this.deathModalSeen = true;   // verrouille immédiatement
+              } else {
+                // déjà “vu” => ne rien faire
+              }
+            }
+
 
             this.syncActionFromSnapshot(g);
 
@@ -5791,6 +5980,53 @@ export class GameComponent {
         break;
       }
 
+      case 'LOBBY_UPDATED': {
+        // si status == CREATED, refresh pour voir les pseudos/players en live
+        this.api.getGame(this.gameId).subscribe({
+          next: g => this.game = g,
+          error: e => this.showError(e)
+        });
+        break;
+      }
+
+      case 'WEATHER_ROLLED': {
+        const w = {
+          roll: event.payload.roll,
+          status: event.payload.status,
+          nameFr: event.payload.nameFr,
+          descFr: event.payload.descFr,
+        };
+
+        if (!this.game) {
+          // Pas encore de snapshot → récupère tout et lance l’anim proprement
+          this.api.getGame(this.gameId).subscribe({
+            next: g => { 
+              this.game = g;
+              // (optionnel) sécurité si le back a poussé WEATHER_ROLLED une micro-seconde avant d’écrire le roll
+              if (!g.weather || g.weather.roll == null) {
+                this.game = { ...g, weather: w } as GameSnapshot;
+              }
+              this.handleWeatherReveal(this.game!);
+              this.bumpHistoryScroll();
+            },
+            error: e => this.showError(e)
+          });
+        } else {
+          // Snapshot déjà présent → patch léger + anim
+          this.game = { ...(this.game as any), weather: w } as GameSnapshot;
+          this.handleWeatherReveal(this.game!);
+
+          // Sync propre un peu après pour récupérer mods/messages exacts
+          setTimeout(() => {
+            this.api.getGame(this.gameId).subscribe({
+              next: g => { this.game = g; this.bumpHistoryScroll(); },
+              error: e => this.showError(e)
+            });
+          }, 200);
+        }
+        break;
+      }
+
       case 'MESSAGE': {
         this.game?.messages?.push(event.payload.text);
         this.bumpHistoryScroll();
@@ -5823,15 +6059,6 @@ export class GameComponent {
 
       case 'RAID_MODS_UPDATED': {
         // Simple: resynchronise l’état complet
-        this.api.getGame(this.gameId).subscribe({
-          next: g => this.game = g,
-          error: e => this.showError(e)
-        });
-        break;
-      }
-
-      case 'LOBBY_UPDATED': {
-        // si status == CREATED, refresh pour voir les pseudos/players en live
         this.api.getGame(this.gameId).subscribe({
           next: g => this.game = g,
           error: e => this.showError(e)
@@ -6214,6 +6441,7 @@ export class GameComponent {
     const g  = this.game;
     const me = this.me;
     if (!g || !me) return false;
+    if (me.hp <= 0) return false;
 
     const isVampSide = me.role === 'VAMPIRE' || me.role === 'SERVANT';
 
@@ -6268,6 +6496,111 @@ export class GameComponent {
       }
 
       // Cas normal : jouer uniquement le lieu
+      if (String(loc).toLowerCase() === 'forge') {
+        // 1) Options possibles (tiers suivant) via ton code existant
+        const tmpG = { ...g, locationEffectOwnerId: me.id } as GameSnapshot;
+        const possible = this.computeForgeOptionsForOwner(tmpG);
+
+        // Si aucune option => probablement full T3
+        if (possible.length === 0) {
+          const ok = window.confirm(
+            "Attention : vous ne pouvez plus forger d’amélioration.\n" +
+            "Raison : votre arme et votre armure semblent déjà au palier maximum (T3).\n\n" +
+            "Voulez-vous quand même jouer cette carte ?"
+          );
+          if (!ok) {
+            this.selectedLocation = null;
+            return;
+          }
+        } else {
+          // 2) Vérif ressources (copie des coûts back, en inline)
+          const wood   = (me as any).wood   ?? 0;
+          const iron   = (me as any).iron   ?? 0;
+          const silver = (me as any).silver ?? 0;
+          const souls  = (me as any).souls  ?? 0;
+
+          const costOf = (id: string) => {
+            switch (id) {
+              // Hunters T1
+              case 'H_WEAPON_T1_SWORD':     return { wood: 2, iron: 4 };
+              case 'H_WEAPON_T1_MACE':      return { wood: 3, iron: 3 };
+              case 'H_WEAPON_T1_SPEAR':     return { wood: 5, iron: 1 };
+              case 'H_ARMOR_T1_BRIGANDINE': return { iron: 6 };
+
+              // Hunters T2
+              case 'H_WEAPON_T2_HALBERD':   return { wood: 6, iron: 4 };
+              case 'H_WEAPON_T2_HAMMER':    return { wood: 4, iron: 6 };
+              case 'H_WEAPON_T2_CROSSBOW':  return { wood: 5, iron: 5 };
+              case 'H_ARMOR_T2_HAUBERT':    return { iron: 8 };
+
+              // Hunters T3
+              case 'H_WEAPON_T3_WRIST_BLADES': return { iron: 6, silver: 10 };
+              case 'H_WEAPON_T3_FLAIL':        return { wood: 3, iron: 3, silver: 10 };
+              case 'H_WEAPON_T3_PISTOL':       return { wood: 6, silver: 10 };
+              case 'H_ARMOR_T3_PLATE_SILVER':  return { iron: 10, silver: 15 };
+
+              // Vamp/Servant
+              case 'V_WEAPON_T1_SCYTHE':    return { wood: 2, iron: 4, souls: 40 };
+              case 'V_ARMOR_T1_CARAPACE':   return { iron: 4, souls: 40 };
+
+              case 'V_WEAPON_T2_SWORD':     return { wood: 3, iron: 6, souls: 60 };
+              case 'V_ARMOR_T2_HAUBERT':    return { iron: 6, souls: 60 };
+
+              case 'V_WEAPON_T3_CLAWS':     return { wood: 4, iron: 4, souls: 100 };
+              case 'V_ARMOR_T3_ECORCE':     return { wood: 3, iron: 6, souls: 100 };
+
+              default: return null;
+            }
+          };
+
+          const missingOf = (id: string) => {
+            const c = costOf(id);
+            if (!c) return { total: 999, parts: ['coût inconnu'] };
+
+            const missWood   = Math.max(0, (c.wood   ?? 0) - wood);
+            const missIron   = Math.max(0, (c.iron   ?? 0) - iron);
+            const missSilver = Math.max(0, (c.silver ?? 0) - silver);
+            const missSouls  = Math.max(0, (c.souls  ?? 0) - souls);
+
+            const parts: string[] = [];
+            if (missWood)   parts.push(`${missWood} bois`);
+            if (missIron)   parts.push(`${missIron} fer`);
+            if (missSilver) parts.push(`${missSilver} argent`);
+            if (missSouls)  parts.push(`${missSouls} âmes`);
+
+            return {
+              total: missWood + missIron + missSilver + missSouls,
+              parts
+            };
+          };
+
+          const affordable = possible.filter(o => missingOf(o.id).total === 0);
+
+          if (affordable.length === 0) {
+            // On prend l’option “la plus proche” pour expliquer clairement la raison
+            const ranked = possible
+              .map(o => ({ o, miss: missingOf(o.id) }))
+              .sort((a, b) => a.miss.total - b.miss.total);
+
+            const best = ranked[0];
+
+            const reason =
+              "Attention: aller à la Forge n’aura aucun effet pour l’instant.\n" +
+              "Raison: vous n’avez pas assez de ressources pour forger un équipement.\n\n" +
+              `Option la plus proche : ${best.o.label}\n` +
+              `Il vous manque: ${best.miss.parts.join(', ')}\n\n` +
+              `Vos ressources: ${wood} bois, ${iron} fer, ${silver} argent, ${souls} âmes.\n\n` +
+              "Voulez-vous quand même jouer cette carte ?";
+
+            const ok = window.confirm(reason);
+            if (!ok) {
+              this.selectedLocation = null;
+              return;
+            }
+          }
+        }
+      }
+
       this.api.selectLocation(g.id, loc).subscribe({
         next: _ => {
           this.selectedLocation = null;
@@ -6438,7 +6771,9 @@ export class GameComponent {
 
   canUsePotionNow(_pot: string): boolean {
     const g = this.game;
-    if (!g) return false;
+    const me = this.me;
+    if (!g || !me) return false;
+    if (me.hp <= 0) return false;
 
     const ws  = g.weather?.status;
     const wss = g.weather?.secondaryStatus;
@@ -6636,6 +6971,7 @@ export class GameComponent {
     const g = this.game;
     const me = this.me;
     if (!g || !me) return false;
+    if (me.hp <= 0) return false;
 
     const ws = g.weather?.status;
     const wss = g.weather?.secondaryStatus;
@@ -7408,6 +7744,9 @@ export class GameComponent {
   }
 
   canBuyBonus(): boolean {
+    const me = this.me;
+    if (!me) return false;
+    if (me.hp <= 0) return false;
     return this.canPayBonusWithResource() || this.canPayBonusWithGold();
   }
 
@@ -8552,6 +8891,7 @@ export class GameComponent {
     const me = this.me; 
     const snapshot = this.game;
     if (!me || !snapshot) return false;
+    if (me.hp <= 0) return false;
 
     const left = this.deckSize(snapshot.decks?.potions);
     if (left <= 0) return false;
@@ -8563,6 +8903,7 @@ export class GameComponent {
     const me = this.me; 
     const snapshot = this.game;
     if (!me || !snapshot) return false;
+    if (me.hp <= 0) return false;
 
     const left = this.deckSize(snapshot.decks?.elixirs);
     if (left <= 0) return false;
@@ -8574,6 +8915,7 @@ export class GameComponent {
     const me = this.me; 
     const snapshot = this.game;
     if (!me || !snapshot) return false;
+    if (me.hp <= 0) return false;
 
     const left = this.deckSize(snapshot.decks?.actionsVamp);
     if (left <= 0) return false;
@@ -8585,6 +8927,7 @@ export class GameComponent {
     const me = this.me; 
     const snapshot = this.game;
     if (!me || !snapshot) return false;
+    if (me.hp <= 0) return false;
 
     const left = this.deckSize(snapshot.decks?.actionsHunters);
     if (left <= 0) return false;
@@ -8595,12 +8938,14 @@ export class GameComponent {
   get canBuySilver() {
     const me = this.me;
     if (!me || me.role !== 'HUNTER') return false;
+    if (me.hp <= 0) return false;
     return me.gold >= this.silverPrice;
   }
 
   canBuySilverQty(qty: number): boolean {
     const me = this.me;
     if (!me || me.role !== 'HUNTER') return false;
+    if (me.hp <= 0) return false;
     const unit = this.silverPrice;
     const cost = unit * qty;
     return me.gold >= cost;
@@ -8610,6 +8955,7 @@ export class GameComponent {
     const me = this.me;
     const g  = this.game;
     if (!me || !g || me.role !== 'HUNTER') return false;
+    if (me.hp <= 0) return false;
 
     const goldCost  = this.holyWaterGoldPrice;
     const waterCost = 3;
@@ -8734,12 +9080,12 @@ export class GameComponent {
   get eligibleTradeTargets(): SPlayer[] {
     if (!this.game || !this.me) return [];
     if (this.isHunter) {
-      return this.game.players.filter((p: SPlayer) => p.role === 'HUNTER' && p.id !== this.me!.id);
+      return this.game.players.filter((p: SPlayer) => p.role === 'HUNTER' && p.id !== this.me!.id && p.hp > 0);
     }
     if (this.me!.role === 'VAMPIRE') {
-      return this.game.players.filter((p: SPlayer) => p.role === 'SERVANT');
+      return this.game.players.filter((p: SPlayer) => p.role === 'SERVANT' && p.hp > 0);
     }
-    return this.game.players.filter((p: SPlayer) => p.role === 'VAMPIRE');
+    return this.game.players.filter((p: SPlayer) => p.role === 'VAMPIRE' && p.hp > 0);
   }
 
   // quand tu changes de cible : sauvegarde l’ancienne, recharge la nouvelle
@@ -9019,6 +9365,14 @@ export class GameComponent {
   }
 
   private syncLocationEffectFromSnapshot(g: GameSnapshot, previous?: GameSnapshot | null) {
+    console.log('[LOC]', {
+      pending: g?.locationEffectPending,
+      infra: g?.locationEffectInfra,
+      choice: g?.locationEffectChoice,
+      ownerId: g?.locationEffectOwnerId,
+      meId: this.me?.id,
+      isOwner: this.isLocationEffectOwner,
+    });
     // 0) Aucun effet de lieu → on vide tout
     if (!g.locationEffectPending || !g.locationEffectInfra) {
       this.effectChoice = null;

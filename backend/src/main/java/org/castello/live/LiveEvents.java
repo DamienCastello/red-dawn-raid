@@ -79,6 +79,15 @@ public class LiveEvents {
         ));
     }
 
+    public void gameDeleted(String gameId){
+        sendLobby(new GameEvents(
+                GameEvents.Type.GAME_DELETED,
+                gameId,
+                Map.of("gameId", gameId),
+                System.currentTimeMillis()
+        ));
+    }
+
     /** Déclenché dès que les cartes du centre passent face visible (pour animer le “flip”). */
     public void centerRevealed(Game g) {
         send(g.getId(), new GameEvents(

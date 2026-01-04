@@ -5,6 +5,8 @@ import org.castello.persistence.PlayerRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.transaction.annotation.Transactional;
+
 
 import java.util.UUID;
 
@@ -14,6 +16,7 @@ public class PlayerService {
     public PlayerService(PlayerRepository repo){ this.repo = repo; }
 
     /** Rejoint une game (ou met à jour le username) ; impose 1 seule game par user. */
+    @Transactional
     public PlayerEntity joinGame(String userId, String gameId, String username) {
         var any = repo.findByUserId(userId).orElse(null);
         if (any != null && !any.getGameId().equals(gameId)) {
@@ -31,6 +34,13 @@ public class PlayerService {
         p.setUsername(username);
         return repo.save(p);
     }
+
+    @Transactional
+    public void leaveGame(String userId, String gameId) {
+        repo.findByUserIdAndGameId(userId, gameId)
+                .ifPresent(repo::delete);
+    }
+
 
     /** Vérifie que le user est bien joueur de la game. */
     public void requireInGame(String userId, String gameId) {
