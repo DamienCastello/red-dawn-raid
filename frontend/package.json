@@ -3,8 +3,9 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
-    "start": "ng serve",
-    "build": "ng build",
+    "gen:assets": "node gen-assets-manifest.mjs",
+    "start": "npm run gen:assets && ng serve",
+    "build": "npm run gen:assets && ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"
   },

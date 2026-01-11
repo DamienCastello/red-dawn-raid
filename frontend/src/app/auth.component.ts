@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ApiService } from './api.service';
+import { AssetPreloaderService } from './services/asset-preloader.service';
 
 @Component({
   selector: 'app-auth',
@@ -13,11 +14,11 @@ import { ApiService } from './api.service';
     <h1>Red Dawn Raid — Auth</h1>
 
     <form [formGroup]="form" (ngSubmit)="login()">
-      <label>Username</label>
+      <label>User</label>
       <input formControlName="username" class="input" />
       <div *ngIf="form.controls.username.invalid && form.controls.username.touched" class="err">Requis</div>
 
-      <label>Mot de passe</label>
+      <label>Password</label>
       <input type="password" formControlName="password" class="input" />
       <div *ngIf="form.controls.password.invalid && form.controls.password.touched" class="err">Requis</div>
 
@@ -33,6 +34,15 @@ import { ApiService } from './api.service';
       🧨 Vider toute la base (local)
     </button>
 
+    <!-- =========================
+     DANGER ZONE (à supprimer avant release)
+     ========================= -->
+      <button *ngIf="enableDangerWipe"
+              (click)="wipeAllEnv()"
+              style="margin-top:1rem; background:#b30000; color:#fff; border:none; padding:.5rem .75rem; border-radius:6px">
+        🧨 Vider toute la base ({{ envName }})
+      </button>
+
     <p *ngIf="error" class="err" style="margin-top:1rem">{{error}}</p>
   </div>
   `,
@@ -42,6 +52,11 @@ export class AuthComponent {
   private api = inject(ApiService);
   private fb = inject(FormBuilder);
   private router = inject(Router);
+  private assets = inject(AssetPreloaderService);
+
+  constructor() {
+    this.assets.start();
+  }
 
   loading = false;
   error = '';
@@ -63,6 +78,34 @@ export class AuthComponent {
 
     this.api.wipeDb().subscribe({
       next: () => alert('Base vidée ✅'),
+      error: (e) => alert('Erreur wipe: ' + (e?.error?.message || e.message || 'inconnue'))
+    });
+  }
+
+  // =========================
+  // DANGER ZONE (à supprimer avant release)
+  // =========================
+  enableDangerWipe = false;
+
+  envName = location.origin;
+
+  // =========================
+  // DANGER ZONE (à supprimer avant release)
+  // =========================
+  wipeAllEnv() {
+    const env = this.envName; // location.origin
+
+    const sure1 = confirm(`⚠️ DANGER: Tu vas VIDER TOUTE LA BASE sur:\n${env}`);
+    if (!sure1) return;
+
+    const sure2 = prompt(`Tape EXACTEMENT: WIPE ${env}`);
+    if (sure2 !== `WIPE ${env}`) {
+      alert("Annulé (mauvaise confirmation).");
+      return;
+    }
+
+    this.api.wipeDbEnv().subscribe({
+      next: () => alert(`Base vidée ✅ (${env})`),
       error: (e) => alert('Erreur wipe: ' + (e?.error?.message || e.message || 'inconnue'))
     });
   }

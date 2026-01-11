@@ -3,8 +3,8 @@ import { Client, IMessage, IFrame, StompHeaders } from '@stomp/stompjs';
 import { TradeView } from './api.service';
 
 export type GameEvent =
-  { type: 'LOBBY_UPDATED'; gameId: string; payload: { gameId: string; status: string; players: {id:string; username:string}[] }; ts: number }
-  | { type: 'GAME_CREATED'; gameId: string; payload: { gameId: string; status: string; players: {id:string; username:string}[] }; ts: number }
+  { type: 'LOBBY_UPDATED'; gameId: string; payload: { gameId: string; status: string; players: {id:string; username:string; leftGame?: boolean}[], readyForStart: string[] }; ts: number }
+  | { type: 'GAME_CREATED'; gameId: string; payload: { gameId: string; status: string; players: {id:string; username:string; leftGame?: boolean}[], readyForStart: string[] }; ts: number }
   | { type: 'GAME_DELETED'; gameId: string; payload: { gameId: string }; ts: number }
   | { type: 'PHASE_CHANGED'; gameId: string; payload: { phase: string; raid: number }; ts: number }
   | { type: 'WEATHER_ROLLED'; gameId: string; payload: { roll: number; status: string; nameFr: string; descFr: string }; ts: number }

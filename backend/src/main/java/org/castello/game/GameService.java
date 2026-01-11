@@ -1081,12 +1081,64 @@ public class GameService {
     }
 
     @Transactional
-    public Game start(String id) {
+    public void requestStart(String id) {
         Game g = findOr404(id);
+
         if (g.getStatus() != GameStatus.CREATED)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "already started/ended");
-        if (g.getPlayers().size() < 2)
+
+        long activeCount = g.getPlayers().stream().filter(p -> !p.isLeftGame()).count();
+        if (activeCount < 2)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "need at least 2 players");
+
+        g.setStatus(GameStatus.STARTING);
+
+        if (g.getReadyForStart() == null) g.setReadyForStart(new HashSet<>());
+        else g.getReadyForStart().clear();
+
+        save(g);
+
+        afterCommit(() -> live.lobbyUpdated(g));
+    }
+
+    @Transactional
+    public void bootReady(String gameId, String userId) {
+        Game g = findOr404(gameId);
+
+        // idempotent / robuste
+        if (g.getStatus() == GameStatus.ACTIVE) return;
+        if (g.getStatus() != GameStatus.STARTING)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "game not starting");
+
+        if (g.getReadyForStart() == null) g.setReadyForStart(new HashSet<>());
+        g.getReadyForStart().add(userId);
+
+        // calc des joueurs "actifs" (pas leftGame)
+        var activeIds = g.getPlayers().stream()
+                .filter(p -> !p.isLeftGame())
+                .map(Player::getId)
+                .toList();
+
+        boolean allReady = activeIds.stream().allMatch(pid -> g.getReadyForStart().contains(pid));
+
+        if (!allReady) {
+            save(g);
+            afterCommit(() -> live.lobbyUpdated(g)); // update progression overlay
+            return;
+        }
+
+        // Tout le monde prêt -> on démarre vraiment
+        // startReal() fera save + afterCommit (lobbyUpdated + phaseChanged etc.)
+        startReal(g);
+    }
+
+
+    @Transactional
+    public Game startReal(Game g) {
+        // Guard anti double-start (important)
+        if (g.getStatus() == GameStatus.ACTIVE) return g;
+        if (g.getStatus() != GameStatus.STARTING)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "not in STARTING");
 
         // === Etat global ===
         g.setStatus(GameStatus.ACTIVE);

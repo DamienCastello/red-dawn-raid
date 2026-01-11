@@ -1,5 +1,5 @@
 package org.castello.game;
 
 public enum GameStatus {
-    CREATED, ACTIVE, ENDED
+    CREATED, STARTING, ACTIVE, ENDED
 }

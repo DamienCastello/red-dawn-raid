@@ -70,6 +70,14 @@ public class GameController {
         }
     }
 
+    @PostMapping("/{id}/boot-ready")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void bootReady(@PathVariable String id,
+                          @RequestHeader("Authorization") String authorization) {
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+        games.bootReady(id, user.getId());
+    }
 
     @PostMapping("/{id}/start")
     @ResponseStatus(HttpStatus.NO_CONTENT)
@@ -77,7 +85,7 @@ public class GameController {
                       @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
-        games.start(id);
+        games.requestStart(id);
     }
 
     @PostMapping("/{id}/surrender")

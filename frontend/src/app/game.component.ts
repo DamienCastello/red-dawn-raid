@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ApiService, GameSnapshot, RawStatMod, Phase, Pile } from './api.service';
 import { LiveService, GameEvent } from './live.service';
+import { AssetPreloaderService } from './services/asset-preloader.service';
 
 type RoundFightView = GameSnapshot['combatsQueue'][number];
 type SPlayer = GameSnapshot['players'][number];
@@ -141,7 +142,7 @@ interface ForgeOption {
 
     <!-- LIGNE MILIEU -->
     <section class="board-wide-center boards-row"
-         [class.no-left]="!hasVampire || isMeVampire">
+        [class.no-left]="!hasVampire || isMeVampire">
       <!-- gauche: stats vampire -->
       <section *ngIf="hasVampire && !isMeVampire" class="panel panel-left">
         <h3 style="margin:0 0 10px 0">Vampire</h3>
@@ -5827,7 +5828,8 @@ export class GameComponent {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private live = inject(LiveService);
-  private unsubscribeGameTopic?: () => void; // pour couper l’abonnement WS au destroy
+  private unsubscribeGameTopic?: () => void; // coupe l’abonnement WS au destroy
+  private assets = inject(AssetPreloaderService);
 
   private weatherWaitTimer?: any;
 
@@ -7597,12 +7599,11 @@ bonusBuyImgSrc(): string {
    */
   ngOnInit() {
     this.route.paramMap.subscribe(pm => {
-      const id = pm.get('id'); 
-      if (!id) { this.showError('Identifiant...'); return; }
+      const id = pm.get('id');
+      if (!id) { this.showError('Identifiant de game inconnu.'); return; }
 
       this.unsubscribeGameTopic?.();
       this.gameId = id;
-
       // 1) D’abord WS
       this.unsubscribeGameTopic = this.live.subscribeGame(this.gameId, ev => this.onLiveEvent(ev));
 
@@ -7612,6 +7613,11 @@ bonusBuyImgSrc(): string {
           const previous = null;
 
           this.game = snap;
+
+          if ((snap as any).status === 'CREATED' || (snap as any).status === 'STARTING') {
+            this.router.navigate(['/lobby']);
+            return;
+          }
 
           // === Sync waitingDone sur reload ===
           const meId = this.meId;
@@ -7652,7 +7658,6 @@ bonusBuyImgSrc(): string {
       });
     });
   }
-
 
   /** DESTROY
    * on se désabonne du WS et on nettoie les timeouts météo.

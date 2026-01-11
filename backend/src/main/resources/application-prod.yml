@@ -1,17 +1,19 @@
 server:
   forward-headers-strategy: native
 
+danger:
+  wipe:
+    enabled: false
+
 app:
   cors:
     allowed-origins:
       - https://red-dawn-raid.castello.ovh
 
 spring:
-  profiles:
-    active: prod
   jpa:
     hibernate:
-      ddl-auto: validate  # en prod, idéalement "validate"
+      ddl-auto: update
 logging:
   level:
     root: info

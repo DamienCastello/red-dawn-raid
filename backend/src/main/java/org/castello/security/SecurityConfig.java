@@ -37,6 +37,9 @@ public class SecurityConfig {
                         // Préflight CORS (important si front sur un autre domaine/port)
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
+                        // DANGER WIPE (sans auth)
+                        .requestMatchers(HttpMethod.POST, "/api/admin/wipe").permitAll()
+
                         // Auth public
                         .requestMatchers("/api/auth/**").permitAll()
 

@@ -201,6 +201,7 @@ export type LobbyGame = {
   id: string;
   status: string;
   players: LobbyPlayer[];
+  readyForStart?: string[];
 };
 
 export type EndedGameSummary = {
@@ -251,6 +252,9 @@ export class ApiService {
 
   joinGame(id: string) {
     return this.http.post<void>(`${this.base}/games/${id}/join`, {});
+  }
+  bootReady(id: string) {
+    return this.http.post<void>(`${this.base}/games/${id}/boot-ready`, {});
   }
   startGame(id: string) {
     return this.http.post<void>(`${this.base}/games/${id}/start`, {}); // token via interceptor
@@ -609,12 +613,15 @@ export class ApiService {
   }
 
 
-    // Auth
+  // Auth
   signup(username: string, password: string) {
     return this.http.post<{authToken:string, userId:string, username:string}>(`${this.base}/auth/signup`, { username, password });
   }
   login(username: string, password: string) {
     return this.http.post<{authToken:string, userId:string, username:string}>(`${this.base}/auth/login`,  { username, password });
+  }
+  wipeDbEnv() {
+    return this.http.post(`${this.base}/admin/wipe?confirm=YES`, {});
   }
   wipeDb() {
     // petit param confirm pour éviter les clics involontaires

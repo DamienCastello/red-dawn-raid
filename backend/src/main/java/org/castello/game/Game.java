@@ -19,6 +19,8 @@ public class Game {
     private int raid;            // n° de raid (1 au start)
     private Phase phase;         // PHASE0 / PHASE1 / PHASE2 / PHASE3 / PHASE4
 
+    private Set<String> readyForStart = new HashSet<>();
+
     // joueurs dans la partie
     private final List<Player> players = new ArrayList<>();
 
@@ -385,6 +387,9 @@ public class Game {
     public String getId() { return id; }
     public GameStatus getStatus() { return status; }
     public int getRound() { return raid; }
+
+    public Set<String> getReadyForStart() { return readyForStart; }
+    public void setReadyForStart(Set<String> s) { this.readyForStart = (s != null ? s : new HashSet<>()); }
 
     public void setStatus(GameStatus status) { this.status = status; }
 

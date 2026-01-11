@@ -5,6 +5,7 @@ import { Router } from '@angular/router';
 import { ApiService, LobbyGame } from './api.service';
 
 import { LiveService, GameEvent } from './live.service';
+import { AssetPreloaderService } from './services/asset-preloader.service';
 
 @Component({
   standalone: true,
@@ -65,7 +66,7 @@ import { LiveService, GameEvent } from './live.service';
 
           <ng-template #canJoinHere>
             <p>Vous rejoindrez en tant que <b>{{ currentUsername }}</b>.</p>
-            <button (click)="join()">Rejoindre</button>
+            <button (click)="join()" [disabled]="selected.status !== 'CREATED'">Rejoindre</button>
           </ng-template>
         </ng-template>
 
@@ -100,6 +101,27 @@ import { LiveService, GameEvent } from './live.service';
       </ul>
     </div>
   </main>
+  <!-- OVERLAY STARTING -->
+  <div *ngIf="showStartingOverlay"
+      style="position:fixed; inset:0; background:rgba(0,0,0,.65); display:flex; align-items:center; justify-content:center; z-index:9999;">
+    <div style="background:#111; color:#fff; padding:1rem 1.25rem; border-radius:12px; width:min(520px, 92vw);">
+      <h2 style="margin:0 0 .5rem 0;">Chargement de la partie…</h2>
+
+      <p style="margin:.25rem 0; opacity:.9;">
+        Ressources sur ce client :
+        <b>{{ localAssetsDone ? 'OK' : 'en cours…' }}</b>
+      </p>
+
+      <p style="margin:.25rem 0; opacity:.9;">
+        Joueurs prêts :
+        <b>{{ readyStartCount }} / {{ readyStartTotal }}</b>
+      </p>
+
+      <div style="margin-top:.75rem; font-size:.95rem; opacity:.8;">
+        La partie démarre automatiquement dès que tout le monde a fini de charger.
+      </div>
+    </div>
+  </div>
   `
 })
 export class LobbyComponent {
@@ -114,10 +136,63 @@ export class LobbyComponent {
 
   private lastSelectedStatus: string | undefined;
 
+  private assets = inject(AssetPreloaderService);
   private unsubscribeLobby?: () => void;
   private unsubscribeSelectedGame?: () => void;
 
+  // --- Boot STARTING (barrière dans le lobby) ---
+  localAssetsDone = false;
+  private bootReadySentForGameId: string | null = null;
+
+  get isSelectedStarting(): boolean { return this.selected?.status === 'STARTING'; }
+
+  // Prêts côté serveur
+  get readyStartCount(): number {
+    return (this.selected?.readyForStart?.length ?? 0);
+  }
+  get readyStartTotal(): number {
+    return this.activePlayersCount(this.selected);
+  }
+
+  // Afficher l’overlay seulement si je suis dans la game et que la game est STARTING
+  get showStartingOverlay(): boolean {
+    return !!this.selected && this.isSelectedStarting && this.alreadyInSelected;
+  }
+
+  private ensureBootReadyIfNeeded(gameId: string) {
+    // Déjà envoyé pour cette game ?
+    if (this.bootReadySentForGameId === gameId) return;
+
+    // On n’envoie que si je suis dans la partie sélectionnée ET si elle est en STARTING
+    if (!this.selected || this.selected.id !== gameId) return;
+    if (this.selected.status !== 'STARTING') return;
+    if (!this.alreadyInSelected) return;
+
+    // On attend la fin du preload local
+    this.assets.waitDone()
+      .catch(() => {}) // on ne bloque pas en cas d’échec (sinon tu ne démarres jamais)
+      .finally(() => {
+        this.localAssetsDone = true;
+
+        // Marque avant l’appel (anti double click / double events)
+        this.bootReadySentForGameId = gameId;
+
+        this.api.bootReady(gameId).subscribe({
+          next: () => {},
+          error: e => {
+            // si tu veux être strict : remettre à null pour retenter
+            // mais je conseille de rester idempotent (côté back) et juste log
+            console.warn('bootReady failed', e);
+          }
+        });
+      });
+  }
+
   ngOnInit() {
+    this.assets.start(); // lance en fond (si pas déjà lancé depuis Auth)
+    this.assets.waitDone().then(() => this.localAssetsDone = true).catch(() => this.localAssetsDone = true);
+    this.bootReadySentForGameId = null;
+
     this.list(); // hydrate la liste une fois
 
     // WS global lobby
@@ -143,6 +218,15 @@ export class LobbyComponent {
 
   onSelect(g: LobbyGame){
     this.selected = g;
+    // reset overlay & anti-double-bootReady quand on change de sélection
+    this.bootReadySentForGameId = null;
+    this.localAssetsDone = false;
+
+    // on remet à true si le preload est déjà fini (service singleton)
+    this.assets.waitDone()
+      .then(() => this.localAssetsDone = true)
+      .catch(() => this.localAssetsDone = true);
+
     this.lastSelectedStatus = g.status;
 
     this.endedSnap = null;
@@ -164,6 +248,11 @@ export class LobbyComponent {
         }
       }
     });
+
+    // si la partie est déjà STARTING au moment du select → on déclenche la barrière
+    if (g.status === 'STARTING' && this.alreadyInSelected) {
+      this.ensureBootReadyIfNeeded(g.id);
+    }
   }
 
   private onLobbyEvent(e: GameEvent){
@@ -181,13 +270,36 @@ export class LobbyComponent {
       const iAmIn = (g.players || []).some((p: { id: string; leftGame?: boolean }) =>
         p.id === this.myUserId && !p.leftGame
       );
+
+      // Si on quitte STARTING, on autorise un futur bootReady (évite lock)
+      if (g.status !== 'STARTING' && this.bootReadySentForGameId === g.id) {
+        this.bootReadySentForGameId = null;
+      }
+
+      // Si STARTING et dedans => déclenche boot-ready quand preload finit
+      if (g.status === 'STARTING' && iAmIn) {
+        // si cette game est sélectionnée, on met à jour selected + overlay
+        if (this.selected?.id === g.id) {
+          this.selected = { ...this.selected, ...g } as any;
+        }
+        this.ensureBootReadyIfNeeded(g.id);
+      }
+
+      // Navigation seulement quand ACTIVE
       if (g.status === 'ACTIVE' && iAmIn) {
         this.router.navigate(['/game', g.id]);
         return;
       }
 
       if (this.selected?.id === g.id) {
-        this.selected = { ...this.selected, status: g.status, players: g.players } as any;
+        this.selected = {
+          ...this.selected,
+          ...g,
+          // garde une version safe même si un event foireux arrive
+          players: (g.players?.length ? g.players : (this.selected?.players ?? [])),
+          readyForStart: (g.readyForStart?.length ? g.readyForStart : ((this.selected as any).readyForStart ?? [])),
+        } as any;
+
         this.lastSelectedStatus = g.status;
       }
     }
@@ -218,12 +330,24 @@ export class LobbyComponent {
     return g.players.reduce((n, p) => n + (p.leftGame ? 0 : 1), 0);
   }
 
-  private asListItem(e: Extract<GameEvent, {type:'GAME_CREATED'|'LOBBY_UPDATED'}>) {
+  private asListItem(e: any) {
+    const id = e?.payload?.gameId as string;
+    const prev = this.games.find(x => x.id === id);
+
+    const players =
+      Array.isArray(e?.payload?.players) ? e.payload.players :
+      (prev?.players ?? []);
+
+    const readyForStart =
+      Array.isArray(e?.payload?.readyForStart) ? e.payload.readyForStart :
+      ((prev as any)?.readyForStart ?? []);
+
     return {
-      id: e.payload.gameId,
-      status: e.payload.status,
-      players: e.payload.players // adapte à ton type (compte, usernames…)
-    } as any; // GameListItem
+      id,
+      status: e?.payload?.status,
+      players,
+      readyForStart
+    } as any;
   }
 
   private upsertInList(item: any){
@@ -257,6 +381,10 @@ export class LobbyComponent {
           const mine = gs.find(g => this.isInGame(g));
           if (mine) {
             this.onSelect(mine); // ✅ crée l’abonnement WS de suite
+            if (mine.status === 'STARTING') {
+              this.selected = mine;
+              this.ensureBootReadyIfNeeded(mine.id);
+            }
             sessionStorage.setItem('gameId', mine.id);
             sessionStorage.setItem('playerId', this.myUserId);
           }
@@ -277,18 +405,19 @@ export class LobbyComponent {
     }
 
     this.api.createGame().subscribe({
-      next: g => { 
-        this.onSelect(g); 
+      next: g => {
+        this.onSelect(g);
 
         this.api.joinGame(g.id).subscribe({
           next: () => {
-            sessionStorage.setItem('gameId', g.id);
-            this.list(); // refresh lobby list
+            // ✅ MAJ optimiste immédiate (comme join)
+            this.optimisticJoinLocal(g.id);
+
+            // ✅ un seul refresh (optionnel mais ok)
+            this.list();
           },
           error: e => this.showError(e)
         });
-
-        this.list(); 
       },
       error: e => this.showError(e)
     });
@@ -362,29 +491,38 @@ export class LobbyComponent {
     const selId = sel.id;
 
     this.api.joinGame(selId).subscribe({
-      next: () => {
-        // Mise à jour locale optimiste
-        const me = { id: this.myUserId, username: this.currentUsername };
-
-        // on part de l'état le plus frais dispo (si quelqu'un a mis à jour entre-temps)
-        const current = this.selected?.players ?? sel.players ?? [];
-        const already = current.some(p => p.id === me.id);
-
-        if (!already) {
-          const updated = {
-            ...(this.selected ?? sel),
-            players: [...current, me]
-          } as any;
-
-          this.selected = updated;
-          this.upsertInList({ id: updated.id, players: updated.players });
-        }
-
-        // storage tant qu’on garde ce fallback
-        sessionStorage.setItem('gameId', selId);
-      },
+    next: () => {
+      this.optimisticJoinLocal(selId);
+    },
       error: e => this.showError(e)
     });
+  }
+
+  private optimisticJoinLocal(gameId: string) {
+    const me = { id: this.myUserId, username: this.currentUsername, leftGame: false };
+
+    // 1) update selected si c’est la bonne game
+    if (this.selected?.id === gameId) {
+      const current = this.selected.players ?? [];
+      if (!current.some(p => p.id === me.id && !p.leftGame)) {
+        this.selected = { ...this.selected, players: [...current, me] } as any;
+      }
+    }
+
+    // 2) update games list
+    const i = this.games.findIndex(x => x.id === gameId);
+    if (i >= 0) {
+      const current = this.games[i].players ?? [];
+      const already = current.some(p => p.id === me.id && !(p as any).leftGame);
+      if (!already) {
+        this.games[i] = { ...this.games[i], players: [...current, me] } as any;
+        this.games = [...this.games];
+      }
+    }
+
+    // 3) storage
+    sessionStorage.setItem('gameId', gameId);
+    sessionStorage.setItem('playerId', this.myUserId);
   }
 
   start(){

@@ -6,6 +6,7 @@ import org.castello.player.Player;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
@@ -47,17 +48,25 @@ public class LiveEvents {
     }
 
     public void lobbyUpdated(Game g){
-        // push sur /topic/lobby pour rafraîchir la tuile et le panneau de droite
         var players = g.getPlayers().stream()
-                .map(p -> Map.of("id", p.getId(), "username", p.getUsername()))
+                .map(p -> Map.of(
+                        "id", p.getId(),
+                        "username", p.getUsername(),
+                        "leftGame", p.isLeftGame()
+                ))
                 .toList();
+
+        var ready = (g.getReadyForStart() != null)
+                ? new ArrayList<>(g.getReadyForStart())
+                : java.util.List.of();
 
         sendLobby(new GameEvents(
                 GameEvents.Type.LOBBY_UPDATED, g.getId(),
                 Map.of(
                         "gameId", g.getId(),
                         "status", String.valueOf(g.getStatus()),
-                        "players", players
+                        "players", players,
+                        "readyForStart", ready
                 ),
                 System.currentTimeMillis()
         ));
@@ -65,7 +74,11 @@ public class LiveEvents {
 
     public void gameCreated(Game g){
         var players = g.getPlayers().stream()
-                .map(p -> Map.of("id", p.getId(), "username", p.getUsername()))
+                .map(p -> Map.of(
+                        "id", p.getId(),
+                        "username", p.getUsername(),
+                        "leftGame", p.isLeftGame()
+                ))
                 .toList();
 
         sendLobby(new GameEvents(
