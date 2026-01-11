@@ -240,6 +240,38 @@ public class LiveEvents {
         ));
     }
 
+    public void draftUpdated(Game g) {
+        Game.LocationEffectInstance inst = null;
+        if (g.getLocationEffectsQueue() != null && g.getCurrentLocationEffectIndex() != null) {
+            int idx = g.getCurrentLocationEffectIndex();
+            if (idx >= 0 && idx < g.getLocationEffectsQueue().size()) {
+                inst = g.getLocationEffectsQueue().get(idx);
+            }
+        }
+
+        String infra  = (inst != null ? inst.infra.name() : null);
+        String choice = (inst != null && inst.choice != null ? inst.choice.name() : null);
+
+        var payload = new java.util.HashMap<String, Object>();
+        payload.put("infra", infra);
+        payload.put("choice", choice);
+        payload.put("ownerId", inst != null ? inst.ownerId : null);
+
+        // Draft labo (peut être null)
+        payload.put("monsterType", g.getLaboratoryDraftMonsterType() != null
+                ? g.getLaboratoryDraftMonsterType().name()
+                : null
+        );
+        payload.put("location", g.getLaboratoryDraftLocation());
+
+        send(g.getId(), new GameEvents(
+                GameEvents.Type.DRAFT_UPDATED,
+                g.getId(),
+                payload,
+                System.currentTimeMillis()
+        ));
+    }
+
     public void readyUpdated(Game g, String playerId, int readyCount, int total){
         send(g.getId(), new GameEvents(
                 GameEvents.Type.READY_UPDATED, g.getId(),
@@ -291,6 +323,14 @@ public class LiveEvents {
         send(g.getId(), new GameEvents(
                 GameEvents.Type.HOLY_WATER_BOUGHT, g.getId(),
                 Map.of("playerId", playerId, "costWater", costWater, "costGold", costGold),
+                System.currentTimeMillis()
+        ));
+    }
+
+    public void trackingActionBought(Game g, String playerId, int costGold) {
+        send(g.getId(), new GameEvents(
+                GameEvents.Type.TRACKING_BOUGHT, g.getId(),
+                Map.of("playerId", playerId, "costGold", costGold),
                 System.currentTimeMillis()
         ));
     }

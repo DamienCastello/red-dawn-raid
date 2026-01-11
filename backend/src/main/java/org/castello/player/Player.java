@@ -43,6 +43,7 @@ public class Player {
     private boolean blessedStake;
     private boolean sacredRosary;
     private boolean charismaticThisRaid;
+    private Integer shopPisteurCount; // nb de PISTEUR achetés boutique (hors deck)
 
     // --- RESSOURCES ---
     private int wood;
@@ -130,4 +131,7 @@ public class Player {
     public void setSacredRosary(boolean sacredRosary) { this.sacredRosary = sacredRosary; }
     public boolean isCharismaticThisRaid() { return charismaticThisRaid; }
     public void setCharismaticThisRaid(boolean charismaticThisRaid) { this.charismaticThisRaid = charismaticThisRaid; }
+    public Integer getShopPisteurCount() { return shopPisteurCount; }
+    public void setShopPisteurCount(Integer v) { this.shopPisteurCount = v; }
+
 }

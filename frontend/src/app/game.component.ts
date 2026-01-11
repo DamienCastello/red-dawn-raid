@@ -66,17 +66,40 @@ interface ForgeOption {
 
         <!-- BARRE D’ÉQUIPEMENT -->
         <div class="equip-bar">
-          <div class="equip-card">
-            <div class="equip-label">Arme :</div>
-            <span class="dice-chip">{{ p.attackDice || 'D6' }}</span>
-          </div>
-          <div class="equip-card">
-            <div class="equip-label">Armure :</div>
-            <span class="dice-chip">{{ p.defenseDice || 'D6' }}</span>
-          </div>
+          <img class="equip-item"
+              [src]="weaponImg(p)"
+              alt="arme"
+              (mouseenter)="zoomEnter($event)"
+              (mousemove)="zoomMove($event)"
+              (mouseleave)="zoomLeave()" />
+
+          <img class="equip-item"
+              [src]="armorImg(p)"
+              alt="armure"
+              (mouseenter)="zoomEnter($event)"
+              (mousemove)="zoomMove($event)"
+              (mouseleave)="zoomLeave()" />
+
           <div class="mini-stack">
-            <div class="mini-card"><!-- placeholder --></div>
-            <div class="mini-card"><!-- placeholder --></div>
+            <!-- Actions -->
+            <div class="mini-card mini-card-img"
+                [title]="'Actions: ' + actionCount(p)"
+                (mouseenter)="zoomEnter($event, actionCount(p))"
+                (mousemove)="zoomMove($event)"
+                (mouseleave)="zoomLeave()">
+              <img class="mini-back-img" [src]="actionBackSrc(p)" alt="actions" />
+              <span class="mini-badge">{{ actionCount(p) }}</span>
+            </div>
+
+            <!-- Potions + élixirs -->
+            <div class="mini-card mini-card-img"
+                [title]="'Potions/Élixirs: ' + consumablesCount(p)"
+                (mouseenter)="zoomEnter($event, consumablesCount(p))"
+                (mousemove)="zoomMove($event)"
+                (mouseleave)="zoomLeave()">
+              <img class="mini-back-img" [src]="potionBackSrc" alt="potions" />
+              <span class="mini-badge">{{ consumablesCount(p) }}</span>
+            </div>
           </div>
         </div>
 
@@ -117,9 +140,10 @@ interface ForgeOption {
     </section>
 
     <!-- LIGNE MILIEU -->
-    <div class="boards-row">
+    <section class="board-wide-center boards-row"
+         [class.no-left]="!hasVampire || isMeVampire">
       <!-- gauche: stats vampire -->
-      <section *ngIf="hasVampire" class="panel">
+      <section *ngIf="hasVampire && !isMeVampire" class="panel panel-left">
         <h3 style="margin:0 0 10px 0">Vampire</h3>
 
         <div class="player-strip">
@@ -132,17 +156,37 @@ interface ForgeOption {
 
         <!-- BARRE D’ÉQUIPEMENT-->
         <div class="equip-bar">
-          <div class="equip-card">
-            <div class="equip-label">Arme :</div>
-            <span class="dice-chip">{{ vampirePlayer.attackDice || 'D6' }}</span>
-          </div>
-          <div class="equip-card">
-            <div class="equip-label">Armure :</div>
-            <span class="dice-chip">{{ vampirePlayer.defenseDice || 'D6' }}</span>
-          </div>
-                    <div class="mini-stack">
-            <div class="mini-card"><!-- placeholder --></div>
-            <div class="mini-card"><!-- placeholder --></div>
+          <img class="equip-item" 
+              [src]="weaponImg(vampirePlayer)" 
+              alt="arme" 
+              (mouseenter)="zoomEnter($event)"
+              (mousemove)="zoomMove($event)"
+              (mouseleave)="zoomLeave()" />
+          <img class="equip-item" 
+              [src]="armorImg(vampirePlayer)" 
+              alt="armure" 
+              (mouseenter)="zoomEnter($event)"
+              (mousemove)="zoomMove($event)"
+              (mouseleave)="zoomLeave()"/>
+
+          <div class="mini-stack">
+            <div class="mini-card mini-card-img"
+                [title]="'Actions: ' + actionCount(vampirePlayer)"
+                (mouseenter)="zoomEnter($event, actionCount(vampirePlayer))"
+                (mousemove)="zoomMove($event)"
+                (mouseleave)="zoomLeave()">
+              <img class="mini-back-img" [src]="actionBackSrc(vampirePlayer)" alt="actions" />
+              <span class="mini-badge">{{ actionCount(vampirePlayer) }}</span>
+            </div>
+
+            <div class="mini-card mini-card-img"
+                [title]="'Potions/Élixirs: ' + consumablesCount(vampirePlayer)"
+                (mouseenter)="zoomEnter($event, consumablesCount(vampirePlayer))"
+                (mousemove)="zoomMove($event)"
+                (mouseleave)="zoomLeave()">
+              <img class="mini-back-img" [src]="potionBackSrc" alt="potions" />
+              <span class="mini-badge">{{ consumablesCount(vampirePlayer) }}</span>
+            </div>
           </div>
         </div>
 
@@ -183,7 +227,7 @@ interface ForgeOption {
 
 
       <!-- centre: plateau -->
-      <section class="panel">
+      <section class="panel panel-center">
 
         <div class="center-grid">
           <!-- GAUCHE : Fil en direct -->
@@ -222,24 +266,42 @@ interface ForgeOption {
             </div>
 
             <!-- Centre (cartes) -->
-            <div *ngIf="!game?.center?.length" style="color:#999">Aucune carte jouée pour l’instant</div>
-            <div *ngFor="let cp of game?.center" style="margin:.25rem 0">
-              <span *ngIf="cp.faceUp; else back">
-                {{ usernameOf(cp.playerId) }}: {{ labelLocation(cp.card) }}
-              </span>
-              <ng-template #back>
-                <i>Carte face cachée ({{ usernameOf(cp.playerId) }})</i>
-              </ng-template>
-            </div>
-            <!-- Cartes "virtuelles" des clones des ombres -->
-            <div *ngFor="let loc of game?.clonesLocations; let i = index" style="margin:.25rem 0">
-              <span *ngIf="game?.clonesFaceUp; else backClone">
-                clone d'ombre {{ i + 1 }}: {{ labelLocation(loc) }}
-              </span>
-              <ng-template #backClone>
-                <i>Carte face cachée clone d’ombre {{ i + 1 }}</i>
-              </ng-template>
-            </div>
+            <ng-container *ngIf="(game?.center?.length || 0) + (game?.clonesLocations?.length || 0) > 0; else emptyCenter">
+              <div class="center-cards">
+
+                <!-- Cartes jouées -->
+                <div class="center-card" *ngFor="let cp of game?.center">
+                  <div class="center-card-name"
+                      [ngClass]="isHunterId(cp.playerId) ? 'name-hunter' : 'name-vamp'">
+                    {{ usernameOf(cp.playerId) }}
+                  </div>
+
+                  <img class="center-card-img"
+                      [src]="cp.faceUp ? ('/assets/cards/locations/' + cp.card + '.png') : '/assets/cards/zone_verso.png'"
+                      [alt]="cp.faceUp ? labelLocation(cp.card) : 'Carte face cachée'"
+                      (mouseenter)="zoomEnter($event, usernameOf(cp.playerId), isHunterId(cp.playerId))"
+                      (mousemove)="zoomMove($event)"
+                      (mouseleave)="zoomLeave()" />
+                </div>
+
+                <!-- Clones -->
+                <div class="center-card" *ngFor="let loc of game?.clonesLocations; let i = index">
+                  <div class="center-card-name name-vamp">clone d'ombre {{ i + 1 }}</div>
+
+                  <img class="center-card-img"
+                      [src]="game?.clonesFaceUp ? ('/assets/cards/locations/' + loc + '.png') : '/assets/cards/zone_verso.png'"
+                      [alt]="game?.clonesFaceUp ? labelLocation(loc) : 'Carte face cachée'"
+                      (mouseenter)="zoomEnter($event, 'clone d\\'ombre ' + (i + 1), false)"
+                      (mousemove)="zoomMove($event)"
+                      (mouseleave)="zoomLeave()" />
+                </div>
+
+              </div>
+            </ng-container>
+
+            <ng-template #emptyCenter>
+              <div style="color:#999">Aucune carte jouée pour l’instant</div>
+            </ng-template>
           </div>
 
           <!-- DROITE : Historique -->
@@ -261,33 +323,160 @@ interface ForgeOption {
     
 
       <!-- droite: decks actions + potions -->
-      <section class="panel">
-        <h3>Actions & Potions</h3>
-        <div>
-          Pioche action chasseur:
-          {{ deckSize(game?.decks?.actionsHunters) }}
-          (défausse : {{ discardSize(game?.decks?.actionsHunters) }})
-        </div>
+      <section class="panel panel-right">
+        <h3 style="margin:0 0 10px 0">Decks</h3>
 
-        <div>
-          Pioche potions:
-          {{ deckSize(game?.decks?.potions) }}
-          (défausse : {{ discardSize(game?.decks?.potions) }})
-        </div>
+        <div class="decks-grid">
+          <!-- 1) VAMPIRE (deck + discard) -->
+          <div class="deck-block">
+            <div class="deck-block-title name-vamp">Vampire</div>
 
-        <div>
-          Pioche elixirs:
-          {{ deckSize(game?.decks?.elixirs) }}
-          (défausse : {{ discardSize(game?.decks?.elixirs) }})
-        </div>
+            <div class="deck-piles">
+              <!-- Pioche -->
+              <div class="mini-card deck-pile"
+                  (mouseenter)="zoomEnter($event, deckCount(game?.decks?.actionsVamp), false)"
+                  (mousemove)="zoomMove($event)"
+                  (mouseleave)="zoomLeave()">
+                <img class="mini-back-img deck-img"
+                    [src]="deckBackFor('VAMP_ACTIONS')"
+                    alt="pioche actions vampire" />
+                <span class="mini-badge badge-vamp">
+                  {{ deckCount(game?.decks?.actionsVamp) }}
+                </span>
+              </div>
 
-        <div>
-          Pioche action vampire:
-          {{ deckSize(game?.decks?.actionsVamp) }}
-          (défausse : {{ discardSize(game?.decks?.actionsVamp) }})
+              <!-- Défausse -->
+              <div class="mini-card deck-pile"
+                  [class.deck-empty]="discardCount(game?.decks?.actionsVamp) === 0"
+                  (mouseenter)="zoomEnter($event, undefined, undefined, 'L')"
+                  (mousemove)="zoomMove($event)"
+                  (mouseleave)="zoomLeave()">
+
+                <img *ngIf="discardCount(game?.decks?.actionsVamp) > 0"
+                    class="mini-back-img deck-img"
+                    [src]="discardImgFor('VAMP_ACTIONS', game?.decks?.actionsVamp)"
+                    alt="défausse actions vampire" />
+
+                <span class="mini-badge badge-vamp">
+                  {{ discardCount(game?.decks?.actionsVamp) }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2) HUNTER (deck + discard) -->
+          <div class="deck-block">
+            <div class="deck-block-title name-hunter">Chasseur</div>
+
+            <div class="deck-piles">
+              <!-- Pioche -->
+              <div class="mini-card deck-pile"
+                  (mouseenter)="zoomEnter($event, deckCount(game?.decks?.actionsHunters), true)"
+                  (mousemove)="zoomMove($event)"
+                  (mouseleave)="zoomLeave()">
+                <img class="mini-back-img deck-img"
+                    [src]="deckBackFor('HUNTER_ACTIONS')"
+                    alt="pioche actions chasseur" />
+                <span class="mini-badge badge-hunter">
+                  {{ deckCount(game?.decks?.actionsHunters) }}
+                </span>
+              </div>
+
+              <!-- Défausse -->
+            <div class="mini-card deck-pile"
+                [class.deck-empty]="discardCount(game?.decks?.actionsHunters) === 0"
+                (mouseenter)="zoomEnter($event, undefined, undefined, 'L')"
+                (mousemove)="zoomMove($event)"
+                (mouseleave)="zoomLeave()">
+
+              <img *ngIf="discardCount(game?.decks?.actionsHunters) > 0"
+                  class="mini-back-img deck-img"
+                  [src]="discardImgFor('HUNTER_ACTIONS', game?.decks?.actionsHunters)"
+                  alt="défausse actions chasseur" />
+
+              <span class="mini-badge badge-hunter">
+                {{ discardCount(game?.decks?.actionsHunters) }}
+              </span>
+            </div>
+            </div>
+          </div>
+
+          <!-- 3) POTIONS (deck + discard) -->
+          <div class="deck-block">
+            <div class="deck-block-title">Potions</div>
+
+            <div class="deck-piles">
+              <!-- Pioche -->
+              <div class="mini-card deck-pile"
+                  (mouseenter)="zoomEnter($event, deckCount(game?.decks?.potions), undefined)"
+                  (mousemove)="zoomMove($event)"
+                  (mouseleave)="zoomLeave()">
+                <img class="mini-back-img deck-img"
+                    [src]="deckBackFor('POTIONS')"
+                    alt="pioche potions" />
+                <span class="mini-badge">
+                  {{ deckCount(game?.decks?.potions) }}
+                </span>
+              </div>
+
+              <!-- Défausse -->
+              <div class="mini-card deck-pile"
+                  [class.deck-empty]="discardCount(game?.decks?.potions) === 0"
+                  (mouseenter)="zoomEnter($event, undefined, undefined, 'L')"
+                  (mousemove)="zoomMove($event)"
+                  (mouseleave)="zoomLeave()">
+
+                <img *ngIf="discardCount(game?.decks?.potions) > 0"
+                    class="mini-back-img deck-img"
+                    [src]="discardImgFor('POTIONS', game?.decks?.potions)"
+                    alt="défausse potions" />
+
+                <span class="mini-badge">
+                  {{ discardCount(game?.decks?.potions) }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 4) ELIXIRS (deck + discard) -->
+          <div class="deck-block">
+            <div class="deck-block-title">Élixirs</div>
+
+            <div class="deck-piles">
+              <!-- Pioche -->
+              <div class="mini-card deck-pile"
+                  (mouseenter)="zoomEnter($event, deckCount(game?.decks?.elixirs), undefined)"
+                  (mousemove)="zoomMove($event)"
+                  (mouseleave)="zoomLeave()">
+                <img class="mini-back-img deck-img"
+                    [src]="deckBackFor('ELIXIRS')"
+                    alt="pioche élixirs" />
+                <span class="mini-badge">
+                  {{ deckCount(game?.decks?.elixirs) }}
+                </span>
+              </div>
+
+              <!-- Défausse -->
+              <div class="mini-card deck-pile"
+                  [class.deck-empty]="discardCount(game?.decks?.elixirs) === 0"
+                  (mouseenter)="zoomEnter($event, undefined, undefined, 'L')"
+                  (mousemove)="zoomMove($event)"
+                  (mouseleave)="zoomLeave()">
+
+                <img *ngIf="discardCount(game?.decks?.elixirs) > 0"
+                    class="mini-back-img deck-img"
+                    [src]="discardImgFor('ELIXIRS', game?.decks?.elixirs)"
+                    alt="défausse élixirs" />
+
+                <span class="mini-badge">
+                  {{ discardCount(game?.decks?.elixirs) }}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
-    </div>
+    </section>
 
     <!-- BOARD BAS: moi -->
     <section *ngIf="me && game" class="board-wide my-board">
@@ -300,75 +489,93 @@ interface ForgeOption {
           <span class="hp-value">{{ me.hp }}</span>
         </div>
       </div>
-      <div class="res-board" *ngIf="me as m" style="display:flex;gap:.5rem;align-items:center;justify-content:center;margin:.25rem 0;">
-        <span>Ressources&nbsp;:</span>
-        <span title="Bois">🪵 {{ m.wood || 0 }}</span>
-        <span title="Herbe médicinale">🌿 {{ m.herbs || 0 }}</span>
-        <span title="Pierre">🪨 {{ m.stone || 0 }}</span>
-        <span title="Fer">⛓️ {{ m.iron || 0 }}</span>
-        <span title="Eau pure">💧 {{ m.water || 0 }}</span>
-        <span *ngIf="m.role==='HUNTER'" title="Or">🪙 {{ m.gold || 0 }}</span>
-        <span *ngIf="m.role==='VAMPIRE' || m.role==='SERVANT'" title="Âmes déchues">🕯️ {{ m.souls || 0 }}</span>
-        <span *ngIf="m.role==='HUNTER'" title="Argent">🥈 {{ (m.silver || 0) }}</span>
-      </div>
+      <div class="res-board" *ngIf="me as m">
+        <span class="res-title">Ressources:</span>
 
-      <!-- BARRE D’ÉQUIPEMENT -->
-      <div class="equip-bar">
-        <!-- Arme -->
-          <div class="equip-card">
-            <div class="equip-label">Arme :</div>
-            <span class="dice-chip">{{ me.attackDice || 'D6' }}</span>
-          </div>
-          
-
-          <!-- Armure -->
-          <div class="equip-card">
-            <div class="equip-label">Armure :</div>
-            <span class="dice-chip">{{ me.defenseDice || 'D6' }}</span>
-          </div>
-      </div>
-
-      <!-- CHIPS -->
-      <ng-container *ngIf="modsForDisplay(me) as myMods">
-        <div class="mods-row" *ngIf="myMods.length">
-          <span class="mod-chip" *ngFor="let m of myMods" [title]="titleFor(m)">
-            <div class="mods-badge-weather" *ngIf="m.source?.startsWith('WEATHER:')">
-              <img class="weather-ico" [src]="weatherIconSrcForMod(m)" alt="icône météo" />
-            </div>
-
-            <div class="mods-badge-potion" *ngIf="m.source?.startsWith('POTION:')">
-              <img class="mod-ico" [src]="isElixirMod(m) ? 'assets/icons/elixir-icon.png' : 'assets/icons/potion-icon.png'" 
-              alt="potion_or_elixir"/>
-            </div>
-
-            <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
-              <img class="mod-ico" [src]="modIconSrc(m.source)" alt="action"/>
-            </div>
-
-            <div class="mods-badge-corruption"
-                *ngIf="m.source?.startsWith('CORRUPTION')">
-              <img class="mod-ico" src="/assets/corruption/corruption-icon.png" alt="corruption"/>
-            </div>
-            
-            <div class="mods-badge-equip" *ngIf="m.source?.startsWith('EQUIP:')">
-              <img class="mod-ico" [src]="modIconSrc(m.source)" alt="équipement"/>
-            </div>
-
-            <div class="mods-badge-hit" *ngIf="m.source?.startsWith('HIT:')">
-              <img class="mod-ico" [src]="modIconSrc(m.source)" alt="effet de coup"/>
-            </div>
-            <span class="chip-val">{{ labelOrChip(m) }}</span>
+        <span class="res-item" title="Bois">
+          <span class="res-ico-box">
+            <img class="res-ico res-ico-l" src="/assets/icons/wood.png" alt="Bois">
           </span>
-        </div>
-      </ng-container>
+          <span class="res-val">{{ m.wood || 0 }}</span>
+        </span>
 
-     <div class="hand">
-        <!-- En-têtes sur la même ligne -->
-        <div class="hand-head">
-          <div class="hand-title">Votre main</div>
+        <span class="res-item" title="Herbe médicinale">
+          <span class="res-ico-box">
+            <img class="res-ico res-ico-s" src="/assets/icons/medical_grass.png" alt="Herbe médicinale">
+          </span>
+          <span class="res-val">{{ m.herbs || 0 }}</span>
+        </span>
+
+        <span class="res-item" title="Pierre">
+          <span class="res-ico-box">
+            <img class="res-ico res-ico-s" src="/assets/icons/stone.png" alt="Pierre">
+          </span>
+          <span class="res-val">{{ m.stone || 0 }}</span>
+        </span>
+
+        <span class="res-item" title="Fer">
+          <span class="res-ico-box">
+            <img class="res-ico res-ico-m" src="/assets/icons/iron.png" alt="Fer">
+          </span>
+          <span class="res-val">{{ m.iron || 0 }}</span>
+        </span>
+
+        <span class="res-item" title="Eau pure">
+          <span class="res-ico-box">
+            <img class="res-ico res-ico-s" src="/assets/icons/water.png" alt="Eau pure">
+          </span>
+          <span class="res-val">{{ m.water || 0 }}</span>
+        </span>
+
+        <span *ngIf="m.role==='HUNTER'" class="res-item" title="Or">
+          <span class="res-ico-box">
+            <img class="res-ico res-ico-s" src="/assets/icons/gold.png" alt="Or">
+          </span>
+          <span class="res-val">{{ m.gold || 0 }}</span>
+        </span>
+
+        <span *ngIf="m.role==='VAMPIRE' || m.role==='SERVANT'" class="res-item" title="Âmes déchues">
+          <span class="res-ico-box">
+            <img class="res-ico res-ico-s" src="/assets/icons/souls.png" alt="Âmes déchues">
+          </span>
+          <span class="res-val">{{ m.souls || 0 }}</span>
+        </span>
+
+        <span *ngIf="m.role==='HUNTER'" class="res-item" title="Argent">
+          <span class="res-ico-box">
+            <img class="res-ico res-ico-s" src="/assets/icons/silver.png" alt="Argent">
+          </span>
+          <span class="res-val">{{ m.silver || 0 }}</span>
+        </span>
+      </div>
+
+      <div class="hand">
+        <!-- Labels -->
+        <div class="hand-labels">
+          <div class="hand-label equip-title">Équipements</div>
+          <div class="hand-label">Votre main</div>
         </div>
 
         <div class="hand-cards">
+          <!-- ÉQUIPEMENT -->
+          <span class="equip-slot">
+            <img class="my-equip-item"
+                [src]="weaponImg(me)"
+                alt="arme"
+                (mouseenter)="zoomEnter($event)"
+                (mousemove)="zoomMove($event)"
+                (mouseleave)="zoomLeave()" />
+          </span>
+
+          <span class="equip-slot">
+            <img class="my-equip-item"
+                [src]="armorImg(me)"
+                alt="armure"
+                (mouseenter)="zoomEnter($event)"
+                (mousemove)="zoomMove($event)"
+                (mouseleave)="zoomLeave()" />
+          </span>
+
           <!-- Lieux -->
           <button *ngFor="let c of (me?.hand || [])"
                   class="card-btn"
@@ -376,57 +583,125 @@ interface ForgeOption {
                   [class.selected]="selectedLocation === c"
                   [class.is-disabled]="!canPlayLocation(c)"
                   [attr.aria-disabled]="!canPlayLocation(c) ? true : null"
-                  [title]="(!canPlayLocation(c) ? 'garlicTooltip' : null)"
-                  style="padding:.5rem 1rem; border:1px solid #ccc; cursor:pointer">
-            {{ labelLocation(c) }}
+                  [attr.title]="!canPlayLocation(c) ? garlicTooltip : null"
+                  type="button">
+            <span class="card-frame">
+              <span class="card-surface">
+                <img class="card-img"
+                    [src]="'/assets/cards/locations/' + c + '.png'"
+                    [alt]="labelLocation(c)"
+                    (mouseenter)="zoomEnter($event)"
+                    (mousemove)="zoomMove($event)"
+                    (mouseleave)="zoomLeave()" />
+              </span>
+            </span>
           </button>
 
-          <!-- Actions -->
+          <!-- Actions / Potions -->
           <button *ngFor="let action of myActions(); let i = index"
                   class="card-btn"
                   [class.is-disabled]="!canUseActionNow(action)"
                   [attr.aria-disabled]="!canUseActionNow(action) ? true : null"
                   [class.selected]="selectedAction === action && selectedActionIndex === i"
                   (click)="onActionClick(action, i)"
-                  [title]="canUseActionNow(action)
-                    ? ''
-                    : 'Disponible uniquement en PREPHASE3'">
-            {{ actionLabelFr(action) }}
+                  [attr.title]="canUseActionNow(action) ? null : 'Disponible uniquement en PREPHASE3'"
+                  type="button">
+            <span class="card-frame">
+              <span class="card-surface">
+                <img class="card-img"
+                    [src]="actionImg(action)"
+                    [alt]="actionLabelFr(action)"
+                    (mouseenter)="zoomEnter($event)"
+                    (mousemove)="zoomMove($event)"
+                    (mouseleave)="zoomLeave()" />
+              </span>
+            </span>
           </button>
 
-          <!-- Potions -->
           <button *ngFor="let potion of myPotions(); let i = index"
                   class="card-btn"
                   [class.is-disabled]="!canUsePotionNow(potion)"
                   [attr.aria-disabled]="!canUsePotionNow(potion) ? true : null"
                   [class.selected]="selectedPotion === potion && selectedPotionIndex === i"
                   (click)="onPotionClick(potion, i)"
-                  [title]="canUsePotionNow(potion)
-                    ? ''
+                  [attr.title]="canUsePotionNow(potion)
+                    ? null
                     : ((game.weather?.status === 'BLIZZARD'
                         || game.weather?.secondaryStatus === 'BLIZZARD')
                         ? 'Potions gelées'
-                        : 'Disponible uniquement en PREPHASE3')">
-            {{ potionLabelFr(potion) }}
+                        : 'Disponible uniquement en PREPHASE3')"
+                  type="button">
+            <span class="card-frame">
+              <span class="card-surface">
+                <img class="card-img"
+                    [src]="potionImg(potion)"
+                    [alt]="potionLabelFr(potion)"
+                    (mouseenter)="zoomEnter($event)"
+                    (mousemove)="zoomMove($event)"
+                    (mouseleave)="zoomLeave()" />
+              </span>
+            </span>
           </button>
 
-          <!-- Élixirs -->
           <button *ngFor="let potion of myElixirs(); let i = index"
                   class="card-btn"
                   [class.is-disabled]="!canUsePotionNow(potion)"
                   [attr.aria-disabled]="!canUsePotionNow(potion) ? true : null"
                   [class.selected]="selectedPotion === potion && selectedPotionIndex === i"
                   (click)="onPotionClick(potion, i)"
-                  [title]="canUsePotionNow(potion)
-                    ? ''
+                  [attr.title]="canUsePotionNow(potion)
+                    ? null
                     : ((game.weather?.status === 'BLIZZARD'
                         || game.weather?.secondaryStatus === 'BLIZZARD')
                         ? 'Potions gelées'
-                        : 'Disponible uniquement en PREPHASE3')">
-            {{ potionLabelFr(potion) }}
+                        : 'Disponible uniquement en PREPHASE3')"
+                  type="button">
+            <span class="card-frame">
+              <span class="card-surface">
+                <img class="card-img"
+                    [src]="potionImg(potion)"
+                    [alt]="potionLabelFr(potion)"
+                    (mouseenter)="zoomEnter($event)"
+                    (mousemove)="zoomMove($event)"
+                    (mouseleave)="zoomLeave()" />
+              </span>
+            </span>
           </button>
-        </div>   
+        </div>
 
+        <!-- CHIPS -->
+        <ng-container *ngIf="modsForDisplay(me) as myMods">
+          <div class="mods-row" *ngIf="myMods.length">
+            <span class="mod-chip" *ngFor="let m of myMods" [title]="titleFor(m)">
+              <div class="mods-badge-weather" *ngIf="m.source?.startsWith('WEATHER:')">
+                <img class="weather-ico" [src]="weatherIconSrcForMod(m)" alt="icône météo" />
+              </div>
+
+              <div class="mods-badge-potion" *ngIf="m.source?.startsWith('POTION:')">
+                <img class="mod-ico" [src]="isElixirMod(m) ? 'assets/icons/elixir-icon.png' : 'assets/icons/potion-icon.png'" 
+                alt="potion_or_elixir"/>
+              </div>
+
+              <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
+                <img class="mod-ico" [src]="modIconSrc(m.source)" alt="action"/>
+              </div>
+
+              <div class="mods-badge-corruption"
+                  *ngIf="m.source?.startsWith('CORRUPTION')">
+                <img class="mod-ico" src="/assets/corruption/corruption-icon.png" alt="corruption"/>
+              </div>
+              
+              <div class="mods-badge-equip" *ngIf="m.source?.startsWith('EQUIP:')">
+                <img class="mod-ico" [src]="modIconSrc(m.source)" alt="équipement"/>
+              </div>
+
+              <div class="mods-badge-hit" *ngIf="m.source?.startsWith('HIT:')">
+                <img class="mod-ico" [src]="modIconSrc(m.source)" alt="effet de coup"/>
+              </div>
+              <span class="chip-val">{{ labelOrChip(m) }}</span>
+            </span>
+          </div>
+        </ng-container>
 
         <div style="margin-top:.5rem">
           <button (click)="playSelected()" [disabled]="!canPlaySelection">Jouer cette carte</button>
@@ -1060,8 +1335,6 @@ interface ForgeOption {
       <div class="breakdown bg-badge" *ngIf="currentCombat?.breakdownLines?.length">
         <div *ngFor="let line of currentCombat!.breakdownLines">{{ line }}</div>
       </div>
-      <div class="result bg-badge" *ngIf="getCombatResultText() as txt">{{ txt }}</div>
-      <div class="footer bg-badge" *ngIf="!getCombatResultText()">Les adversaires s’affrontent…</div>
     </div>
   </div>
   <!-- === MODALE MORSURE (PHASE3, quand currentBite actif) === -->
@@ -1194,50 +1467,115 @@ interface ForgeOption {
     <div class="modal trade-modal"
         [class.hunters]="isHunter"
         [class.vampires]="isVampireSide">
+
       <header class="modal-head">
         <h3 *ngIf="isHunter">Boutique</h3>
         <h3 *ngIf="isVampireSide">Transmutation</h3>
 
-          <div class="inventory" *ngIf="me as p">
-            <span class="inv">🪵 {{ p.wood }}</span>
-            <span class="inv">🌿 {{ p.herbs }}</span>
-            <span class="inv">🪨 {{ p.stone }}</span>
-            <span class="inv">⛓️ {{ p.iron }}</span>
-            <span class="inv">💧 {{ p.water }}</span>
-            <span *ngIf="p.role==='HUNTER'" class="inv">🪙 {{ p.gold }}</span>
-            <span *ngIf="p.role==='HUNTER'" class="inv">🥈 {{ p.silver }}</span>
-            <span *ngIf="p.role==='VAMPIRE' || p.role==='SERVANT'" class="inv">🕯️ {{ p.souls }}</span>
+        <div class="inventory" *ngIf="me as p">
+          <span class="inv-item" title="Bois">
+            <span class="inv-ico-box"><img class="inv-ico inv-ico-l" src="/assets/icons/wood.png" alt="Bois"></span>
+            <span class="inv-val">{{ p.wood }}</span>
+          </span>
+
+          <span class="inv-item" title="Herbe médicinale">
+            <span class="inv-ico-box"><img class="inv-ico inv-ico-s" src="/assets/icons/medical_grass.png" alt="Herbe médicinale"></span>
+            <span class="inv-val">{{ p.herbs }}</span>
+          </span>
+
+          <span class="inv-item" title="Pierre">
+            <span class="inv-ico-box"><img class="inv-ico inv-ico-s" src="/assets/icons/stone.png" alt="Pierre"></span>
+            <span class="inv-val">{{ p.stone }}</span>
+          </span>
+
+          <span class="inv-item" title="Fer">
+            <span class="inv-ico-box"><img class="inv-ico inv-ico-m" src="/assets/icons/iron.png" alt="Fer"></span>
+            <span class="inv-val">{{ p.iron }}</span>
+          </span>
+
+          <span class="inv-item" title="Eau pure">
+            <span class="inv-ico-box"><img class="inv-ico inv-ico-s" src="/assets/icons/water.png" alt="Eau pure"></span>
+            <span class="inv-val">{{ p.water }}</span>
+          </span>
+
+          <span *ngIf="p.role==='HUNTER'" class="inv-item" title="Or">
+            <span class="inv-ico-box"><img class="inv-ico inv-ico-s" src="/assets/icons/gold.png" alt="Or"></span>
+            <span class="inv-val">{{ p.gold }}</span>
+          </span>
+
+          <span *ngIf="p.role==='HUNTER'" class="inv-item" title="Argent">
+            <span class="inv-ico-box"><img class="inv-ico inv-ico-s" src="/assets/icons/silver.png" alt="Argent"></span>
+            <span class="inv-val">{{ p.silver }}</span>
+          </span>
+
+          <span *ngIf="p.role==='VAMPIRE' || p.role==='SERVANT'" class="inv-item" title="Âmes déchues">
+            <span class="inv-ico-box"><img class="inv-ico inv-ico-s" src="/assets/icons/souls.png" alt="Âmes déchues"></span>
+            <span class="inv-val">{{ p.souls }}</span>
+          </span>
+        </div>
+
+        <div class="head-actions">
+          <div *ngIf="!isMeDead && !waitingDone; else waitingTpl">
+            <button class="finish" (click)="onFinishPhase4()">Ne rien faire</button>
           </div>
+          <ng-template #waitingTpl>
+            <div class="muted">En attente des autres joueurs…</div>
+          </ng-template>
+        </div>
 
         <div class="timer" *ngIf="phase4LeftSec>0">⏱ {{ phase4LeftSec }}s</div>
       </header>
 
-      <section class="modal-body">
-        <div class="col">
+      <section class="modal-body" [class.has-mid]="isHunter">
+
+        <!-- =========================
+            COLONNE 1 : SHOP (sans vendre/argent, sans bonus -> Pisteur)
+            ========================= -->
+        <div class="col col-shop-a">
+
           <div class="card" *ngIf="myMaintenanceActions().length">
             <h4>Actions de maintenance</h4>
-            <button *ngFor="let action of myMaintenanceActions(); let i = index"
-                    class="card-btn"
-                    [class.is-disabled]="!canUseActionNow(action)"
-                    [attr.aria-disabled]="!canUseActionNow(action) ? true : null"
-                    (click)="useAction(action)">
-              {{ actionLabelFr(action) }}
-            </button>
+            <small>utiliser depuis la main</small>
+            <div class="shop-actions-grid">
+              <button *ngFor="let action of myMaintenanceActions(); let i = index"
+                      class="shop-card-action-btn"
+                      [class.is-disabled]="!canUseActionNow(action)"
+                      [attr.aria-disabled]="!canUseActionNow(action) ? true : null"
+                      [attr.title]="actionLabelFr(action)"
+                      (click)="useAction(action)"
+                      (mouseenter)="zoomEnter($event, undefined, undefined, 'L')"
+                      (mousemove)="zoomMove($event)"
+                      (mouseleave)="zoomLeave()">
+                <img class="shop-card-img"
+                    [src]="actionImg(action)"
+                    [alt]="actionLabelFr(action)" />
+              </button>
+            </div>
           </div>
 
-          <div class="card-row shop-top-row">
+          <!-- ACTIONS + POTIONS sur la même ligne (2 cards) -->
+          <div class="card-row row-2">
             <!-- Actions vampire -->
             <div class="card" *ngIf="isMeVampire">
               <div class="card-header-line">
                 <h4>Actions</h4>
-                <span class="price">50 🕯️</span>
+                <span class="price price-icons">
+                  <span class="cost-item">
+                    <span class="cost-val">50</span>
+                    <span class="cost-ico-box"><img class="cost-ico cost-ico-s" src="/assets/icons/souls.png" alt="Âmes"></span>
+                  </span>
+                </span>
               </div>
 
-              <button
-                class="card-btn buy-card-btn"
-                (click)="onBuyAction()"
-                [disabled]="!canBuyVampAction">
-                Acheter
+              <button class="shop-btn buy-card-btn"
+                      (click)="onBuyAction()"
+                      [disabled]="!canBuyVampAction"
+                      aria-label="Acheter une carte action vampire"
+                      (mouseenter)="zoomEnter($event, deckCount(game?.decks?.actionsVamp), false, 'L')"
+                      (mousemove)="zoomMove($event)"
+                      (mouseleave)="zoomLeave()">
+                <img class="buy-img" [src]="deckBackFor('VAMP_ACTIONS')" alt="Deck actions vampire">
+                <span class="buy-badge badge-vamp">{{ deckCount(game?.decks?.actionsVamp) }}</span>
               </button>
             </div>
 
@@ -1245,38 +1583,278 @@ interface ForgeOption {
             <div class="card" *ngIf="isHunter">
               <div class="card-header-line">
                 <h4>Actions</h4>
-                <span class="price">{{ actionPrice }} 🪙</span>
+                <span class="price price-icons">
+                  <span class="cost-item">
+                    <span class="cost-val">{{ actionPrice }}</span>
+                    <span class="cost-ico-box"><img class="cost-ico cost-ico-s" src="/assets/icons/gold.png" alt="Or"></span>
+                  </span>
+                </span>
               </div>
 
-              <button
-                class="card-btn buy-card-btn"
-                (click)="onBuyAction()"
-                [disabled]="!canBuyHunterAction">
-                Acheter
+              <button class="shop-btn buy-card-btn"
+                      (click)="onBuyAction()"
+                      [disabled]="!canBuyHunterAction"
+                      aria-label="Acheter une carte action chasseur"
+                      (mouseenter)="zoomEnter($event, deckCount(game?.decks?.actionsHunters), true, 'L')"
+                      (mousemove)="zoomMove($event)"
+                      (mouseleave)="zoomLeave()">
+                <img class="buy-img" [src]="deckBackFor('HUNTER_ACTIONS')" alt="Deck actions chasseur">
+                <span class="buy-badge badge-hunter">{{ deckCount(game?.decks?.actionsHunters) }}</span>
               </button>
             </div>
 
-            <!-- Potions (visible pour tous, adapte si besoin) -->
+            <!-- Potions -->
             <div class="card">
               <div class="card-header-line">
                 <h4>Potions</h4>
-                <span class="price">4 💧 + 3 🌿</span>
+                <span class="price price-icons">
+                  <span class="cost-item">
+                    <span class="cost-val">4</span>
+                    <span class="cost-ico-box"><img class="cost-ico cost-ico-s" src="/assets/icons/water.png" alt="Eau"></span>
+                    <span class="cost-val">3</span>
+                    <span class="cost-ico-box"><img class="cost-ico cost-ico-s" src="/assets/icons/medical_grass.png" alt="Herbes"></span>
+                  </span>
+                </span>
               </div>
 
-              <button
-                class="card-btn buy-card-btn"
-                (click)="onBuyPotion()"
-                [disabled]="!canBuyPotion">
-                Acheter
+              <button class="shop-btn buy-card-btn"
+                      (click)="onBuyPotion()"
+                      [disabled]="!canBuyPotion"
+                      aria-label="Acheter une potion"
+                      (mouseenter)="zoomEnter($event, deckCount(game?.decks?.potions), undefined, 'L')"
+                      (mousemove)="zoomMove($event)"
+                      (mouseleave)="zoomLeave()">
+                <img class="buy-img" [src]="deckBackFor('POTIONS')" alt="Deck potions">
+                <span class="buy-badge">{{ deckCount(game?.decks?.potions) }}</span>
               </button>
             </div>
           </div>
 
-          <div class="card" *ngIf="isHunter">
-            <!-- Acheter de l’argent -->
+          <!-- PISTEUR + EAU BÉNITE sur la même ligne (2 cards) -->
+          <div class="card-row row-2" *ngIf="isHunter">
+
+            <!-- Pisteur -->
+            <div class="card card-buy-bottom">
+              <div class="card-header-line">
+                <h4>Espion</h4>
+                <span class="price price-icons">
+                  <span class="cost-item">
+                    <span class="cost-val">{{ trackingGoldPrice }}</span>
+                    <span class="cost-ico-box"><img class="cost-ico cost-ico-s" src="/assets/icons/gold.png" alt="Or"></span>
+                  </span>
+                </span>
+              </div>
+
+              <button class="shop-btn buy-card-btn shop-card-action-btn"
+                      (click)="onBuyTrackingAction()"
+                      [disabled]="!canBuyTrackingAction"
+                      aria-label="Acheter Pisteur"
+                      (mouseenter)="zoomEnter($event, undefined, undefined, 'L')"
+                      (mousemove)="zoomMove($event)"
+                      (mouseleave)="zoomLeave()">
+                <img class="buy-img" [src]="actionImg('PISTEUR')" alt="Pisteur">
+              </button>
+            </div>
+
+            <!-- Eau bénite -->
+            <div class="card card-buy-bottom">
+              <div class="card-header-line">
+                <h4>Eau bénite</h4>
+                <span class="price price-icons">
+                  <span class="cost-item">
+                    <span class="cost-val">3</span>
+                    <span class="cost-ico-box"><img class="cost-ico cost-ico-s" src="/assets/icons/water.png" alt="Eau"></span>
+                    <span class="cost-val">{{ holyWaterGoldPrice }}</span>
+                    <span class="cost-ico-box"><img class="cost-ico cost-ico-s" src="/assets/icons/gold.png" alt="Or"></span>
+                  </span>
+                </span>
+              </div>
+
+              <button class="shop-btn buy-card-btn shop-card-action-btn"
+                      (click)="onBuyHolyWaterAction()"
+                      [disabled]="!canBuyHolyWaterAction"
+                      aria-label="Acheter Eau bénite"
+                      (mouseenter)="zoomEnter($event, undefined, undefined, 'L')"
+                      (mousemove)="zoomMove($event)"
+                      (mouseleave)="zoomLeave()">
+                <img class="buy-img" [src]="actionImg('EAU_BENITE')" alt="Eau bénite">
+              </button>
+            </div>
+          </div>
+
+          <!-- Transmutation vampire -->
+          <div class="card" *ngIf="isVampireSide">
+            <h4>Recettes de transmutation</h4>
+
+            <ul class="recipes">
+
+              <!-- 2 wood + 1 water -> +2 iron -->
+              <li>
+                <span class="price price-icons">
+                  <span class="cost-item">
+                    <span class="cost-val">2</span>
+                    <span class="cost-ico-box">
+                      <img class="cost-ico cost-ico-s" src="/assets/icons/wood.png" alt="Bois">
+                    </span>
+
+                    <span class="cost-plus">+</span>
+
+                    <span class="cost-val">1</span>
+                    <span class="cost-ico-box">
+                      <img class="cost-ico cost-ico-s" src="/assets/icons/water.png" alt="Eau">
+                    </span>
+
+                    <span class="cost-or">→</span>
+
+                    <span class="cost-plus">+</span>
+                    <span class="cost-val">2</span>
+                    <span class="cost-ico-box">
+                      <img class="cost-ico cost-ico-s" src="/assets/icons/iron.png" alt="Fer">
+                    </span>
+                  </span>
+                </span>
+
+                <button
+                  (click)="onTransmute('WOOD_TO_IRON')"
+                  [disabled]="me?.wood! < 2 || me?.water! < 1 || isMeDead">
+                  Transmuter
+                </button>
+              </li>
+
+              <!-- 2 iron + 1 water -> +2 wood -->
+              <li>
+                <span class="price price-icons">
+                  <span class="cost-item">
+                    <span class="cost-val">2</span>
+                    <span class="cost-ico-box">
+                      <img class="cost-ico cost-ico-s" src="/assets/icons/iron.png" alt="Fer">
+                    </span>
+
+                    <span class="cost-plus">+</span>
+
+                    <span class="cost-val">1</span>
+                    <span class="cost-ico-box">
+                      <img class="cost-ico cost-ico-s" src="/assets/icons/water.png" alt="Eau">
+                    </span>
+
+                    <span class="cost-or">→</span>
+
+                    <span class="cost-plus">+</span>
+                    <span class="cost-val">2</span>
+                    <span class="cost-ico-box">
+                      <img class="cost-ico cost-ico-s" src="/assets/icons/wood.png" alt="Bois">
+                    </span>
+                  </span>
+                </span>
+
+                <button
+                  (click)="onTransmute('IRON_TO_WOOD')"
+                  [disabled]="me?.iron! < 2 || me?.water! < 1 || isMeDead">
+                  Transmuter
+                </button>
+              </li>
+
+              <!-- 1 wood + 1 iron + 1 water -> +30 souls -->
+              <li>
+                <span class="price price-icons">
+                  <span class="cost-item">
+                    <span class="cost-val">1</span>
+                    <span class="cost-ico-box">
+                      <img class="cost-ico cost-ico-s" src="/assets/icons/wood.png" alt="Bois">
+                    </span>
+
+                    <span class="cost-plus">+</span>
+
+                    <span class="cost-val">1</span>
+                    <span class="cost-ico-box">
+                      <img class="cost-ico cost-ico-s" src="/assets/icons/iron.png" alt="Fer">
+                    </span>
+
+                    <span class="cost-plus">+</span>
+
+                    <span class="cost-val">1</span>
+                    <span class="cost-ico-box">
+                      <img class="cost-ico cost-ico-s" src="/assets/icons/water.png" alt="Eau">
+                    </span>
+
+                    <span class="cost-or">→</span>
+
+                    <span class="cost-plus">+</span>
+                    <span class="cost-val">30</span>
+                    <span class="cost-ico-box">
+                      <img class="cost-ico cost-ico-s" src="/assets/icons/souls.png" alt="Âmes">
+                    </span>
+                  </span>
+                </span>
+
+                <button
+                  (click)="onTransmute('TRINITY_TO_SOULS')"
+                  [disabled]="me?.wood! < 1 || me?.iron! < 1 || me?.water! < 1 || isMeDead">
+                  Transmuter
+                </button>
+              </li>
+
+            </ul>
+          </div>
+        </div>
+
+        <!-- =========================
+            COLONNE 2 : Vendre + Acheter argent + Bonus (hunter)
+            ========================= -->
+        <div class="col col-shop-b" *ngIf="isHunter">
+
+          <div class="card">
+            <div class="card-header-line">
+              <h4>Vendre des ressources</h4>
+
+              <!-- +10 + icône gold (comme achat silver) -->
+              <span class="price price-icons">
+                <span class="cost-item" title="Or gagné">
+                  <span class="cost-plus">+</span>
+                  <span class="cost-val">10</span>
+                  <span class="cost-ico-box">
+                    <img class="cost-ico cost-ico-s" src="/assets/icons/gold.png" alt="Or">
+                  </span>
+                </span>
+              </span>
+            </div>
+
+            <!-- Grille icônes -->
+            <div class="grid sell-grid sell-grid-icons">
+              <div class="sell" *ngFor="let r of sellableResources" [title]="r + ' (x' + resOf(me, r) + ')'">
+                <div class="sell-ico">
+                  <img
+                    class="sell-res-ico"
+                    [src]="'/assets/icons/' + (
+                      r === 'wood'  ? 'wood.png' :
+                      r === 'herbs' ? 'medical_grass.png' :
+                      r === 'stone' ? 'stone.png' :
+                      r === 'iron'  ? 'iron.png' :
+                      r === 'water' ? 'water.png' :
+                      r
+                    )"
+                    [alt]="r"
+                  />
+                </div>
+
+                <div class="actions">
+                  <button (click)="onSell(r, 1)" [disabled]="resOf(me, r) < 1 || isMeDead">-1</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
             <div class="card-header-line">
               <h4>Acheter de l’argent</h4>
-              <span class="price">{{ silverPrice }} 🪙</span>
+              <span class="price price-icons">
+                <span class="cost-item" title="Or">
+                  <span class="cost-ico-box">
+                    <img class="cost-ico cost-ico-s" src="/assets/icons/gold.png" alt="Or">
+                  </span>
+                  <span class="cost-val">{{ silverPrice }}</span>
+                </span>
+              </span>
             </div>
 
             <div class="row" style="justify-content:center; align-items:center;">
@@ -1285,83 +1863,60 @@ interface ForgeOption {
             </div>
           </div>
 
-          <div class="card-row" *ngIf="isHunter">
-          <!-- Acheter objet bonus (Marchand itinérant) -->
-            <div class="card" *ngIf="game?.shopBonusKind">
-              <div class="card-header-line">
-                <h4>{{ bonusTitle() }}</h4>
-                <span class="price">{{ bonusPriceLabel() }}</span>
-              </div>
 
-              <button
-                class="card-btn buy-card-btn"
-                (click)="onBuyBonus()"
-                [disabled]="!canBuyBonus()">
-                Acheter
-              </button>
-            </div>
-
-            <!-- Acheter Eau bénite (carte d’action EAU_BENITE) -->
-            <div class="card">
-              <div class="card-header-line">
-                <h4>Eau bénite</h4>
-                <span class="price">3 💧 + {{ holyWaterGoldPrice }} 🪙</span>
-              </div>
-
-              <button
-                class="card-btn buy-card-btn"
-                (click)="onBuyHolyWaterAction()"
-                [disabled]="!canBuyHolyWaterAction">
-                Acheter
-              </button>
-            </div>
-          </div>
-
-          <div class="card" *ngIf="isHunter">
+          <div class="card card-buy-bottom" *ngIf="game?.shopBonusKind">
             <div class="card-header-line">
-              <h4>Vendre des ressources</h4>
-              <span class="price">1 ressource → 10 🪙</span>
+              <h4>{{ bonusTitle() }}</h4>
+
+              <span class="price price-icons">
+                <ng-container *ngIf="bonusResCost() as rc">
+                  <span class="cost-item"> 
+                    <span *ngIf="rc.water" class="cost-val">{{ rc.water }}</span>
+                    <span *ngIf="rc.water" class="cost-ico-box"><img class="cost-ico cost-ico-s" src="/assets/icons/water.png" alt="Eau"></span>
+                    <span *ngIf="rc.herbs" class="cost-val">{{ rc.herbs }}</span>
+                    <span *ngIf="rc.herbs" class="cost-ico-box"><img class="cost-ico cost-ico-s" src="/assets/icons/medical_grass.png" alt="Herbes"></span>
+                    <span *ngIf="rc.wood" class="cost-val">{{ rc.wood }}</span>
+                    <span *ngIf="rc.wood" class="cost-ico-box"><img class="cost-ico cost-ico-s" src="/assets/icons/wood.png" alt="Bois"></span>
+                    <span *ngIf="rc.iron" class="cost-val">{{ rc.iron }}</span>
+                    <span *ngIf="rc.iron" class="cost-ico-box"><img class="cost-ico cost-ico-s" src="/assets/icons/iron.png" alt="Fer"></span>
+                    <span *ngIf="rc.silver" class="cost-val">{{ rc.silver }}</span>
+                    <span *ngIf="rc.silver" class="cost-ico-box"><img class="cost-ico cost-ico-s" src="/assets/icons/silver.png" alt="Argent"></span>
+                  </span>              
+                </ng-container>
+
+                <span class="cost-or">ou</span>
+
+                <span class="cost-item" title="Or" *ngIf="bonusGoldCost() as gc">
+                  <span class="cost-val">{{ gc }}</span>
+                  <span class="cost-ico-box"><img class="cost-ico cost-ico-s" src="/assets/icons/gold.png" alt="Or"></span>
+                </span>
+              </span>
             </div>
 
-            <div class="grid sell-grid">
-              <div class="sell" *ngFor="let r of sellableResources">
-                <div class="label">
-                  {{ r }} <small>(x{{ resOf(me, r) }})</small>
-                </div>
-                <div class="actions">
-                  <button (click)="onSell(r, 1)" [disabled]="resOf(me, r) < 1 || isMeDead">-1</button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="card" *ngIf="isVampireSide">
-            <h4>Recettes de transmutation</h4>
-            <ul class="recipes">
-              <li>
-                <span>2 🪵 + 1 💧 → +2 ⛓️</span>
-                <button (click)="onTransmute('WOOD_TO_IRON')" [disabled]="me?.wood!<2 || me?.water!<1 || isMeDead">Transmuter</button>
-              </li>
-              <li>
-                <span>2 ⛓️ + 1 💧 → +2 🪵</span>
-                <button (click)="onTransmute('IRON_TO_WOOD')" [disabled]="me?.iron!<2 || me?.water!<1 || isMeDead">Transmuter</button>
-              </li>
-              <li>
-                <span>1 🪵 + 1 ⛓️ + 1 💧 → +30 🕯️</span>
-                <button (click)="onTransmute('TRINITY_TO_SOULS')" [disabled]="me?.wood!<1 || me?.iron!<1 || me?.water!<1 || isMeDead">Transmuter</button>
-              </li>
-            </ul>
+            <button class="shop-btn buy-card-btn shop-card-action-btn"
+                    (click)="onBuyBonus()"
+                    [disabled]="!canBuyBonus()"
+                    aria-label="Acheter objet bonus"
+                    (mouseenter)="zoomEnter($event, bonusTitle(), true, 'L')"
+                    (mousemove)="zoomMove($event)"
+                    (mouseleave)="zoomLeave()">
+              <img class="buy-img" [src]="bonusBuyImgSrc()" [alt]="bonusTitle()">
+            </button>
           </div>
         </div>
 
-        <div class="col">
+        <!-- =========================
+            COLONNE 3 : ÉCHANGES
+            ========================= -->
+        <div class="col col-trades">
           <div class="card">
             <h4>Proposer un échange</h4>
+
             <div class="targets" *ngIf="!isMeDead">
               <button *ngFor="let p of eligibleTradeTargets"
                       (click)="selectTradeTarget(p.id)"
                       [class.active]="p.id===selectedTradeTargetId"
-                      class="card-btn">
+                      class="shop-btn">
                 {{ p.username }}
               </button>
             </div>
@@ -1372,6 +1927,7 @@ interface ForgeOption {
                 <div class="grid">
                   <div class="res" *ngFor="let r of tradeResources()">
                     <div class="label">{{ r }} <small>(x{{ resOf(me, r) }})</small></div>
+
                     <div class="actions" *ngIf="r !== 'gold'; else goldActions">
                       <button (click)="bumpOffer(r, +1)" [disabled]="resOf(me, r) < (offerQty(r)+1)">+1</button>
                       <button (click)="bumpOffer(r, -1)" [disabled]="offerQty(r) <= 0">-1</button>
@@ -1411,7 +1967,6 @@ interface ForgeOption {
                     <small class="muted">maj {{ T.updatedAt | date:'shortTime' }}</small>
                   </div>
 
-                  <!-- Sa proposition -->
                   <div class="card sub"
                       [class.ok]="statusClassFrom(otherStatus(T))==='ok'"
                       [class.ko]="statusClassFrom(otherStatus(T))==='ko'">
@@ -1422,7 +1977,6 @@ interface ForgeOption {
                     <div *ngIf="!((iAmA(T)?T.offerB:T.offerA) | keyvalue).length" class="muted">En attente…</div>
                   </div>
 
-                  <!-- Ta proposition -->
                   <div class="card sub"
                       [class.ok]="statusClassFrom(myStatus(T))==='ok'"
                       [class.ko]="statusClassFrom(myStatus(T))==='ko'">
@@ -1441,20 +1995,14 @@ interface ForgeOption {
                 </div>
               </div>
             </div>
-            <div class="card">
-              <h4>Statut</h4>
-              <div *ngIf="!isMeDead && !waitingDone; else waitingTpl">
-                <button class="finish" (click)="onFinishPhase4()">Ne rien faire</button>
-              </div>
-              <ng-template #waitingTpl>
-                <div class="muted">En attente des autres joueurs…</div>
-              </ng-template>
-            </div>
+
           </div>
         </div>
+
       </section>
     </div>
   </div>
+
   <!-- ===== MODALE ACTION ===== -->
   <div class="modal-backdrop" *ngIf="showActionModal && !isGameEnded">
     <div
@@ -2368,7 +2916,7 @@ interface ForgeOption {
             [disabled]="!canChooseLocationEffect"
             [class.selected]="effectChoice === 'ALCHEMY'">
             Alchimie<br />
-            <small>Préparer 1 potion (commune) gratuitement.</small>
+            <small>Préparer 1 potion gratuitement.</small>
           </button>
 
           <!-- RARE_ALCHEMY -->
@@ -2378,8 +2926,8 @@ interface ForgeOption {
             (click)="onEffectOptionClick('RARE_ALCHEMY')"
             [disabled]="!canChooseLocationEffect || !canUseRareAlchemy()"
             [class.selected]="effectChoice === 'RARE_ALCHEMY'">
-            Alchimie rare<br />
-            <small>Préparer 1 potion rare (6 eau, 6 herbes).</small>
+            Alchimie avancée<br />
+            <small>Préparer 1 élixir (6 eau, 6 herbes).</small>
 
             <div class="warning" *ngIf="!canUseRareAlchemy()">
               <small>Ressources insuffisantes.</small>
@@ -2718,34 +3266,42 @@ interface ForgeOption {
         <ng-container [ngSwitch]="locationActionKind">
 
           <!-- OMEN: choix TOP / BOTTOM pour chaque carte -->
-          <div *ngSwitchCase="'OMEN'" class="omen-container">
+          <div *ngSwitchCase="'OMEN'">
             <p *ngIf="!isLocationEffectOwner">
               Le joueur consulte secrètement les trois prochaines cartes d’action de l’adversaire.
             </p>
 
-            <div class="cards-row" *ngIf="isLocationEffectOwner">
-              <div
-                class="card omen-card"
-                *ngFor="let cardId of omenCards; let i = index"
-              >
-                <div class="card-title">
-                  {{ actionLabelFr(cardId) }}
-                </div>
+            <div class="cards-row omen-row" *ngIf="isLocationEffectOwner">
+              <div class="omen-card" *ngFor="let cardId of omenCards; let i = index">
 
-                <div class="card-buttons">
-                  <button type="button"
-                          (click)="onOmenPlacementClick(i, 'TOP')"
-                          [disabled]="!isLocationEffectOwner"
-                          [class.selected]="omenPlacements[i] === 'TOP'">
-                    Dessus le deck
-                  </button>
-                  <button type="button"
-                          (click)="onOmenPlacementClick(i, 'BOTTOM')"
-                          [disabled]="!isLocationEffectOwner"
-                          [class.selected]="omenPlacements[i] === 'BOTTOM'">
-                    Dessous le deck
-                  </button>
-                </div>
+                <!-- Image carte (zoomable) -->
+                <button type="button"
+                        class="omen-card-btn"
+                        (mouseenter)="zoomEnter($event, undefined, undefined, 'L')"
+                        (mousemove)="zoomMove($event)"
+                        (mouseleave)="zoomLeave()">
+                  <img class="omen-card-img"
+                      [src]="actionImg(cardId, me?.role)"
+                      [alt]="actionLabelFr(cardId)">
+                </button>
+
+                <!-- Boutons -->
+                <button type="button"
+                        class="omen-place-btn"
+                        (click)="onOmenPlacementClick(i, 'TOP')"
+                        [disabled]="!isLocationEffectOwner"
+                        [class.selected]="omenPlacements[i] === 'TOP'">
+                  Dessus le deck
+                </button>
+
+                <button type="button"
+                        class="omen-place-btn"
+                        (click)="onOmenPlacementClick(i, 'BOTTOM')"
+                        [disabled]="!isLocationEffectOwner"
+                        [class.selected]="omenPlacements[i] === 'BOTTOM'">
+                  Dessous le deck
+                </button>
+
               </div>
             </div>
 
@@ -2821,86 +3377,87 @@ interface ForgeOption {
 
           <!-- EXPERIMENT: choix monstre + lieu -->
           <div *ngSwitchCase="'EXPERIMENT'" class="experiment-container">
-            <p *ngIf="!isLocationActionOwner">
-              Le vampire prépare une expérience occulte, une créature va être invoquée…
+            <p *ngIf="isLocationActionOwner; else spectateText">
+              Choisissez le type de créature et le lieu où l’envoyer défendre.
             </p>
+            <ng-template #spectateText>
+              <p>Le vampire choisit une créature et un lieu…</p>
+            </ng-template>
 
-            <div *ngIf="isLocationActionOwner" class="experiment-owner">
-              <p>
-                Choisissez le type de créature et le lieu où l’envoyer défendre.
-              </p>
+            <div class="experiment-row">
+              <div class="experiment-col">
+                <h3>Type de créature</h3>
+                <div class="monster-pick-grid">
+                  <!-- REVENANT -->
+                  <button type="button"
+                          class="monster-pick"
+                          (click)="onExperimentMonsterClick('REVENANT')"
+                          [disabled]="!isLocationActionOwner"
+                          [class.selected]="experimentMonsterType === 'REVENANT'">
+                    <img class="monster-img" src="/assets/monster/revenant.png" alt="Revenant" />
+                    <div class="monster-name">Revenant</div>
+                    <div class="monster-stats">
+                      <div>Coût : {{ experimentMonsterMeta.REVENANT.cost }}</div>
+                      <div>PV : {{ experimentMonsterMeta.REVENANT.hp }}</div>
+                      <div>ATK : {{ experimentMonsterMeta.REVENANT.atkDice }}</div>
+                      <div>DEF : {{ experimentMonsterMeta.REVENANT.defDice }}</div>
+                    </div>
+                  </button>
 
-              <div class="experiment-row">
-                <div class="experiment-col">
-                  <h3>Type de créature</h3>
-                  <div class="monster-pick-grid">
-                    <!-- REVENANT -->
-                    <button type="button"
-                            class="monster-pick"
-                            (click)="onExperimentMonsterClick('REVENANT')"
-                            [class.selected]="experimentMonsterType === 'REVENANT'">
-                      <img class="monster-img" src="/assets/monster/revenant.png" alt="Revenant" />
-                      <div class="monster-name">Revenant</div>
-                      <div class="monster-stats">
-                        <div>Coût : {{ experimentMonsterMeta.REVENANT.cost }}</div>
-                        <div>PV : {{ experimentMonsterMeta.REVENANT.hp }}</div>
-                        <div>ATK : {{ experimentMonsterMeta.REVENANT.atkDice }}</div>
-                        <div>DEF : {{ experimentMonsterMeta.REVENANT.defDice }}</div>
-                      </div>
-                    </button>
+                  <!-- GARGOYLE -->
+                  <button type="button"
+                          class="monster-pick"
+                          (click)="onExperimentMonsterClick('GARGOYLE')"
+                          [disabled]="!isLocationActionOwner"
+                          [class.selected]="experimentMonsterType === 'GARGOYLE'">
+                    <img class="monster-img" src="/assets/monster/gargouille.png" alt="Gargouille" />
+                    <div class="monster-name">Gargouille</div>
+                    <div class="monster-stats">
+                      <div>Coût : {{ experimentMonsterMeta.GARGOYLE.cost }}</div>
+                      <div>PV : {{ experimentMonsterMeta.GARGOYLE.hp }}</div>
+                      <div>ATK : {{ experimentMonsterMeta.GARGOYLE.atkDice }}</div>
+                      <div>DEF : {{ experimentMonsterMeta.GARGOYLE.defDice }}</div>
+                    </div>
+                  </button>
 
-                    <!-- GARGOYLE -->
-                    <button type="button"
-                            class="monster-pick"
-                            (click)="onExperimentMonsterClick('GARGOYLE')"
-                            [class.selected]="experimentMonsterType === 'GARGOYLE'">
-                      <img class="monster-img" src="/assets/monster/gargouille.png" alt="Gargouille" />
-                      <div class="monster-name">Gargouille</div>
-                      <div class="monster-stats">
-                        <div>Coût : {{ experimentMonsterMeta.GARGOYLE.cost }}</div>
-                        <div>PV : {{ experimentMonsterMeta.GARGOYLE.hp }}</div>
-                        <div>ATK : {{ experimentMonsterMeta.GARGOYLE.atkDice }}</div>
-                        <div>DEF : {{ experimentMonsterMeta.GARGOYLE.defDice }}</div>
-                      </div>
-                    </button>
-
-                    <!-- ABERRATION -->
-                    <button type="button"
-                            class="monster-pick"
-                            (click)="onExperimentMonsterClick('ABERRATION')"
-                            [class.selected]="experimentMonsterType === 'ABERRATION'">
-                      <img class="monster-img" src="/assets/monster/aberration.png" alt="Aberration" />
-                      <div class="monster-name">Aberration</div>
-                      <div class="monster-stats">
-                        <div>Coût : {{ experimentMonsterMeta.ABERRATION.cost }}</div>
-                        <div>PV : {{ experimentMonsterMeta.ABERRATION.hp }}</div>
-                        <div>ATK : {{ experimentMonsterMeta.ABERRATION.atkDice }}</div>
-                        <div>DEF : {{ experimentMonsterMeta.ABERRATION.defDice }}</div>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-
-                <div class="experiment-col">
-                  <h3>Lieu de déploiement</h3>
-                  <div class="location-list">
-                    <button type="button"
-                            *ngFor="let loc of experimentAvailableLocations"
-                            (click)="onExperimentLocationClick(loc)"
-                            [class.selected]="experimentLocation === loc">
-                      {{ labelLocation(loc) }}
-                    </button>
-                  </div>
+                  <!-- ABERRATION -->
+                  <button type="button"
+                          class="monster-pick"
+                          (click)="onExperimentMonsterClick('ABERRATION')"
+                          [disabled]="!isLocationActionOwner"
+                          [class.selected]="experimentMonsterType === 'ABERRATION'">
+                    <img class="monster-img" src="/assets/monster/aberration.png" alt="Aberration" />
+                    <div class="monster-name">Aberration</div>
+                    <div class="monster-stats">
+                      <div>Coût : {{ experimentMonsterMeta.ABERRATION.cost }}</div>
+                      <div>PV : {{ experimentMonsterMeta.ABERRATION.hp }}</div>
+                      <div>ATK : {{ experimentMonsterMeta.ABERRATION.atkDice }}</div>
+                      <div>DEF : {{ experimentMonsterMeta.ABERRATION.defDice }}</div>
+                    </div>
+                  </button>
                 </div>
               </div>
 
-              <div class="modal-button-row footer-row">
-                <button type="button"
-                        (click)="confirmExperiment()"
-                        [disabled]="!experimentCanSubmit || experimentSubmitting">
-                  Valider l’expérience
-                </button>
+              <div class="experiment-col">
+                <h3>Lieu de déploiement</h3>
+                <div class="location-list">
+                  <button type="button"
+                          *ngFor="let loc of experimentAvailableLocations"
+                          (click)="onExperimentLocationClick(loc)"
+                          [disabled]="!isLocationActionOwner"
+                          [class.selected]="experimentLocation === loc">
+                    {{ labelLocation(loc) }}
+                  </button>
+                </div>
               </div>
+            </div>
+
+            <div class="modal-button-row footer-row" *ngIf="isLocationActionOwner">
+              <button type="button"
+                      (click)="confirmExperiment()"
+                      [disabled]="!experimentCanSubmit || experimentSubmitting">
+                Valider l’expérience
+              </button>
             </div>
           </div>
 
@@ -3061,7 +3618,7 @@ interface ForgeOption {
       <p>Vous pouvez observer la partie ou retourner au lobby.</p>
 
       <div class="end-game-actions">
-        <button (click)="observeAfterDeath()" style="margin-left:.5rem">Observer</button>
+        <button (click)="observeAfterDeath()" style="margin-right:.5rem">Observer</button>
         <button (click)="leaveAfterDeath()">Retour au lobby</button>
       </div>
     </div>
@@ -3077,18 +3634,35 @@ interface ForgeOption {
       </div>
     </div>
   </div>
+  <div *ngIf="zoomOn" class="equip-zoom" [ngStyle]="zoomStyle">
+    <img class="equip-zoom-img" [src]="zoomSrc" alt="zoom" />
+    <span *ngIf="zoomBadgeOn"
+          class="equip-zoom-badge"
+          [class.badge-hunter]="zoomBadgeIsHunter === true"
+          [class.badge-vamp]="zoomBadgeIsHunter === false">
+      {{ zoomBadgeText }}
+    </span>
+  </div>
   `,
   styles: [`
   /* Layout des boards */
+  *,
+  *::before,
+  *::after{
+    box-sizing: border-box;
+  }
+
   .container{
-    width: 96vw;
+    width: 100%;
     max-width: 1920px;
     margin: 0 auto;
     padding: .5rem;
   }
+
   .leave-btn{ position: fixed; right: 40px; top: 10px; }
   .lobby-btn{ position: fixed; right: 150px; top: 10px; }
   .board-wide{ width:100%; padding:.5rem; border:1px solid #ddd; margin:.5rem 0; background:#fff; }
+  .board-wide-center{ width:100%; padding:.5rem; margin:.5rem 0; background:#fff; }
   .players-grid{
     display: flex;
     flex-wrap: wrap;
@@ -3097,11 +3671,125 @@ interface ForgeOption {
   }
   .player-card{
     flex: 0 0 auto;
-    max-width: 270px;
-    min-width: 220px;
+    width: 280px;
   }
-  .boards-row{ display:grid; gap:.75rem; align-items:start; grid-template-columns: 1fr 4fr 1fr; margin:.5rem 0; }
-  .panel{ border:1px solid #ddd; padding:.5rem; background:#fefefe; }
+
+  .panel{
+    border:1px solid #ddd;
+    padding:.5rem;
+    background:#fefefe;
+    min-width: 0;
+  }
+
+  /* ====== GRAND ÉCRAN ======
+    [bloc1] [bloc2] [bloc3]
+  */
+  .boards-row{
+    display: grid;
+
+    row-gap: .75rem;
+    column-gap: 1rem;
+
+    align-items: start;
+    grid-template-columns: 290px minmax(0, 1fr) 290px;
+    grid-template-areas: "left center right";
+  }
+
+  .panel-left  { grid-area: left; }
+  .panel-center{ grid-area: center; min-width: 0; }
+  .panel-right { grid-area: right; }
+
+  .boards-row.no-left{
+    grid-template-columns: minmax(0, 1fr) 290px;
+    grid-template-areas: "center right";
+  }
+
+  /* ====== MOYEN ÉCRAN ======
+    ligne 1: bloc2 (plein)
+    ligne 2: bloc1 | bloc3
+  */
+  @media (max-width: 1000px){
+    .boards-row{
+      grid-template-columns: 1fr 1fr;
+      grid-template-areas:
+        "center center"
+        "left   right";
+
+      column-gap: 1rem;
+      row-gap: .75rem;
+
+      justify-items: stretch;
+      align-items: start;
+    }
+
+    .panel-center{
+      justify-self: stretch;
+      width: 100%;
+    }
+
+    .panel-left,
+    .panel-right{
+      width: 290px;
+      max-width: 100%;
+      justify-self: center;
+    }
+
+    .panel-right{
+      height: 250px;
+    }
+
+    .boards-row.no-left{
+      grid-template-columns: 1fr;
+      grid-template-areas:
+        "center"
+        "right";
+    }
+
+    .boards-row.no-left .panel-right{
+      width: 290px;
+      justify-self: center;
+    }
+  }
+
+
+  /* ====== PETIT ÉCRAN ======
+    bloc2 (plein)
+    bloc1 (plein)
+    bloc3 (plein)
+  */
+  @media (max-width: 640px){
+    .boards-row{
+      grid-template-columns: 1fr;
+      grid-template-areas:
+        "center"
+        "left"
+        "right";
+
+      row-gap: .75rem;
+
+      justify-items: stretch;
+      align-items: start;
+    }
+
+    .panel-center{
+      justify-self: stretch;
+      width: 100%;
+    }
+
+    .panel-left,
+    .panel-right{
+      width: 290px;
+      max-width: 100%;
+      height: auto;
+      justify-self: center;
+    }
+
+    .boards-row.no-left{
+      grid-template-areas:
+        "center"
+        "right";
+    }
+  }
 
   /* Centre plateau */
   .center-grid{
@@ -3154,12 +3842,102 @@ interface ForgeOption {
     flex-wrap:nowrap;
   }
 
-  .equip-bar > .equip-card{
-    flex: 0 0 90px;
-    min-width: 0;
-    border:1px solid #ddd; border-radius:10px; padding:.5rem .4rem;
-    background:linear-gradient(180deg,#f8f9fb,#eef1f5);
-    height: 100px
+  .equip-bar .equip-item{
+    width: 100px;
+    height: 136px;
+    display: block;
+    object-fit: contain;
+  }
+
+  /* Zoom box */
+  .equip-zoom{
+    position: fixed;
+    z-index: 9999;
+    pointer-events: none;
+
+    border: 1px solid #000;
+    border-radius: 10px;
+    background: #fff;
+    overflow: hidden;
+
+    box-shadow: 0 6px 18px rgba(0,0,0,.25);
+  }
+
+  .equip-zoom-img{
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: contain;
+  }
+
+  .mini-badge{
+    pointer-events: none;
+  }
+
+  /* Centre : cartes jouées */
+  .center-cards{
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    align-items: flex-start;
+  }
+
+  .center-card{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .25rem;
+  }
+
+  .center-card-name{
+    font: 600 12px/1.1 system-ui, sans-serif;
+    color: #222;
+  }
+
+  .center-card-img{
+    width: 60px;
+    height: 82px;
+    display: block;
+    object-fit: contain;
+    border-radius: 10px;
+  }
+
+  .equip-zoom-badge.badge-hunter{
+    background: rgba(29, 78, 216, .65);
+    color: #fff;
+  }
+
+  .equip-zoom-badge.badge-vamp{
+    background: rgba(185, 28, 28, .65);
+    color: #fff;
+  }
+
+  .name-hunter { color: #1e5eff; }
+  .name-vamp   { color: #d10000; }
+
+
+  /* Badge dans le zoom (texte ou nombre) */
+  .equip-zoom-badge{
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+
+    padding: 6px 10px;
+    border-radius: 999px;
+
+    font: 800 14px/1.1 system-ui, sans-serif;
+    color: #fff;
+    background: rgba(0,0,0,.65);
+    box-shadow: 0 2px 10px rgba(0,0,0,.35);
+
+    max-width: calc(100% - 16px);
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    pointer-events: none;
   }
 
   .equip-bar > .mini-stack{
@@ -3172,13 +3950,43 @@ interface ForgeOption {
 
   }
 
-  .mini-card {
-    border:1px solid #ddd; border-radius:10px; padding:.5rem .4rem;
-    background:linear-gradient(180deg,#f8f9fb,#eef1f5);
+  .mini-card{
+    position: relative;
+    height: 62px;
+    width: 46px;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #fff;
     margin: 1px 3px 0 0;
-    height: 35px
   }
 
+  .mini-back-img{
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-position: center;
+  }
+
+  .mini-badge{
+    position: absolute;
+    left: 50%;
+    bottom: -8%;
+    transform: translate(-50%, -50%);
+
+    width: 10px;
+    height: 16px;
+    padding: 0 6px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 999px;
+    background: rgba(0,0,0,.65);
+    color: #fff;
+    font: 700 12px/1 system-ui, sans-serif;
+  }
 
   .equip-label{ font:600 12px/1.1 system-ui, sans-serif; color:#333; margin-bottom:.35rem; }
 
@@ -3190,54 +3998,232 @@ interface ForgeOption {
     background:#111; color:#fff; opacity:.95;
   }
 
-  /* --- BOARD DU BAS --- */
-  .my-board .equip-bar{ width: min(270px, 100%); }
-  .my-board .equip-bar > .equip-card{
-    flex: 0 0 calc((100% - 1rem) / 3);
-    width:     calc((100% - 1rem) / 3);
+  /* Pioches */
+    /* ===== Decks layout : 2 colonnes / 2 lignes ===== */
+  .decks-grid{
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .9rem 1.2rem;
+    align-items: start;
   }
-  .my-board .equip-bar > .mini-stack{ display:none; }
+
+  .deck-block{
+    display: flex;
+    flex-direction: column;
+  }
+
+  .deck-block-title{
+    font: 700 12px/1.1 system-ui, sans-serif;
+    color: #222;
+  }
+
+  /* 2 piles (pioche + défausse) côte à côte */
+  .deck-piles{
+    display: flex;
+    align-items: flex-start;
+  }
+
+  /* On réutilise mini-card mais en taille "carte" */
+  .mini-card.deck-pile{
+    width: 60px;
+    height: 82px;
+  }
+
+  /* Important : ton mini-back-img n'avait pas object-fit,
+    du coup certaines images peuvent être moches */
+  .mini-back-img.deck-img{
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: contain;
+  }
+
+  /* Badge version deck (plus lisible que ton mini-badge actuel) */
+  .mini-card.deck-pile .mini-badge{
+    left: 50%;
+    bottom: 4px;
+    transform: translateX(-50%);
+    width: auto;
+    height: auto;
+    padding: 2px 8px;
+    font: 800 12px/1 system-ui, sans-serif;
+  }
+
+  /* couleurs badge */
+  .mini-badge.badge-hunter{ background: rgba(29, 78, 216, .65); }
+  .mini-badge.badge-vamp{ background: rgba(185, 28, 28, .65); }
+
+  /* Défausse vide => placeholder sans image */
+  .mini-card.deck-pile.deck-empty{
+    background: linear-gradient(135deg, rgba(0,0,0,.10), rgba(0,0,0,.03));
+    border: 1px solid rgba(0,0,0,.10);
+  }
+
+  .mini-card.deck-pile.deck-empty{
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.35);
+  }
+
+  /* --- BOARD DU BAS --- */
+  .res-board{
+    display:flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    align-items:center;
+    justify-content:center;
+    margin:.25rem 0;
+  }
+
+  .res-title{
+    font-weight: 700;
+    color:#222;
+  }
+
+  .res-item{
+    display:inline-flex;
+    align-items:center;
+    gap: .25rem;
+    padding: .15rem .35rem;
+    border: 1px solid rgba(0,0,0,.10);
+    border-radius: 999px;
+    background: #fff;
+  }
+
+  .res-ico-box{
+    width: 26px;
+    height: 26px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex: 0 0 26px;
+  }
+
+  .res-ico{
+    display:block;
+    object-fit: contain;
+  }
+
+  .res-ico-s{ width: 20px; height: 20px; }
+  .res-ico-m{ width: 23px; height: 23px; }
+  .res-ico-l{ width: 29px; height: 29px; }
+
+  .res-val{
+    font: 700 12px/1 system-ui, sans-serif;
+    color:#111;
+    min-width: 2ch;
+    text-align: right;
+  }
 
   .hand{
     display: grid;
-    grid-template-rows: auto 1fr auto;
-    gap: .5rem;
+    gap: .35rem;
     margin-top: 10px;
   }
 
-  .hand-head{
-    display:grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
+  .hand-labels{
+    display: flex;
+    gap: .5rem;
     align-items: end;
-    font-weight: 600;
   }
 
-  .hand-title{
+  .equip-title{
+    width: calc(120px + 120px + .5rem);
+  }
+
+  .hand-label{
     font: 600 14px/1.1 system-ui, sans-serif;
   }
 
   .hand-cards{
     display:flex;
-    gap:.5rem;
     flex-wrap:wrap;
-    margin-top:.5rem;
+    gap:.5rem;
+    align-items:flex-start;
+  }
+
+  .equip-slot{
+    width: 128px;
+    height: 174px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 128px;
+  }
+
+  .my-equip-item{
+    width: 120px;
+    height: 164px;
+    display:block;
+    object-fit: contain;
   }
 
   .card-btn{
-    padding:.5rem 1rem;
-    border:1px solid #ccc;
-    cursor:pointer;
-    background:#fff;
+    width: 128px;
+    height: 174px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+    box-sizing: border-box;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .card-frame{
+    width: 100%;
+    height: 100%;
+    border-radius: 12px;
+    box-sizing: border-box;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 2px;
+  }
+
+  .card-surface{
+    width: 120px;
+    height: 164px;
+    overflow: hidden;
+  }
+
+  .card-btn.selected .card-frame{
+    box-shadow: 0 0 0 2px #000;
+  }
+
+  .card-img{
+    width: 100%;
+    height: 100%;
+    display:block;
+    object-fit: contain;
   }
 
   .card-btn.is-disabled{
-    opacity:.55;
+    opacity: .55;
     cursor:not-allowed;
     pointer-events: auto;
   }
-  .selected{ outline:2px solid #000 }
 
+  .text-btn{
+    padding: .5rem 1rem;
+    border: 1px solid #ccc;
+    background: #fff;
+    cursor: pointer;
+    border-radius: 8px;
+  }
+
+  .text-btn.is-disabled{
+    opacity: .55;
+    cursor:not-allowed;
+    pointer-events: auto;
+  }
+
+  .text-btn.selected{
+    outline: 2px solid #000;
+    outline-offset: 2px;
+  }
 
   /* Chips buffs */
   .mods-row{
@@ -3263,7 +4249,7 @@ interface ForgeOption {
   }
   .mod-chip .chip-ico{
     width:14px; height:14px; border-radius:3px;
-    background: rgba(255,255,255,.85); /* placeholder */
+    background: rgba(255,255,255,.85);
   }
   .mod-chip .chip-val{ line-height:1; }
 
@@ -4028,102 +5014,52 @@ interface ForgeOption {
     align-items: center;
   }
 
-  /* Trade modale */
+  /* =========================
+    Trade modale - Base
+    ========================= */
+
+  .modal.trade-modal,
+  .modal.trade-modal *{
+    box-sizing: border-box;
+  }
+
+  /* Boutons génériques */
+  .modal.trade-modal .shop-btn{
+    padding: .5rem 1rem;
+    border: 1px solid #ccc;
+    cursor: pointer;
+    background: #fff;
+    border-radius: 8px;
+  }
+
+  .modal.trade-modal .shop-btn.is-disabled,
+  .modal.trade-modal .shop-btn:disabled{
+    opacity: .55;
+    cursor: not-allowed;
+    pointer-events: auto;
+  }
+
+  /* Container modale */
   .modal.trade-modal{
-    background:#fff;
-    max-width:1000px;
-    width:90vw;
-    height:90vh;
-    overflow:auto;
-    border-radius:12px;
-    padding:1rem;
-  }
-  .modal-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem;border-bottom:1px solid #eee;padding-bottom:.5rem;margin-bottom:1rem;color: #eee;}
-  .modal-body{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
-  .modal.trade-modal .card{border:1px solid #eee;border-radius:8px;padding:.50rem;margin-bottom:.75rem;}
-  .modal.trade-modal .card h4, .modal.trade-modal .card-btn{margin: 10px 5px;}
-  .row{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;}
-  .grid{display:grid;grid-template-columns:repeat(4, minmax(0,1fr));gap:.5rem;}
-  .modal.trade-modal .card .grid.sell-grid {grid-template-columns: repeat(5, minmax(0, 1fr));}
-  .targets{}
-  .targets button.active{outline:2px solid #333;}
-  .trade-area .pill{display:inline-block;border:1px solid #ddd;border-radius:999px;padding:.15rem .5rem;margin:.15rem;}
-  .ok{background:rgba(0,160,0,.08);}
-  .ko{background:rgba(200,0,0,.08);}
-  .finish{width:100%;}
-  .muted{opacity:.7;}
-  .timer{font-weight:600;}
-  .recipes li{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin:.25rem 0;}
-  .sell .actions button{min-width:3rem;}
-  .modal.trade-modal .modal-head .inventory{
-    margin: 0 auto;                 /* pousse au centre entre titre et timer */
-    display: flex; gap: .35rem; flex-wrap: wrap;
-  }
-  .modal.trade-modal .modal-head .inv{
-    border:1px solid rgba(255,255,255,.35);
-    background:rgba(0,0,0,.25);
-    border-radius:999px;
-    padding:.1rem .5rem;
-    font-weight:600;
-  }
+    max-width: 1500px;
+    width: 95vw;
+    height: 90vh;
+    border-radius: 12px;
+    padding: 1rem;
 
-  /* Ligne pour Actions + Potions */
-  .modal.trade-modal .card-row {
+    position: relative;
+    background: transparent;
+
+    overflow: hidden;
     display: flex;
-    gap: .75rem;
-    margin-bottom: .75rem;
+    flex-direction: column;
   }
 
-  .modal.trade-modal .card-row .card {
-    flex: 1 1 0;
-    margin-bottom: 0;
-  }
-
-  .modal.trade-modal .card-header-line {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: .5rem;
-  }
-
-  .modal.trade-modal .card-header-line .price {
-    font-size: .9rem;
-    opacity: .9;
-  }
-
-  .modal.trade-modal .buy-card-btn {
-    width: 66px;
-    height: 90px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: .5rem auto 0 auto;
-    padding: 0;
-  }
-
-  .trade-list{
-    max-height:32vh;
-    overflow-y:auto;
-    padding-right:.25rem;
-  }
-
-  .trade-block{
-    border:1px solid #eee;
-    border-radius:8px;
-    padding:.5rem;
-    margin-bottom:.5rem;
-  }
-  .card.sub{ margin:.5rem 0; }
-  .trade-block.active{ outline:2px solid #333; }
-
-  .modal.trade-modal{
-    position:relative;
-    overflow:hidden;
-    background:transparent;
-  }
+  /* Background image hunters/vampires */
   .modal.trade-modal::before{
     content:"";
-    position:absolute; inset:0;
+    position:absolute;
+    inset:0;
     background-size: cover;
     background-position:center;
     pointer-events:none;
@@ -4131,32 +5067,429 @@ interface ForgeOption {
   }
   .modal.trade-modal.hunters::before{   background-image:url('/assets/locations/bg-trade-hunters.png'); }
   .modal.trade-modal.vampires::before{  background-image:url('/assets/locations/bg-trade-vampires.png'); }
+
+  /* mettre le contenu au-dessus du fond */
   .modal.trade-modal > *{ position:relative; z-index:1; }
 
+  /* Head */
+  .modal.trade-modal .modal-head{
+    flex: 0 0 auto;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:.75rem;
+
+    border-bottom:1px solid rgba(255,255,255,.25);
+    padding-bottom:.5rem;
+    margin-bottom:1rem;
+    color:#eee;
+  }
+
+  .modal.trade-modal .modal-head .head-actions{
+    display:flex;
+    align-items:center;
+    gap:.5rem;
+  }
+
+  .modal.trade-modal .modal-head .finish{
+    width:auto;
+  }
+
+  /* Body */
+  .modal.trade-modal .modal-body{
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+
+    display: grid;
+    gap: 1rem;
+  }
+
+  .card-header-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: .5rem;
+  }
+
+  /* Vampire/servant: 2 colonnes (shop + échanges) */
+  .modal.trade-modal .modal-body{
+    grid-template-columns: 1fr 1.2fr;
+  }
+
+  /* Hunter: 3 colonnes */
+  .modal.trade-modal .modal-body.has-mid{
+    grid-template-columns: 1fr 1fr 1.2fr;
+  }
+
+  /* Colonnes scrollables (grand écran) */
+  .modal.trade-modal .modal-body > .col{
+    min-height: 0;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-right: .25rem;
+  }
+
+  /* Cards */
   .modal.trade-modal .card{
+    border:1px solid rgba(255,255,255,.25);
+    border-radius:8px;
+    padding:.50rem;
+    margin-bottom:.75rem;
+
     background:rgba(32,32,32,.35);
-    border-color:rgba(255,255,255,.25);
     color:#fff;
+
+    min-width: 0;
   }
 
-  .modal.trade-modal .card .muted{
-    opacity:1;
-    color:rgba(255,255,255,.75);
+  .modal.trade-modal img{
+    max-width:100%;
   }
 
-  .modal.trade-modal .pill{
-    border:1px solid rgba(255,255,255,.35);
-    background:rgba(255,255,255,.14);
-    color:#fff;
+  /* marges internes existantes */
+  .modal.trade-modal .card h4,
+  .modal.trade-modal .shop-btn{
+    margin: 10px 5px;
+  }
+
+  /* Helpers */
+  .modal.trade-modal .row{
+    display:flex;
+    gap:.5rem;
+    align-items:center;
+    flex-wrap:wrap;
+  }
+
+  .modal.trade-modal .grid{
+    display:grid;
+    grid-template-columns: repeat(4, minmax(0,1fr));
+    gap:.5rem;
+  }
+
+  .modal.trade-modal .card .grid.sell-grid{
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  /* ====== SELL GRID (icônes seulement) ====== */
+  .modal.trade-modal .card .grid.sell-grid.sell-grid-icons{
+    grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+    gap: .6rem;
+  }
+
+  .modal.trade-modal .sell-grid-icons .sell{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:flex-start;
+    gap:.35rem;
+
+    border:none;
+    border-radius:0;
+    background:transparent;
+
+    padding:.2rem 0;
+  }
+
+  .modal.trade-modal .sell-grid-icons .sell-ico{
+    width:34px;
+    height:34px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex:0 0 34px;
+
+    border:1px solid rgba(255,255,255,.22);
+    border-radius:10px;
+    background:rgba(0,0,0,.22);
+  }
+
+  .modal.trade-modal .sell-grid-icons .sell-res-ico{
+    width:22px;
+    height:22px;
+    object-fit:contain;
+    display:block;
+  }
+
+  .modal.trade-modal .sell-grid-icons .sell .actions{
+    display:flex;
+    justify-content:center;
+    width:100%;
+  }
+
+  .modal.trade-modal .targets button.active{ outline:2px solid #fff; }
+
+  .modal.trade-modal .trade-area .pill{
+    display:inline-block;
+    border:1px solid rgba(255,255,255,.25);
+    border-radius:999px;
+    padding:.15rem .5rem;
+    margin:.15rem;
   }
 
   .modal.trade-modal .ok{ background:rgba(0,160,0,.18); }
   .modal.trade-modal .ko{ background:rgba(200,0,0,.18); }
 
-  .modal.trade-modal .targets button.active{ outline-color:#fff; }
+  .modal.trade-modal .muted{
+    opacity:1;
+    color: rgba(255,255,255,.75);
+  }
 
-  /* Petits toasts (remplacent le bloc supprimé pendant 2.5s) */
-  .trade-toast{
+  .modal.trade-modal .timer{ font-weight:600; }
+
+  .modal.trade-modal .recipes li{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:.5rem;
+    margin:.25rem 0;
+  }
+
+  .modal.trade-modal .sell .actions button{ min-width:3rem; }
+
+  /* =========================
+    INVENTAIRE (inv-item)
+    ========================= */
+  .modal.trade-modal .modal-head .inventory{
+    margin: 0 auto;
+    display:flex;
+    gap:.35rem;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:center;
+  }
+
+  .modal.trade-modal .inv-item{
+    display:inline-flex;
+    align-items:center;
+    gap:.25rem;
+
+    border:1px solid rgba(255,255,255,.35);
+    background:rgba(0,0,0,.25);
+    border-radius:999px;
+    padding:.12rem .45rem;
+
+    color:#fff;
+    font-weight:700;
+  }
+
+  .modal.trade-modal .inv-ico-box{
+    width:22px;
+    height:22px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex:0 0 22px;
+  }
+
+  .modal.trade-modal .inv-ico{
+    display:block;
+    object-fit:contain;
+  }
+
+  .modal.trade-modal .inv-ico-s{ width:18px; height:18px; }
+  .modal.trade-modal .inv-ico-m{ width:20px; height:20px; }
+  .modal.trade-modal .inv-ico-l{ width:24px; height:24px; }
+
+  .modal.trade-modal .inv-val{
+    font:800 12px/1 system-ui, sans-serif;
+    color:#fff;
+    min-width:2ch;
+    text-align:right;
+  }
+
+  /* =========================
+    PRIX / COÛTS en icônes
+    ========================= */
+  .modal.trade-modal .price.price-icons{
+    display:inline-flex;
+    align-items:center;
+    gap:.25rem;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+  }
+
+  .modal.trade-modal .cost-item{
+    display:inline-flex;
+    align-items:center;
+
+    border:1px solid rgba(255,255,255,.35);
+    background:rgba(0,0,0,.25);
+    border-radius:999px;
+    padding:.06rem .25rem;
+  }
+
+  .modal.trade-modal .cost-ico-box{
+    width:18px;
+    height:18px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex:0 0 18px;
+  }
+
+  .modal.trade-modal .cost-ico{
+    display:block;
+    width:100%;
+    height:100%;
+    object-fit:contain;
+  }
+
+  .modal.trade-modal .cost-ico-s{ width:16px; height:16px; }
+  .modal.trade-modal .cost-ico-m{ width:18px; height:18px; }
+  .modal.trade-modal .cost-ico-l{ width:20px; height:20px; }
+
+  .modal.trade-modal .cost-val{
+    font:800 12px/1 system-ui, sans-serif;
+    color:#fff;
+    min-width:2ch;
+    text-align:right;
+  }
+
+  .modal.trade-modal .cost-plus{
+    opacity:.9;
+    font-weight:900;
+    padding:0 .1rem;
+  }
+
+  .modal.trade-modal .cost-or{
+    opacity:.9;
+    font-weight:900;
+    padding:0 .15rem;
+  }
+
+  /* =========================
+    LIGNES 2-CARDS (toujours sur 2 colonnes)
+    ========================= */
+  .modal.trade-modal .card-row.row-2{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:.75rem;
+    margin-bottom:.75rem;
+  }
+
+  .modal.trade-modal .card-row.row-2 > .card{
+    margin-bottom: 0; /* pas de double margin */
+    min-width: 0;
+  }
+
+  /* =========================
+    Boutons Acheter = image + badge
+    ========================= */
+  .modal.trade-modal .buy-card-btn{
+    width:60px;
+    height:82px;
+    margin:.5rem auto 0 auto;
+    padding:0;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    border-radius:10px;
+    border:1px solid rgba(255,255,255,.25);
+    background:rgba(0,0,0,.20);
+
+    position:relative;
+    overflow:hidden;
+  }
+
+  .modal.trade-modal .buy-card-btn .buy-img{
+    width:100%;
+    height:100%;
+    display:block;
+    object-fit:contain;
+  }
+
+  .modal.trade-modal .buy-badge{
+    position:absolute;
+    left:50%;
+    bottom:4px;
+    transform:translateX(-50%);
+
+    padding:2px 8px;
+    border-radius:999px;
+
+    font:800 12px/1 system-ui, sans-serif;
+    background:rgba(0,0,0,.65);
+    color:#fff;
+
+    pointer-events:none;
+  }
+
+  .modal.trade-modal .buy-badge.badge-hunter{ background: rgba(29, 78, 216, .65); }
+  .modal.trade-modal .buy-badge.badge-vamp{   background: rgba(185, 28, 28, .65); }
+
+  /* Card achat avec bouton collé en bas */
+  .modal.trade-modal .card.card-buy-bottom{
+    display:flex;
+    flex-direction:column;
+  }
+  .modal.trade-modal .card.card-buy-bottom .buy-card-btn{
+    margin-top:auto;
+    align-self:center;
+    margin-bottom:.35rem;
+  }
+
+  /* =========================
+    Actions de maintenance
+    ========================= */
+  .modal.trade-modal .shop-actions-grid{
+    display:flex;
+    flex-wrap:wrap;
+    gap:.5rem;
+    justify-content:center;
+    margin:.35rem 0 .25rem;
+  }
+
+  .modal.trade-modal .shop-card-action-btn{
+    width:78px;
+    height:105px;
+    padding:0;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    border-radius:10px;
+    border:1px solid rgba(255,255,255,.25);
+    background:rgba(0,0,0,.20);
+
+    overflow:hidden;
+  }
+
+  .modal.trade-modal .shop-card-action-btn.is-disabled,
+  .modal.trade-modal .shop-card-action-btn:disabled{
+    opacity:.55;
+    cursor:not-allowed;
+    pointer-events:auto;
+  }
+
+  .modal.trade-modal .shop-card-img{
+    width:100%;
+    height:100%;
+    display:block;
+    object-fit:contain;
+  }
+
+  /* =========================
+    Échanges
+    ========================= */
+  .modal.trade-modal .trade-list{
+    padding-right: 0;
+    margin-top: .35rem;
+  }
+
+  .modal.trade-modal .trade-block{
+    border:1px solid rgba(255,255,255,.25);
+    border-radius:8px;
+    padding:.5rem;
+    margin-bottom:.5rem;
+  }
+
+  .modal.trade-modal .card.sub{ margin:.5rem 0; }
+
+  .modal.trade-modal .trade-toast{
     border:1px solid transparent;
     border-radius:6px;
     padding:.5rem .75rem;
@@ -4164,29 +5497,77 @@ interface ForgeOption {
     font-weight:600;
     color:#fff;
   }
-  .trade-toast.ok{
+
+  .modal.trade-modal .trade-toast.ok{
     background: rgba(0,160,0,.18);
     border-color: rgba(0,160,0,.35);
   }
-  .trade-toast.ko{
+
+  .modal.trade-modal .trade-toast.ko{
     background: rgba(200,0,0,.18);
     border-color: rgba(200,0,0,.35);
   }
 
-  /* Pendant la fermeture, force le fond sur les deux sous-cards,
-   même si elles portent déjà .ok/.ko */
-  .modal.trade-modal .trade-block.closing-ok .card.sub {
+  .modal.trade-modal .trade-block.closing-ok .card.sub{
     background: rgba(0,160,0,.16) !important;
     outline: 2px solid rgba(0,160,0,.6) !important;
   }
-  .modal.trade-modal .trade-block.closing-ko .card.sub {
+
+  .modal.trade-modal .trade-block.closing-ko .card.sub{
     background: rgba(200,0,0,.16) !important;
     outline: 2px solid rgba(200,0,0,.6) !important;
   }
 
-  /* Verrou des boutons inchangé */
-  .trade-block.closing .buttons button {
-    opacity: .6; pointer-events: none;
+  .modal.trade-modal .trade-block.closing .buttons button{
+    opacity:.6;
+    pointer-events:none;
+  }
+
+  /* =========================
+    UN SEUL BREAKPOINT : 1 colonne + scroll unique (contenu reste dans la modale)
+    ========================= */
+  @media (max-width: 1200px){
+
+    /* on garde la modale "fermée", et on scroll l'intérieur */
+    .modal.trade-modal{
+      width: 96vw;
+      height: 92vh;
+      overflow: hidden;
+    }
+
+    /* 1 colonne, et scroll unique sur le body */
+    .modal.trade-modal .modal-body{
+      grid-template-columns: 1fr !important;
+      overflow: auto !important;
+      -webkit-overflow-scrolling: touch;
+      padding-right: 0;
+    }
+
+    /* plus aucun scroll interne */
+    .modal.trade-modal .modal-body > .col{
+      overflow: visible !important;
+      min-height: auto;
+      padding-right: 0;
+    }
+
+    .modal.trade-modal .trade-list{
+      overflow: visible !important;
+      max-height: none !important;
+    }
+
+    /* grilles adaptatives pour éviter le dépassement horizontal */
+    .modal.trade-modal .grid{
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    }
+
+    .modal.trade-modal .card .grid.sell-grid{
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    }
+
+    /* sell grid icônes : garde des cases plus petites */
+    .modal.trade-modal .card .grid.sell-grid.sell-grid-icons{
+      grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+    }
   }
 
   /* === MODALE CONSTRUCTION === */
@@ -4206,7 +5587,7 @@ interface ForgeOption {
     background-size: cover;
     background-position: center;
   }
-  
+
   .modal.construction-modal.choices {
     justify-content: space-around;
   }
@@ -4259,7 +5640,8 @@ interface ForgeOption {
   }
 
   /* Boutons d'option d'effet (texte cliquable) */
-  .modal.location-effect-modal .modal-button-row .effect-option {
+  .modal.location-effect-modal .modal-button-row .effect-option,
+  .modal.location-effect-modal .altar-target {
     background: transparent;
     border: none;
     color: #ddd;
@@ -4274,12 +5656,19 @@ interface ForgeOption {
   }
 
   /* sélectionné = blanc + souligné */
-  .modal.location-effect-modal .modal-button-row .effect-option.selected {
+  .modal.location-effect-modal .modal-button-row .effect-option.selected,
+  .modal.location-effect-modal .altar-target.selected {
     color: #fff;
     font-weight: 600;
     text-decoration: underline;
     outline: none;
     background: transparent;
+  }
+
+  .modal.location-effect-modal .forge-section .forge-options-row .effect-option.selected,
+  .modal.location-effect-modal .location-list button.selected {
+    border: 3px solid white;
+    background-color: #cbcbcb;
   }
 
   /* rangée du bas de la modale (Valider / Annuler) */
@@ -4335,6 +5724,64 @@ interface ForgeOption {
     text-align: center;
     line-height: 1.2rem;
   }
+
+  /* =========================
+    OMEN (3 cartes sur 1 ligne)
+    ========================= */
+  .cards-row.omen-row{
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: .75rem;
+    align-items: start;
+  }
+
+  .omen-card{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .45rem;
+  }
+
+  /* bouton image : pas de bordure, pas de fond, pas de padding */
+  .omen-card-btn{
+    border: none;
+    background: transparent;
+    padding: 0;
+    cursor: zoom-in; /* optionnel, tu peux enlever si tu veux */
+  }
+
+  /* taille image carte (si tu veux “comme ailleurs”) */
+  .omen-card-img{
+    width: 110px;
+    height: 150px;
+    object-fit: contain;
+    display: block;
+  }
+
+  /* boutons : on ne force pas de style, juste une largeur propre */
+  .omen-place-btn{
+    width: 100%;
+    max-width: 170px;
+  }
+
+  /* selected : tu avais demandé le selected visuel */
+  .omen-place-btn.selected{
+    text-decoration: underline;
+    font-weight: 700;
+  }
+
+  /* responsive */
+  @media (max-width: 700px){
+    .cards-row.omen-row{
+      grid-template-columns: 1fr;
+    }
+
+    .omen-card-img{
+      width: 140px;
+      height: 190px;
+    }
+  }
+
   /* End game */
   .modal-overlay {
     position: fixed;
@@ -4699,7 +6146,27 @@ export class GameComponent {
     setTimeout(()=>this.errorMsg='', 4000);
   }
 
-    private advanceToPhase1IfNeeded() {
+  private gameFetchSeq = 0;
+
+  private refreshGameLatest(after?: (g: GameSnapshot, previous: GameSnapshot | null) => void) {
+    const seq = ++this.gameFetchSeq;
+
+    this.api.getGame(this.gameId).subscribe({
+      next: (g) => {
+        if (seq !== this.gameFetchSeq) return; // ✅ réponse obsolète => ignorée
+
+        const previous = this.game ?? null;
+        // on applique d’abord le snapshot
+        this.game = g;
+
+        // puis on fait le reste en se basant sur g/previous
+        after?.(g, previous);
+      },
+      error: (e) => this.showError(e)
+    });
+  }
+
+  private advanceToPhase1IfNeeded() {
     if (this.weatherAdvanceSent) return;
     if (!this.game?.id) return;
     if (this.game.phase !== 'PHASE0') return;
@@ -4834,6 +6301,360 @@ export class GameComponent {
       this.actionTimeoutId = null;
       this.maybeAutoAdvanceToPhase3();
     }, 5000);
+  }
+
+  // assets card style
+  private diceToTier(d?: string): 0 | 1 | 2 | 3 {
+    const s = (d || 'D6').toUpperCase();
+    if (s.includes('20')) return 3;
+    if (s.includes('12')) return 2;
+    if (s.includes('8'))  return 1;
+    return 0;
+  }
+
+  // Hunters: T1+ => BLEED / STUN / RANGE selon player.weapon
+  private hunterWeaponType(weapon?: string): 'BLEED' | 'STUN' | 'RANGE' {
+    const w = (weapon || '').toUpperCase();
+    // stun
+    if (w.includes('MACE') || w.includes('HAMMER') || w.includes('FLAIL')) return 'STUN';
+    // range
+    if (w.includes('SPEAR') || w.includes('CROSSBOW') || w.includes('PISTOL')) return 'RANGE';
+    // bleed par défaut (SWORD / HALBERD / WRIST_BLADES / ou inconnu)
+    return 'BLEED';
+  }
+
+  weaponImg(p: any): string {
+    const tier = this.diceToTier(p?.attackDice);
+    const isVamp = p?.role === 'VAMPIRE' || p?.role === 'SERVANT'
+
+    if (isVamp) {
+      return `/assets/cards/stuff/W_T${tier}_VAMP.png`;
+    }
+
+    // Hunter (et SERVANT si jamais): T0 n’a pas de type
+    if (tier === 0) {
+      return `/assets/cards/stuff/W_T0_HUNTER.png`;
+    }
+
+    const type = this.hunterWeaponType(p?.weapon);
+    return `/assets/cards/stuff/W_T${tier}_${type}_HUNTER.png`;
+  }
+
+  armorImg(p: any): string {
+    const tier = this.diceToTier(p?.defenseDice);
+    const isVamp = p?.role === 'VAMPIRE' || p?.role === 'SERVANT'
+    return isVamp
+      ? `/assets/cards/stuff/A_T${tier}_VAMP.png`
+      : `/assets/cards/stuff/A_T${tier}_HUNTER.png`;
+  }
+
+  private readonly HUNTER_ACTIONS_DIR = '/assets/cards/hunter_actions/';
+  private readonly VAMP_ACTIONS_DIR   = '/assets/cards/vampire_actions/';
+  private readonly POTIONS_DIR        = '/assets/cards/potions/';
+
+  /** Action -> image (dossier dépend du rôle du joueur courant) */
+  actionImg(code: string | null | undefined, role: string | null | undefined = undefined): string {
+    if (!code) return '';
+    let base;
+
+    if(role === 'HUNTER'){
+      base = this.VAMP_ACTIONS_DIR;
+    } else if(role === 'VAMPIRE' || role === 'SERVANT'){
+      base = this.HUNTER_ACTIONS_DIR;
+    } else {
+      base = (this.me?.role === 'VAMPIRE')
+      ? this.VAMP_ACTIONS_DIR
+      : this.HUNTER_ACTIONS_DIR;
+    }
+
+
+    return base + this.actionFile(code);
+  }
+
+  /** Map des exceptions + fallback auto */
+  private actionFile(code: string): string {
+    switch (code) {
+      // --- HUNTER ---
+      case 'EAU_BENITE':       return 'eau_benite.png';
+      case 'FUMIGATION_AIL':   return 'fumigation_ail.png';
+      case 'PISTEUR':          return 'pistage.png';
+      case 'FEU_DE_CAMP':      return 'feu_de_camp.png';
+      case 'NET':              return 'net.png';
+      case 'PIT':              return 'pit.png';
+      case 'PROVOCATION':      return 'provocation.png';
+      case 'INCENDIAIRE':      return 'incendiaire.png';
+      case 'AMBUSH':           return 'ambush.png';
+      case 'BLESSED_STAKE':    return 'blessed_stake.png';
+      case 'SACRED_ROSARY':    return 'sacred_rosary.png';
+      case 'CHARISMATIQUE':    return 'charismatique.png';
+      case 'MARCHAND_ITINERANT':
+      case 'MARCHAND_BONUS_BUY':
+        return 'marchand_itinerant.png';
+
+      // --- VAMPIRE ---
+      case 'AFFAIBLISSEMENT_OCCULTE': return 'affaiblissement_occulte.png';
+      case 'CLONES_OMBRE':           return 'clones_ombre.png';
+      case 'MARQUE_TENEBREUSE':      return 'marque_tenebreuse.png';
+      case 'AVIDITE_NOCTURNE':       return 'avidite_nocturne.png';
+      case 'ECLIPSE':                return 'eclipse.png';
+      case 'PASSAGE_SECRET':         return 'passage_secret.png';
+      case 'BLOOD_MOON':             return 'blood_moon.png';
+      case 'FAIM_IRREPRESSIBLE':     return 'faim_irrepressible.png';
+      case 'PRESENCE_ECRASANTE':     return 'presence_ecrasante.png';
+      case 'CATACLYSME':             return 'cataclysme.png';
+      case 'VOILE_DE_BRUME':         return 'voile_de_brume.png';
+
+      case 'IMAGE_MIROIR':
+      case 'IMAGE_MIROIR_SETUP':
+      case 'IMAGE_MIROIR_RESOLVE':
+        return 'image_miroir.png';
+
+      default:
+        // fallback auto: "PRESENCE_ECRASANTE" -> "presence_ecrasante.png"
+        return code.toLowerCase() + '.png';
+    }
+  }
+
+  /** Potion/Elixir -> image */
+  potionImg(code: string | null | undefined): string {
+    if (!code) return '';
+    return this.POTIONS_DIR + code.toLowerCase() + '.png';
+  }
+
+  potionBackSrc = '/assets/cards/potion_verso.png';
+
+  actionBackSrc(p: any): string {
+    // Servant -> verso hunter (tu peux changer si tu veux)
+    return p?.role === 'VAMPIRE'
+      ? '/assets/cards/vampire_verso.png'
+      : '/assets/cards/hunter_verso.png';
+  }
+
+  actionCount(p: any): number {
+    return (p?.actions?.length ?? 0);
+  }
+
+  consumablesCount(p: any): number {
+    const pot = (p?.potions?.length ?? 0);
+    const eli = (p?.elixirs?.length ?? 0);
+    return pot + eli;
+  }
+
+  isHunterId(playerId: string | null | undefined): boolean {
+    if (!playerId) return false;
+    const ps = this.game?.players;
+    if (!ps) return false;
+
+    for (const p of ps) {
+      if (p.id === playerId) return p.role === 'HUNTER';
+    }
+    return false;
+  }
+
+  deckCount(pile: any): number {
+    return pile?.deck ?? 0;
+  }
+
+  discardCards(pile: any): string[] {
+    return Array.isArray(pile?.discardCards) ? pile.discardCards : [];
+  }
+
+  discardCount(pile: any): number {
+    return this.discardCards(pile).length;
+  }
+
+  lastDiscardId(pile: any): string | null {
+    const xs = this.discardCards(pile);
+    return xs.length ? xs[xs.length - 1] : null;
+  }
+
+  private readonly ELIXIRS_DIR = '/assets/cards/elixirs/';
+
+  elixirImg(code: string | null | undefined): string {
+    if (!code) return '';
+    return this.ELIXIRS_DIR + code.toLowerCase() + '.png';
+  }
+
+  discardImgFor(kind: 'HUNTER_ACTIONS'|'VAMP_ACTIONS'|'POTIONS'|'ELIXIRS', pile: any): string {
+    const id = this.lastDiscardId(pile);
+    if (!id) return '';
+
+    switch (kind) {
+      case 'HUNTER_ACTIONS': return this.HUNTER_ACTIONS_DIR + this.actionFile(id);
+      case 'VAMP_ACTIONS':   return this.VAMP_ACTIONS_DIR + this.actionFile(id);
+      case 'POTIONS':        return this.potionImg(id);
+      case 'ELIXIRS':        return this.elixirImg(id);
+    }
+  }
+
+  deckBackFor(kind: 'HUNTER_ACTIONS'|'VAMP_ACTIONS'|'POTIONS'|'ELIXIRS'): string {
+    switch (kind) {
+      case 'HUNTER_ACTIONS': return '/assets/cards/hunter_verso.png';
+      case 'VAMP_ACTIONS':   return '/assets/cards/vampire_verso.png';
+      case 'POTIONS':        return this.potionBackSrc;
+      case 'ELIXIRS':        return this.potionBackSrc;
+    }
+  }
+
+  // ---- BONUS (marchand) : coûts + image ----
+  bonusResCost(): { water?: number; herbs?: number; wood?: number; iron?: number, silver?: number } | null {
+    const kind = this.game?.shopBonusKind;
+    if (!kind) return null;
+
+    switch (kind) {
+      case 'POTION':        return { water: 4, herbs: 3 };
+      case 'ELIXIR':        return { water: 6, herbs: 6 };
+      case 'EQUIP_WEAPON':
+      case 'EQUIP_ARMOR':   return { wood: 6, iron: 6 };
+      default:              return null;
+    }
+  }
+
+  bonusGoldCost(): number | null {
+    const g: any = this.game;
+    const me: any = this.me;
+    const kind = g?.shopBonusKind;
+    if (!g || !me || !kind) return null;
+
+    const greedy      = !!g.shopPricesIncreasedThisRaid;
+    const charismatic = !!me.charismaticThisRaid;
+
+    const computeCost = (base: number) => {
+      let c = base;
+      if (greedy) c += 50;
+      if (charismatic) c = Math.max(0, c - 20);
+      return c;
+    };
+
+    switch (kind) {
+      case 'POTION':        return computeCost(60);
+      case 'ELIXIR':        return computeCost(120);
+      case 'EQUIP_WEAPON':
+      case 'EQUIP_ARMOR':   return computeCost(150);
+      default:              return null;
+    }
+  }
+
+bonusBuyImgSrc(): string {
+  const kind = this.game?.shopBonusKind;
+  if (!kind) return '';
+
+  switch (kind) {
+    case 'POTION':
+    case 'ELIXIR':
+      return this.deckBackFor('POTIONS');
+
+    case 'EQUIP_WEAPON':
+    case 'EQUIP_ARMOR':
+      return this.deckBackFor('HUNTER_ACTIONS');
+
+    default:
+      return this.deckBackFor('HUNTER_ACTIONS');
+  }
+}
+
+  // assets zoom
+  zoomBadgeIsHunter: boolean | undefined = undefined;
+
+  zoomOn = false;
+  zoomStyle: any = {};
+  zoomSrc = '';
+
+  zoomBadgeOn = false;
+  zoomBadgeText = '';
+
+  private zoomW = 0;
+  private zoomH = 0;
+
+  // Zoom moyen (défausse / cartes normales) => inchangé
+  private readonly zoomScale = 2.2;
+  private readonly zoomMaxSide = 340;
+
+  // ✅ Zoom large (défausse)
+  private readonly zoomScaleLarge = 4.0;
+  private readonly zoomMaxSideLarge = 420;
+
+  zoomEnter(
+    ev: MouseEvent,
+    badge?: string | number,
+    badgeIsHunter?: boolean,
+    size: 'M'|'L' = 'M'
+  ) {
+    const host = ev.currentTarget as HTMLElement | null;
+    if (!host) return;
+
+    const img = (host.tagName === 'IMG'
+      ? (host as HTMLImageElement)
+      : (host.querySelector('img') as HTMLImageElement | null));
+
+    // si pas d'image (placeholder défausse vide) => pas de zoom
+    if (!img?.src) return;
+
+    this.zoomSrc = img.src;
+
+    if (badge !== undefined && badge !== null && String(badge).trim() !== '') {
+      this.zoomBadgeOn = true;
+      this.zoomBadgeText = String(badge);
+      this.zoomBadgeIsHunter = badgeIsHunter;
+    } else {
+      this.zoomBadgeOn = false;
+      this.zoomBadgeText = '';
+      this.zoomBadgeIsHunter = undefined;
+    }
+
+    const rect = img.getBoundingClientRect();
+
+    let scale = this.zoomScale;
+    let maxSide = this.zoomMaxSide;
+
+    if (size === 'L') { scale = this.zoomScaleLarge; maxSide = this.zoomMaxSideLarge; }
+
+    let w = rect.width * scale;
+    let h = rect.height * scale;
+
+    const max = Math.max(w, h);
+    if (max > maxSide) {
+      const k = maxSide / max;
+      w *= k;
+      h *= k;
+    }
+
+    this.zoomW = Math.round(w);
+    this.zoomH = Math.round(h);
+
+    this.zoomOn = true;
+    this.zoomMove(ev);
+  }
+
+  zoomMove(ev: MouseEvent) {
+    if (!this.zoomOn) return;
+
+    const W = this.zoomW;
+    const H = this.zoomH;
+
+    let left = ev.clientX + 12;
+    let top  = ev.clientY + 12;
+
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    if (left + W + 8 > vw) left = vw - W - 8;
+    if (top + H + 8 > vh)  top  = vh - H - 8;
+
+    this.zoomStyle = {
+      left: left + 'px',
+      top: top + 'px',
+      width: W + 'px',
+      height: H + 'px',
+    };
+  }
+
+  zoomLeave() {
+    this.zoomOn = false;
+    this.zoomSrc = '';
+    this.zoomBadgeOn = false;
+    this.zoomBadgeText = '';
+    this.zoomBadgeIsHunter = undefined;
   }
 
   // === Helpers center history ===
@@ -5468,20 +7289,6 @@ export class GameComponent {
     return g.players.filter(p => this.locationOf(p.id) === loc);
   }
 
-  getCombatResultText(): string | null {
-    const r = this.currentCombat; if (!r) return null;
-    if (r.attackerRoll == null || r.defenderRoll == null) return null;
-
-    const atkMod = this.totalModForDisplay(r.attackerId, 'ATTACK');
-    const defMod = this.totalModForDisplay(r.defenderId, 'DEFENSE');
-    const dmg = Math.max(0, (r.attackerRoll + atkMod) - (r.defenderRoll + defMod));
-
-    const an = this.entityDisplayName(r.attackerId);
-    const dn = this.entityDisplayName(r.defenderId);
-
-    return dmg > 0 ? `${an} inflige ${dmg} dégâts à ${dn}` : `${dn} pare l’attaque de ${an}`;
-  }
-
   // quantité d'une ressource 'res' pour un joueur p
   resOf(p: SPlayer | undefined, res: string): number {
     if (!p) return 0;
@@ -5880,7 +7687,6 @@ export class GameComponent {
 
         // Gestion du timer PREPHASE3 AVANT le snapshot détaillé
         if (next === 'PREPHASE3') {
-          // Si on est déjà dans un sous-flow "effets de lieu", on ne lance pas le timer
           if (this.game?.locationEffectPending) {
             this.stopPrephaseTimer();
             this.prephase3AdvanceSent = false;
@@ -5976,6 +7782,18 @@ export class GameComponent {
             this.bumpHistoryScroll();
           },
           error: e => this.showError(e)
+        });
+        break;
+      }
+
+      case 'DRAFT_UPDATED': {
+        this.api.getGame(this.gameId).subscribe({
+          next: g => {
+            const previous = this.game;
+            this.game = g;
+            this.syncLocationEffectFromSnapshot(g, previous);
+          },
+          error: e => this.showError(e),
         });
         break;
       }
@@ -6195,6 +8013,7 @@ export class GameComponent {
       case 'ACTION_BOUGHT':
       case 'SILVER_BOUGHT':
       case 'HOLY_WATER_BOUGHT':
+      case 'TRACKING_BOUGHT':
       case 'RESOURCE_SOLD':
       case 'TRANSMUTED': {
         // stratégie simple: GET de synchro
@@ -7277,6 +9096,9 @@ export class GameComponent {
 
   useAction(type: string) {
     if (!this.game) return;
+
+    this.zoomLeave();
+
     this.api.useAction(this.game.id, type).subscribe({
       next: _g => {
         if (type === 'FUMIGATION_AIL') {
@@ -7705,41 +9527,6 @@ export class GameComponent {
       case 'EQUIP_WEAPON':  return 'Arme du marchand';
       case 'EQUIP_ARMOR':   return 'Armure du marchand';
       default:              return 'Objet bonus';
-    }
-  }
-
-  bonusPriceLabel(): string {
-    const g = this.game;
-    const me = this.me;
-    const kind = g?.shopBonusKind;
-    if (!g || !me || !kind) return '';
-
-    const greedy      = (g as any).shopPricesIncreasedThisRaid;
-    const charismatic = !!me.charismaticThisRaid;
-
-    const computeCost = (base: number) => {
-      let c = base;
-      if (greedy) c += 50;
-      if (charismatic) c = Math.max(0, c - 20);
-      return c;
-    };
-
-    switch (kind) {
-      case 'POTION': {
-        const cost = computeCost(60);
-        return `4 💧 + 3 🌿 ou ${cost} 🪙`;
-      }
-      case 'ELIXIR': {
-        const cost = computeCost(120);
-        return `6 💧 + 6 🌿 ou ${cost} 🪙`;
-      }
-      case 'EQUIP_WEAPON':
-      case 'EQUIP_ARMOR': {
-        const cost = computeCost(150);
-        return `6 🪵 + 6 ⛓️ ou ${cost} 🪙`;
-      }
-      default:
-        return '';
     }
   }
 
@@ -8834,12 +10621,14 @@ export class GameComponent {
   //====== Maintenance ======/
   // Helpers Maintenance:
   private openShop() {
+    document.body.classList.add('modal-open');
     this.shopOpen = true;
     this.waitingDone = false;
     this.myOffer = {};
   }
 
   private closeShop() {
+    document.body.classList.remove('modal-open');
     this.shopOpen = false;
     this.waitingDone = false;
     this.stopPhase4Timer();
@@ -8966,6 +10755,19 @@ export class GameComponent {
     return true;
   }
 
+    get canBuyTrackingAction(): boolean {
+    const me = this.me;
+    const g  = this.game;
+    if (!me || !g || me.role !== 'HUNTER') return false;
+    if (me.hp <= 0) return false;
+
+    const goldCost  = this.trackingGoldPrice;
+
+    if (me.gold  < goldCost)  return false;
+
+    return true;
+  }
+
 
   iAmA(t: STrade): boolean { return t.aId === this.me?.id; }
   otherIdFromTrade(t: STrade): string { return this.iAmA(t) ? t.bId : t.aId; }
@@ -9028,6 +10830,20 @@ export class GameComponent {
     return price;
   }
 
+  get trackingGoldPrice(): number {
+    const g = this.game;
+    const me = this.me;
+    let price = 50;
+
+    const greedy = g && (g as any).shopPricesIncreasedThisRaid;
+    if (greedy) price += 50;
+
+    if (me && me.role === 'HUNTER' && me.charismaticThisRaid) {
+      price = Math.max(0, price - 20);
+    }
+    return price;
+  }
+
   // UI Maintenance actions
   // --- Boutique --- //
   onBuyPotion() { 
@@ -9052,6 +10868,14 @@ export class GameComponent {
     if (!this.game) return;
 
     this.api.buyHolyWaterAction(this.gameId).subscribe({
+      next: () => {},
+      error: e => this.showError(e) 
+    });
+  }
+  onBuyTrackingAction(): void {
+    if (!this.game) return;
+
+    this.api.buyTrackingAction(this.gameId).subscribe({
       next: () => {},
       error: e => this.showError(e) 
     });
@@ -9365,14 +11189,6 @@ export class GameComponent {
   }
 
   private syncLocationEffectFromSnapshot(g: GameSnapshot, previous?: GameSnapshot | null) {
-    console.log('[LOC]', {
-      pending: g?.locationEffectPending,
-      infra: g?.locationEffectInfra,
-      choice: g?.locationEffectChoice,
-      ownerId: g?.locationEffectOwnerId,
-      meId: this.me?.id,
-      isOwner: this.isLocationEffectOwner,
-    });
     // 0) Aucun effet de lieu → on vide tout
     if (!g.locationEffectPending || !g.locationEffectInfra) {
       this.effectChoice = null;
@@ -9450,30 +11266,19 @@ export class GameComponent {
     // ===  LABORATORY : nouvel effet EXPERIMENT                ===
     // ============================================================
     if (g.locationEffectInfra === 'LABORATORY') {
-
-      // Seul EXPERIMENT est interactif pour l'instant
       if (g.locationEffectChoice === 'EXPERIMENT') {
         this.locationActionKind = 'EXPERIMENT';
         this.locationActionModalOpen = true;
 
-        // Vue joueur actif : prépare les choix possibles.
-        if (this.isLocationEffectOwner) {
-          // 1) reset local (dans le doute)
-          this.experimentMonsterType = this.experimentMonsterType ?? null;
-          this.experimentLocation = this.experimentLocation ?? null;
+        // Tout le monde voit les lieux possibles
+        this.experimentPossibleLocations = this.computeExperimentLocations(g);
 
-          // 2) calcul des lieux disponibles pour envoyer le monstre
-          //    → tu peux adapter cette fonction selon tes règles exactes
-          this.experimentPossibleLocations = this.computeExperimentLocations(g);
-        } else {
-          // Spectateurs : ils voient juste "X crée une créature..." par le template
-          this.experimentPossibleLocations = [];
-          this.experimentMonsterType = null;
-          this.experimentLocation = null;
-        }
+        // Tout le monde voit la sélection en cours (depuis snapshot)
+        this.experimentMonsterType = (g.laboratoryDraftMonsterType as any) ?? null;
+        this.experimentLocation = g.laboratoryDraftLocation ?? null;
+
+        return;
       }
-
-      // Pas d'autre effet interactif LABORATORY pour le moment
       return;
     }
 
@@ -9552,8 +11357,6 @@ export class GameComponent {
 
       return;
     }
-
-    // Si un jour tu ajoutes d'autres infrastructures : leur logique ira ici.
   }
 
   // Lieux où on peut envoyer un monstre créé par le Laboratoire
@@ -9671,7 +11474,7 @@ export class GameComponent {
   canUseExperiment(): boolean {
     const me = this.me;
     if (!me) return false;
-    return me.role === 'VAMPIRE' || me.role === 'SERVANT';
+    return (me.role === 'VAMPIRE' || me.role === 'SERVANT') && me.souls >= 100;
   }
 
   canUseRareAlchemy(): boolean {
@@ -9877,13 +11680,25 @@ export class GameComponent {
   }
 
   onExperimentMonsterClick(type: 'REVENANT'|'GARGOYLE'|'ABERRATION') {
-    if (!this.isLocationActionOwner) return;
+    if (!this.isLocationActionOwner || !this.game) return;
+
     this.experimentMonsterType = type;
+
+    this.api.updateExperimentDraft(this.game.id, {
+      type,
+      location: this.experimentLocation
+    }).subscribe();
   }
 
   onExperimentLocationClick(loc: string) {
-    if (!this.isLocationActionOwner) return;
+    if (!this.isLocationActionOwner || !this.game) return;
+
     this.experimentLocation = loc;
+
+    this.api.updateExperimentDraft(this.game.id, {
+      type: this.experimentMonsterType,
+      location: loc
+    }).subscribe();
   }
 
   confirmExperiment() {

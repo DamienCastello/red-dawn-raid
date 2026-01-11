@@ -278,11 +278,20 @@ public class GameController {
 
     @PostMapping("/{id}/shop/buy-holy-water")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void buySilver(@PathVariable String id,
+    public void buyHolyWater(@PathVariable String id,
                           @RequestHeader("Authorization") String authorization){
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.buyHolyWaterAction(id, user.getId());
+    }
+
+    @PostMapping("/{id}/shop/buy-tracking")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void buyTracking(@PathVariable String id,
+                          @RequestHeader("Authorization") String authorization){
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+        games.buyTrackingAction(id, user.getId());
     }
 
     @PostMapping("/{id}/actions/merchant/roll")
@@ -611,6 +620,26 @@ public class GameController {
     public static class ExperimentReq {
         public Game.MonsterType type;   // REVENANT / GARGOYLE / ABERRATION
         public String location;    // "forest","quarry","manor","lab", ...
+    }
+
+    public static class ExperimentDraftReq {
+        public Game.MonsterType type;
+        public String location;
+    }
+
+    @PostMapping("/{id}/effect-experiment-draft")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void updateExperimentDraft(@PathVariable String id,
+                                      @RequestBody ExperimentDraftReq body,
+                                      @RequestHeader("Authorization") String authorization) {
+
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+
+        Game.MonsterType type = (body != null ? body.type : null);
+        String location = (body != null ? body.location : null);
+
+        games.updateLaboratoryExperimentDraft(id, user.getId(), type, location);
     }
 
     @PostMapping("/{id}/effect-experiment")

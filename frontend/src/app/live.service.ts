@@ -15,6 +15,7 @@ export type GameEvent =
   | { type: 'CENTER_REVEALED'; gameId: string; payload: {}; ts: number }
   | { type: 'LOCATION_STARTED'; gameId: string; payload: { ownerId: string; username: string; infra: string }; ts: number }
   | { type: 'LOCATION_USED';    gameId: string; payload: { choice: 'STUDY'|'THEFT'|'OMEN'|'EXPERIMENT'|'ALCHEMY'|'RARE_ALCHEMY'|'EXPLOSION'|'DEATH_DANCE'|'SNEAK_ATTACK'|'BLOOD_WALTZ'|'LOOTING'|'HEAL'|'CORRUPT_SOULS'|'CORRUPT'|'PURIFY_WATER'|'FORGE'; playerId: string; username: string; infra: string|null }; ts: number }
+  | { type: 'DRAFT_UPDATED'; gameId: string; payload: { infra: string | null; choice: string | null; ownerId: string | null; monsterType: 'REVENANT'|'GARGOYLE'|'ABERRATION' | null; location: string | null; }; ts: number; }
   | { type: 'POTION_USED'; gameId: string; payload: { playerId: string; type: string }; ts: number }
   | { type: 'ACTION_USED'; gameId: string; payload: { playerId: string; type: string }; ts: number }
   | { type: 'ACTION_STARTED';   gameId: string; payload: { mode: 'NET'|'PIT'|'MARCHAND_BONUS_BUY'; ownerId: string; location: string; targetId: string | null }; ts: number }
@@ -30,6 +31,7 @@ export type GameEvent =
   | { type: 'ACTION_BOUGHT';  gameId: string; payload: { playerId: string; type: string; pool: number }; ts: number }
   | { type: 'SILVER_BOUGHT';  gameId: string; payload: { playerId: string; qty: number; cost: number }; ts: number }
   | { type: 'HOLY_WATER_BOUGHT';  gameId: string; payload: { playerId: string; costWater: number; costGold: number; }; ts: number }
+  | { type: 'TRACKING_BOUGHT';  gameId: string; payload: { playerId: string; costGold: number; }; ts: number }
   | { type: 'RESOURCE_SOLD';  gameId: string; payload: { playerId: string; res: string; qty: number; gain: number }; ts: number }
   | { type: 'TRANSMUTED';     gameId: string; payload: { playerId: string; recipe: 'WOOD_TO_IRON'|'IRON_TO_WOOD'|'TRINITY_TO_SOULS' }; ts: number }
   | { type: 'TRADE_SYNC';     gameId: string; payload: TradeView; ts: number }

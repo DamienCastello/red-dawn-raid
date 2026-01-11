@@ -114,6 +114,8 @@ public class Game {
     // Boutique : bonus unique (Marchand itinérant)
     private String shopBonusKind; // "POTION", "ELIXIR", "EQUIP_WEAPON", "EQUIP_ARMOR";
 
+    private String shopBonusEquipId; // ex: H_WEAPON_T2_HAMMER ou H_ARMOR_T1_BRIGANDINE
+
     // Blocage des actions chasseur
     private boolean hunterActionsBlockedThisRaid;
 
@@ -350,6 +352,9 @@ public class Game {
         REVENANT, GARGOYLE, ABERRATION
     }
 
+    private MonsterType laboratoryDraftMonsterType; // nullable
+    private String laboratoryDraftLocation;         // nullable
+
     private boolean laboratoryToDestroy;
     private boolean ballroomDeathDance;
     private boolean ballroomSneakAttack;
@@ -512,6 +517,9 @@ public class Game {
     public String getShopBonusKind() { return shopBonusKind; }
     public void setShopBonusKind(String shopBonusKind) { this.shopBonusKind = shopBonusKind; }
 
+    public String getShopBonusEquipId() { return shopBonusEquipId; }
+    public void setShopBonusEquipId(String v) { this.shopBonusEquipId = v; }
+
     public java.util.EnumSet<Infra> getInfrasToDestroyEndOfRaid() { return infrasToDestroyEndOfRaid; }
     public void setInfrasToDestroyEndOfRaid(java.util.EnumSet<Infra> v) { this.infrasToDestroyEndOfRaid = v; }
 
@@ -662,6 +670,12 @@ public class Game {
     public void setMonsters(List<Monster> monsters) {
         this.monsters = (monsters != null ? monsters : new ArrayList<>());
     }
+
+    public MonsterType getLaboratoryDraftMonsterType() { return laboratoryDraftMonsterType; }
+    public void setLaboratoryDraftMonsterType(MonsterType v) { this.laboratoryDraftMonsterType = v; }
+
+    public String getLaboratoryDraftLocation() { return laboratoryDraftLocation; }
+    public void setLaboratoryDraftLocation(String v) { this.laboratoryDraftLocation = v; }
 
     public boolean isLaboratoryToDestroy() { return laboratoryToDestroy; }
     public void setLaboratoryToDestroy(boolean v) { this.laboratoryToDestroy = v; }

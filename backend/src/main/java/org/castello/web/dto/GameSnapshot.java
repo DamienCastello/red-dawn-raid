@@ -59,6 +59,8 @@ public record GameSnapshot(
         String locationEffectInfra,    // ex: "LIBRARY" ou null
         List<String> libraryOmenCards,
         List<MonsterView> monsters,
+        String laboratoryDraftMonsterType,
+        String laboratoryDraftLocation,
         boolean ballroomBloodWaltz,
         List<Integer> ballroomWaltzRolls,
         Integer ballroomWaltzBest,
@@ -102,7 +104,7 @@ public record GameSnapshot(
     ) {}
 
     public record DecksView(Pile actionsVamp, Pile actionsHunters, Pile potions, Pile elixirs) {
-        public record Pile(int deck, int discard) {}
+        public record Pile(int deck, int discard, List<String> discardCards) {}
     }
 
     public record BiteView(String attackerId, String targetId, String location,

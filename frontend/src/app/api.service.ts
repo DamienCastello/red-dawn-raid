@@ -73,6 +73,8 @@ export type GameSnapshot = {
   locationEffectInfra: 'LIBRARY' | 'LABORATORY' | 'BALLROOM' | 'ALTAR' | 'FORGE' | null;
   libraryOmenCards: string[] | null;
   monsters?: Monster[];
+  laboratoryDraftMonsterType?: 'REVENANT'|'GARGOYLE'|'ABERRATION' | null;
+  laboratoryDraftLocation?: string | null;
   ballroomBloodWaltz: boolean;
   ballroomWaltzRolls: number[];
   ballroomWaltzBest: number;
@@ -494,6 +496,10 @@ export class ApiService {
     return this.http.post<void>(`${this.base}/games/${gameId}/shop/buy-holy-water`, {});
   }
 
+  buyTrackingAction(gameId: string) {
+    return this.http.post<void>(`${this.base}/games/${gameId}/shop/buy-tracking`, {});
+  }
+
   sellResource(gameId: string, res: 'wood'|'herbs'|'stone'|'iron'|'water', qty = 1) {
     return this.http.post<void>(`${this.base}/games/${gameId}/shop/sell`, { res, qty });
   }
@@ -553,6 +559,16 @@ export class ApiService {
     return this.http.post<void>(
       `${this.base}/games/${gameId}/effect-omen`,
       { placements }
+    );
+  }
+
+  updateExperimentDraft(
+    gameId: string,
+    body: { type: 'REVENANT'|'GARGOYLE'|'ABERRATION' | null; location: string | null }
+  ) {
+    return this.http.post<void>(
+      `${this.base}/games/${gameId}/effect-experiment-draft`,
+      body
     );
   }
 

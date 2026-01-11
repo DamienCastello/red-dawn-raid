@@ -69,10 +69,15 @@ import { LiveService, GameEvent } from './live.service';
           </ng-template>
         </ng-template>
 
-        <button (click)="start()" [disabled]="!selected || selected.status !== 'CREATED'" style="margin-left:.5rem">
-          Démarrer (min 2 joueurs)
-        </button>
-          <button *ngIf="isSelectedCreated" (click)="leaveCreated()" style="margin-left:.5rem">
+          <button *ngIf="alreadyInSelected && isSelectedCreated"
+                  (click)="start()"
+                  [disabled]="activePlayersCount(selected) < 2"
+                  style="margin-left:.5rem">
+            Démarrer la partie
+          </button>
+          <button *ngIf="alreadyInSelected && isSelectedCreated"
+                  (click)="leaveCreated()"
+                  style="margin-left:.5rem">
             Quitter la partie
           </button>
       </ng-container>

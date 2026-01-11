@@ -78,6 +78,11 @@ public class GameService {
         return (m == null) ? new java.util.HashMap<>() : new java.util.HashMap<>(m);
     }
 
+    private java.util.List<String> safeList(java.util.List<String> xs) {
+        return (xs != null) ? new java.util.ArrayList<>(xs) : java.util.List.of();
+    }
+
+
     private int deckSize(List<String> deck) {
         return (deck != null ? deck.size() : 0);
     }
@@ -175,9 +180,9 @@ public class GameService {
                 // - main de lieux cachée
                 // - potions cachées
                 // - actions : on cache l’ID mais on garde la taille de la main
-                handView    = List.of();
-                potionsView = Collections.nCopies(actions.size(), "HIDDEN");
-                elixirsView = Collections.nCopies(actions.size(), "HIDDEN");
+                handView    = Collections.nCopies(hand.size(), "HIDDEN");
+                potionsView = Collections.nCopies(potions.size(), "HIDDEN");
+                elixirsView = Collections.nCopies(elixirs.size(), "HIDDEN");
                 actionsView = Collections.nCopies(actions.size(), "HIDDEN");
             }
 
@@ -247,19 +252,23 @@ public class GameService {
         var decks = new GameSnapshot.DecksView(
                 new GameSnapshot.DecksView.Pile(
                         deckSize(g.getVampActionsDeck()),
-                        discardSize(g.getVampActionsDiscard())
+                        discardSize(g.getVampActionsDiscard()),
+                        safeList(g.getVampActionsDiscard())
                 ),
                 new GameSnapshot.DecksView.Pile(
                         deckSize(g.getHunterActionsDeck()),
-                        discardSize(g.getHunterActionsDiscard())
+                        discardSize(g.getHunterActionsDiscard()),
+                        safeList(g.getHunterActionsDiscard())
                 ),
                 new GameSnapshot.DecksView.Pile(
                         deckSize(g.getPotionDeck()),
-                        discardSize(g.getPotionDiscard())
+                        discardSize(g.getPotionDiscard()),
+                        safeList(g.getPotionDiscard())
                 ),
                 new GameSnapshot.DecksView.Pile(
                         deckSize(g.getElixirDeck()),
-                        discardSize(g.getElixirDiscard())
+                        discardSize(g.getElixirDiscard()),
+                        safeList(g.getElixirDiscard())
                 )
         );
 
@@ -474,6 +483,9 @@ public class GameService {
                     .toList();
         }
 
+        String draftType = (g.getLaboratoryDraftMonsterType() != null ? g.getLaboratoryDraftMonsterType().name() : null);
+        String draftLoc  = g.getLaboratoryDraftLocation();
+
         // --- Valse sanguinaire (état global du raid) ---
         boolean ballroomBloodWaltz = g.isBallroomBloodWaltz();
 
@@ -532,6 +544,8 @@ public class GameService {
                 locationEffectInfra,
                 omenCards,
                 monsters,
+                draftType,
+                draftLoc,
                 ballroomBloodWaltz,
                 ballroomWaltzRolls,
                 ballroomWaltzBest,
@@ -2272,8 +2286,16 @@ public class GameService {
         boolean fumigate = g.getPendingGarlicPlayers() != null
                 && g.getPendingGarlicPlayers().remove(playerId);
 
-        // Pose au centre : faceUp = true si fumigation active, sinon face cachée
-        CenterBoard cb = new CenterBoard(playerId, card, /*faceUp=*/fumigate);
+        // Révélation si chasseur corrompu (1 ou 2) qui joue un lieu en PHASE1
+        boolean corruptReveal =
+                (g.getPhase() == Phase.PHASE1)
+                        && "HUNTER".equals(p.getRole())
+                        && (p.getCorruption() == 1 || p.getCorruption() == 2);
+
+        // Pose au centre : faceUp = fumigation OU corruption 1/2 (sinon cachée)
+        boolean faceUp = fumigate || corruptReveal;
+
+        CenterBoard cb = new CenterBoard(playerId, card, faceUp);
         g.getCenter().add(cb);
 
         // Si fumigation : on bloque le lieu pour le vampire + historique lisible
@@ -3675,8 +3697,16 @@ public class GameService {
 
             String an = entityName(g, r.getAttackerId());
             String dn = entityName(g, r.getDefenderId());
-            if (dmg > 0) addHistory(g, an + " inflige " + dmg + " dégâts à " + dn);
-            else         addHistory(g, dn + " pare l'attaque de " + an);
+
+            String resultLine;
+            if (dmg > 0) resultLine = an + " inflige " + dmg + " dégâts à " + dn;
+            else         resultLine = dn + " pare l'attaque de " + an;
+
+            // Historique (comme avant)
+            addHistory(g, resultLine);
+
+            // Breakdown (NOUVEAU) => la modale spectate affichera toujours la vérité serveur
+            appendBreakdown(r, resultLine);
 
             int bleed = 0;
             if (atkPlayer != null && dmg > 0) {
@@ -5076,7 +5106,7 @@ public class GameService {
                 if (g.getPendingGarlicPlayers() != null
                         && g.getPendingGarlicPlayers().contains(playerId)) {
                     throw new ResponseStatusException(HttpStatus.CONFLICT,
-                            "Impossible d'utiliser pistage pendant une préparation de fumigation.");
+                            "Impossible d'utiliser pisteur pendant une préparation de fumigation.");
                 }
 
                 // Est-ce que, AVANT Pisteur, je comptais déjà comme “ayant joué” ?
@@ -5103,9 +5133,19 @@ public class GameService {
                 // consommer l’action sur le Player
                 inv.remove(type.name());
 
-                // 4) l’envoyer en défausse
-                if (isHunter) discardHunterAction(g, type.name());
-                if (isVamp) discardVampAction(g, type.name());
+                // si c'est une carte bonus boutique -> elle disparaît, PAS de discard
+                boolean wasShopBonus = false;
+                Integer c = p.getShopPisteurCount();
+                if (c != null && c > 0) {
+                    p.setShopPisteurCount(c - 1);
+                    wasShopBonus = true;
+                }
+
+                // 4) envoyer en défausse
+                if (!wasShopBonus) {
+                    if (isHunter) discardHunterAction(g, type.name());
+                    if (isVamp)   discardVampAction(g, type.name());
+                }
 
                 save(g);
 
@@ -5902,163 +5942,8 @@ public class GameService {
                 // Lieu actuel du vampire
                 String vampLoc = locationOf(g, playerId);
 
-                int cancelledCampfires     = 0;
-                int cancelledNets          = 0;
-                int cancelledPits          = 0;
-                int cancelledIncendiaires  = 0;
-                int cancelledProvocations  = 0;
-                int cancelledBlessedStakes = 0;
-                int cancelledSacredRosaries = 0;
-
-                // Rien de spécial si le vampire n'est sur aucun lieu (cas ultra rare)
-                // ---------- Feux de camp ----------
-                if (g.getCampfireLocations() != null) {
-                    for (String loc : g.getCampfireLocations()) {
-                        if (java.util.Objects.equals(loc, vampLoc)) {
-                            cancelledCampfires++;
-                        }
-                    }
-                    // On supprime uniquement ceux sur ce lieu
-                    g.getCampfireLocations().removeIf(loc -> java.util.Objects.equals(loc, vampLoc));
-                }
-
-                // ---------- Filets ----------
-                if (g.getNetHunters() != null && !g.getNetHunters().isEmpty()) {
-                    var it = g.getNetHunters().iterator();
-                    while (it.hasNext()) {
-                        String hunterId = it.next();
-                        String hLoc = locationOf(g, hunterId);
-                        if (java.util.Objects.equals(hLoc, vampLoc)) {
-                            cancelledNets++;
-                            it.remove();
-                        }
-                    }
-                }
-
-                // ---------- Fosses + maps associées ----------
-                if (g.getPitHunters() != null && !g.getPitHunters().isEmpty()) {
-                    var it = g.getPitHunters().iterator();
-                    while (it.hasNext()) {
-                        String hunterId = it.next();
-                        String hLoc = locationOf(g, hunterId);
-                        if (java.util.Objects.equals(hLoc, vampLoc)) {
-                            cancelledPits++;
-                            it.remove();
-                            if (g.getPitTargetsByHunter() != null) {
-                                g.getPitTargetsByHunter().remove(hunterId);
-                            }
-                            if (g.getPitIndexByHunter() != null) {
-                                g.getPitIndexByHunter().remove(hunterId);
-                            }
-                        }
-                    }
-                }
-
-                // ---------- Provocation ----------
-                // Map<enemyId, hunterIdProvocateur>
-                if (g.getProvokedTargetByEnemy() != null && !g.getProvokedTargetByEnemy().isEmpty()) {
-                    var it = g.getProvokedTargetByEnemy().entrySet().iterator();
-                    while (it.hasNext()) {
-                        var e = it.next();
-                        String hunterId = e.getValue();
-                        String hLoc = locationOf(g, hunterId);
-                        if (java.util.Objects.equals(hLoc, vampLoc)) {
-                            cancelledProvocations++;
-                            it.remove();
-                        }
-                    }
-                }
-
-                // ---------- Embuscade ----------
-                // Map<enemyId, List<hunterId>> : on enlève les chasseurs embusqués sur ce lieu
-                if (g.getAmbushHuntersByEnemy() != null && !g.getAmbushHuntersByEnemy().isEmpty()) {
-                    var it = g.getAmbushHuntersByEnemy().entrySet().iterator();
-                    while (it.hasNext()) {
-                        var e = it.next();
-                        java.util.List<String> hunters = e.getValue();
-                        hunters.removeIf(hId -> java.util.Objects.equals(locationOf(g, hId), vampLoc));
-                        if (hunters.isEmpty()) {
-                            it.remove();
-                        }
-                    }
-                }
-
-                // ---------- Incendiaire ----------
-                // Map<hunterId, locCible> : on annule seulement les chasseurs sur ce lieu
-                if (g.getIncendiaireLocationByHunter() != null
-                        && !g.getIncendiaireLocationByHunter().isEmpty()) {
-
-                    var it = g.getIncendiaireLocationByHunter().entrySet().iterator();
-                    while (it.hasNext()) {
-                        var e = it.next();
-                        String hunterId = e.getKey();
-                        String hLoc = locationOf(g, hunterId);
-                        if (java.util.Objects.equals(hLoc, vampLoc)) {
-                            cancelledIncendiaires++;
-                            it.remove();
-                        }
-                    }
-                }
-
-                if (g.getPlayers() != null && vampLoc != null) {
-                    for (Player player : g.getPlayers()) {
-                        if (!"HUNTER".equals(player.getRole())) continue;
-
-                        String hunterLoc = locationOf(g, player.getId());
-                        if (!vampLoc.equals(hunterLoc)) continue;
-
-                        // ---------- Pieu béni ----------
-                        if (player.isBlessedStake()) {
-                            cancelledBlessedStakes++;
-                            player.setBlessedStake(false);
-
-                            if (g.getRaidMods() != null) {
-                                var mods = g.getRaidMods().get(player.getId());
-                                if (mods != null) {
-                                    mods.removeIf(m -> {
-                                        String s = m.getSource();
-                                        return s != null && s.startsWith("ACTION:BLESSED_STAKE");
-                                    });
-                                }
-                            }
-                        }
-
-                        // ---------- Chapelet sacré ----------
-                        if (player.isSacredRosary()) {
-                            cancelledSacredRosaries++;
-                            player.setSacredRosary(false);
-
-                            if (g.getRaidMods() != null) {
-                                var mods = g.getRaidMods().get(player.getId());
-                                if (mods != null) {
-                                    mods.removeIf(m -> {
-                                        String s = m.getSource();
-                                        return s != null && s.startsWith("ACTION:SACRED_ROSARY");
-                                    });
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // ---------- currentAction de chasseur sur ce lieu ----------
-                Game.Action ca = g.getCurrentAction();
-                if (ca != null && ("NET".equals(ca.getMode())
-                        || "PIT".equals(ca.getMode())
-                        || "INCENDIAIRE".equals(ca.getMode())
-                        || "PROVOCATION".equals(ca.getMode())
-                        || "AMBUSH".equals(ca.getMode())
-                        || "EAU_BENITE".equals(ca.getMode())
-                        || "BLESSED_STAKE".equals(ca.getMode()))) {
-
-                    boolean sameLoc = java.util.Objects.equals(ca.getLocation(), vampLoc);
-                    boolean ownerOnLoc = ca.getOwnerId() != null
-                            && java.util.Objects.equals(locationOf(g, ca.getOwnerId()), vampLoc);
-
-                    if (sameLoc || ownerOnLoc) {
-                        g.setCurrentAction(null);
-                    }
-                }
+                // Annule toutes les prépas des chasseurs SUR CE LIEU + récupère la liste déjà formatée pour le message
+                java.util.List<String> parts = cancelHunterPrephase3ActionsOnVampLoc(g, vampLoc);
 
                 // Bloque les cartes d'action chasseurs pour le reste du raid
                 // (le blocage sera restreint au lieu du vampire dans la garde plus haut)
@@ -6067,15 +5952,6 @@ public class GameService {
                 // Consommer la carte sur le vampire
                 inv.remove(type.name());
                 discardVampAction(g, type.name());
-
-                java.util.List<String> parts = new java.util.ArrayList<>();
-                if (cancelledCampfires > 0)         parts.add(cancelledCampfires      + " Feu de camp");
-                if (cancelledNets > 0)              parts.add(cancelledNets           + " Filet");
-                if (cancelledPits > 0)              parts.add(cancelledPits           + " Fosse");
-                if (cancelledIncendiaires > 0)      parts.add(cancelledIncendiaires   + " Incendiaire");
-                if (cancelledProvocations > 0)      parts.add(cancelledProvocations   + " Provocation");
-                if (cancelledBlessedStakes > 0)     parts.add(cancelledBlessedStakes  + " Épieu béni");
-                if (cancelledSacredRosaries > 0)    parts.add(cancelledSacredRosaries + " Chapelet sacré");
 
                 String msg = nameOf(g, playerId) + " déchaîne une présence écrasante : ";
 
@@ -7859,11 +7735,10 @@ public class GameService {
                 }
             }
         }
-        if (!anyHunter) return 1; // défaut
+        if (!anyHunter) return 1;
 
-        // ex : si quelqu’un est encore T0 → on propose T1
-        // si tout le monde est au moins T1 → on propose T2, etc, clampé à 3
-        int offer = Math.min(3, minTier + 1);
+        // ex : T0 -> propose T1 ; min T1 -> propose T2 ; min T2/T3 -> propose T2 (cap)
+        int offer = Math.min(2, minTier + 1);
         return offer;
     }
 
@@ -7881,11 +7756,15 @@ public class GameService {
             }
         }
         if (!anyHunter) return 1;
-        int offer = Math.min(3, minTier + 1);
+
+        int offer = Math.min(2, minTier + 1);
         return offer;
     }
 
     private String merchantWeaponIdForTier(int tier) {
+        // sécurité: clamp 1..2
+        tier = Math.max(1, Math.min(2, tier));
+
         int r3 = 1 + RND.nextInt(3); // 1..3 → bleed / stun / ranged
 
         return switch (tier) {
@@ -7901,22 +7780,17 @@ public class GameService {
                 case 3 -> H_WEAPON_T2_CROSSBOW;
                 default -> H_WEAPON_T2_HALBERD;
             };
-            case 3 -> switch (r3) {
-                case 1 -> H_WEAPON_T3_WRIST_BLADES;
-                case 2 -> H_WEAPON_T3_FLAIL;
-                case 3 -> H_WEAPON_T3_PISTOL;
-                default -> H_WEAPON_T3_WRIST_BLADES;
-            };
             default -> H_WEAPON_T1_SWORD;
         };
     }
 
-
     private String merchantArmorIdForTier(int tier) {
+        // sécurité: clamp 1..2
+        tier = Math.max(1, Math.min(2, tier));
+
         return switch (tier) {
             case 1 -> H_ARMOR_T1_BRIGANDINE;
             case 2 -> H_ARMOR_T2_HAUBERT;
-            case 3 -> H_ARMOR_T3_PLATE_SILVER;
             default -> H_ARMOR_T1_BRIGANDINE;
         };
     }
@@ -8126,12 +8000,16 @@ public class GameService {
                 int tier = merchantWeaponTierForHunters(g);
                 String weaponId = merchantWeaponIdForTier(tier);
 
+                int current = hunterWeaponTier(p.getWeapon());
+                if (current > tier) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "tu as déjà une arme supérieure");
+                }
+
                 p.setWeapon(weaponId);
 
                 switch (tier) {
                     case 1 -> p.setAttackDice("D8");
                     case 2 -> p.setAttackDice("D12");
-                    case 3 -> p.setAttackDice("D20");
                     default -> { /* éventuellement rien */ }
                 }
 
@@ -8170,12 +8048,16 @@ public class GameService {
                 int tier = merchantArmorTierForHunters(g);
                 String armorId = merchantArmorIdForTier(tier);
 
+                int current = hunterArmorTier(p.getArmor());
+                if (current > tier) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "tu as déjà une armure supérieure");
+                }
+
                 p.setArmor(armorId);
 
                 switch (tier) {
                     case 1 -> p.setDefenseDice("D8");
                     case 2 -> p.setDefenseDice("D12");
-                    case 3 -> p.setDefenseDice("D20");
                     default -> { /* rien */ }
                 }
 
@@ -8497,48 +8379,177 @@ public class GameService {
      * Annule toutes les préparations d'actions PREPHASE3 des chasseurs
      * pour le raid courant :
      */
-    private void cancelHunterPrephase3Actions(Game g) {
-        // Feux de camp
+    private java.util.List<String> cancelHunterPrephase3ActionsOnVampLoc(Game g, String vampLoc) {
+
+        int cancelledCampfires      = 0;
+        int cancelledNets           = 0;
+        int cancelledPits           = 0;
+        int cancelledIncendiaires   = 0;
+        int cancelledProvocations   = 0;
+        int cancelledBlessedStakes  = 0;
+        int cancelledSacredRosaries = 0;
+
+        // ---------- Feux de camp ----------
         if (g.getCampfireLocations() != null) {
-            g.getCampfireLocations().clear();
+            for (String loc : g.getCampfireLocations()) {
+                if (java.util.Objects.equals(loc, vampLoc)) {
+                    cancelledCampfires++;
+                }
+            }
+            // On supprime uniquement ceux sur ce lieu
+            g.getCampfireLocations().removeIf(loc -> java.util.Objects.equals(loc, vampLoc));
         }
 
-        // Filets
-        if (g.getNetHunters() != null) {
-            g.getNetHunters().clear();
+        // ---------- Filets ----------
+        if (g.getNetHunters() != null && !g.getNetHunters().isEmpty()) {
+            var it = g.getNetHunters().iterator();
+            while (it.hasNext()) {
+                String hunterId = it.next();
+                String hLoc = locationOf(g, hunterId);
+                if (java.util.Objects.equals(hLoc, vampLoc)) {
+                    cancelledNets++;
+                    it.remove();
+                }
+            }
         }
 
-        // Fosses
-        if (g.getPitHunters() != null) {
-            g.getPitHunters().clear();
-        }
-        if (g.getPitTargetsByHunter() != null) {
-            g.getPitTargetsByHunter().clear();
-        }
-        if (g.getPitIndexByHunter() != null) {
-            g.getPitIndexByHunter().clear();
-        }
-
-        // Provocation
-        if (g.getProvokedTargetByEnemy() != null) g.getProvokedTargetByEnemy().clear();
-
-        // Embush
-        if (g.getAmbushHuntersByEnemy() != null) g.getAmbushHuntersByEnemy().clear();
-
-        // Incendiaire
-        if (g.getIncendiaireLocationByHunter() != null) {
-            g.getIncendiaireLocationByHunter().clear();
+        // ---------- Fosses + maps associées ----------
+        if (g.getPitHunters() != null && !g.getPitHunters().isEmpty()) {
+            var it = g.getPitHunters().iterator();
+            while (it.hasNext()) {
+                String hunterId = it.next();
+                String hLoc = locationOf(g, hunterId);
+                if (java.util.Objects.equals(hLoc, vampLoc)) {
+                    cancelledPits++;
+                    it.remove();
+                    if (g.getPitTargetsByHunter() != null) {
+                        g.getPitTargetsByHunter().remove(hunterId);
+                    }
+                    if (g.getPitIndexByHunter() != null) {
+                        g.getPitIndexByHunter().remove(hunterId);
+                    }
+                }
+            }
         }
 
+        // ---------- Provocation ----------
+        // Map<enemyId, hunterIdProvocateur>
+        if (g.getProvokedTargetByEnemy() != null && !g.getProvokedTargetByEnemy().isEmpty()) {
+            var it = g.getProvokedTargetByEnemy().entrySet().iterator();
+            while (it.hasNext()) {
+                var e = it.next();
+                String hunterId = e.getValue();
+                String hLoc = locationOf(g, hunterId);
+                if (java.util.Objects.equals(hLoc, vampLoc)) {
+                    cancelledProvocations++;
+                    it.remove();
+                }
+            }
+        }
+
+        // ---------- Embuscade ----------
+        // Map<enemyId, List<hunterId>> : on enlève les chasseurs embusqués sur ce lieu
+        if (g.getAmbushHuntersByEnemy() != null && !g.getAmbushHuntersByEnemy().isEmpty()) {
+            var it = g.getAmbushHuntersByEnemy().entrySet().iterator();
+            while (it.hasNext()) {
+                var e = it.next();
+                java.util.List<String> hunters = e.getValue();
+                hunters.removeIf(hId -> java.util.Objects.equals(locationOf(g, hId), vampLoc));
+                if (hunters.isEmpty()) {
+                    it.remove();
+                }
+            }
+        }
+
+        // ---------- Incendiaire ----------
+        // Map<hunterId, locCible> : on annule seulement les chasseurs sur ce lieu
+        if (g.getIncendiaireLocationByHunter() != null
+                && !g.getIncendiaireLocationByHunter().isEmpty()) {
+
+            var it = g.getIncendiaireLocationByHunter().entrySet().iterator();
+            while (it.hasNext()) {
+                var e = it.next();
+                String hunterId = e.getKey();
+                String hLoc = locationOf(g, hunterId);
+                if (java.util.Objects.equals(hLoc, vampLoc)) {
+                    cancelledIncendiaires++;
+                    it.remove();
+                }
+            }
+        }
+
+        // ---------- Pieu béni / Chapelet sacré (flags + mods) ----------
+        if (g.getPlayers() != null && vampLoc != null) {
+            for (Player player : g.getPlayers()) {
+                if (!"HUNTER".equals(player.getRole())) continue;
+
+                String hunterLoc = locationOf(g, player.getId());
+                if (!vampLoc.equals(hunterLoc)) continue;
+
+                // --- Pieu béni ---
+                if (player.isBlessedStake()) {
+                    cancelledBlessedStakes++;
+                    player.setBlessedStake(false);
+
+                    if (g.getRaidMods() != null) {
+                        var mods = g.getRaidMods().get(player.getId());
+                        if (mods != null) {
+                            mods.removeIf(m -> {
+                                String s = m.getSource();
+                                return s != null && s.startsWith("ACTION:BLESSED_STAKE");
+                            });
+                        }
+                    }
+                }
+
+                // --- Chapelet sacré ---
+                if (player.isSacredRosary()) {
+                    cancelledSacredRosaries++;
+                    player.setSacredRosary(false);
+
+                    if (g.getRaidMods() != null) {
+                        var mods = g.getRaidMods().get(player.getId());
+                        if (mods != null) {
+                            mods.removeIf(m -> {
+                                String s = m.getSource();
+                                return s != null && s.startsWith("ACTION:SACRED_ROSARY");
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        // ---------- currentAction de chasseur sur ce lieu ----------
         Game.Action ca = g.getCurrentAction();
         if (ca != null && ("NET".equals(ca.getMode())
                 || "PIT".equals(ca.getMode())
                 || "INCENDIAIRE".equals(ca.getMode())
                 || "PROVOCATION".equals(ca.getMode())
                 || "AMBUSH".equals(ca.getMode())
-                || "EAU_BENITE".equals(ca.getMode()))) {
-            g.setCurrentAction(null);
+                || "EAU_BENITE".equals(ca.getMode())
+                || "BLESSED_STAKE".equals(ca.getMode()))) {
+
+            boolean sameLoc = java.util.Objects.equals(ca.getLocation(), vampLoc);
+            boolean ownerOnLoc = ca.getOwnerId() != null
+                    && java.util.Objects.equals(locationOf(g, ca.getOwnerId()), vampLoc);
+
+            if (sameLoc || ownerOnLoc) {
+                g.setCurrentAction(null);
+            }
         }
+
+        // ---------- parts (pour le message) ----------
+        java.util.List<String> parts = new java.util.ArrayList<>();
+        if (cancelledCampfires > 0)          parts.add(cancelledCampfires      + " Feu de camp");
+        if (cancelledNets > 0)               parts.add(cancelledNets           + " Filet");
+        if (cancelledPits > 0)               parts.add(cancelledPits           + " Fosse");
+        if (cancelledIncendiaires > 0)       parts.add(cancelledIncendiaires   + " Incendiaire");
+        if (cancelledProvocations > 0)       parts.add(cancelledProvocations   + " Provocation");
+        if (cancelledBlessedStakes > 0)      parts.add(cancelledBlessedStakes  + " Épieu béni");
+        if (cancelledSacredRosaries > 0)     parts.add(cancelledSacredRosaries + " Chapelet sacré");
+
+        return parts;
     }
 
     @Transactional
@@ -10106,6 +10117,72 @@ public class GameService {
     }
 
     @Transactional
+    public Game buyTrackingAction(String gameId, String userId) {
+        Game g = findOr404(gameId);
+
+        if (g.getPhase() != Phase.PHASE4)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE4");
+
+        var p = findPlayer(g, userId);
+        if (p == null)
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
+
+        if (!isAlive(p)) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Tu es hors de combat pour le reste de la partie."
+            );
+        }
+
+        if (!"HUNTER".equals(p.getRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "hunters only");
+        }
+
+        // Coût de base
+        final int baseGoldCost = 50;
+
+        int costGold = baseGoldCost;
+
+        if (g.isShopPricesIncreasedThisRaid()) {
+            costGold += 50;
+        }
+        if (p.isCharismaticThisRaid()) {
+            costGold = Math.max(0, costGold - 20);
+        }
+
+        // Vérif ressources
+        if (p.getGold() < costGold) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
+        }
+
+        // Paiement
+        p.setGold(p.getGold() - costGold);
+
+        int cur = (p.getShopPisteurCount() == null) ? 0 : p.getShopPisteurCount();
+        p.setShopPisteurCount(cur + 1);
+
+        // Ajout direct de la carte dans la main
+        if (p.getActions() == null) {
+            p.setActions(new java.util.ArrayList<>());
+        }
+        p.getActions().add("PISTEUR");
+
+        addHistory(g,
+                nameOf(g, userId)
+                        + " achète une carte Pisteur (" + costGold + " or)."
+        );
+
+        save(g);
+
+        final int fCostGold  = costGold;
+        afterCommit(() -> {
+            live.trackingActionBought(g, userId, fCostGold);
+        });
+
+        return g;
+    }
+
+    @Transactional
     public Game sellResource(String gameId, String userId, String res, int qty) {
         if (qty <= 0) qty = 1;
         Game g = findOr404(gameId);
@@ -11394,6 +11471,9 @@ public class GameService {
                                 + " voudrait expérimenter, mais il n'a pas assez d'âmes pour invoquer une créature.");
                         // pas d'étape supplémentaire → waitForExtraResolution reste false
                     } else {
+                        g.setLaboratoryDraftMonsterType(null);
+                        g.setLaboratoryDraftLocation(null);
+
                         // Ici on NE crée PAS encore le monstre : on attend le POST /effect-experiment
                         waitForExtraResolution = true;
                     }
@@ -12012,7 +12092,6 @@ public class GameService {
                 + " pour défendre " + location + ".");
     }
 
-
     private boolean canUseLaboratoryExperiment(Game g, Player user) {
         // Seul le vampire peut expérimenter
         if (!"VAMPIRE".equals(user.getRole())) {
@@ -12020,6 +12099,64 @@ public class GameService {
         }
 
         return user.getSouls() >= 100;
+    }
+
+    @Transactional
+    public void updateLaboratoryExperimentDraft(String gameId,
+                                                String playerId,
+                                                Game.MonsterType type,
+                                                String location) {
+        Game g = findOr404(gameId);
+
+        if (g.getStatus() != GameStatus.ACTIVE)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "game not active");
+
+        if (g.getPhase() != Phase.PREPHASE3)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "experiment only in PREPHASE3");
+
+        if (!g.getLocationEffectPending())
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "no location effect pending");
+
+        if (g.getLocationEffectsQueue() == null || g.getCurrentLocationEffectIndex() == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "no current location effect");
+        }
+
+        int idx = g.getCurrentLocationEffectIndex();
+        if (idx < 0 || idx >= g.getLocationEffectsQueue().size()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "invalid location effect index");
+        }
+
+        var inst = g.getLocationEffectsQueue().get(idx);
+
+        if (inst.infra != Infra.LABORATORY || inst.choice != LocationEffectChoice.EXPERIMENT) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "no experiment effect to draft");
+        }
+
+        if (!inst.ownerId.equals(playerId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not your laboratory effect");
+        }
+
+        var vamp = findPlayer(g, playerId);
+        if (!"VAMPIRE".equals(vamp.getRole())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "only vampire can experiment");
+        }
+
+        // normalize : blank => null
+        String loc = (location != null && !location.isBlank()) ? location : null;
+
+        // stocke le draft
+        g.setLaboratoryDraftMonsterType(type);
+        g.setLaboratoryDraftLocation(loc);
+
+        save(g);
+
+        afterCommit(() -> {
+            Game fresh = findOr404(gameId);
+
+            // déclencher un event WS qui force les clients à refresh snapshot
+            live.draftUpdated(fresh);
+
+        });
     }
 
     @Transactional
