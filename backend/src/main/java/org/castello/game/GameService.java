@@ -4054,8 +4054,8 @@ public class GameService {
             boolean advanced;
             boolean trapResolved;
 
-            String att, tgt, loc;          // pour la morsure
-            String trapMode, trapOwnerId, trapTargetId; // pour Filet/Fosse
+            String att, tgt, loc;                 // pour la morsure
+            String trapMode, trapOwnerId, trapTargetId; // pour Filet/Fosse/Incendiaire/Épieu béni
         }
 
         Ev ev = tx.execute(status -> {
@@ -4065,7 +4065,7 @@ public class GameService {
 
             Ev out = new Ev();
 
-            // 0) GESTION DES ACTIONS DE RAID (NET / PIT / INCENDIAIRE) AVANT TOUT
+            // 0) GESTION DES ACTIONS DE RAID (NET / PIT / INCENDIAIRE / BLESSED_STAKE) AVANT TOUT
             Game.Action ca = g.getCurrentAction();
             if (ca != null
                     && ca.getMode() != null
@@ -4115,11 +4115,12 @@ public class GameService {
                 out.tgt = b.getTargetId();
                 out.loc = b.getLocation();
                 g.setCurrentBite(null);
+
             } else {
                 // 2) Sinon on est sur un duel : s’il n’est pas encore résolu
                 var r = g.getCurrentCombat();
 
-                // on laisse filer jusqu'à la partie "hasAnyFight" + auto-PHASE4 plus bas.
+                // on laisse filer jusqu'à la partie "hasAnyRemainingFight" + auto-PHASE4 plus bas.
                 if (r != null) {
                     if (combatNotResolved(r)) {
                         save(g);
@@ -4149,118 +4150,136 @@ public class GameService {
             }
 
             // 3) Avancer la file uniquement quand c’est safe (morsure close ou duel résolu)
-            Integer idx = g.getCurrentCombatIndex();
-            if (idx == null) idx = 0;
-            int next = idx + 1;
-
             if (g.getCombatsQueue() != null) {
-                int size = g.getCombatsQueue().size();
-                RoundFight nextFight = null;
+                Integer idx = g.getCurrentCombatIndex();
 
-                while (next < size) {
-                    RoundFight candidate = g.getCombatsQueue().get(next);
+                if (idx == null) {
+                    // fin de file : par sécurité, on ne re-sélectionne rien
+                    // (et si jamais currentCombat traîne, on nettoie)
+                    if (g.getCurrentCombat() != null) {
+                        g.setCurrentCombat(null);
+                        out.advanced = true;
+                    }
+                } else {
+                    int size = g.getCombatsQueue().size();
+                    int next = idx + 1;
 
-                    boolean atkAlive = isEntityAlive(g, candidate.getAttackerId());
-                    boolean defAlive = isEntityAlive(g, candidate.getDefenderId());
+                    RoundFight nextFight = null;
 
-                    if (atkAlive && defAlive) {
-                        nextFight = candidate;
-                        break; // on a trouvé le prochain duel valide
+                    while (next < size) {
+                        RoundFight candidate = g.getCombatsQueue().get(next);
+
+                        // ignorer les combats déjà résolus
+                        if (!combatNotResolved(candidate)) {
+                            next++;
+                            continue;
+                        }
+
+                        boolean atkAlive = isEntityAlive(g, candidate.getAttackerId());
+                        boolean defAlive = isEntityAlive(g, candidate.getDefenderId());
+
+                        if (atkAlive && defAlive) {
+                            nextFight = candidate;
+                            break; // on a trouvé le prochain duel valide
+                        }
+
+                        // sinon on skip ce combat et on regarde le suivant
+                        next++;
                     }
 
-                    // sinon on skip ce combat et on regarde le suivant
-                    next++;
-                }
+                    if (nextFight != null) {
+                        g.setCurrentCombatIndex(next);
+                        g.setCurrentCombat(nextFight);
 
-                if (nextFight != null) {
-                    g.setCurrentCombatIndex(next);
-                    g.setCurrentCombat(nextFight);
+                        // *** copie locale "finale" pour les lambdas ***
+                        final RoundFight nf = nextFight;
 
-                    // *** copie locale "finale" pour les lambdas ***
-                    final RoundFight nf = nextFight;
+                        // --- Pré-remplissage pour Salle de bal / Valse sanguinaire ---
+                        if (g.isBallroomBloodWaltz()
+                                && g.getBuiltInfras() != null
+                                && g.getBuiltInfras().contains(Infra.BALLROOM)) {
 
-                    // --- Pré-remplissage pour Salle de bal / Valse sanguinaire ---
-                    if (g.isBallroomBloodWaltz()
-                            && g.getBuiltInfras() != null
-                            && g.getBuiltInfras().contains(Infra.BALLROOM)) {
+                            var attPlayer = g.getPlayers().stream()
+                                    .filter(pp -> pp.getId().equals(nf.getAttackerId()))
+                                    .findFirst()
+                                    .orElse(null);
+                            var defPlayer = g.getPlayers().stream()
+                                    .filter(pp -> pp.getId().equals(nf.getDefenderId()))
+                                    .findFirst()
+                                    .orElse(null);
 
-                        var attPlayer = g.getPlayers().stream()
-                                .filter(pp -> pp.getId().equals(nf.getAttackerId()))
-                                .findFirst()
-                                .orElse(null);
-                        var defPlayer = g.getPlayers().stream()
-                                .filter(pp -> pp.getId().equals(nf.getDefenderId()))
-                                .findFirst()
-                                .orElse(null);
+                            String ballroomCode = Infra.BALLROOM.locationCode();
+                            boolean isVampAttackOnBallroom =
+                                    attPlayer != null && "VAMPIRE".equals(attPlayer.getRole())
+                                            && defPlayer != null && "HUNTER".equals(defPlayer.getRole())
+                                            && ballroomCode != null
+                                            && ballroomCode.equals(nf.getLocation());
 
-                        String ballroomCode = Infra.BALLROOM.locationCode();
-                        boolean isVampAttackOnBallroom =
-                                attPlayer != null && "VAMPIRE".equals(attPlayer.getRole())
-                                        && defPlayer != null && "HUNTER".equals(defPlayer.getRole())
-                                        && ballroomCode != null
-                                        && ballroomCode.equals(nf.getLocation());
+                            if (isVampAttackOnBallroom && nf.getAttackerRoll() == null) {
 
-                        if (isVampAttackOnBallroom && nf.getAttackerRoll() == null) {
+                                // Est-ce que la Valse a déjà été tirée pour ce raid ?
+                                boolean waltzAlreadyRolled =
+                                        g.getBallroomBloodWaltzRolls() != null
+                                                && !g.getBallroomBloodWaltzRolls().isEmpty()
+                                                && g.getBallroomBloodWaltzBestRoll() != null;
 
-                            // Est-ce que la Valse a déjà été tirée pour ce raid ?
-                            boolean waltzAlreadyRolled =
-                                    g.getBallroomBloodWaltzRolls() != null
-                                            && !g.getBallroomBloodWaltzRolls().isEmpty()
-                                            && g.getBallroomBloodWaltzBestRoll() != null;
+                                if (waltzAlreadyRolled) {
+                                    // Toujours copier les dés de Valse pour l'affichage UI
+                                    nf.setBallroomWaltzRolls(
+                                            new java.util.ArrayList<>(g.getBallroomBloodWaltzRolls()));
+                                    nf.setBallroomWaltzBest(g.getBallroomBloodWaltzBestRoll());
 
-                            if (waltzAlreadyRolled) {
-                                // Toujours copier les dés de Valse pour l'affichage UI
-                                nf.setBallroomWaltzRolls(
-                                        new java.util.ArrayList<>(g.getBallroomBloodWaltzRolls()));
-                                nf.setBallroomWaltzBest(g.getBallroomBloodWaltzBestRoll());
+                                    // Effets de raid de l'attaquant, pour savoir s'il a Focalisation
+                                    RaidEffects atkFx = (g.getRaidEffects() != null && attPlayer != null)
+                                            ? g.getRaidEffects().get(attPlayer.getId())
+                                            : null;
+                                    boolean attackerHasFocus = (atkFx != null && atkFx.isFocus());
 
-                                // Effets de raid de l'attaquant, pour savoir s'il a Focalisation
-                                RaidEffects atkFx = (g.getRaidEffects() != null && attPlayer != null)
-                                        ? g.getRaidEffects().get(attPlayer.getId())
-                                        : null;
-                                boolean attackerHasFocus = (atkFx != null && atkFx.isFocus());
+                                    if (!attackerHasFocus) {
+                                        // 🎯 Valse seule :
+                                        // le jet d'attaque de ce duel est directement fixé par la Valse globale
+                                        nf.setAttackerRoll(g.getBallroomBloodWaltzBestRoll());
 
-                                if (!attackerHasFocus) {
-                                    // 🎯 Valse seule :
-                                    // le jet d'attaque de ce duel est directement fixé par la Valse globale
-                                    nf.setAttackerRoll(g.getBallroomBloodWaltzBestRoll());
-
-                                } else {
-                                    // 🎯 Valse + Foca, mais sur un duel APRÈS le premier :
-                                    // best de Valse = "dé de base" de ce duel (attackerFirstRoll)
-                                    nf.setAttackerFirstRoll(g.getBallroomBloodWaltzBestRoll());
-                                    // attackerRoll reste null → le prochain /roll sera la Foca directement
+                                    } else {
+                                        // 🎯 Valse + Foca, mais sur un duel APRÈS le premier :
+                                        // best de Valse = "dé de base" de ce duel (attackerFirstRoll)
+                                        nf.setAttackerFirstRoll(g.getBallroomBloodWaltzBestRoll());
+                                        // attackerRoll reste null → le prochain /roll sera la Foca directement
+                                    }
                                 }
                             }
                         }
+                    } else {
+                        // plus aucun combat valide
+                        g.setCurrentCombatIndex(null);
+                        g.setCurrentCombat(null);
                     }
-                } else {
-                    // plus aucun combat valide
-                    g.setCurrentCombatIndex(null);
-                    g.setCurrentCombat(null);
-                }
 
-                out.advanced = true;
+                    out.advanced = true;
+                }
             }
 
-            boolean hasAnyFight = false;
+            // Recalcule s'il reste un combat réellement jouable
+            boolean hasAnyRemainingFight = false;
+
             if (g.getCombatsQueue() != null) {
                 for (RoundFight candidate : g.getCombatsQueue()) {
+
+                    // 1) ignorer les combats déjà résolus
+                    if (!combatNotResolved(candidate)) continue;
+
+                    // 2) ignorer ceux dont un des deux est mort (skip logique)
                     boolean atkAlive = isEntityAlive(g, candidate.getAttackerId());
                     boolean defAlive = isEntityAlive(g, candidate.getDefenderId());
-                    if (atkAlive && defAlive) {
-                        hasAnyFight = true;
-                        break;
-                    }
+                    if (!atkAlive || !defAlive) continue;
+
+                    // 3) il reste vraiment un combat à jouer
+                    hasAnyRemainingFight = true;
+                    break;
                 }
             }
 
-            // Si on n'a plus:
-            // - aucune action de raid (currentAction déjà null ici),
-            // - aucune morsure,
-            // - aucun combat valide dans la file,
-            // alors on peut enclencher la maintenance (PHASE4) automatiquement.
-            if (!hasAnyFight && g.getCurrentBite() == null && g.getCurrentCombat() == null) {
+            if (!hasAnyRemainingFight && g.getCurrentBite() == null && g.getCurrentCombat() == null) {
                 resolveInfraConstruction(g);
                 applyPhaseEntry(g, Phase.PHASE4);
                 g.setCurrentAction(null);
@@ -4284,7 +4303,7 @@ public class GameService {
             live.actionResolved(gAfter, ev.trapMode, ev.trapOwnerId, ev.trapTargetId);
         }
         if (ev.advanced) {
-            // heartbeat pour faire faire un GET propre côté front (combats qui avancent)
+            // heartbeat pour faire faire un GET propre côté front (combats qui avancent / fin de combats / passage phase4)
             live.phaseChanged(gAfter);
         }
 
