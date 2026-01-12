@@ -140,6 +140,25 @@ export class LobbyComponent {
   private unsubscribeLobby?: () => void;
   private unsubscribeSelectedGame?: () => void;
 
+  private presenceTimer: any = null;
+  private presenceGameId: string | null = null;
+
+  private startPresence(gameId: string) {
+    if (this.presenceTimer && this.presenceGameId === gameId) return;
+    this.stopPresence();
+    this.presenceGameId = gameId;
+
+    this.presenceTimer = setInterval(() => {
+      this.api.presence(gameId).subscribe({ error: () => {} });
+    }, 15_000); // ping régulier (tu peux mettre 20s)
+  }
+
+  private stopPresence() {
+    if (this.presenceTimer) clearInterval(this.presenceTimer);
+    this.presenceTimer = null;
+    this.presenceGameId = null;
+  }
+
   // --- Boot STARTING (barrière dans le lobby) ---
   localAssetsDone = false;
   private bootReadySentForGameId: string | null = null;
@@ -200,6 +219,7 @@ export class LobbyComponent {
   }
 
   ngOnDestroy(){
+    this.stopPresence();
     this.unsubscribeLobby?.();
     this.unsubscribeSelectedGame?.();
   }
@@ -271,6 +291,12 @@ export class LobbyComponent {
         p.id === this.myUserId && !p.leftGame
       );
 
+      if (iAmIn && (g.status === 'CREATED' || g.status === 'STARTING')) {
+        this.startPresence(g.id);
+      } else if (this.presenceGameId === g.id) {
+        this.stopPresence();
+      }
+
       // Si on quitte STARTING, on autorise un futur bootReady (évite lock)
       if (g.status !== 'STARTING' && this.bootReadySentForGameId === g.id) {
         this.bootReadySentForGameId = null;
@@ -283,6 +309,12 @@ export class LobbyComponent {
           this.selected = { ...this.selected, ...g } as any;
         }
         this.ensureBootReadyIfNeeded(g.id);
+      }
+
+      if (g.status === 'ACTIVE' && iAmIn) {
+        this.stopPresence();
+        this.router.navigate(['/game', g.id]);
+        return;
       }
 
       // Navigation seulement quand ACTIVE

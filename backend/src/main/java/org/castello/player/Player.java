@@ -59,12 +59,15 @@ public class Player {
     private int corruption; // 0 = sain, 1 = affaibli, 2 = instable, 3 = servant
 
     private boolean leftGame = false;
+    private Long lastSeenTs; // epoch ms
 
     public Player() {}
 
     public Player(String id, String username) {
         this.id = id;
         this.username = username;
+        this.leftGame = false;
+        this.lastSeenTs = System.currentTimeMillis();
     }
 
     public String getId() { return id; }
@@ -74,6 +77,9 @@ public class Player {
 
     public boolean isLeftGame() { return leftGame; }
     public void setLeftGame(boolean leftGame) { this.leftGame = leftGame; }
+
+    public Long getLastSeenTs() { return lastSeenTs; }
+    public void setLastSeenTs(Long lastSeenTs) { this.lastSeenTs = lastSeenTs; }
 
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }

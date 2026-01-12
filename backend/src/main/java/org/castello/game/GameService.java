@@ -20,6 +20,7 @@ import org.castello.web.dto.EndedGameSummary;
 
 import org.castello.persistence.GameEntity;
 import org.castello.persistence.GameRepository;
+import org.castello.player.PlayerService;
 
 import java.util.*;
 //TODO: improve loby and leave end game
@@ -34,14 +35,16 @@ public class GameService {
     private final GameRepository repo;
     private final ObjectMapper mapper; // Jackson fourni par Spring Boot
     private final org.castello.live.LiveEvents live;
+    private final PlayerService playerService;
 
     public GameService(GameRepository repo, @Qualifier("raidTaskScheduler") TaskScheduler raidScheduler, PlatformTransactionManager tm, ObjectMapper mapper,
-                       org.castello.live.LiveEvents live) {
+                       org.castello.live.LiveEvents live, PlayerService playerService) {
         this.repo = repo;
         this.raidScheduler = raidScheduler;
         this.tx = new TransactionTemplate(tm);
         this.mapper = mapper;
         this.live = live;
+        this.playerService = playerService;
     }
     private static final Logger log = LoggerFactory.getLogger(GameService.class);
 
@@ -1058,9 +1061,18 @@ public class GameService {
     public Game addOrUpdatePlayer(String gameId, String playerId, String username) {
         if (username == null || username.isBlank())
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "username required");
+
         Game g = findOr404(gameId);
         if (g.getStatus() != GameStatus.CREATED)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "game already started/ended");
+
+        long now = System.currentTimeMillis();
+
+        // on clean les ghosts AVANT d’ajouter / compter
+        Set<String> stale = cleanupStaleLobbyPlayers(g, now);
+        for (String uid : stale) {
+            try { playerService.leaveGame(uid, gameId); } catch (Exception ignored) {}
+        }
 
         g.getPlayers().stream()
                 .filter(p -> p.getId().equals(playerId))
@@ -1068,15 +1080,19 @@ public class GameService {
                 .ifPresentOrElse(
                         p -> {
                             p.setUsername(username);
-                            if (g.getStatus() == GameStatus.CREATED) {
-                                p.setLeftGame(false);
-                            }
+                            p.setLeftGame(false);
+                            p.setLastSeenTs(now); // ✅ ICI
                         },
-                        () -> g.getPlayers().add(new Player(playerId, username))
+                        () -> {
+                            Player p = new Player(playerId, username);
+                            p.setLeftGame(false);
+                            p.setLastSeenTs(now);
+                            g.getPlayers().add(p);
+                        }
                 );
 
         save(g);
-        live.lobbyUpdated(g);
+        afterCommit(() -> live.lobbyUpdated(g));
         return g;
     }
 
@@ -1087,33 +1103,152 @@ public class GameService {
         if (g.getStatus() != GameStatus.CREATED)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "already started/ended");
 
+        long now = System.currentTimeMillis();
+        Set<String> stale = cleanupStaleLobbyPlayers(g, now);
+        for (String uid : stale) {
+            try { playerService.leaveGame(uid, id); } catch (Exception ignored) {}
+        }
+
         long activeCount = g.getPlayers().stream().filter(p -> !p.isLeftGame()).count();
         if (activeCount < 2)
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "need at least 2 players");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "need at least 2 players (someone left the lobby)");
 
         g.setStatus(GameStatus.STARTING);
+
+        g.setStartingAtTs(now);
 
         if (g.getReadyForStart() == null) g.setReadyForStart(new HashSet<>());
         else g.getReadyForStart().clear();
 
         save(g);
-
         afterCommit(() -> live.lobbyUpdated(g));
+    }
+
+    @Transactional
+    public void presence(String gameId, String userId) {
+        Game g = findOr404(gameId);
+        if (g.getStatus() != GameStatus.CREATED && g.getStatus() != GameStatus.STARTING) return;
+
+        long now = System.currentTimeMillis();
+
+        // update lastSeen du caller
+        g.getPlayers().stream()
+                .filter(p -> p.getId().equals(userId) && !p.isLeftGame())
+                .findFirst()
+                .ifPresent(p -> p.setLastSeenTs(now));
+
+        Set<String> stale = cleanupStaleLobbyPlayers(g, now);
+        if (!stale.isEmpty()) {
+            for (String uid : stale) {
+                try { playerService.leaveGame(uid, gameId); } catch (Exception ignored) {}
+            }
+
+            // si on était en STARTING, on annule le démarrage et on revient en CREATED
+            if (g.getStatus() == GameStatus.STARTING) {
+                g.setStatus(GameStatus.CREATED);
+                g.setStartingAtTs(null);
+                if (g.getReadyForStart() != null) g.getReadyForStart().clear();
+            }
+        }
+
+        // (ton ancien ensureStartingStillValid devient optionnel, voir section "à enlever")
+        save(g);
+        if (!stale.isEmpty() || g.getStatus() == GameStatus.STARTING) {
+            afterCommit(() -> live.lobbyUpdated(g));
+        }
+    }
+
+    private static final long LOBBY_TTL_MS = 60_000; // 1 minute
+    private static final long STARTING_GRACE_MS = 8_000; // 8s pour répondre après start
+
+    // retourne les ids mis en leftGame
+    private Set<String> cleanupStaleLobbyPlayers(Game g, long now) {
+        if (g.getStatus() != GameStatus.CREATED && g.getStatus() != GameStatus.STARTING) {
+            return Set.of();
+        }
+
+        Set<String> staleIds = new HashSet<>();
+        Long startingAt = g.getStartingAtTs();
+
+        for (Player p : g.getPlayers()) {
+            if (p.isLeftGame()) continue;
+
+            Long ts = p.getLastSeenTs();
+
+            // règle normale lobby
+            boolean ttlStale = (ts == null) || (now - ts > LOBBY_TTL_MS);
+
+            // règle STARTING : si le joueur n’a jamais ping depuis le début de STARTING,
+            // et qu’on a dépassé la fenêtre de grâce, c’est un ghost.
+            boolean startingStale =
+                    g.getStatus() == GameStatus.STARTING
+                            && startingAt != null
+                            && (now - startingAt > STARTING_GRACE_MS)
+                            && (ts == null || ts < startingAt);
+
+            if (ttlStale || startingStale) {
+                p.setLeftGame(true);
+                staleIds.add(p.getId());
+            }
+        }
+
+        if (!staleIds.isEmpty() && g.getReadyForStart() != null) {
+            g.getReadyForStart().removeAll(staleIds);
+        }
+
+        return staleIds;
+    }
+
+
+    private long activeCount(Game g) {
+        return g.getPlayers().stream().filter(p -> !p.isLeftGame()).count();
+    }
+
+    private void ensureStartingStillValid(Game g) {
+        // Si on est en STARTING mais plus assez de joueurs => retour CREATED
+        if (g.getStatus() == GameStatus.STARTING && activeCount(g) < 2) {
+            g.setStartingAtTs(null);
+
+            g.setStatus(GameStatus.CREATED);
+            if (g.getReadyForStart() != null) g.getReadyForStart().clear();
+        }
     }
 
     @Transactional
     public void bootReady(String gameId, String userId) {
         Game g = findOr404(gameId);
 
-        // idempotent / robuste
+        long now = System.currentTimeMillis();
+
+        // le caller est actif => lastSeen maintenant
+        g.getPlayers().stream()
+                .filter(p -> p.getId().equals(userId) && !p.isLeftGame())
+                .findFirst()
+                .ifPresent(p -> p.setLastSeenTs(now));
+
+
         if (g.getStatus() == GameStatus.ACTIVE) return;
-        if (g.getStatus() != GameStatus.STARTING)
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "game not starting");
+
+        Set<String> stale = cleanupStaleLobbyPlayers(g, now);
+        if (!stale.isEmpty()) {
+            for (String uid : stale) {
+                try { playerService.leaveGame(uid, gameId); } catch (Exception ignored) {}
+            }
+
+            if (g.getStatus() == GameStatus.STARTING) {
+                g.setStatus(GameStatus.CREATED);
+                g.setStartingAtTs(null);
+                if (g.getReadyForStart() != null) g.getReadyForStart().clear();
+            }
+
+            save(g);
+            afterCommit(() -> live.lobbyUpdated(g));
+            return;
+        }
 
         if (g.getReadyForStart() == null) g.setReadyForStart(new HashSet<>());
         g.getReadyForStart().add(userId);
 
-        // calc des joueurs "actifs" (pas leftGame)
         var activeIds = g.getPlayers().stream()
                 .filter(p -> !p.isLeftGame())
                 .map(Player::getId)
@@ -1123,12 +1258,10 @@ public class GameService {
 
         if (!allReady) {
             save(g);
-            afterCommit(() -> live.lobbyUpdated(g)); // update progression overlay
+            afterCommit(() -> live.lobbyUpdated(g));
             return;
         }
 
-        // Tout le monde prêt -> on démarre vraiment
-        // startReal() fera save + afterCommit (lobbyUpdated + phaseChanged etc.)
         startReal(g);
     }
 
@@ -1144,6 +1277,7 @@ public class GameService {
         g.setStatus(GameStatus.ACTIVE);
         g.setRaid(1);
         g.setPhase(Phase.PHASE0);
+        g.setStartingAtTs(null);
 
         // === PHASE0 : météo (reset complet, sans push d’events) ===
         g.setWeatherRoll(null);
@@ -1204,7 +1338,6 @@ public class GameService {
             }
         }
         // ============================
-        */
 
         // --- Inventaire ressources (dev/test) ---
         for (var p : g.getPlayers()) {
@@ -1258,6 +1391,7 @@ public class GameService {
                 ));
             }
         }
+        */
 
         initDecks(g);
 

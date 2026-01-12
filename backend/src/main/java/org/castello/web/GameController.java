@@ -79,6 +79,15 @@ public class GameController {
         games.bootReady(id, user.getId());
     }
 
+    @PostMapping("/{id}/presence")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void presence(@PathVariable String id,
+                         @RequestHeader("Authorization") String authorization) {
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+        games.presence(id, user.getId());
+    }
+
     @PostMapping("/{id}/start")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void start(@PathVariable String id,

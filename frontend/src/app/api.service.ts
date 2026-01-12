@@ -253,6 +253,9 @@ export class ApiService {
   joinGame(id: string) {
     return this.http.post<void>(`${this.base}/games/${id}/join`, {});
   }
+  presence(id: string) {
+    return this.http.post<void>(`${this.base}/games/${id}/presence`, {});
+  }
   bootReady(id: string) {
     return this.http.post<void>(`${this.base}/games/${id}/boot-ready`, {});
   }

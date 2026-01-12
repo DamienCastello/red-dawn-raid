@@ -86,7 +86,8 @@ public class LiveEvents {
                 Map.of(
                         "gameId", g.getId(),
                         "status", String.valueOf(g.getStatus()),
-                        "players", players
+                        "players", players,
+                        "readyForStart", java.util.List.of()
                 ),
                 System.currentTimeMillis()
         ));

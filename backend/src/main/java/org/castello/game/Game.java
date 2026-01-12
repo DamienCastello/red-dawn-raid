@@ -19,6 +19,7 @@ public class Game {
     private int raid;            // n° de raid (1 au start)
     private Phase phase;         // PHASE0 / PHASE1 / PHASE2 / PHASE3 / PHASE4
 
+    private Long startingAtTs;
     private Set<String> readyForStart = new HashSet<>();
 
     // joueurs dans la partie
@@ -387,6 +388,9 @@ public class Game {
     public String getId() { return id; }
     public GameStatus getStatus() { return status; }
     public int getRound() { return raid; }
+
+    public Long getStartingAtTs() { return startingAtTs; }
+    public void setStartingAtTs(Long startingAtTs) { this.startingAtTs = startingAtTs; }
 
     public Set<String> getReadyForStart() { return readyForStart; }
     public void setReadyForStart(Set<String> s) { this.readyForStart = (s != null ? s : new HashSet<>()); }
