@@ -12,117 +12,463 @@ import { AssetPreloaderService } from './services/asset-preloader.service';
   selector: 'app-lobby',
   imports: [CommonModule, FormsModule],
   template: `
-  <main class="container" style="max-width:720px;margin:2rem auto">
-    <h1>Red Dawn Raid — Lobby</h1>
+  <div class="page">
+    <header class="hero">
 
-    <div *ngIf="errorMsg" style="background:#fee;border:1px solid #f99;padding:.5rem;margin:.5rem 0">
-      {{ errorMsg }}
-    </div>
+      <!-- Titre complet (>= 421px) -->
+      <h1 class="rdr-title title-full" aria-label="Red Dawn Raid">
+        <span class="fire">R</span><span class="burn">e</span><span class="burn">d</span>
+        <span class="gap"></span>
+        <span class="fire">D</span><span class="burn">a</span><span class="burn">w</span><span class="burn">n</span>
+        <span class="gap"></span>
+        <span class="fire">R</span><span class="burn">a</span><span class="burn">i</span><span class="fire">d</span>
+      </h1>
 
-    <button (click)="logout()" style="position: fixed; right: 40px; top: 10px;">Déconnexion</button>
+      <!-- Titre compact (<= 420px) -->
+      <h1 class="rdr-title title-short" aria-label="RDR">
+        <span class="fire">R</span><span class="fire">D</span><span class="fire">R</span>
+      </h1>
 
-    <button (click)="create()" [disabled]="cannotCreateGame">
-      Créer une partie
-    </button>
-    <button (click)="list()" style="margin-left:.5rem">Lister</button>
+      <div class="page-name">Lobby</div>
+    </header>
 
-    <div style="margin-top:1rem" *ngIf="games.length">
-      <h3>Parties</h3>
-      <ul>
-        <li *ngFor="let g of games">
-          <a href="#" (click)="$event.preventDefault(); pick(g)"
-             [style.fontWeight]="isInGame(g) ? 'bold' : 'normal'">
-            {{ g.id }} — {{ g.status }}
-            <ng-container *ngIf="g.status !== 'ENDED'">
-              ({{ activePlayersCount(g) }} joueurs)
-            </ng-container>
-          </a>
-        </li>
-      </ul>
-    </div>
+    <main class="card card-wide">
+      <button class="btn btn-ghost logout" (click)="logout()">Déconnexion</button>
 
-    <div *ngIf="selected" style="margin-top:1rem">
-      <h3>Partie sélectionnée</h3>
-      <p><b>{{ selected.id }}</b> — {{ selected.status }}</p>
+      <div *ngIf="errorMsg" class="alert">
+        {{ errorMsg }}
+      </div>
 
-      <ng-container *ngIf="selected.status !== 'ENDED'">
-        <!-- Cas 1 : je suis déjà dans CETTE partie -->
-        <ng-container *ngIf="alreadyInSelected; else notInSelected">
-          <p style="color:#666">Vous êtes déjà dans cette partie.</p>
-          <button (click)="goToGame()" [disabled]="!isSelectedActive">Reprendre la partie</button>
-          <small *ngIf="isSelectedCreated" style="margin-left:.5rem; color:#888">
-            En attente du démarrage…
-          </small>
-        </ng-container>
+      <div class="row top-actions">
+        <button class="btn btn-primary" (click)="create()" [disabled]="cannotCreateGame">
+          Créer une partie
+        </button>
+        <button class="btn" (click)="list()">Lister</button>
+      </div>
 
-        <!-- Cas 2 : je NE suis PAS dans la partie sélectionnée -->
-        <ng-template #notInSelected>
-          <ng-container *ngIf="inOtherGameSelected; else canJoinHere">
-            <p style="color:#b55">
-              Vous avez déjà rejoint une autre partie ({{ myActiveGameId }}). Impossible de joindre celle-ci.
-            </p>
-            <button disabled>Rejoindre</button>
+      <div class="section" *ngIf="games.length">
+        <h3 class="h3">Parties</h3>
+        <ul class="list">
+          <li *ngFor="let g of games" class="list-item">
+            <a class="link"
+               href="#"
+               (click)="$event.preventDefault(); pick(g)"
+               [class.link-strong]="isInGame(g)">
+              <span class="mono">{{ g.id }}</span> — {{ g.status }}
+              <ng-container *ngIf="g.status !== 'ENDED'">
+                <span class="muted">({{ activePlayersCount(g) }} joueurs)</span>
+              </ng-container>
+            </a>
+          </li>
+        </ul>
+      </div>
+
+      <div *ngIf="selected" class="section">
+        <h3 class="h3">Partie sélectionnée</h3>
+        <p class="line"><b class="mono">{{ selected.id }}</b> — {{ selected.status }}</p>
+
+        <ng-container *ngIf="selected.status !== 'ENDED'">
+
+          <!-- Cas 1 : je suis déjà dans CETTE partie -->
+          <ng-container *ngIf="alreadyInSelected; else notInSelected">
+            <p class="muted">Vous êtes déjà dans cette partie.</p>
+
+            <div class="row action-row">
+              <button class="btn btn-primary" (click)="goToGame()" [disabled]="!isSelectedActive">
+                Reprendre la partie
+              </button>
+
+              <button *ngIf="alreadyInSelected && isSelectedCreated"
+                      class="btn"
+                      (click)="start()"
+                      [disabled]="activePlayersCount(selected) < 2">
+                Démarrer la partie
+              </button>
+
+              <button *ngIf="alreadyInSelected && isSelectedCreated"
+                      class="btn"
+                      (click)="leaveCreated()">
+                Quitter la partie
+              </button>
+            </div>
+
+            <small *ngIf="isSelectedCreated" class="muted" style="display:block; margin-top:.5rem;">
+              En attente du démarrage…
+            </small>
           </ng-container>
 
-          <ng-template #canJoinHere>
-            <p>Vous rejoindrez en tant que <b>{{ currentUsername }}</b>.</p>
-            <button (click)="join()" [disabled]="selected.status !== 'CREATED'">Rejoindre</button>
+          <!-- Cas 2 : je NE suis PAS dans la partie sélectionnée -->
+          <ng-template #notInSelected>
+            <ng-container *ngIf="inOtherGameSelected; else canJoinHere">
+              <p class="warn">
+                Vous avez déjà rejoint une autre partie ({{ myActiveGameId }}). Impossible de joindre celle-ci.
+              </p>
+              <button class="btn" disabled>Rejoindre</button>
+            </ng-container>
+
+            <ng-template #canJoinHere>
+              <p>Vous rejoindrez en tant que <b>{{ currentUsername }}</b>.</p>
+              <button class="btn btn-primary" (click)="join()" [disabled]="selected.status !== 'CREATED'">
+                Rejoindre
+              </button>
+            </ng-template>
           </ng-template>
-        </ng-template>
 
-          <button *ngIf="alreadyInSelected && isSelectedCreated"
-                  (click)="start()"
-                  [disabled]="activePlayersCount(selected) < 2"
-                  style="margin-left:.5rem">
-            Démarrer la partie
-          </button>
-          <button *ngIf="alreadyInSelected && isSelectedCreated"
-                  (click)="leaveCreated()"
-                  style="margin-left:.5rem">
-            Quitter la partie
-          </button>
-      </ng-container>
-    </div>
-    <div *ngIf="selected?.status === 'ENDED' && endedSnap"
-     style="margin-top:1rem; padding:.5rem; border:1px solid #ddd">
-      <p><b>Vainqueur :</b> {{ endedSnap.winnerSide }}</p>
-      <p><b>Participants :</b> {{ endedSnap.players.length }}</p>
+        </ng-container>
+      </div>
 
-      <h4>Joueurs</h4>
-      <ul>
-        <li *ngFor="let p of endedSnap.players">
-          {{ p.username }} — {{ p.role }}
-          —
-          <span *ngIf="p.leftGame">a quitté</span>
-          <span *ngIf="!p.leftGame && p.hp <= 0">mort</span>
-          <span *ngIf="!p.leftGame && p.hp > 0">vivant</span>
-          (PV: {{ p.hp }})
-        </li>
-      </ul>
-    </div>
-  </main>
-  <!-- OVERLAY STARTING -->
-  <div *ngIf="showStartingOverlay"
-      style="position:fixed; inset:0; background:rgba(0,0,0,.65); display:flex; align-items:center; justify-content:center; z-index:9999;">
-    <div style="background:#111; color:#fff; padding:1rem 1.25rem; border-radius:12px; width:min(520px, 92vw);">
-      <h2 style="margin:0 0 .5rem 0;">Chargement de la partie…</h2>
+      <div *ngIf="selected?.status === 'ENDED' && endedSnap" class="section ended">
+        <p><b>Vainqueur :</b> {{ endedSnap.winnerSide }}</p>
+        <p><b>Participants :</b> {{ endedSnap.players.length }}</p>
 
-      <p style="margin:.25rem 0; opacity:.9;">
-        Ressources sur ce client :
-        <b>{{ localAssetsDone ? 'OK' : 'en cours…' }}</b>
-      </p>
+        <h4 class="h4">Joueurs</h4>
+        <ul class="list">
+          <li *ngFor="let p of endedSnap.players" class="list-item">
+            {{ p.username }} — {{ p.role }} —
+            <span class="muted" *ngIf="p.leftGame">a quitté</span>
+            <span class="muted" *ngIf="!p.leftGame && p.hp <= 0">mort</span>
+            <span class="muted" *ngIf="!p.leftGame && p.hp > 0">vivant</span>
+            <span class="muted">(PV: {{ p.hp }})</span>
+          </li>
+        </ul>
+      </div>
+    </main>
 
-      <p style="margin:.25rem 0; opacity:.9;">
-        Joueurs prêts :
-        <b>{{ readyStartCount }} / {{ readyStartTotal }}</b>
-      </p>
+    <!-- OVERLAY STARTING -->
+    <div *ngIf="showStartingOverlay" class="overlay">
+      <div class="overlay-card">
+        <h2 style="margin:0 0 .5rem 0;">Chargement de la partie…</h2>
 
-      <div style="margin-top:.75rem; font-size:.95rem; opacity:.8;">
-        La partie démarre automatiquement dès que tout le monde a fini de charger.
+        <p style="margin:.25rem 0; opacity:.9;">
+          Ressources sur ce client :
+          <b>{{ localAssetsDone ? 'OK' : 'en cours…' }}</b>
+        </p>
+
+        <p style="margin:.25rem 0; opacity:.9;">
+          Joueurs prêts :
+          <b>{{ readyStartCount }} / {{ readyStartTotal }}</b>
+        </p>
+
+        <div style="margin-top:.75rem; font-size:.95rem; opacity:.8;">
+          La partie démarre automatiquement dès que tout le monde a fini de charger.
+        </div>
       </div>
     </div>
   </div>
-  `
+  `,
+  styles: [`
+    @import url('https://fonts.googleapis.com/css?family=Amethysta');
+    @import url('https://fonts.googleapis.com/css?family=Caesar+Dressing');
+
+    :host, .page { box-sizing: border-box; }
+    *, *::before, *::after { box-sizing: border-box; }
+
+    :host{
+      display:block;
+      min-height:100vh;
+      color:#fff;
+
+      background-color: rgba(255,255,255,.03);
+      background-image: linear-gradient(to bottom, #111, #0c0c0c);
+      background-attachment: fixed;
+    }
+
+    .page{
+      min-height:100vh;
+      color:#fff;
+      padding: 3.25rem 1rem 3rem;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap: 1.5rem;
+
+      /* même fond que :host */
+      background-color: rgba(255,255,255,.03);
+      background-image: linear-gradient(to bottom, #111, #0c0c0c);
+    }
+
+    .hero{
+      width:min(900px, 92vw);
+      text-align:center;
+      position: relative;
+      z-index: 2;
+    }
+
+    .page-name{
+      margin-top:.85rem;
+      font-size: .95rem;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      opacity:.85;
+    }
+
+    .card{
+      width:min(720px, 92vw);
+      border-radius: 14px;
+      background: rgba(255,255,255,.02);
+      border: 1px solid rgba(255,255,255,.10);
+      padding: 1.1rem 1.15rem 1.15rem;
+      box-shadow: 0 10px 30px rgba(0,0,0,.35);
+      position:relative;
+    }
+
+    .card-wide{
+      width:min(860px, 92vw);
+    }
+
+    .logout{
+      position: fixed;
+      right: 24px;
+      top: 16px;
+      z-index: 2;
+    }
+
+    .row{
+      display:flex;
+      gap:.6rem;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+
+    .btn{
+      padding:.62rem .8rem;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.18);
+      background: rgba(255,255,255,.06);
+      color:#fff;
+      cursor:pointer;
+      transition: transform .05s ease, background .15s ease, border-color .15s ease;
+      min-width: 0;
+    }
+
+    .btn:hover{
+      background: rgba(255,255,255,.09);
+      border-color: rgba(255,255,255,.26);
+    }
+    .btn:active{ transform: translateY(1px); }
+
+    .btn:disabled{
+      opacity:.55;
+      cursor:not-allowed;
+    }
+
+    .btn-primary{
+      background: rgba(255,255,255,.12);
+      border-color: rgba(255,255,255,.26);
+    }
+
+    .btn-ghost{
+      background: rgba(0,0,0,.25);
+      border-color: rgba(255,255,255,.16);
+    }
+
+    .alert{
+      margin:.75rem 0;
+      padding:.65rem .75rem;
+      border-radius: 12px;
+      border: 1px solid rgba(255,180,180,.35);
+      background: rgba(179,0,0,.12);
+      color: #ffb4b4;
+    }
+
+    .section{ margin-top: 1.05rem; }
+
+    .h3, .h4{
+      margin:.2rem 0 .6rem;
+      letter-spacing:.08em;
+      text-transform: uppercase;
+      font-weight:600;
+      opacity:.9;
+    }
+
+    .line{ margin:.25rem 0 .75rem; }
+
+    .muted{ opacity:.75; }
+    .warn{ color:#ffd1a8; }
+
+    .list{
+      list-style:none;
+      margin:0;
+      padding:0;
+      display:flex;
+      flex-direction:column;
+      gap:.35rem;
+    }
+
+    .list-item{
+      padding:.5rem .6rem;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(0,0,0,.18);
+      overflow-wrap: anywhere;
+    }
+
+    .link{
+      color:#fff;
+      text-decoration:none;
+      display:block;
+    }
+    .link:hover{ text-decoration: underline; }
+    .link-strong{ font-weight:700; }
+
+    .mono{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      letter-spacing: .02em;
+    }
+
+    .ended{
+      border-color: rgba(255,255,255,.16);
+      background: rgba(255,255,255,.03);
+    }
+
+    .overlay{
+      position:fixed;
+      inset:0;
+      background:rgba(0,0,0,.65);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      z-index:9999;
+    }
+
+    .overlay-card{
+      background:#111;
+      color:#fff;
+      padding:1rem 1.25rem;
+      border-radius:12px;
+      width:min(520px, 92vw);
+      border: 1px solid rgba(255,255,255,.12);
+      box-shadow: 0 10px 30px rgba(0,0,0,.45);
+    }
+
+    /* --- TITRE + flammes --- */
+    .rdr-title{
+      margin:0;
+      padding:.7rem 1rem;
+      border-radius:14px;
+      background: transparent;
+
+      font-family: 'Amethysta', serif;
+      text-align:center;
+      line-height: 1.2;
+      text-transform: uppercase;
+      letter-spacing: .22em;
+      white-space:nowrap;
+      display:inline-block;
+    }
+
+    .title-full{ font-size: 1.75rem; }
+    .title-short{ font-size: 1.75rem; display:none; }
+
+    .rdr-title span{
+      font-family: 'Caesar Dressing', cursive;
+      font-size: 2.3em;
+      text-transform: lowercase;
+      vertical-align: middle;
+      letter-spacing: .12em;
+      display:inline-block;
+      margin: 0 .06em;
+      color: #000;
+    }
+
+    .gap{
+      width: .55em;
+      margin: 0;
+      letter-spacing: 0;
+      color: transparent;
+      text-shadow: none !important;
+      animation: none !important;
+    }
+
+    .fire{ animation: fireAnim 1s ease-in-out infinite alternate; }
+    .burn{ animation: fireAnim .65s ease-in-out infinite alternate; }
+
+    @keyframes fireAnim{
+      0% { text-shadow:
+        0 0 20px #fefcc9,
+        10px -10px 30px #feec85,
+        -20px -20px 40px #ffae34,
+        20px -40px 50px #ec760c,
+        -20px -60px 60px #cd4606,
+        0 -80px 70px #973716,
+        10px -90px 80px #451b0e;
+      }
+      100% { text-shadow:
+        0 0 20px #fefcc9,
+        10px -10px 30px #fefcc9,
+        -20px -20px 40px #feec85,
+        22px -42px 60px #ffae34,
+        -22px -58px 50px #ec760c,
+        0 -82px 80px #cd4606,
+        10px -90px 80px #973716;
+      }
+    }
+
+    /* =========================
+       RESPONSIVE
+       ========================= */
+
+    /* Vers 680px : on réduit le titre progressivement */
+    @media (max-width: 680px){
+      .title-full{ font-size: 1.55rem; }
+      .rdr-title span{ font-size: 2.05em; }
+      .rdr-title{ letter-spacing: .18em; }
+      .page{ padding-top: 2.4rem; }
+      .logout{ right: 16px; top: 12px; }
+    }
+
+    @media (max-width: 560px){
+      .title-full{ font-size: 1.38rem; }
+      .rdr-title span{ font-size: 1.9em; }
+      .rdr-title{ letter-spacing: .15em; }
+
+      .card{ padding: 1rem 1rem 1.05rem; }
+      .logout{ position: static; width: 100%; margin-bottom: .75rem; }
+    }
+
+    @media (max-width: 480px){
+      .title-full{ font-size: 1.24rem; }
+      .rdr-title span{ font-size: 1.75em; }
+      .rdr-title{ letter-spacing: .12em; }
+      .page{ padding: 2.1rem .75rem 2.4rem; }
+    }
+
+    /* <= 420px : afficher RDR */
+    @media (max-width: 420px){
+      .title-full{ display:none; }
+      .title-short{ display:inline-block; }
+
+      .title-short{ font-size: 1.55rem; }
+      .title-short span{ font-size: 2.2em; }
+      .rdr-title{ letter-spacing: .16em; }
+
+      .page-name{ letter-spacing: .18em; }
+    }
+
+    /* Action buttons : si c'est très étroit, forcer une "pile" */
+    @media (max-width: 360px){
+      .top-actions{
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .top-actions .btn{
+        width: 100%;
+      }
+      .action-row{
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .action-row .btn{
+        width: 100%;
+      }
+    }
+
+    /* Ultra petit (genre 200px) : on garde tout empilable + safe */
+    @media (max-width: 240px){
+      .page{ padding-left: .5rem; padding-right: .5rem; }
+      .btn{ width: 100%; }
+    }
+  `]
 })
 export class LobbyComponent {
   private api = inject(ApiService);
@@ -140,6 +486,43 @@ export class LobbyComponent {
   private unsubscribeLobby?: () => void;
   private unsubscribeSelectedGame?: () => void;
 
+  private endedCleanupDone = false;
+
+  private cleanupEndedGames(gs: LobbyGame[]) {
+    if (this.endedCleanupDone) return;
+    this.endedCleanupDone = true;
+
+    const mineEnded = gs.filter(g =>
+      g.status === 'ENDED' &&
+      (g.players || []).some((p: any) => p.id === this.myUserId && !p.leftGame)
+    );
+
+    if (!mineEnded.length) return;
+
+    let pending = mineEnded.length;
+
+    for (const g of mineEnded) {
+      this.api.leaveGame(g.id).subscribe({
+        next: () => {
+          pending--;
+          if (pending <= 0) {
+            const stored = sessionStorage.getItem('gameId');
+            if (stored && mineEnded.some(x => x.id === stored)) {
+              this.clearCurrentGameStorage();
+            }
+            this.list();
+          }
+        },
+        error: () => {
+          pending--;
+          if (pending <= 0) {
+            this.list();
+          }
+        }
+      });
+    }
+  }
+
   private presenceTimer: any = null;
   private presenceGameId: string | null = null;
 
@@ -150,7 +533,7 @@ export class LobbyComponent {
 
     this.presenceTimer = setInterval(() => {
       this.api.presence(gameId).subscribe({ error: () => {} });
-    }, 15_000); // ping régulier (tu peux mettre 20s)
+    }, 15_000);
   }
 
   private stopPresence() {
@@ -165,7 +548,6 @@ export class LobbyComponent {
 
   get isSelectedStarting(): boolean { return this.selected?.status === 'STARTING'; }
 
-  // Prêts côté serveur
   get readyStartCount(): number {
     return (this.selected?.readyForStart?.length ?? 0);
   }
@@ -173,48 +555,36 @@ export class LobbyComponent {
     return this.activePlayersCount(this.selected);
   }
 
-  // Afficher l’overlay seulement si je suis dans la game et que la game est STARTING
   get showStartingOverlay(): boolean {
     return !!this.selected && this.isSelectedStarting && this.alreadyInSelected;
   }
 
   private ensureBootReadyIfNeeded(gameId: string) {
-    // Déjà envoyé pour cette game ?
     if (this.bootReadySentForGameId === gameId) return;
 
-    // On n’envoie que si je suis dans la partie sélectionnée ET si elle est en STARTING
     if (!this.selected || this.selected.id !== gameId) return;
     if (this.selected.status !== 'STARTING') return;
     if (!this.alreadyInSelected) return;
 
-    // On attend la fin du preload local
     this.assets.waitDone()
-      .catch(() => {}) // on ne bloque pas en cas d’échec (sinon tu ne démarres jamais)
+      .catch(() => {})
       .finally(() => {
         this.localAssetsDone = true;
-
-        // Marque avant l’appel (anti double click / double events)
         this.bootReadySentForGameId = gameId;
 
         this.api.bootReady(gameId).subscribe({
           next: () => {},
-          error: e => {
-            // si tu veux être strict : remettre à null pour retenter
-            // mais je conseille de rester idempotent (côté back) et juste log
-            console.warn('bootReady failed', e);
-          }
+          error: e => console.warn('bootReady failed', e)
         });
       });
   }
 
   ngOnInit() {
-    this.assets.start(); // lance en fond (si pas déjà lancé depuis Auth)
+    this.assets.start();
     this.assets.waitDone().then(() => this.localAssetsDone = true).catch(() => this.localAssetsDone = true);
     this.bootReadySentForGameId = null;
 
-    this.list(); // hydrate la liste une fois
-
-    // WS global lobby
+    this.list();
     this.unsubscribeLobby = this.live.subscribeLobby((e) => this.onLobbyEvent(e));
   }
 
@@ -229,20 +599,18 @@ export class LobbyComponent {
     setTimeout(()=>this.errorMsg='',4000);
   }
 
-  // ---- identité côté front (temporaire tant qu’on garde le storage pour l’auth)
   private get myUserId(): string {
     return sessionStorage.getItem('userId') ?? '';
   }
 
-  endedSnap: any | null = null; // ou GameSnapshot si tu veux typer
+  endedSnap: any | null = null;
 
   onSelect(g: LobbyGame){
     this.selected = g;
-    // reset overlay & anti-double-bootReady quand on change de sélection
+
     this.bootReadySentForGameId = null;
     this.localAssetsDone = false;
 
-    // on remet à true si le preload est déjà fini (service singleton)
     this.assets.waitDone()
       .then(() => this.localAssetsDone = true)
       .catch(() => this.localAssetsDone = true);
@@ -257,11 +625,9 @@ export class LobbyComponent {
       });
     }
 
-    // (re)abonnement au topic de la partie sélectionnée
     this.unsubscribeSelectedGame?.();
     this.unsubscribeSelectedGame = this.live.subscribeGame(g.id, (ev) => {
       if (ev.type === 'PHASE_CHANGED') {
-        // ✅ pas de navigate ici (géré par LOBBY_UPDATED côté lobby global)
         this.lastSelectedStatus = 'ACTIVE';
         if (this.selected?.id === g.id) {
           this.selected = { ...this.selected, status: 'ACTIVE' } as any;
@@ -269,7 +635,6 @@ export class LobbyComponent {
       }
     });
 
-    // si la partie est déjà STARTING au moment du select → on déclenche la barrière
     if (g.status === 'STARTING' && this.alreadyInSelected) {
       this.ensureBootReadyIfNeeded(g.id);
     }
@@ -277,7 +642,6 @@ export class LobbyComponent {
 
   private onLobbyEvent(e: GameEvent){
     if (e.type === 'GAME_CREATED') {
-      // insère/rafraîchit l’entrée dans la liste
       const g = this.asListItem(e);
       this.upsertInList(g);
       return;
@@ -297,14 +661,11 @@ export class LobbyComponent {
         this.stopPresence();
       }
 
-      // Si on quitte STARTING, on autorise un futur bootReady (évite lock)
       if (g.status !== 'STARTING' && this.bootReadySentForGameId === g.id) {
         this.bootReadySentForGameId = null;
       }
 
-      // Si STARTING et dedans => déclenche boot-ready quand preload finit
       if (g.status === 'STARTING' && iAmIn) {
-        // si cette game est sélectionnée, on met à jour selected + overlay
         if (this.selected?.id === g.id) {
           this.selected = { ...this.selected, ...g } as any;
         }
@@ -317,17 +678,10 @@ export class LobbyComponent {
         return;
       }
 
-      // Navigation seulement quand ACTIVE
-      if (g.status === 'ACTIVE' && iAmIn) {
-        this.router.navigate(['/game', g.id]);
-        return;
-      }
-
       if (this.selected?.id === g.id) {
         this.selected = {
           ...this.selected,
           ...g,
-          // garde une version safe même si un event foireux arrive
           players: (g.players?.length ? g.players : (this.selected?.players ?? [])),
           readyForStart: (g.readyForStart?.length ? g.readyForStart : ((this.selected as any).readyForStart ?? [])),
         } as any;
@@ -348,7 +702,6 @@ export class LobbyComponent {
         this.unsubscribeSelectedGame = undefined;
       }
 
-      // si le storage pointait dessus
       if (sessionStorage.getItem('gameId') === gid) {
         sessionStorage.removeItem('gameId');
         sessionStorage.removeItem('playerId');
@@ -389,30 +742,25 @@ export class LobbyComponent {
     this.games = [...this.games];
   }
 
-
-  // ➜ AMÉLIORATION : on s’appuie sur la vérité serveur (players[]) plutôt que sur le storage
   isInGame(g?: LobbyGame): boolean {
     if (!g) return false;
-
-    // une partie finie ne bloque jamais
     if (g.status === 'ENDED') return false;
-
     return (g.players || []).some(p => p.id === this.myUserId && !p.leftGame);
   }
-
 
   list(){
     this.api.listGames().subscribe({
       next: gs => {
         this.games = gs;
 
+        this.cleanupEndedGames(gs);
+
         this.syncStorageWithServer();
 
-        // ➜ AMÉLIORATION : auto-select la game où je suis déjà inscrit selon le serveur
         if (!this.selected) {
           const mine = gs.find(g => this.isInGame(g));
           if (mine) {
-            this.onSelect(mine); // ✅ crée l’abonnement WS de suite
+            this.onSelect(mine);
             if (mine.status === 'STARTING') {
               this.selected = mine;
               this.ensureBootReadyIfNeeded(mine.id);
@@ -427,7 +775,7 @@ export class LobbyComponent {
   }
 
   pick(g: LobbyGame){
-    this.onSelect(g);  // s’abonner au /topic/games/{id} de la sélection
+    this.onSelect(g);
   }
 
   create(){
@@ -442,10 +790,7 @@ export class LobbyComponent {
 
         this.api.joinGame(g.id).subscribe({
           next: () => {
-            // ✅ MAJ optimiste immédiate (comme join)
             this.optimisticJoinLocal(g.id);
-
-            // ✅ un seul refresh (optionnel mais ok)
             this.list();
           },
           error: e => this.showError(e)
@@ -460,7 +805,7 @@ export class LobbyComponent {
 
     this.api.leaveGame(this.selected.id).subscribe({
       next: () => {
-        this.unsubscribeSelectedGame?.(); // ✅ stop events de cette game
+        this.unsubscribeSelectedGame?.();
         this.clearCurrentGameStorage();
         this.list();
       },
@@ -469,38 +814,35 @@ export class LobbyComponent {
   }
 
   get currentUsername(): string { return sessionStorage.getItem('username') ?? ''; }
-  // ---- états dérivés (petite API lisible pour le template)
   get currentGameId(): string | null { return sessionStorage.getItem('gameId'); }
 
-  // Tu es "dans une game" si le serveur le dit (myActiveGameId) OU si le storage a encore une gameId
   get cannotCreateGame(): boolean {
-    return !!this.myActiveGameId || !!this.currentGameId;
+    return !!this.myActiveGameId;
   }
 
   get alreadyInSelected(): boolean {
     return this.isInGame(this.selected);
   }
+
   get inOtherGameSelected(): boolean {
     if (!this.selected) return false;
     return this.games.some(x => x.id !== this.selected!.id && this.isInGame(x));
   }
+
   get isSelectedCreated(): boolean { return this.selected?.status === 'CREATED'; }
   get isSelectedActive(): boolean { return this.selected?.status === 'ACTIVE'; }
   get myActiveGameIdView(): string | null { return this.myActiveGameId; }
-
 
   private clearCurrentGameStorage(){
     sessionStorage.removeItem('gameId');
     sessionStorage.removeItem('playerId');
   }
 
-  // Ma game “active” côté serveur (joueur présent ET pas leftGame)
   get myActiveGameId(): string | null {
     const g = this.games.find(x => this.isInGame(x));
     return g?.id ?? null;
   }
 
-  // On aligne le storage sur la vérité serveur (évite d’être “dupé”)
   private syncStorageWithServer(){
     const gid = this.myActiveGameId;
     if (gid) {
@@ -511,21 +853,17 @@ export class LobbyComponent {
     }
   }
 
-  // Naviguer vers la game courante (si sélectionnée)
   goToGame(){
     if (this.selected) this.router.navigate(['/game', this.selected.id]);
   }
 
-  // Rejoindre la game sélectionnée (si autorisé)
   join(){
     const sel = this.selected;
     if (!sel) return;
-    const selId = sel.id;
 
+    const selId = sel.id;
     this.api.joinGame(selId).subscribe({
-    next: () => {
-      this.optimisticJoinLocal(selId);
-    },
+      next: () => this.optimisticJoinLocal(selId),
       error: e => this.showError(e)
     });
   }
@@ -533,7 +871,6 @@ export class LobbyComponent {
   private optimisticJoinLocal(gameId: string) {
     const me = { id: this.myUserId, username: this.currentUsername, leftGame: false };
 
-    // 1) update selected si c’est la bonne game
     if (this.selected?.id === gameId) {
       const current = this.selected.players ?? [];
       if (!current.some(p => p.id === me.id && !p.leftGame)) {
@@ -541,7 +878,6 @@ export class LobbyComponent {
       }
     }
 
-    // 2) update games list
     const i = this.games.findIndex(x => x.id === gameId);
     if (i >= 0) {
       const current = this.games[i].players ?? [];
@@ -552,7 +888,6 @@ export class LobbyComponent {
       }
     }
 
-    // 3) storage
     sessionStorage.setItem('gameId', gameId);
     sessionStorage.setItem('playerId', this.myUserId);
   }
@@ -560,21 +895,17 @@ export class LobbyComponent {
   start(){
     if (!this.selected) return;
     this.api.startGame(this.selected.id).subscribe({ error: e => this.showError(e) });
-    // pas de navigate() ici : on laisse l’event WS piloter pour tous les onglets
   }
 
   logout() {
-    // On regarde si je suis "dans une game" selon le serveur
-    const gid = this.myActiveGameId; // déjà chez toi
+    const gid = this.myActiveGameId;
 
     const doLogout = () => {
-      // coupe la session
       sessionStorage.removeItem('token');
       sessionStorage.removeItem('userId');
       sessionStorage.removeItem('username');
       sessionStorage.removeItem('gameId');
       sessionStorage.removeItem('playerId');
-
       this.router.navigate(['/auth']);
     };
 
@@ -585,16 +916,14 @@ export class LobbyComponent {
 
     const g = this.games.find(x => x.id === gid);
 
-    // si CREATED => on quitte avant de logout
     if (g?.status === 'CREATED') {
       this.api.leaveGame(gid).subscribe({
         next: () => doLogout(),
-        error: () => doLogout() // même si ça plante, on déconnecte quand même
+        error: () => doLogout()
       });
       return;
     }
 
-    // si ACTIVE => on ne quitte pas, on logout direct
     doLogout();
   }
 }

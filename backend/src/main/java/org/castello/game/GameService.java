@@ -1338,27 +1338,29 @@ public class GameService {
             }
         }
         // ============================
+        */
 
         // --- Inventaire ressources (dev/test) ---
         for (var p : g.getPlayers()) {
             if ("VAMPIRE".equals(p.getRole())) {
-                p.setSouls(400);
-                p.setWood(30);
-                p.setHerbs(30);
-                p.setWater(30);
-                p.setStone(30);
-                p.setIron(30);
+                p.setSouls(100);
+                p.setWood(10);
+                p.setHerbs(10);
+                p.setWater(10);
+                p.setStone(10);
+                p.setIron(10);
             }
             if ("HUNTER".equals(p.getRole())) {
-                p.setGold(200);
-                p.setWood(30);
-                p.setHerbs(30);
-                p.setWater(30);
-                p.setStone(30);
-                p.setIron(30);
+                p.setGold(50);
+                p.setWood(0);
+                p.setHerbs(0);
+                p.setWater(0);
+                p.setStone(0);
+                p.setIron(0);
             }
         }
 
+        /*
         // --- Inventaire potions (dev/test) ---
         for (var p : g.getPlayers()) {
             if ("HUNTER".equals(p.getRole())) {

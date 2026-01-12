@@ -6148,26 +6148,6 @@ export class GameComponent {
     setTimeout(()=>this.errorMsg='', 4000);
   }
 
-  private gameFetchSeq = 0;
-
-  private refreshGameLatest(after?: (g: GameSnapshot, previous: GameSnapshot | null) => void) {
-    const seq = ++this.gameFetchSeq;
-
-    this.api.getGame(this.gameId).subscribe({
-      next: (g) => {
-        if (seq !== this.gameFetchSeq) return; // ✅ réponse obsolète => ignorée
-
-        const previous = this.game ?? null;
-        // on applique d’abord le snapshot
-        this.game = g;
-
-        // puis on fait le reste en se basant sur g/previous
-        after?.(g, previous);
-      },
-      error: (e) => this.showError(e)
-    });
-  }
-
   private advanceToPhase1IfNeeded() {
     if (this.weatherAdvanceSent) return;
     if (!this.game?.id) return;
