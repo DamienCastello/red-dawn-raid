@@ -65,6 +65,12 @@ public class GameService {
         return fromJson(e.getStateJson());
     }
 
+    private Game findOr404ForUpdate(String id) {
+        GameEntity ge = repo.findByIdForUpdate(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "game not found"));
+        return fromJson(ge.getStateJson());
+    }
+
     private void afterCommit(Runnable r) {
         if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
             org.springframework.transaction.support.TransactionSynchronizationManager
@@ -1057,48 +1063,69 @@ public class GameService {
     // REM: findOr404(id) déjà défini ci-dessus (JSONB -> Game)
 
     // ---------- LOBBY ----------
+    private static final long STARTING_MAX_MS = 60_000; // 60s
+
+    private boolean ensureStartingTimeout(Game g, long now) {
+        if (g.getStatus() == GameStatus.STARTING && g.getStartingAtTs() != null) {
+            if (now - g.getStartingAtTs() > STARTING_MAX_MS) {
+                g.setStatus(GameStatus.CREATED);
+                g.setStartingAtTs(null);
+                if (g.getReadyForStart() != null) g.getReadyForStart().clear();
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Transactional
     public Game addOrUpdatePlayer(String gameId, String playerId, String username) {
         if (username == null || username.isBlank())
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "username required");
 
-        Game g = findOr404(gameId);
+        Game g = findOr404ForUpdate(gameId);
+        long now = System.currentTimeMillis();
+
+        boolean changed = false;
+
+        // 1) si STARTING est bloqué depuis trop longtemps -> on repasse CREATED
+        if (ensureStartingTimeout(g, now)) {
+            changed = true;
+        }
+
+        // 2) maintenant seulement on vérifie le status
         if (g.getStatus() != GameStatus.CREATED)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "game already started/ended");
 
-        long now = System.currentTimeMillis();
-
-        // on clean les ghosts AVANT d’ajouter / compter
+        // 3) cleanup ghosts (ça met leftGame=true dans le Game)
         Set<String> stale = cleanupStaleLobbyPlayers(g, now);
-        for (String uid : stale) {
-            try { playerService.leaveGame(uid, gameId); } catch (Exception ignored) {}
-        }
+        if (!stale.isEmpty()) changed = true;
 
-        g.getPlayers().stream()
-                .filter(p -> p.getId().equals(playerId))
-                .findFirst()
-                .ifPresentOrElse(
-                        p -> {
-                            p.setUsername(username);
-                            p.setLeftGame(false);
-                            p.setLastSeenTs(now); // ✅ ICI
-                        },
-                        () -> {
-                            Player p = new Player(playerId, username);
-                            p.setLeftGame(false);
-                            p.setLastSeenTs(now);
-                            g.getPlayers().add(p);
-                        }
-                );
+        // ne PAS appeler playerService.leaveGame ici (voir section 3)
+
+        // 4) upsert player + lastSeen
+        var opt = g.getPlayers().stream().filter(p -> p.getId().equals(playerId)).findFirst();
+        if (opt.isPresent()) {
+            Player p = opt.get();
+            p.setUsername(username);
+            p.setLeftGame(false);
+            p.setLastSeenTs(now);
+        } else {
+            Player p = new Player(playerId, username);
+            p.setLeftGame(false);
+            p.setLastSeenTs(now);
+            g.getPlayers().add(p);
+        }
+        changed = true;
 
         save(g);
-        afterCommit(() -> live.lobbyUpdated(g));
+
+        if (changed) afterCommit(() -> live.lobbyUpdated(g));
         return g;
     }
 
     @Transactional
     public void requestStart(String id) {
-        Game g = findOr404(id);
+        Game g = findOr404ForUpdate(id);
 
         if (g.getStatus() != GameStatus.CREATED)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "already started/ended");
@@ -1126,34 +1153,35 @@ public class GameService {
 
     @Transactional
     public void presence(String gameId, String userId) {
-        Game g = findOr404(gameId);
-        if (g.getStatus() != GameStatus.CREATED && g.getStatus() != GameStatus.STARTING) return;
-
+        Game g = findOr404ForUpdate(gameId);
         long now = System.currentTimeMillis();
 
-        // update lastSeen du caller
+        boolean changed = false;
+
+        if (ensureStartingTimeout(g, now)) changed = true;
+
+        if (g.getStatus() != GameStatus.CREATED && g.getStatus() != GameStatus.STARTING) return;
+
+        // lastSeen du caller
         g.getPlayers().stream()
                 .filter(p -> p.getId().equals(userId) && !p.isLeftGame())
                 .findFirst()
-                .ifPresent(p -> p.setLastSeenTs(now));
+                .ifPresent(p -> { p.setLastSeenTs(now); });
 
+        // cleanup ghosts
         Set<String> stale = cleanupStaleLobbyPlayers(g, now);
-        if (!stale.isEmpty()) {
-            for (String uid : stale) {
-                try { playerService.leaveGame(uid, gameId); } catch (Exception ignored) {}
-            }
+        if (!stale.isEmpty()) changed = true;
 
-            // si on était en STARTING, on annule le démarrage et on revient en CREATED
-            if (g.getStatus() == GameStatus.STARTING) {
-                g.setStatus(GameStatus.CREATED);
-                g.setStartingAtTs(null);
-                if (g.getReadyForStart() != null) g.getReadyForStart().clear();
-            }
+        // si on était STARTING et qu'on a kick quelqu’un => retour CREATED
+        if (!stale.isEmpty() && g.getStatus() == GameStatus.STARTING) {
+            g.setStatus(GameStatus.CREATED);
+            g.setStartingAtTs(null);
+            if (g.getReadyForStart() != null) g.getReadyForStart().clear();
+            changed = true;
         }
 
-        // (ton ancien ensureStartingStillValid devient optionnel, voir section "à enlever")
         save(g);
-        if (!stale.isEmpty() || g.getStatus() == GameStatus.STARTING) {
+        if (changed || g.getStatus() == GameStatus.STARTING) {
             afterCommit(() -> live.lobbyUpdated(g));
         }
     }
@@ -1199,47 +1227,40 @@ public class GameService {
         return staleIds;
     }
 
-
-    private long activeCount(Game g) {
-        return g.getPlayers().stream().filter(p -> !p.isLeftGame()).count();
-    }
-
-    private void ensureStartingStillValid(Game g) {
-        // Si on est en STARTING mais plus assez de joueurs => retour CREATED
-        if (g.getStatus() == GameStatus.STARTING && activeCount(g) < 2) {
-            g.setStartingAtTs(null);
-
-            g.setStatus(GameStatus.CREATED);
-            if (g.getReadyForStart() != null) g.getReadyForStart().clear();
-        }
-    }
-
     @Transactional
     public void bootReady(String gameId, String userId) {
-        Game g = findOr404(gameId);
-
+        Game g = findOr404ForUpdate(gameId);
         long now = System.currentTimeMillis();
 
-        // le caller est actif => lastSeen maintenant
+        boolean changed = false;
+
+        if (ensureStartingTimeout(g, now)) changed = true;
+
+        // caller actif
         g.getPlayers().stream()
                 .filter(p -> p.getId().equals(userId) && !p.isLeftGame())
                 .findFirst()
-                .ifPresent(p -> p.setLastSeenTs(now));
+                .ifPresent(p -> { p.setLastSeenTs(now); });
 
-
+        // si déjà ACTIVE -> nothing
         if (g.getStatus() == GameStatus.ACTIVE) return;
 
+        // si plus STARTING (ex: repassée CREATED par timeout), on sort sans erreur
+        if (g.getStatus() != GameStatus.STARTING) {
+            if (changed) {
+                save(g);
+                afterCommit(() -> live.lobbyUpdated(g));
+            }
+            return;
+        }
+
+        // cleanup ghosts
         Set<String> stale = cleanupStaleLobbyPlayers(g, now);
         if (!stale.isEmpty()) {
-            for (String uid : stale) {
-                try { playerService.leaveGame(uid, gameId); } catch (Exception ignored) {}
-            }
-
-            if (g.getStatus() == GameStatus.STARTING) {
-                g.setStatus(GameStatus.CREATED);
-                g.setStartingAtTs(null);
-                if (g.getReadyForStart() != null) g.getReadyForStart().clear();
-            }
+            // si on kick en STARTING => retour CREATED
+            g.setStatus(GameStatus.CREATED);
+            g.setStartingAtTs(null);
+            if (g.getReadyForStart() != null) g.getReadyForStart().clear();
 
             save(g);
             afterCommit(() -> live.lobbyUpdated(g));
@@ -1247,7 +1268,8 @@ public class GameService {
         }
 
         if (g.getReadyForStart() == null) g.setReadyForStart(new HashSet<>());
-        g.getReadyForStart().add(userId);
+        boolean added = g.getReadyForStart().add(userId);
+        if (added) changed = true;
 
         var activeIds = g.getPlayers().stream()
                 .filter(p -> !p.isLeftGame())
@@ -1264,7 +1286,6 @@ public class GameService {
 
         startReal(g);
     }
-
 
     @Transactional
     public Game startReal(Game g) {
@@ -1343,18 +1364,26 @@ public class GameService {
         // --- Inventaire ressources (dev/test) ---
         for (var p : g.getPlayers()) {
             if ("VAMPIRE".equals(p.getRole())) {
-                p.setSouls(100);
+                p.setSouls(100 * huntersCount);
                 p.setWood(10);
-                p.setHerbs(10);
-                p.setWater(10);
+                if(huntersCount < 3){
+                    p.setHerbs(10);
+                    p.setWater(10);
+                } else if ( huntersCount > 4){
+                    p.setHerbs(20);
+                    p.setWater(20);
+                } else {
+                    p.setHerbs(15);
+                    p.setWater(15);
+                }
                 p.setStone(10);
                 p.setIron(10);
             }
             if ("HUNTER".equals(p.getRole())) {
-                p.setGold(50);
+                p.setGold(150);
                 p.setWood(0);
-                p.setHerbs(0);
-                p.setWater(0);
+                p.setHerbs(10);
+                p.setWater(10);
                 p.setStone(0);
                 p.setIron(0);
             }
@@ -1466,7 +1495,7 @@ public class GameService {
 
     public void leave(String gameId, String userId) {
         tx.execute(status -> {
-            Game g = findOr404(gameId);
+            Game g = findOr404ForUpdate(gameId);
 
             Player p = g.getPlayers().stream()
                     .filter(x -> x.getId().equals(userId))
@@ -1507,7 +1536,6 @@ public class GameService {
             return null;
         });
     }
-
 
     private void handleDeathsAndVictory(Game g) {
         // 1) Traitement "on death" (défausser actions chasseur, etc.)
@@ -2474,14 +2502,9 @@ public class GameService {
         boolean fumigate = g.getPendingGarlicPlayers() != null
                 && g.getPendingGarlicPlayers().remove(playerId);
 
-        // Révélation si chasseur corrompu (1 ou 2) qui joue un lieu en PHASE1
-        boolean corruptReveal =
-                (g.getPhase() == Phase.PHASE1)
-                        && "HUNTER".equals(p.getRole())
-                        && (p.getCorruption() == 1 || p.getCorruption() == 2);
 
         // Pose au centre : faceUp = fumigation OU corruption 1/2 (sinon cachée)
-        boolean faceUp = fumigate || corruptReveal;
+        boolean faceUp = fumigate;
 
         CenterBoard cb = new CenterBoard(playerId, card, faceUp);
         g.getCenter().add(cb);
@@ -10972,14 +10995,24 @@ public class GameService {
             g.setAltarCorrupted(Boolean.TRUE);
         }
 
-        addHistory(g, "La construction de " + pc.infra
-                + " est achevée.");
+        addHistory(g, "La construction de " + pc.infra + " est achevée.");
 
         // 5) Donner la carte Lieu correspondante à tous les joueurs
         giveInfraCardToAllPlayers(g, pc.infra);
 
         // 6) Récolte du nouveau lieu pour ce raid
         applyInfraHarvest(g, vamp, pc.infra);
+
+        // persiste
+        save(g);
+
+        // events après commit
+        final String vampId = vamp.getId();
+        final String infraName = pc.infra.name();
+
+        afterCommit(() -> {
+            live.infraBuilt(g, vampId, infraName);
+        });
     }
 
     /** Récolte du lieu d'origine (FOREST/QUARRY) quand la construction échoue. */

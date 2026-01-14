@@ -467,4 +467,11 @@ public class LiveEvents {
         ));
     }
 
+    public void infraBuilt(Game g, String builderId, String infra) {
+        send(g.getId(), new GameEvents(
+                GameEvents.Type.INFRA_BUILT, g.getId(),
+                Map.of("builderId", builderId, "infra", infra),
+                System.currentTimeMillis()
+        ));
+    }
 }

@@ -48,19 +48,21 @@ import { AssetPreloaderService } from './services/asset-preloader.service';
 
       <div class="section" *ngIf="games.length">
         <h3 class="h3">Parties</h3>
-        <ul class="list">
-          <li *ngFor="let g of games" class="list-item">
-            <a class="link"
-               href="#"
-               (click)="$event.preventDefault(); pick(g)"
-               [class.link-strong]="isInGame(g)">
-              <span class="mono">{{ g.id }}</span> — {{ g.status }}
-              <ng-container *ngIf="g.status !== 'ENDED'">
-                <span class="muted">({{ activePlayersCount(g) }} joueurs)</span>
-              </ng-container>
-            </a>
-          </li>
-        </ul>
+        <div class="games-scroll">
+          <ul class="list">
+            <li *ngFor="let g of games" class="list-item">
+              <a class="link"
+                href="#"
+                (click)="$event.preventDefault(); pick(g)"
+                [class.link-strong]="isInGame(g)">
+                <span class="mono">{{ g.id }}</span> — {{ g.status }}
+                <ng-container *ngIf="g.status !== 'ENDED'">
+                  <span class="muted">({{ activePlayersCount(g) }} joueurs)</span>
+                </ng-container>
+              </a>
+            </li>
+          </ul>
+        </div>
       </div>
 
       <div *ngIf="selected" class="section">
@@ -145,9 +147,33 @@ import { AssetPreloaderService } from './services/asset-preloader.service';
         </p>
 
         <p style="margin:.25rem 0; opacity:.9;">
-          Joueurs prêts :
+          Joueurs prêts (serveur) :
           <b>{{ readyStartCount }} / {{ readyStartTotal }}</b>
         </p>
+
+        <div class="ready-grid" *ngIf="selected">
+          <div class="ready-col">
+            <div class="ready-title">✅ Prêts</div>
+            <ul class="ready-list">
+              <li *ngFor="let p of readyPlayers">
+                {{ p.username || p.id }}
+                <span *ngIf="p.id === myUserId" class="me-tag">(moi)</span>
+              </li>
+              <li *ngIf="readyPlayers.length === 0" class="muted">Personne</li>
+            </ul>
+          </div>
+
+          <div class="ready-col">
+            <div class="ready-title">⏳ En attente</div>
+            <ul class="ready-list">
+              <li *ngFor="let p of waitingPlayers">
+                {{ p.username || p.id }}
+                <span *ngIf="p.id === myUserId" class="me-tag">(moi)</span>
+              </li>
+              <li *ngIf="waitingPlayers.length === 0" class="muted">Personne</li>
+            </ul>
+          </div>
+        </div>
 
         <div style="margin-top:.75rem; font-size:.95rem; opacity:.8;">
           La partie démarre automatiquement dès que tout le monde a fini de charger.
@@ -301,6 +327,22 @@ import { AssetPreloaderService } from './services/asset-preloader.service';
       border: 1px solid rgba(255,255,255,.08);
       background: rgba(0,0,0,.18);
       overflow-wrap: anywhere;
+    }
+
+    /* Scroll uniquement sur la liste des parties */
+    .games-scroll{
+      max-height: 42vh;
+      overflow: auto;
+      padding-right: .25rem;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .games-scroll .list{
+      padding-right: .15rem;
+    }
+
+    @media (max-width: 560px){
+      .games-scroll{ max-height: 36vh; }
     }
 
     .link{
@@ -468,6 +510,46 @@ import { AssetPreloaderService } from './services/asset-preloader.service';
       .page{ padding-left: .5rem; padding-right: .5rem; }
       .btn{ width: 100%; }
     }
+
+    .ready-grid{
+      margin-top: .75rem;
+      display: flex;
+      gap: .9rem;
+      align-items: flex-start;
+    }
+
+    .ready-col{
+      flex: 1;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(0,0,0,.18);
+      border-radius: 12px;
+      padding: .6rem .7rem;
+    }
+
+    .ready-title{
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      font-size: .85rem;
+      opacity: .9;
+      margin-bottom: .35rem;
+    }
+
+    .ready-list{
+      margin: 0;
+      padding-left: 1rem;
+      font-size: .95rem;
+    }
+
+    .me-tag{
+      opacity: .75;
+      margin-left: .35rem;
+      font-size: .9em;
+    }
+
+    @media (max-width: 520px){
+      .ready-grid{ flex-direction: column; }
+    }
   `]
 })
 export class LobbyComponent {
@@ -531,6 +613,8 @@ export class LobbyComponent {
     this.stopPresence();
     this.presenceGameId = gameId;
 
+    this.api.presence(gameId).subscribe({ error: () => {} });
+
     this.presenceTimer = setInterval(() => {
       this.api.presence(gameId).subscribe({ error: () => {} });
     }, 15_000);
@@ -559,22 +643,55 @@ export class LobbyComponent {
     return !!this.selected && this.isSelectedStarting && this.alreadyInSelected;
   }
 
-  private ensureBootReadyIfNeeded(gameId: string) {
-    if (this.bootReadySentForGameId === gameId) return;
+  // "inFlight" = appel en cours (évite spam)
+  private bootReadyInFlightForGameId: string | null = null;
 
-    if (!this.selected || this.selected.id !== gameId) return;
-    if (this.selected.status !== 'STARTING') return;
-    if (!this.alreadyInSelected) return;
+  // retry simple en cas de réseau flaky
+  private bootReadyRetryTimer: any = null;
+
+  private isMeReadyForStart(g?: LobbyGame): boolean {
+    const rf: any[] = (g as any)?.readyForStart ?? [];
+    return rf.some(x => (typeof x === 'string' ? x : x?.id) === this.myUserId);
+  }
+
+  private ensureBootReadyIfNeeded(gameId: string) {
+    // déjà confirmé OK
+    if (this.bootReadySentForGameId === gameId) return;
+    // appel déjà en cours
+    if (this.bootReadyInFlightForGameId === gameId) return;
+
+    // On n’envoie que si on est dans la bonne game
+    const iAmIn = this.games.some(g => g.id === gameId && this.isInGame(g));
+    if (!iAmIn) return;
 
     this.assets.waitDone()
       .catch(() => {})
       .finally(() => {
         this.localAssetsDone = true;
-        this.bootReadySentForGameId = gameId;
+
+        // Si le serveur dit déjà que je suis prêt => on verrouille "sent"
+        if (this.isMeReadyForStart(this.selected)) {
+          this.bootReadySentForGameId = gameId;
+          return;
+        }
+
+        this.bootReadyInFlightForGameId = gameId;
 
         this.api.bootReady(gameId).subscribe({
-          next: () => {},
-          error: e => console.warn('bootReady failed', e)
+          next: () => {
+            this.bootReadyInFlightForGameId = null;
+            this.bootReadySentForGameId = gameId; // seulement après succès
+          },
+          error: (e) => {
+            console.warn('bootReady failed', e);
+            this.bootReadyInFlightForGameId = null;
+
+            // retry (utile quand ça timeout chez un pote)
+            if (this.bootReadyRetryTimer) clearTimeout(this.bootReadyRetryTimer);
+            this.bootReadyRetryTimer = setTimeout(() => {
+              this.ensureBootReadyIfNeeded(gameId);
+            }, 2000);
+          }
         });
       });
   }
@@ -592,6 +709,7 @@ export class LobbyComponent {
     this.stopPresence();
     this.unsubscribeLobby?.();
     this.unsubscribeSelectedGame?.();
+    if (this.bootReadyRetryTimer) clearTimeout(this.bootReadyRetryTimer);
   }
 
   private showError(e:any){
@@ -599,8 +717,33 @@ export class LobbyComponent {
     setTimeout(()=>this.errorMsg='',4000);
   }
 
-  private get myUserId(): string {
+  // expose l'id pour le template
+  get myUserId(): string {
     return sessionStorage.getItem('userId') ?? '';
+  }
+
+  // joueurs actifs (pas leftGame)
+  private get activePlayers(): any[] {
+    const ps: any[] = (this.selected as any)?.players ?? [];
+    return ps.filter(p => !p.leftGame);
+  }
+
+  // normalise readyForStart -> tableau d'IDs (string)
+  private get readyIds(): string[] {
+    const rf: any[] = (this.selected as any)?.readyForStart ?? [];
+    return rf
+      .map(x => (typeof x === 'string' ? x : x?.id))
+      .filter(Boolean);
+  }
+
+  get readyPlayers(): any[] {
+    const ids = new Set(this.readyIds);
+    return this.activePlayers.filter(p => ids.has(p.id));
+  }
+
+  get waitingPlayers(): any[] {
+    const ids = new Set(this.readyIds);
+    return this.activePlayers.filter(p => !ids.has(p.id));
   }
 
   endedSnap: any | null = null;

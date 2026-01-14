@@ -35,7 +35,8 @@ public class GameEvents {
         ACTION_USED,
         ACTION_STARTED,
         ACTION_ROLLED,
-        ACTION_RESOLVED
+        ACTION_RESOLVED,
+        INFRA_BUILT
     }
     private Type type; private String gameId; private Object payload; private long ts;
     public GameEvents() {}

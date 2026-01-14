@@ -18,6 +18,7 @@ export type GameEvent =
   | { type: 'DRAFT_UPDATED'; gameId: string; payload: { infra: string | null; choice: string | null; ownerId: string | null; monsterType: 'REVENANT'|'GARGOYLE'|'ABERRATION' | null; location: string | null; }; ts: number; }
   | { type: 'POTION_USED'; gameId: string; payload: { playerId: string; type: string }; ts: number }
   | { type: 'ACTION_USED'; gameId: string; payload: { playerId: string; type: string }; ts: number }
+  | { type: 'INFRA_BUILT'; gameId: string; payload: { builderId: string; infra: string }; ts: number }
   | { type: 'ACTION_STARTED';   gameId: string; payload: { mode: 'NET'|'PIT'|'MARCHAND_BONUS_BUY'; ownerId: string; location: string; targetId: string | null }; ts: number }
   | { type: 'ACTION_ROLLED';    gameId: string; payload: { mode: 'NET'|'PIT'; ownerId: string; targetId: string; roll: number }; ts: number }
   | { type: 'ACTION_RESOLVED';  gameId: string; payload: { mode: 'NET'|'PIT'; ownerId: string; targetId?: string | null }; ts: number }
@@ -82,7 +83,7 @@ export class LiveService {
 
     const doSubscribe = () => {
       if (canceled) return;
-      const sub = this.client.subscribe(destination, (msg) => {
+      const sub = this.client.subscribe(destination, (msg: any) => {
         try {
           const e = JSON.parse(msg.body) as GameEvent;
           handle(e);
@@ -94,7 +95,7 @@ export class LiveService {
     if (this.client.connected) doSubscribe();
     else {
       const prev = this.client.onConnect;
-      this.client.onConnect = (frame) => {
+      this.client.onConnect = (frame: any) => {
         try { prev?.(frame); } catch {}
         doSubscribe();
         this.client.onConnect = prev;

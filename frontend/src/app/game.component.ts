@@ -4,7 +4,14 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { ApiService, GameSnapshot, RawStatMod, Phase, Pile } from './api.service';
 import { LiveService, GameEvent } from './live.service';
 import { AssetPreloaderService } from './services/asset-preloader.service';
+import { NotifyService } from './services/notif.service';
+import { ChangeDetectorRef } from '@angular/core';
 
+import { PhaseBubbleComponent } from './phase-buble.component';
+import { ToastComponent } from './toast.component';
+
+type InfraCode =
+      'SAWMILL' | 'MINE' | 'LIBRARY' | 'LABORATORY' | 'BALLROOM' | 'ALTAR' | 'FORGE';
 type RoundFightView = GameSnapshot['combatsQueue'][number];
 type SPlayer = GameSnapshot['players'][number];
 type SMonster = NonNullable<GameSnapshot['monsters']>[number];
@@ -28,8 +35,10 @@ interface ForgeOption {
 @Component({
   standalone: true,
   selector: 'app-game',
-  imports: [CommonModule],
+  imports: [CommonModule, PhaseBubbleComponent, ToastComponent],
   template: `
+  <app-phase-bubble *ngIf="!isGameEnded || !isMeDead"></app-phase-bubble>
+  <app-toast *ngIf="!isGameEnded || !isMeDead"></app-toast>
   <main class="container">
     <button class="lobby-btn" *ngIf="!isGameEnded && !isMeDead" (click)="back()">← Retour Lobby</button>
     <button class="leave-btn"
@@ -421,7 +430,7 @@ interface ForgeOption {
               </div>
 
               <!-- Défausse -->
-              <div class="mini-card deck-pile"
+              <div class="mini-card deck-pile deck-discard-common"
                   [class.deck-empty]="discardCount(game?.decks?.potions) === 0"
                   (mouseenter)="zoomEnter($event, undefined, undefined, 'L')"
                   (mousemove)="zoomMove($event)"
@@ -458,7 +467,7 @@ interface ForgeOption {
               </div>
 
               <!-- Défausse -->
-              <div class="mini-card deck-pile"
+              <div class="mini-card deck-pile deck-discard-common"
                   [class.deck-empty]="discardCount(game?.decks?.elixirs) === 0"
                   (mouseenter)="zoomEnter($event, undefined, undefined, 'L')"
                   (mousemove)="zoomMove($event)"
@@ -485,69 +494,69 @@ interface ForgeOption {
         <div class="name">
           {{ me.username || 'anonyme' }} — {{ me.role === 'VAMPIRE' ? 'Vampire' : (me.role === 'SERVANT' ? 'Serviteur' : 'Chasseur') }}
         </div>
-        <div class="hp">
+        <div class="res-board" *ngIf="me as m">
+          <span class="res-title">Ressources:</span>
+
+          <span *ngIf="m.role==='HUNTER'" class="res-item" title="L'or est utile pour obtenir des actions et de l'eau bénite">
+            <span class="res-ico-box">
+              <img class="res-ico res-ico-s" src="/assets/icons/gold.png" alt="Or">
+            </span>
+            <span class="res-val">{{ m.gold || 0 }}</span>
+          </span>
+
+          <span *ngIf="m.role==='VAMPIRE' || m.role==='SERVANT'" class="res-item" title="Les âmes déchues sont utiles pour obtenir des actions">
+            <span class="res-ico-box">
+              <img class="res-ico res-ico-s" src="/assets/icons/souls.png" alt="Âmes déchues">
+            </span>
+            <span class="res-val">{{ m.souls || 0 }}</span>
+          </span>
+
+          <span class="res-item" title="L'eau pure est utile pour l'alchimie et obtenir de l'eau bénite">
+            <span class="res-ico-box">
+              <img class="res-ico res-ico-s" src="/assets/icons/water.png" alt="Eau pure">
+            </span>
+            <span class="res-val">{{ m.water || 0 }}</span>
+          </span>
+
+          <span class="res-item" title="L'herbe médicinale est utile pour l'alchimie">
+            <span class="res-ico-box">
+              <img class="res-ico res-ico-s" src="/assets/icons/medical_grass.png" alt="Herbe médicinale">
+            </span>
+            <span class="res-val">{{ m.herbs || 0 }}</span>
+          </span>
+
+          <span class="res-item" title="Le bois est utile pour la fabrication d'équipement">
+            <span class="res-ico-box">
+              <img class="res-ico res-ico-l" src="/assets/icons/wood.png" alt="Bois">
+            </span>
+            <span class="res-val">{{ m.wood || 0 }}</span>
+          </span>
+
+          <span class="res-item" title="Le fer est utile pour la fabrication d'équipement">
+            <span class="res-ico-box">
+              <img class="res-ico res-ico-m" src="/assets/icons/iron.png" alt="Fer">
+            </span>
+            <span class="res-val">{{ m.iron || 0 }}</span>
+          </span>
+
+          <span class="res-item" title="La pierre est utile pour les constructions du vampire ou pour vendre a la ville et gagner de l'or">
+            <span class="res-ico-box">
+              <img class="res-ico res-ico-s" src="/assets/icons/stone.png" alt="Pierre">
+            </span>
+            <span class="res-val">{{ m.stone || 0 }}</span>
+          </span>
+
+          <span *ngIf="m.role==='HUNTER'" class="res-item" title="L'argent est utile late game pour fabriquer de l'équipement sacré">
+            <span class="res-ico-box">
+              <img class="res-ico res-ico-s" src="/assets/icons/silver.png" alt="Argent">
+            </span>
+            <span class="res-val">{{ m.silver || 0 }}</span>
+          </span>
+        </div>
+        <div class="hp res-item">
           <img class="hp-heart" [src]="heartIconFor(me)" alt="HP"/>
           <span class="hp-value">{{ me.hp }}</span>
         </div>
-      </div>
-      <div class="res-board" *ngIf="me as m">
-        <span class="res-title">Ressources:</span>
-
-        <span class="res-item" title="Bois">
-          <span class="res-ico-box">
-            <img class="res-ico res-ico-l" src="/assets/icons/wood.png" alt="Bois">
-          </span>
-          <span class="res-val">{{ m.wood || 0 }}</span>
-        </span>
-
-        <span class="res-item" title="Herbe médicinale">
-          <span class="res-ico-box">
-            <img class="res-ico res-ico-s" src="/assets/icons/medical_grass.png" alt="Herbe médicinale">
-          </span>
-          <span class="res-val">{{ m.herbs || 0 }}</span>
-        </span>
-
-        <span class="res-item" title="Pierre">
-          <span class="res-ico-box">
-            <img class="res-ico res-ico-s" src="/assets/icons/stone.png" alt="Pierre">
-          </span>
-          <span class="res-val">{{ m.stone || 0 }}</span>
-        </span>
-
-        <span class="res-item" title="Fer">
-          <span class="res-ico-box">
-            <img class="res-ico res-ico-m" src="/assets/icons/iron.png" alt="Fer">
-          </span>
-          <span class="res-val">{{ m.iron || 0 }}</span>
-        </span>
-
-        <span class="res-item" title="Eau pure">
-          <span class="res-ico-box">
-            <img class="res-ico res-ico-s" src="/assets/icons/water.png" alt="Eau pure">
-          </span>
-          <span class="res-val">{{ m.water || 0 }}</span>
-        </span>
-
-        <span *ngIf="m.role==='HUNTER'" class="res-item" title="Or">
-          <span class="res-ico-box">
-            <img class="res-ico res-ico-s" src="/assets/icons/gold.png" alt="Or">
-          </span>
-          <span class="res-val">{{ m.gold || 0 }}</span>
-        </span>
-
-        <span *ngIf="m.role==='VAMPIRE' || m.role==='SERVANT'" class="res-item" title="Âmes déchues">
-          <span class="res-ico-box">
-            <img class="res-ico res-ico-s" src="/assets/icons/souls.png" alt="Âmes déchues">
-          </span>
-          <span class="res-val">{{ m.souls || 0 }}</span>
-        </span>
-
-        <span *ngIf="m.role==='HUNTER'" class="res-item" title="Argent">
-          <span class="res-ico-box">
-            <img class="res-ico res-ico-s" src="/assets/icons/silver.png" alt="Argent">
-          </span>
-          <span class="res-val">{{ m.silver || 0 }}</span>
-        </span>
       </div>
 
       <div class="hand">
@@ -591,7 +600,7 @@ interface ForgeOption {
                 <img class="card-img"
                     [src]="'/assets/cards/locations/' + c + '.png'"
                     [alt]="labelLocation(c)"
-                    (mouseenter)="zoomEnter($event)"
+                    (mouseenter)="zoomEnter($event, undefined, undefined, 'L', locationInfo(c))"
                     (mousemove)="zoomMove($event)"
                     (mouseleave)="zoomLeave()" />
               </span>
@@ -785,9 +794,17 @@ interface ForgeOption {
           &nbsp;— <span>{{ hp }} PV</span>
         </ng-container>
       </h3>
-          <div class="bg-badge" *ngIf="isMyFocusFirstStep">
-            Potion de focalisation : vous pouvez relancer ce dé et garder le meilleur.
-          </div>
+      <div class="roll-side" *ngIf="waitingForMyRoll as side">
+        <ng-container *ngIf="side === 'ATTACK'; else defenseSide">
+          <h2 class="bg-badge">Vous attaquez !</h2> 
+        </ng-container>
+        <ng-template #defenseSide>
+          <h2 class="bg-badge">Vous défendez !</h2>
+        </ng-template>
+      </div>
+      <div class="bg-badge" *ngIf="isMyFocusFirstStep">
+        Potion de focalisation : vous pouvez relancer ce dé et garder le meilleur.
+      </div>
       <div class="content action" style="margin-top: 30px;">
         <!-- On affiche le dé du joueur courant, avec icône -->
         
@@ -1077,6 +1094,10 @@ interface ForgeOption {
           &nbsp;— <span>{{ hp }} PV</span>
         </ng-container>
       </h3>
+      <div class="title-side-row">
+        <h2 class="attack-title-side bg-badge">{{nameOrId(r.attackerId)}} attaque !</h2>
+        <h2 class="defense-title-side bg-badge">{{nameOrId(r.defenderId)}} défend !</h2>
+      </div>
 
       <div class="content spectate">
         <!-- Côté attaquant -->
@@ -1569,7 +1590,7 @@ interface ForgeOption {
               </div>
 
               <button class="shop-btn buy-card-btn"
-                      (click)="onBuyAction()"
+                      (click)="onBuyAction($event)"
                       [disabled]="!canBuyVampAction"
                       aria-label="Acheter une carte action vampire"
                       (mouseenter)="zoomEnter($event, deckCount(game?.decks?.actionsVamp), false, 'L')"
@@ -1593,7 +1614,7 @@ interface ForgeOption {
               </div>
 
               <button class="shop-btn buy-card-btn"
-                      (click)="onBuyAction()"
+                      (click)="onBuyAction($event)"
                       [disabled]="!canBuyHunterAction"
                       aria-label="Acheter une carte action chasseur"
                       (mouseenter)="zoomEnter($event, deckCount(game?.decks?.actionsHunters), true, 'L')"
@@ -1619,7 +1640,7 @@ interface ForgeOption {
               </div>
 
               <button class="shop-btn buy-card-btn"
-                      (click)="onBuyPotion()"
+                      (click)="onBuyPotion($event)"
                       [disabled]="!canBuyPotion"
                       aria-label="Acheter une potion"
                       (mouseenter)="zoomEnter($event, deckCount(game?.decks?.potions), undefined, 'L')"
@@ -1647,7 +1668,7 @@ interface ForgeOption {
               </div>
 
               <button class="shop-btn buy-card-btn shop-card-action-btn"
-                      (click)="onBuyTrackingAction()"
+                      (click)="onBuyTrackingAction($event)"
                       [disabled]="!canBuyTrackingAction"
                       aria-label="Acheter Pisteur"
                       (mouseenter)="zoomEnter($event, undefined, undefined, 'L')"
@@ -1672,7 +1693,7 @@ interface ForgeOption {
               </div>
 
               <button class="shop-btn buy-card-btn shop-card-action-btn"
-                      (click)="onBuyHolyWaterAction()"
+                      (click)="onBuyHolyWaterAction($event)"
                       [disabled]="!canBuyHolyWaterAction"
                       aria-label="Acheter Eau bénite"
                       (mouseenter)="zoomEnter($event, undefined, undefined, 'L')"
@@ -1895,7 +1916,7 @@ interface ForgeOption {
             </div>
 
             <button class="shop-btn buy-card-btn shop-card-action-btn"
-                    (click)="onBuyBonus()"
+                    (click)="onBuyBonus($event)"
                     [disabled]="!canBuyBonus()"
                     aria-label="Acheter objet bonus"
                     (mouseenter)="zoomEnter($event, bonusTitle(), true, 'L')"
@@ -2731,50 +2752,104 @@ interface ForgeOption {
           <h2 class="bg-badge">Construire un lieu</h2>
         </div>
 
+        <div class="res-board" *ngIf="me as m">
+          <span class="res-title">Ressources:</span>
+
+          <span *ngIf="m.role==='HUNTER'" class="res-item" title="L'or est utile pour obtenir des actions et de l'eau bénite">
+            <span class="res-ico-box">
+              <img class="res-ico res-ico-s" src="/assets/icons/gold.png" alt="Or">
+            </span>
+            <span class="res-val">{{ m.gold || 0 }}</span>
+          </span>
+
+          <span *ngIf="m.role==='VAMPIRE' || m.role==='SERVANT'" class="res-item" title="Les âmes déchues sont utiles pour obtenir des actions">
+            <span class="res-ico-box">
+              <img class="res-ico res-ico-s" src="/assets/icons/souls.png" alt="Âmes déchues">
+            </span>
+            <span class="res-val">{{ m.souls || 0 }}</span>
+          </span>
+
+          <span class="res-item" title="L'eau pure est utile pour l'alchimie et obtenir de l'eau bénite">
+            <span class="res-ico-box">
+              <img class="res-ico res-ico-s" src="/assets/icons/water.png" alt="Eau pure">
+            </span>
+            <span class="res-val">{{ m.water || 0 }}</span>
+          </span>
+
+          <span class="res-item" title="L'herbe médicinale est utile pour l'alchimie">
+            <span class="res-ico-box">
+              <img class="res-ico res-ico-s" src="/assets/icons/medical_grass.png" alt="Herbe médicinale">
+            </span>
+            <span class="res-val">{{ m.herbs || 0 }}</span>
+          </span>
+
+          <span class="res-item" title="Le bois est utile pour la fabrication d'équipement">
+            <span class="res-ico-box">
+              <img class="res-ico res-ico-l" src="/assets/icons/wood.png" alt="Bois">
+            </span>
+            <span class="res-val">{{ m.wood || 0 }}</span>
+          </span>
+
+          <span class="res-item" title="Le fer est utile pour la fabrication d'équipement">
+            <span class="res-ico-box">
+              <img class="res-ico res-ico-m" src="/assets/icons/iron.png" alt="Fer">
+            </span>
+            <span class="res-val">{{ m.iron || 0 }}</span>
+          </span>
+
+          <span class="res-item" title="La pierre est utile pour les constructions du vampire ou pour vendre a la ville et gagner de l'or">
+            <span class="res-ico-box">
+              <img class="res-ico res-ico-s" src="/assets/icons/stone.png" alt="Pierre">
+            </span>
+            <span class="res-val">{{ m.stone || 0 }}</span>
+          </span>
+
+          <span *ngIf="m.role==='HUNTER'" class="res-item" title="L'argent est utile late game pour fabriquer de l'équipement sacré">
+            <span class="res-ico-box">
+              <img class="res-ico res-ico-s" src="/assets/icons/silver.png" alt="Argent">
+            </span>
+            <span class="res-val">{{ m.silver || 0 }}</span>
+          </span>
+        </div>
+
         <div>
-          <div class="modal-button-row">
-            <button *ngIf="!(game?.builtInfras?.includes('SAWMILL'))"
-            (click)="onChooseInfra('SAWMILL')">
-              Scierie<br />
-              <small>(Forêt · 5 pierres, 3 fers)</small>
-            </button>
+          <div class="build-grid">
 
-            <button *ngIf="!(game?.builtInfras?.includes('MINE'))"
-            (click)="onChooseInfra('MINE')">
-              Mine<br />
-              <small>(Carrière · 6 bois, 2 fers)</small>
-            </button>
+            <ng-container *ngFor="let opt of buildOptions">
 
-            <button *ngIf="!(game?.builtInfras?.includes('LIBRARY'))"
-            (click)="onChooseInfra('LIBRARY')">
-              Bibliothèque<br />
-              <small>(Manoir · 8 bois, 4 pierres, 2 fers)</small>
-            </button>
+              <div class="build-item" *ngIf="!isInfraBuilt(opt.code)">
 
-            <button *ngIf="!(game?.builtInfras?.includes('LABORATORY'))"
-            (click)="onChooseInfra('LABORATORY')">
-              Laboratoire<br />
-              <small>(Manoir · 5 eaux pures, 5 herbes médicinales, 3 pierres, 50 âmes)</small>
-            </button>
+                <!-- bouton = image du lieu + zoom -->
+                <button type="button"
+                        class="build-card-btn"
+                        (click)="onChooseInfra(opt.code)"
+                        (mouseenter)="zoomEnter($event, undefined, undefined, 'L', locationInfo(opt.code))"
+                        (mousemove)="zoomMove($event)"
+                        (mouseleave)="zoomLeave()">
+                  <img class="build-card-img"
+                      [src]="infraImg(opt.code)"
+                      [alt]="opt.title" />
+                </button>
 
-            <button *ngIf="!(game?.builtInfras?.includes('BALLROOM'))"
-            (click)="onChooseInfra('BALLROOM')">
-              Salle de bal<br />
-              <small>(Manoir · 8 pierres, 2 fers, 50 âmes)</small>
-            </button>
+                <div class="build-title">{{ opt.title }}</div>
+                <div class="build-sub">Coûts de construction</div>
 
-            <button *ngIf="!(game?.builtInfras?.includes('ALTAR'))"
-                    (click)="onChooseInfra('ALTAR')">
-              Autel<br />
-              <small>(Manoir · 4 pierres, 2 bois, 2 fers, 50 âmes)</small>
-            </button>
+                <!-- coût en icônes -->
+                <div class="build-cost price price-icons">
+                  <span class="cost-item" *ngFor="let c of infraCostList(opt.code)">
+                    <span class="cost-val">{{ c.qty }}</span>
+                    <span class="cost-ico-box">
+                      <img class="cost-ico cost-ico-s" [src]="c.icon" [alt]="c.label" />
+                    </span>
+                  </span>
+                </div>
 
-            <button *ngIf="!(game?.builtInfras?.includes('FORGE'))"
-                    (click)="onChooseInfra('FORGE')">
-              Forge<br />
-              <small>(Manoir · 8 fers, 4 pierres, 2 bois)</small>
-            </button>
+              </div>
+
+            </ng-container>
+
           </div>
+
 
           <button class="btn-secondary" (click)="closeBuildModal()">Annuler</button>
         </div>       
@@ -2787,7 +2862,7 @@ interface ForgeOption {
         <p class="bg-badge">{{ getInfraConfirmText(buildChoice!) }}</p>
 
         <div class="modal-button-row">
-          <button (click)="doBuild()">Oui</button>
+          <button class="btn-primary" (click)="doBuild()" style="margin-right: 10px;">Oui</button>
           <button class="btn-secondary" (click)="cancelBuild()">Annuler</button>
         </div>
       </div>
@@ -3635,17 +3710,52 @@ interface ForgeOption {
       </div>
     </div>
   </div>
-  <div *ngIf="zoomOn" class="equip-zoom" [ngStyle]="zoomStyle">
-    <img class="equip-zoom-img" [src]="zoomSrc" alt="zoom" />
-    <span *ngIf="zoomBadgeOn"
-          class="equip-zoom-badge"
-          [class.badge-hunter]="zoomBadgeIsHunter === true"
-          [class.badge-vamp]="zoomBadgeIsHunter === false">
-      {{ zoomBadgeText }}
-    </span>
+  <div *ngIf="zoomOn" class="equip-zoom" [class.with-info]="zoomInfoOn" [ngStyle]="zoomStyle">
+    <div class="equip-zoom-media" [style.width.px]="zoomMediaW" [style.height.px]="zoomMediaH">
+      <img class="equip-zoom-img" [src]="zoomSrc" alt="zoom" />
+      <span *ngIf="zoomBadgeOn"
+            class="equip-zoom-badge"
+            [class.badge-hunter]="zoomBadgeIsHunter === true"
+            [class.badge-vamp]="zoomBadgeIsHunter === false">
+        {{ zoomBadgeText }}
+      </span>
+    </div>
+
+    <!-- panneau info (uniquement quand zoomEnter() reçoit une info) -->
+    <div *ngIf="zoomInfoOn" class="zoom-info">
+
+      <!--rendu spécial ALTAR -->
+      <ng-container *ngIf="zoomInfoKey === 'altar'; else normalInfo">
+
+        <div class="zoom-info-section">Chasseur</div>
+        <ul class="zoom-info-list">
+          <li *ngFor="let line of zoomInfoLinesHunter">{{ line }}</li>
+        </ul>
+
+        <div class="zoom-info-section">Vampire</div>
+        <ul class="zoom-info-list">
+          <li *ngFor="let line of zoomInfoLinesVamp">{{ line }}</li>
+        </ul>
+
+        <div class="zoom-info-note">{{ zoomInfoNote }}</div>
+
+      </ng-container>
+
+      <!-- rendu normal -->
+      <ng-template #normalInfo>
+        <ul class="zoom-info-list">
+          <li *ngFor="let line of zoomInfoLines">{{ line }}</li>
+        </ul>
+      </ng-template>
+
+    </div>
   </div>
   `,
   styles: [`
+  /* ============================
+    DARK MODE (soft) - GAME PAGE
+    ============================ */
+
   /* Layout des boards */
   *,
   *::before,
@@ -3653,6 +3763,52 @@ interface ForgeOption {
     box-sizing: border-box;
   }
 
+  /* Thème (valeurs douces, pas agressives) */
+  :host{
+    --bg: #0f1218;
+    --surface: #151a24;
+    --surface-2: #1b2130;
+    --surface-3: #20283a;
+
+    --text: #e7eaf3;
+    --muted: #aab1c2;
+    --muted-2: #8790a6;
+
+    --border: rgba(255,255,255,.10);
+    --border-2: rgba(255,255,255,.16);
+    --border-dashed: rgba(255,255,255,.22);
+
+    --shadow: 0 10px 30px rgba(0,0,0,.45);
+
+    --hunter: #69a7ff;
+    --vamp: #ff6b6b;
+
+    --chip-bg: #232b3d;
+    --chip-text: #f1f4ff;
+
+    --focus: rgba(231,234,243,.85);
+
+    --warn-bg: #2a250f;
+    --warn-border: #6e5a13;
+    --warn-text: #ffe8a3;
+
+    --info-bg: #151a2a;
+    --info-border: #2d3550;
+
+    --danger-bg: #2a1114;
+    --danger-border: #7a2a33;
+    --danger-text: #ffd7dc;
+
+    display: block;
+    min-height: 100vh;
+    color: var(--text);
+    background:
+      radial-gradient(1200px 600px at 20% -10%, rgba(105,167,255,.10), transparent 60%),
+      radial-gradient(900px 500px at 110% 10%, rgba(255,107,107,.10), transparent 55%),
+      var(--bg);
+  }
+
+  /* Container */
   .container{
     width: 100%;
     max-width: 1920px;
@@ -3660,26 +3816,93 @@ interface ForgeOption {
     padding: .5rem;
   }
 
-  .leave-btn{ position: fixed; right: 40px; top: 10px; }
-  .lobby-btn{ position: fixed; right: 150px; top: 10px; }
-  .board-wide{ width:100%; padding:.5rem; border:1px solid #ddd; margin:.5rem 0; background:#fff; }
-  .board-wide-center{ width:100%; padding:.5rem; margin:.5rem 0; background:#fff; }
+  /* Titres */
+  h2, h3{
+    color: var(--text);
+  }
+
+  /* Boutons (sauf les boutons-cartes) */
+  .container button:not(.card-btn){
+    color: var(--text);
+    background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.03));
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: .45rem .8rem;
+    box-shadow: 0 6px 18px rgba(0,0,0,.18);
+    cursor: pointer;
+  }
+
+  .container button:not(.card-btn):hover{
+    border-color: var(--border-2);
+  }
+
+  .container button:not(.card-btn):active{
+    transform: translateY(1px);
+  }
+
+  .container button:not(.card-btn):disabled{
+    opacity: .5;
+    cursor: not-allowed;
+  }
+
+  /* Boutons fixes */
+  .leave-btn{ position: absolute; right: 40px; top: 5px; }
+  .lobby-btn{ position: absolute; right: 150px; top: 5px; }
+
+  .leave-btn,
+  .lobby-btn{
+    background: rgba(21,26,36,.80) !important;
+    border: 1px solid var(--border) !important;
+    backdrop-filter: blur(8px);
+    box-shadow: var(--shadow);
+  }
+
+  /* Boards */
+  .board-wide{
+    width:100%;
+    padding:.5rem;
+    border:1px solid var(--border);
+    margin:.5rem 0;
+    background: rgba(21,26,36,.65);
+    border-radius: 12px;
+    box-shadow: 0 6px 18px rgba(0,0,0,.18);
+  }
+
+  .board-wide-center{
+    width:100%;
+    padding:.25rem;
+    margin:.25rem 0;
+    background: transparent;
+  }
+
+  /* Grille joueurs */
   .players-grid{
     display: flex;
     flex-wrap: wrap;
     gap: .5rem;
     justify-content: center;
   }
+
+  /* ⚠️ écrase ton inline style (player-card) */
   .player-card{
     flex: 0 0 auto;
     width: 280px;
+
+    padding: .5rem !important;
+    border: 1px dashed var(--border-dashed) !important;
+    background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03)) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 10px 26px rgba(0,0,0,.22);
   }
 
+  /* Panels */
   .panel{
-    border:1px solid #ddd;
+    border:1px solid var(--border);
     padding:.5rem;
-    background:#fefefe;
+    background: rgba(21,26,36,.70);
+    border-radius: 12px;
     min-width: 0;
+    box-shadow: 0 10px 26px rgba(0,0,0,.18);
   }
 
   /* ====== GRAND ÉCRAN ======
@@ -3752,7 +3975,6 @@ interface ForgeOption {
     }
   }
 
-
   /* ====== PETIT ÉCRAN ======
     bloc2 (plein)
     bloc1 (plein)
@@ -3799,270 +4021,394 @@ interface ForgeOption {
     gap: .75rem;
     align-items:start;
   }
+
   .center-col{ min-width:0; }
-  .center-title{ margin: .25rem 0 .5rem; font-size: 1.2rem; }
+
+  .center-title{
+    margin: .25rem 0 .5rem;
+    font-size: 1.2rem;
+    color: var(--text);
+  }
+
+  /* Préphase: version sombre */
   .prephase3{
-    margin:.5rem 0; padding:.5rem; background:#fffbe6; border:1px solid #e6c200;
+    margin:.5rem 0;
+    padding:.5rem;
+    background: rgba(42,37,15,.85);
+    border: 1px solid var(--warn-border);
+    color: var(--warn-text);
+    border-radius: 10px;
   }
+
+  /* Live box */
   .live-box{
-    margin:.5rem 0; padding:.5rem; background:#f8f8ff; border:1px solid #ccd;
+    margin:.5rem 0;
+    padding:.5rem;
+    background: rgba(21,26,42,.70);
+    border: 1px solid var(--info-border);
+    border-radius: 10px;
   }
-  .live-line{ margin:.15rem 0; }
+
+  .live-line{
+    margin:.15rem 0;
+    color: var(--text);
+  }
 
   /* Historique scrollable */
   .history-box{
     max-height: 206px;
     overflow: auto;
-    border:1px solid #e5e5e5;
-    border-radius: 6px;
+    border:1px solid var(--border);
+    border-radius: 10px;
     padding: .5rem;
-    background: #fff;
+    background: rgba(27,33,48,.55);
   }
+
   .history-head{
     margin-top:.35rem;
-    font-weight: 700;
-    color:#333;
+    font-weight: 800;
+    color: var(--text);
   }
+
   .history-line{
     padding-left:.25rem;
     margin:.15rem 0;
+    color: var(--muted);
   }
 
   /* Bandeau joueur */
-  .player-strip{ display:flex; align-items:center; justify-content:space-between; gap:.75rem; padding:.4rem .6rem; border:1px solid #ddd; border-radius:8px; background:#fff; margin-bottom: 4px;}
-  .player-strip .name{ font-weight:700; }
-  .player-strip .hp{ display:flex; align-items:center; gap:.35rem; }
+  .player-strip{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:.75rem;
+
+    padding:.4rem .6rem;
+    border:1px solid var(--border);
+    border-radius:10px;
+
+    background: rgba(27,33,48,.60);
+    margin-bottom: 4px;
+  }
+
+  .player-strip .name{
+    font-weight: 800;
+    color: var(--text);
+  }
+
+  .player-strip .hp{
+    display:flex;
+    align-items:center;
+    gap:.35rem;
+  }
+
   .hp-heart{ width:22px; height:22px; }
-  .hp-value{ font-weight:700; min-width:2ch; text-align:right; }
-
-  /* --- Barre d'équipement --- */
-  .equip-bar{
-    display:flex;
-    align-items:stretch;
-    gap:.5rem;
-    flex-wrap:nowrap;
+  .hp-value{
+    font-weight: 800;
+    min-width:2ch;
+    text-align:right;
+    color: var(--text);
   }
 
-  .equip-bar .equip-item{
-    width: 100px;
-    height: 136px;
-    display: block;
-    object-fit: contain;
-  }
+/* --- Barre d'équipement --- */
+.equip-bar{
+  display:flex;
+  align-items:stretch;
+  gap:.5rem;
+  flex-wrap:nowrap;
+}
 
-  /* Zoom box */
-  .equip-zoom{
-    position: fixed;
-    z-index: 9999;
-    pointer-events: none;
+.equip-bar .equip-item{
+  width: 100px;
+  height: 136px;
+  display: block;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 10px rgba(0,0,0,.25));
+}
 
-    border: 1px solid #000;
-    border-radius: 10px;
-    background: #fff;
-    overflow: hidden;
+/* Zoom box */
+.equip-zoom{
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
 
-    box-shadow: 0 6px 18px rgba(0,0,0,.25);
-  }
+  border: 1px solid var(--border-2);
+  border-radius: 12px;
+  background: rgba(21,26,36,.92);
 
-  .equip-zoom-img{
-    width: 100%;
-    height: 100%;
-    display: block;
-    object-fit: contain;
-  }
+  overflow: visible;
 
-  .mini-badge{
-    pointer-events: none;
-  }
+  box-shadow: var(--shadow);
+}
 
-  /* Centre : cartes jouées */
-  .center-cards{
-    display: flex;
-    flex-wrap: wrap;
-    gap: .5rem;
-    align-items: flex-start;
-  }
+.equip-zoom-media{
+  position: relative;
+}
 
-  .center-card{
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: .25rem;
-  }
+/* image */
+.equip-zoom-img{
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+}
 
-  .center-card-name{
-    font: 600 12px/1.1 system-ui, sans-serif;
-    color: #222;
-  }
+.zoom-info{
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 0;
 
-  .center-card-img{
-    width: 60px;
-    height: 82px;
-    display: block;
-    object-fit: contain;
-    border-radius: 10px;
-  }
+  width: 340px;
+  max-width: 340px;
+  height: 100%;
 
-  .equip-zoom-badge.badge-hunter{
-    background: rgba(29, 78, 216, .65);
-    color: #fff;
-  }
+  overflow: auto;
 
-  .equip-zoom-badge.badge-vamp{
-    background: rgba(185, 28, 28, .65);
-    color: #fff;
-  }
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgb(0, 0, 0);
+  padding: .55rem .65rem;
 
-  .name-hunter { color: #1e5eff; }
-  .name-vamp   { color: #d10000; }
+  color: rgba(255,255,255,.92);
+}
+
+.zoom-info-section{
+  font: 900 16px/1.1 system-ui, sans-serif;
+  margin: .35rem 0 .25rem;
+  color: rgba(255,255,255,.96);
+}
+
+.zoom-info-note{
+  margin-top: .55rem;
+  padding-top: .45rem;
+  border-top: 1px solid rgba(255,255,255,.12);
+
+  font: 650 16px/1.25 system-ui, sans-serif;
+  color: rgba(255,255,255,.9);
+}
 
 
-  /* Badge dans le zoom (texte ou nombre) */
-  .equip-zoom-badge{
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
+.zoom-info-list{
+  margin: 0;
+  padding-left: 1.05rem;
+}
 
-    padding: 6px 10px;
-    border-radius: 999px;
+.zoom-info-list li{
+  margin: .2rem 0;
+  font: 650 16px/1.25 system-ui, sans-serif;
+  color: rgba(255,255,255,.88);
+}
 
-    font: 800 14px/1.1 system-ui, sans-serif;
-    color: #fff;
-    background: rgba(0,0,0,.65);
-    box-shadow: 0 2px 10px rgba(0,0,0,.35);
+.mini-badge{
+  pointer-events: none;
+}
 
-    max-width: calc(100% - 16px);
-    text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+/* Centre : cartes jouées */
+.center-cards{
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  align-items: flex-start;
+}
 
-    pointer-events: none;
-  }
+.center-card{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .25rem;
+}
 
-  .equip-bar > .mini-stack{
-    flex: 0 0 50px;
-    width: 50px;
-    min-width: 0;
-    display:flex;
-    flex-direction:column;
-    gap:.5rem;
+.center-card-name{
+  font: 700 12px/1.1 system-ui, sans-serif;
+  color: var(--muted);
+}
 
-  }
+.center-card-img{
+  width: 60px;
+  height: 82px;
+  display: block;
+  object-fit: contain;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(0,0,0,.15);
+}
 
-  .mini-card{
-    position: relative;
-    height: 62px;
-    width: 46px;
-    border: 1px solid #ddd;
-    border-radius: 10px;
-    overflow: hidden;
-    background: #fff;
-    margin: 1px 3px 0 0;
-  }
+/* Badges */
+.equip-zoom-badge.badge-hunter{
+  background: rgba(105, 167, 255, .35);
+  border: 1px solid rgba(105, 167, 255, .35);
+  color: #fff;
+}
 
-  .mini-back-img{
-    width: 100%;
-    height: 100%;
-    display: block;
-    object-position: center;
-  }
+.equip-zoom-badge.badge-vamp{
+  background: rgba(255, 107, 107, .33);
+  border: 1px solid rgba(255, 107, 107, .33);
+  color: #fff;
+}
 
-  .mini-badge{
-    position: absolute;
-    left: 50%;
-    bottom: -8%;
-    transform: translate(-50%, -50%);
+.mini-card.deck-pile.deck-discard-common .mini-badge{
+  background: rgba(62,62,62, .35);
+  border: 1px solid rgba(62,62,62, .33);
+}
 
-    width: 10px;
-    height: 16px;
-    padding: 0 6px;
+.name-hunter { color: var(--hunter); }
+.name-vamp   { color: var(--vamp); }
 
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+/* Badge dans le zoom (texte ou nombre) */
+.equip-zoom-badge{
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
 
-    border-radius: 999px;
-    background: rgba(0,0,0,.65);
-    color: #fff;
-    font: 700 12px/1 system-ui, sans-serif;
-  }
+  padding: 6px 10px;
+  border-radius: 999px;
 
-  .equip-label{ font:600 12px/1.1 system-ui, sans-serif; color:#333; margin-bottom:.35rem; }
+  font: 900 14px/1.1 system-ui, sans-serif;
+  color: #fff;
+  background: rgba(0,0,0,.55);
+  box-shadow: 0 2px 10px rgba(0,0,0,.35);
 
-  .dice-chip{
-    display:inline-block;
-    font:700 12px/1 system-ui, sans-serif;
-    padding:.25rem .5rem;
-    border-radius:999px;
-    background:#111; color:#fff; opacity:.95;
-  }
+  max-width: calc(100% - 16px);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 
-  /* Pioches */
-    /* ===== Decks layout : 2 colonnes / 2 lignes ===== */
-  .decks-grid{
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: .9rem 1.2rem;
-    align-items: start;
-  }
+  pointer-events: none;
+}
 
-  .deck-block{
-    display: flex;
-    flex-direction: column;
-  }
+/* Mini stack */
+.equip-bar > .mini-stack{
+  flex: 0 0 50px;
+  width: 50px;
+  min-width: 0;
+  display:flex;
+  flex-direction:column;
+  gap:.5rem;
+}
 
-  .deck-block-title{
-    font: 700 12px/1.1 system-ui, sans-serif;
-    color: #222;
-  }
+.mini-card{
+  position: relative;
+  height: 62px;
+  width: 46px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(27,33,48,.55);
+  margin: 1px 3px 0 0;
+}
 
-  /* 2 piles (pioche + défausse) côte à côte */
-  .deck-piles{
-    display: flex;
-    align-items: flex-start;
-  }
+.mini-back-img{
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-position: center;
+}
 
-  /* On réutilise mini-card mais en taille "carte" */
-  .mini-card.deck-pile{
-    width: 60px;
-    height: 82px;
-  }
+.mini-badge{
+  position: absolute;
+  left: 50%;
+  bottom: -8%;
+  transform: translate(-50%, -50%);
 
-  /* Important : ton mini-back-img n'avait pas object-fit,
-    du coup certaines images peuvent être moches */
-  .mini-back-img.deck-img{
-    width: 100%;
-    height: 100%;
-    display: block;
-    object-fit: contain;
-  }
+  width: 10px;
+  height: 16px;
+  padding: 0 6px;
 
-  /* Badge version deck (plus lisible que ton mini-badge actuel) */
-  .mini-card.deck-pile .mini-badge{
-    left: 50%;
-    bottom: 4px;
-    transform: translateX(-50%);
-    width: auto;
-    height: auto;
-    padding: 2px 8px;
-    font: 800 12px/1 system-ui, sans-serif;
-  }
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 
-  /* couleurs badge */
-  .mini-badge.badge-hunter{ background: rgba(29, 78, 216, .65); }
-  .mini-badge.badge-vamp{ background: rgba(185, 28, 28, .65); }
+  border-radius: 999px;
+  background: rgba(0,0,0,.55);
+  border: 1px solid rgba(0,0,0,.55);
+  color: #fff;
+  font: 800 12px/1 system-ui, sans-serif;
+}
 
-  /* Défausse vide => placeholder sans image */
-  .mini-card.deck-pile.deck-empty{
-    background: linear-gradient(135deg, rgba(0,0,0,.10), rgba(0,0,0,.03));
-    border: 1px solid rgba(0,0,0,.10);
-  }
+.equip-label{
+  font:700 12px/1.1 system-ui, sans-serif;
+  color: var(--muted);
+  margin-bottom:.35rem;
+}
 
-  .mini-card.deck-pile.deck-empty{
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,.35);
-  }
+.dice-chip{
+  display:inline-block;
+  font:800 12px/1 system-ui, sans-serif;
+  padding:.25rem .5rem;
+  border-radius:999px;
+  background: rgba(255,255,255,.10);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+/* ===== Decks layout : 2 colonnes / 2 lignes ===== */
+.decks-grid{
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .9rem 1.2rem;
+  align-items: start;
+}
+
+.deck-block{
+  display: flex;
+  flex-direction: column;
+}
+
+.deck-block-title{
+  font: 800 12px/1.1 system-ui, sans-serif;
+  color: var(--muted);
+}
+
+/* 2 piles côte à côte */
+.deck-piles{
+  display: flex;
+  align-items: flex-start;
+}
+
+/* Mini-card en taille "carte" */
+.mini-card.deck-pile{
+  width: 60px;
+  height: 82px;
+}
+
+/* Images deck */
+.mini-back-img.deck-img{
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+}
+
+/* Badge version deck */
+.mini-card.deck-pile .mini-badge{
+  left: 50%;
+  bottom: 4px;
+  transform: translateX(-50%);
+  width: auto;
+  height: auto;
+  padding: 2px 8px;
+  font: 900 12px/1 system-ui, sans-serif;
+}
+
+.mini-badge.badge-hunter{
+  background: rgba(105, 167, 255, .35);
+  border: 1px solid rgba(105, 167, 255, .35);
+}
+
+.mini-badge.badge-vamp{
+  background: rgba(255, 107, 107, .33);
+  border: 1px solid rgba(255, 107, 107, .33);
+}
+
+/* Défausse vide */
+.mini-card.deck-pile.deck-empty{
+  background: linear-gradient(135deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+  border: 1px solid var(--border);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+}
+
 
   /* --- BOARD DU BAS --- */
   .res-board{
@@ -4075,8 +4421,8 @@ interface ForgeOption {
   }
 
   .res-title{
-    font-weight: 700;
-    color:#222;
+    font-weight: 800;
+    color: var(--text);
   }
 
   .res-item{
@@ -4084,9 +4430,9 @@ interface ForgeOption {
     align-items:center;
     gap: .25rem;
     padding: .15rem .35rem;
-    border: 1px solid rgba(0,0,0,.10);
+    border: 1px solid var(--border);
     border-radius: 999px;
-    background: #fff;
+    background: rgba(155, 158, 165, 0.55);
   }
 
   .res-ico-box{
@@ -4101,6 +4447,7 @@ interface ForgeOption {
   .res-ico{
     display:block;
     object-fit: contain;
+    filter: drop-shadow(0 4px 10px rgba(0,0,0,.25));
   }
 
   .res-ico-s{ width: 20px; height: 20px; }
@@ -4108,12 +4455,13 @@ interface ForgeOption {
   .res-ico-l{ width: 29px; height: 29px; }
 
   .res-val{
-    font: 700 12px/1 system-ui, sans-serif;
-    color:#111;
+    font: 800 12px/1 system-ui, sans-serif;
+    color: var(--text);
     min-width: 2ch;
     text-align: right;
   }
 
+  /* Hand */
   .hand{
     display: grid;
     gap: .35rem;
@@ -4131,7 +4479,8 @@ interface ForgeOption {
   }
 
   .hand-label{
-    font: 600 14px/1.1 system-ui, sans-serif;
+    font: 700 14px/1.1 system-ui, sans-serif;
+    color: var(--muted);
   }
 
   .hand-cards{
@@ -4155,8 +4504,10 @@ interface ForgeOption {
     height: 164px;
     display:block;
     object-fit: contain;
+    filter: drop-shadow(0 10px 20px rgba(0,0,0,.30));
   }
 
+  /* Boutons cartes (ne pas appliquer le style bouton normal) */
   .card-btn{
     width: 128px;
     height: 174px;
@@ -4188,10 +4539,13 @@ interface ForgeOption {
     width: 120px;
     height: 164px;
     overflow: hidden;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,.08);
+    background: rgba(0,0,0,.12);
   }
 
   .card-btn.selected .card-frame{
-    box-shadow: 0 0 0 2px #000;
+    box-shadow: 0 0 0 2px var(--focus);
   }
 
   .card-img{
@@ -4205,14 +4559,17 @@ interface ForgeOption {
     opacity: .55;
     cursor:not-allowed;
     pointer-events: auto;
+    filter: grayscale(.15);
   }
 
+  /* Text buttons (si tu les utilises ailleurs) */
   .text-btn{
     padding: .5rem 1rem;
-    border: 1px solid #ccc;
-    background: #fff;
+    border: 1px solid var(--border);
+    background: rgba(27,33,48,.55);
+    color: var(--text);
     cursor: pointer;
-    border-radius: 8px;
+    border-radius: 10px;
   }
 
   .text-btn.is-disabled{
@@ -4222,7 +4579,7 @@ interface ForgeOption {
   }
 
   .text-btn.selected{
-    outline: 2px solid #000;
+    outline: 2px solid var(--focus);
     outline-offset: 2px;
   }
 
@@ -4238,21 +4595,56 @@ interface ForgeOption {
 
   .mod-chip{
     flex: 0 0 auto;
-    display:inline-flex; 
-    align-items:center; 
+    display:inline-flex;
+    align-items:center;
     gap:.25rem;
-    font:700 11px/1 system-ui, sans-serif;
-    background:#222; color:#fff; 
-    border-radius:999px; 
+    font:800 11px/1 system-ui, sans-serif;
+
+    background: var(--chip-bg);
+    color: var(--chip-text);
+    border: 1px solid rgba(255,255,255,.10);
+
+    border-radius:999px;
     padding:.18rem .4rem;
     white-space: nowrap;
-    opacity:.92;
+    opacity:.95;
   }
+
   .mod-chip .chip-ico{
-    width:14px; height:14px; border-radius:3px;
+    width:14px;
+    height:14px;
+    border-radius:3px;
     background: rgba(255,255,255,.85);
   }
-  .mod-chip .chip-val{ line-height:1; }
+
+  .mod-chip .chip-val{
+    line-height:1;
+    color: var(--chip-text);
+  }
+
+  /* Focus clavier (accessibilité) */
+  .container :is(button, .card-btn):focus-visible{
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 12px;
+  }
+
+  /* =========================
+    Overrides des INLINE (error)
+    ========================= */
+
+  /* Ton bandeau error est inline (background:#fee / border:#f99) -> on écrase */
+  div[style*="background:#fee"]{
+    background: var(--danger-bg) !important;
+    border: 1px solid var(--danger-border) !important;
+    color: var(--danger-text) !important;
+    border-radius: 10px;
+  }
+
+  /* Petit texte "En attente..." dans la préphase */
+  small{
+    color: var(--muted) !important;
+  }
 
   /* AJOUT pour modales */
   .modal-backdrop{
@@ -4384,6 +4776,16 @@ interface ForgeOption {
     border-radius: 999px;
     background: rgba(0,0,0,.45);
     color: #fff;
+  }
+
+  .title-side-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .roll-side {
+    text-align: center;
   }
 
   /* Contenu centré même quand des chips existent */
@@ -4656,6 +5058,16 @@ interface ForgeOption {
 
   .modal.location-modal.spectate.has-focus.bite-active .content.spectate .dice{
     width: 180px;
+  }
+
+  /* 1) centre l'élément icône+halo dans la 1ère ligne (160px) */
+  .modal.location-modal.spectate .side > .icon-halo{
+    align-self: center;
+  }
+
+  /* 2) annule le petit décalage vertical du halo round UNIQUEMENT en spectate */
+  .modal.location-modal.spectate .icon-halo.round{
+    --halo-dy: 0px;
   }
 
   /* AJOUT WEATHER */
@@ -5571,6 +5983,8 @@ interface ForgeOption {
     }
   }
 
+  /* animation pioche boutique */
+
   /* === MODALE CONSTRUCTION === */
   /* Conteneur de la modale construction */
   .modal.construction-modal {
@@ -5604,16 +6018,137 @@ interface ForgeOption {
     color: #fff;
   }
 
-  /* boutons */
-  .modal.construction-modal .modal-button-row {
-    display: flex;
-    justify-content: center;
-    gap: 0.75rem;
+    /* ===== Construction : grille des cartes ===== */
+  .modal.construction-modal .build-grid{
+    width: 100%;
     margin: 1rem 0;
+
+    display: flex;
     flex-wrap: wrap;
+    justify-content: center;
+    gap: .9rem;
+    align-items: flex-start;
   }
 
-  .modal.construction-modal button {
+  .modal.construction-modal .build-item{
+    flex: 0 0 190px;
+  }
+
+
+  .modal.construction-modal .build-item{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .45rem;
+
+    padding: .65rem .65rem .75rem;
+    border-radius: 14px;
+
+    background: rgba(0,0,0,.35);
+    border: 1px solid rgba(255,255,255,.18);
+    box-shadow: 0 10px 26px rgba(0,0,0,.25);
+  }
+
+  /* bouton-image */
+  .modal.construction-modal .build-card-btn{
+    border: none;
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .modal.construction-modal .build-card-img{
+    width: 110px;
+    height: 150px;
+    object-fit: contain;
+    display: block;
+    filter: drop-shadow(0 10px 18px rgba(0,0,0,.35));
+  }
+
+  .modal.construction-modal .build-title{
+    font: 800 14px/1.1 system-ui, sans-serif;
+    color: #fff;
+    text-align: center;
+  }
+
+  .modal.construction-modal .build-sub{
+    font: 650 12px/1.1 system-ui, sans-serif;
+    color: rgba(255,255,255,.75);
+    margin-top: -2px;
+    text-align: center;
+  }
+
+  /* ===== Coûts en icônes (copie du style boutique, mais pour construction-modal) ===== */
+  .modal.construction-modal .price.price-icons{
+    display:inline-flex;
+    align-items:center;
+    gap:.25rem;
+    flex-wrap:wrap;
+    justify-content:center;
+  }
+
+  .modal.construction-modal .cost-item{
+    display:inline-flex;
+    align-items:center;
+    border:1px solid rgba(255,255,255,.28);
+    background:rgba(0,0,0,.22);
+    border-radius:999px;
+    padding:.06rem .25rem;
+  }
+
+  .modal.construction-modal .cost-ico-box{
+    width:18px;
+    height:18px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex:0 0 18px;
+  }
+
+  .modal.construction-modal .cost-ico{
+    display:block;
+    width:100%;
+    height:100%;
+    object-fit:contain;
+  }
+
+  .modal.construction-modal .cost-ico-s{ width:16px; height:16px; }
+
+  .modal.construction-modal .cost-val{
+    font:800 12px/1 system-ui, sans-serif;
+    color:#fff;
+    min-width:2ch;
+    text-align:right;
+  }
+
+  /* ===== Cadre info (uniquement lieux à effet) ===== */
+  .modal.construction-modal .build-info{
+    width: 100%;
+    margin-top: .25rem;
+
+    border-radius: 12px;
+    padding: .55rem .6rem;
+
+    background: rgba(0,0,0,.28);
+    border: 1px solid rgba(255,255,255,.16);
+
+    text-align: left;
+    color: rgba(255,255,255,.92);
+  }
+
+  .modal.construction-modal .build-info ul{
+    margin: .25rem 0 0;
+    padding-left: 1.05rem;
+  }
+
+  .modal.construction-modal .build-info li{
+    margin: .15rem 0;
+    font: 650 12px/1.25 system-ui, sans-serif;
+    color: rgba(255,255,255,.88);
+  }
+
+  /* Annuler garde son style */
+  .modal.construction-modal .btn-secondary{
     padding: 0.5rem 1rem;
   }
 
@@ -5748,7 +6283,6 @@ interface ForgeOption {
     border: none;
     background: transparent;
     padding: 0;
-    cursor: zoom-in; /* optionnel, tu peux enlever si tu veux */
   }
 
   /* taille image carte (si tu veux “comme ailleurs”) */
@@ -5829,7 +6363,8 @@ export class GameComponent {
   private router = inject(Router);
   private live = inject(LiveService);
   private unsubscribeGameTopic?: () => void; // coupe l’abonnement WS au destroy
-  private assets = inject(AssetPreloaderService);
+  private notify = inject(NotifyService);
+  private cdr = inject(ChangeDetectorRef);
 
   private weatherWaitTimer?: any;
 
@@ -5842,6 +6377,8 @@ export class GameComponent {
   game?: GameSnapshot;
   errorMsg = '';
   hasSkipped = false;
+  private lastPhaseNotified?: Phase;
+  private harvestBubbleShown = false;
 
   meId = sessionStorage.getItem('userId') || '';
   username = sessionStorage.getItem('username') || '';
@@ -5889,6 +6426,7 @@ export class GameComponent {
         return `${t}|${ts}|${JSON.stringify(p)}`;
     }
   }
+
   private weatherAdvanceSent = false;
   private phase2AdvanceSent = false;
   private prephase3AdvanceSent = false;
@@ -6061,6 +6599,135 @@ export class GameComponent {
     ['gold','silver','souls','wood','herbs','stone','iron','water'] as const;
 
   back(){ this.router.navigate(['/lobby']); }
+
+  private emitPhaseBubble(prev: Phase | undefined, g: GameSnapshot) {
+    if (!g?.phase) return;
+    if (prev === g.phase && this.lastPhaseNotified === g.phase) return;
+
+    const txt = this.phaseTextFor(g.phase, g);
+    if (txt) {
+      this.notify.phase(txt);
+      this.lastPhaseNotified = g.phase;
+    }
+  }
+
+  private phaseTextFor(phase: Phase, g: GameSnapshot): string | null {
+    const me = g.players?.find(p => p.id === this.meId);
+    const role = me?.role; // 'HUNTER' | 'VAMPIRE' | 'SERVANT' | undefined
+    const isHunter = role === 'HUNTER';
+    const isVampSide = role === 'VAMPIRE' || role === 'SERVANT';
+
+    // "Est-ce qu'au moins un joueur du camp a une carte lieu en main ?"
+    const anyHunterHasLoc =
+      (g.players || []).some(p => p.role === 'HUNTER' && !p.leftGame && (p.hp ?? 0) > 0 && (p.hand?.length ?? 0) > 0);
+
+    const anyVampSideHasLoc =
+      (g.players || []).some(p => (p.role === 'VAMPIRE' || p.role === 'SERVANT') && !p.leftGame && (p.hp ?? 0) > 0 && (p.hand?.length ?? 0) > 0);
+
+    if (phase === 'PHASE0') {
+      return 'Tirage météo';
+    }
+
+    // PHASE1 = tour chasseurs (lieu)
+    if (phase === 'PHASE1') {
+      if (isHunter) {
+        return 'À vous de jouer !';
+      }
+      return 'Les chasseurs partent en raid !';
+    }
+
+    // PHASE2 = tour vampire/serviteurs (lieu) OU réveil si pas de carte
+    if (phase === 'PHASE2') {
+      if (isVampSide) {
+        return 'À vous de jouer !';
+      }
+      return 'Le vampire s’éveille !';
+    }
+
+    if (phase === 'PREPHASE3' && this.imInUpcomingCombat()) return 'Préparation au combat !';
+    
+    const hasCombat = g.currentCombat != null;
+
+    if (phase === 'PHASE3') {
+      return hasCombat ? 'Résolution des combats' : 'Résolution des récoltes';
+    }
+    if (phase === 'PHASE4') return 'Fin de raid... Préparez-vous pour le raid suivant !';
+
+    return null;
+  }
+
+  private resetHarvestBubbleIfPhaseChanged(prev: GameSnapshot | undefined, g: GameSnapshot) {
+    const prevPhase = prev?.phase as Phase | undefined;
+    const nextPhase = g?.phase as Phase | undefined;
+    if (!nextPhase) return;
+
+    // Dès qu'on entre dans PHASE3 (nouveau raid/phase3), on réarme
+    if (prevPhase !== nextPhase && nextPhase === 'PHASE3') {
+      this.harvestBubbleShown = false;
+    }
+
+    // sécurité : si on sort de PHASE3, on réarme aussi
+    if (prevPhase !== nextPhase && nextPhase !== 'PHASE3') {
+      this.harvestBubbleShown = false;
+    }
+  }
+
+  private maybeEmitHarvestBubble(g: GameSnapshot) {
+    if (this.harvestBubbleShown) return;
+    if (g.phase !== 'PHASE3') return;
+
+    // tant qu'il y a un combat OU une morsure en cours => pas de récolte
+    if (g.currentCombat != null) return;
+    if (g.currentBite != null) return;
+
+    this.notify.phase('Résolution des récoltes');
+    this.harvestBubbleShown = true;
+  }
+
+  private toastActionUsed(payload: any) {
+    const pid  = payload?.playerId ;
+    const code = payload?.type;
+
+    const who = pid ? this.usernameOf(pid) : 'Un joueur';
+    const label = this.actionLabelFr(code as any);
+
+    this.notify.toast(`${who} utilise l'action ${label} !`);
+  }
+
+  private toastPotionUsed(payload: any) {
+    let kind = payload?.type;
+    if(
+      payload?.type === 'FORCE'
+      || payload?.type === 'ENDURANCE'
+      || payload?.type === 'VIE'
+      || payload?.type === 'FOCALISATION'
+      || payload?.type === 'SANGSUE'
+    ) {
+      kind = 'la potion'
+    } else { kind = 'l\'élixir'}
+
+
+    const pid  = payload?.playerId ;
+    const code = payload?.type;
+
+    const who = pid ? this.usernameOf(pid) : 'Un joueur';
+
+    const label = this.potionLabelFr(code as any);
+
+    this.notify.toast(`${who} utilise ${kind} ${label} !`);
+  }
+
+  private toastInfraBuilt(payload: any) {
+    console.log('payload=', payload);
+
+    const builderId = payload?.builderId ?? payload?.playerId ?? payload?.uid;
+    const infra = payload?.infra ?? payload?.code ?? payload?.kind;
+
+    const who = builderId ? this.usernameOf(builderId) : 'Le vampire';
+    const what = infra ? (this.labelLocation(infra) || String(infra)) : 'un lieu';
+
+    this.notify.toast(`${who} construit ${what}`);
+  }
 
   leave() {
     if (!this.game) return;
@@ -6556,11 +7223,26 @@ bonusBuyImgSrc(): string {
   private readonly zoomScaleLarge = 4.0;
   private readonly zoomMaxSideLarge = 420;
 
+  // zoom info lieu
+  zoomMediaW = 0;
+  zoomMediaH = 0;
+
+  zoomInfoOn = false;
+  zoomInfoKey = '';
+  zoomInfoLinesHunter: string[] = [];
+  zoomInfoLinesVamp: string[] = [];
+  zoomInfoNote = '';
+  zoomInfoLines: string[] = [];
+
+  private readonly zoomInfoW = 340; // largeur du panneau info
+  private readonly zoomInfoGap = 10; // espace entre image et info
+
   zoomEnter(
     ev: MouseEvent,
     badge?: string | number,
     badgeIsHunter?: boolean,
-    size: 'M'|'L' = 'M'
+    size: 'M'|'L' = 'M',
+    info?: { key: string; lines: string[] } | null
   ) {
     const host = ev.currentTarget as HTMLElement | null;
     if (!host) return;
@@ -6569,11 +7251,11 @@ bonusBuyImgSrc(): string {
       ? (host as HTMLImageElement)
       : (host.querySelector('img') as HTMLImageElement | null));
 
-    // si pas d'image (placeholder défausse vide) => pas de zoom
     if (!img?.src) return;
 
     this.zoomSrc = img.src;
 
+    // badge (inchangé)
     if (badge !== undefined && badge !== null && String(badge).trim() !== '') {
       this.zoomBadgeOn = true;
       this.zoomBadgeText = String(badge);
@@ -6584,11 +7266,35 @@ bonusBuyImgSrc(): string {
       this.zoomBadgeIsHunter = undefined;
     }
 
+    // info (NOUVEAU)
+    if (info && info.lines?.length) {
+      this.zoomInfoOn = true;
+      this.zoomInfoKey = (info as any).key || '';
+      this.zoomInfoLines = info.lines;
+
+      if (this.zoomInfoKey === 'altar' && this.zoomInfoLines.length >= 5) {
+        this.zoomInfoLinesHunter = this.zoomInfoLines.slice(0, 2);
+        this.zoomInfoLinesVamp   = this.zoomInfoLines.slice(2, 4);
+        this.zoomInfoNote        = this.zoomInfoLines[4] || '';
+      } else {
+        this.zoomInfoLinesHunter = [];
+        this.zoomInfoLinesVamp   = [];
+        this.zoomInfoNote        = '';
+      }
+
+    } else {
+      this.zoomInfoOn = false;
+      this.zoomInfoKey = '';
+      this.zoomInfoLines = [];
+      this.zoomInfoLinesHunter = [];
+      this.zoomInfoLinesVamp = [];
+      this.zoomInfoNote = '';
+    }
+
     const rect = img.getBoundingClientRect();
 
     let scale = this.zoomScale;
     let maxSide = this.zoomMaxSide;
-
     if (size === 'L') { scale = this.zoomScaleLarge; maxSide = this.zoomMaxSideLarge; }
 
     let w = rect.width * scale;
@@ -6604,32 +7310,43 @@ bonusBuyImgSrc(): string {
     this.zoomW = Math.round(w);
     this.zoomH = Math.round(h);
 
+    // exposé au template
+    this.zoomMediaW = this.zoomW;
+    this.zoomMediaH = this.zoomH;
+
     this.zoomOn = true;
     this.zoomMove(ev);
   }
 
-  zoomMove(ev: MouseEvent) {
-    if (!this.zoomOn) return;
+zoomMove(ev: MouseEvent) {
+  if (!this.zoomOn) return;
 
-    const W = this.zoomW;
-    const H = this.zoomH;
+  const mediaW = this.zoomW;
+  const mediaH = this.zoomH;
 
-    let left = ev.clientX + 12;
-    let top  = ev.clientY + 12;
+  // largeur "réelle" à protéger à l'écran (image + panneau si présent)
+  const totalW = mediaW + (this.zoomInfoOn ? (this.zoomInfoGap + this.zoomInfoW) : 0);
+  const totalH = mediaH;
 
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
+  let left = ev.clientX + 12;
+  let top  = ev.clientY + 12;
 
-    if (left + W + 8 > vw) left = vw - W - 8;
-    if (top + H + 8 > vh)  top  = vh - H - 8;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
 
-    this.zoomStyle = {
-      left: left + 'px',
-      top: top + 'px',
-      width: W + 'px',
-      height: H + 'px',
-    };
-  }
+  // clamp avec totalW/totalH
+  if (left + totalW + 8 > vw) left = vw - totalW - 8;
+  if (top + totalH + 8 > vh)  top  = vh - totalH - 8;
+
+  // ✅ IMPORTANT : on n'agrandit plus la box, elle reste à la taille de l'image
+  this.zoomStyle = {
+    left: left + 'px',
+    top: top + 'px',
+    width: mediaW + 'px',
+    height: mediaH + 'px',
+  };
+}
+
 
   zoomLeave() {
     this.zoomOn = false;
@@ -6637,6 +7354,13 @@ bonusBuyImgSrc(): string {
     this.zoomBadgeOn = false;
     this.zoomBadgeText = '';
     this.zoomBadgeIsHunter = undefined;
+    this.zoomInfoOn = false;
+    this.zoomInfoOn = false;
+    this.zoomInfoKey = '';
+    this.zoomInfoLinesHunter = [];
+    this.zoomInfoLinesVamp = [];
+    this.zoomInfoNote = '';
+    this.zoomInfoLines = [];
   }
 
   // === Helpers center history ===
@@ -7060,7 +7784,7 @@ bonusBuyImgSrc(): string {
   }
 
   // === Helpers combat ===
-  private nameOrId(id: string): string {
+  nameOrId(id: string): string {
     return this.entityDisplayName(id);
   }
 
@@ -7688,6 +8412,9 @@ bonusBuyImgSrc(): string {
             const previous = this.game;
             this.game = g;
 
+            const prevPhase = previous?.phase as Phase | undefined;
+            this.emitPhaseBubble(prevPhase, g);
+
             const me = g?.players?.find(p => p.id === this.meId);
             const isDeadNow = !!me && !me.leftGame && me.hp <= 0;
 
@@ -7928,7 +8655,12 @@ bonusBuyImgSrc(): string {
               // Resync propre :
               this.api.getGame(this.gameId).subscribe({
                 next: g => {
+                  const previous = this.game;
                   this.game = g;
+
+                  this.resetHarvestBubbleIfPhaseChanged(previous, g);
+                  this.maybeEmitHarvestBubble(g);
+
                   this.bumpHistoryScroll();
                   this.syncActionFromSnapshot(g);
                   this.maybeAdvanceToPhase4EndOfRaid();
@@ -7972,7 +8704,13 @@ bonusBuyImgSrc(): string {
       case 'BITE_RESOLVED': {
         // le back a déjà remis currentBite = null ; on resynchronise
         this.api.getGame(this.gameId).subscribe({
-          next: g => this.game = g,
+          next: g => {
+            const previous = this.game;
+            this.game = g;
+
+            this.resetHarvestBubbleIfPhaseChanged(previous, g);
+            this.maybeEmitHarvestBubble(g);
+          },
           error: e => this.showError(e)
         });
         break;
@@ -8013,7 +8751,29 @@ bonusBuyImgSrc(): string {
         break;
       }
 
+      case 'POTION_USED': {
+        this.toastPotionUsed(event.payload);
+
+        this.api.getGame(this.gameId).subscribe({
+          next: g => this.game = g,
+          error: e => this.showError(e)
+        });
+        break;
+      }
+
+      case 'INFRA_BUILT': {
+        this.toastInfraBuilt(event.payload);
+
+        this.api.getGame(this.gameId).subscribe({
+          next: g => this.game = g,
+          error: e => this.showError(e)
+        });
+        break;
+      }
+
       case 'ACTION_USED': {
+        this.toastActionUsed(event.payload);
+
         this.api.getGame(this.gameId).subscribe({
           next: g => {
             this.game = g;
@@ -8088,25 +8848,6 @@ bonusBuyImgSrc(): string {
           next: g => {
             this.game = g;
             this.syncActionFromSnapshot(g); // ferme la modale si currentAction=null
-
-              /*
-            // Si on est toujours en PREPHASE3 ET qu'il y a encore "hasUpcomingCombat",
-            // alors on remet le timer local (affichage 30s).
-            if (
-              g.phase === 'PREPHASE3' &&
-              g.hasUpcomingCombat &&
-              !g.locationEffectPending &&
-              (prevActionMode === 'MARQUE_TENEBREUSE' 
-                || prevActionMode === 'EAU_BENITE' 
-                || prevActionMode === 'AFFAIBLISSEMENT_OCCULTE'
-                || prevActionMode === 'PASSAGE_SECRET')
-            ) {
-              this.startPrephaseTimer();
-            } else {
-              // Sinon on s'assure que le timer local est bien coupé
-              this.stopPrephaseTimer();
-            }
-              */
 
           if (g.phase === 'PREPHASE3' && g.hasUpcomingCombat && !g.locationEffectPending) {
             // On (re)lance simplement le timer local.
@@ -9317,9 +10058,6 @@ bonusBuyImgSrc(): string {
   }
 
   private computeIncendiaireChoices(g: GameSnapshot, loc: string | null) {
-    type InfraCode =
-      'SAWMILL' | 'MINE' | 'LIBRARY' | 'LABORATORY' | 'BALLROOM' | 'ALTAR' | 'FORGE';
-
     const built = g.builtInfras || [];
     const pending = g.pendingConstructionInfra as InfraCode | undefined;
 
@@ -9583,11 +10321,19 @@ bonusBuyImgSrc(): string {
     });
   }
 
-  onBuyBonus(): void {
+  onBuyBonus(ev: MouseEvent): void {
     if (!this.game) return;
+
+    const btn = ev.currentTarget as HTMLElement | null;
+    const img = btn?.querySelector('img') as HTMLImageElement | null;
+    if (!img?.src) return;
+
+    const src = img.src;
+    const rect = img.getBoundingClientRect();
 
     this.api.StartShopBonus(this.gameId).subscribe({
       next: g => {
+        this.flyDomToViewportBottom(src, rect);
         this.bumpHistoryScroll();
       },
       error: e => this.showError(e)
@@ -10831,17 +11577,32 @@ bonusBuyImgSrc(): string {
 
   // UI Maintenance actions
   // --- Boutique --- //
-  onBuyPotion() { 
-    this.api.buyPotion(this.gameId).subscribe({ 
-      next: () => {},
-      error: e => this.showError(e) 
-    }); 
+  onBuyAction(ev: MouseEvent) {
+    const btn = ev.currentTarget as HTMLElement | null;
+    const img = btn?.querySelector('img') as HTMLImageElement | null;
+    if (!img?.src) return;
+
+    const src = img.src;
+    const rect = img.getBoundingClientRect();
+
+    this.api.buyAction(this.gameId).subscribe({
+      next: () => this.flyDomToViewportBottom(src, rect),
+      error: e => this.showError(e)
+    });
   }
-  onBuyAction() { 
-    this.api.buyAction(this.gameId).subscribe({ 
-      next: () => {},
-      error: e => this.showError(e) 
-    }); 
+
+  onBuyPotion(ev: MouseEvent) {
+    const btn = ev.currentTarget as HTMLElement | null;
+    const img = btn?.querySelector('img') as HTMLImageElement | null;
+    if (!img?.src) return;
+
+    const src = img.src;
+    const rect = img.getBoundingClientRect();
+
+    this.api.buyPotion(this.gameId).subscribe({
+      next: () => this.flyDomToViewportBottom(src, rect),
+      error: e => this.showError(e)
+    });
   }
   onBuySilver(qty: number) {
     this.api.buySilver(this.gameId, qty).subscribe({ 
@@ -10849,20 +11610,34 @@ bonusBuyImgSrc(): string {
       error: e => this.showError(e) 
     }); 
   }
-  onBuyHolyWaterAction(): void {
+  onBuyHolyWaterAction(ev: MouseEvent): void {
     if (!this.game) return;
+
+    const btn = ev.currentTarget as HTMLElement | null;
+    const img = btn?.querySelector('img') as HTMLImageElement | null;
+    if (!img?.src) return;
+
+    const src = img.src;
+    const rect = img.getBoundingClientRect();
 
     this.api.buyHolyWaterAction(this.gameId).subscribe({
-      next: () => {},
-      error: e => this.showError(e) 
+      next: () => this.flyDomToViewportBottom(src, rect),
+      error: e => this.showError(e)
     });
   }
-  onBuyTrackingAction(): void {
+  onBuyTrackingAction(ev: MouseEvent): void {
     if (!this.game) return;
 
+    const btn = ev.currentTarget as HTMLElement | null;
+    const img = btn?.querySelector('img') as HTMLImageElement | null;
+    if (!img?.src) return;
+
+    const src = img.src;
+    const rect = img.getBoundingClientRect();
+
     this.api.buyTrackingAction(this.gameId).subscribe({
-      next: () => {},
-      error: e => this.showError(e) 
+      next: () => this.flyDomToViewportBottom(src, rect),
+      error: e => this.showError(e)
     });
   }
   onSell(res: 'wood'|'herbs'|'stone'|'iron'|'water', qty: number) { 
@@ -11028,6 +11803,49 @@ bonusBuyImgSrc(): string {
     return entries.map(([k,q]) => `${this.labelFr(k)} x${q}`).join(', ');
   }
 
+  // animation pioche
+  private flyDomToViewportBottom(src: string, rect: DOMRect) {
+    const el = document.createElement('img');
+    el.src = src;
+
+    // style de base
+    Object.assign(el.style, {
+      position: 'fixed',
+      left: `${rect.left}px`,
+      top: `${rect.top}px`,
+      width: `${rect.width}px`,
+      height: `${rect.height}px`,
+      borderRadius: '10px',
+      boxShadow: '0 12px 30px rgba(0,0,0,.35)',
+      zIndex: '2147483647',
+      pointerEvents: 'none',
+      transform: 'translate3d(0,0,0) scale(1)',
+      opacity: '1'
+    } as Partial<CSSStyleDeclaration>);
+
+    document.body.appendChild(el);
+
+    const startX = rect.left + rect.width / 2;
+    const startY = rect.top + rect.height / 2;
+
+    const endX = window.innerWidth / 2;
+    const endY = window.innerHeight - 24;
+
+    const dx = endX - startX;
+    const dy = endY - startY;
+
+    const anim = el.animate(
+      [
+        { transform: 'translate3d(0,0,0) scale(1)', opacity: 1 },
+        { transform: `translate3d(${dx}px, ${dy}px, 0) scale(0.30)`, opacity: 0.15 }
+      ],
+      { duration: 1500, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'forwards' }
+    );
+
+    anim.onfinish = () => el.remove();
+    anim.oncancel = () => el.remove();
+  }
+
   // Construction
   openBuildModal() {
     if (!this.game || !this.me) return;
@@ -11047,6 +11865,7 @@ bonusBuyImgSrc(): string {
     this.buildChoice = infra;
     this.buildModalOpen = false;
     this.buildConfirmModalOpen = true;
+    this.zoomLeave();
   }
 
   cancelBuild() {
@@ -12175,5 +12994,96 @@ bonusBuyImgSrc(): string {
         this.forgeSubmitting = false;
       },
     });
+  }
+
+  buildOptions: Array<{ code: InfraCode; title: string; where: string }> = [
+    { code: 'SAWMILL',     title: 'Scierie',             where: 'Forêt' },
+    { code: 'MINE',        title: 'Mine',                where: 'Carrière' },
+    { code: 'LIBRARY',     title: 'Bibliothèque',        where: 'Manoir' },
+    { code: 'LABORATORY',  title: 'Laboratoire occulte', where: 'Manoir' },
+    { code: 'BALLROOM',    title: 'Salle de bal',        where: 'Manoir' },
+    { code: 'ALTAR',       title: 'Sanctuaire / Autel',  where: 'Manoir' },
+    { code: 'FORGE',       title: 'Forge',               where: 'Manoir' },
+  ];
+
+  isInfraBuilt(code: InfraCode): boolean {
+    return (this.game?.builtInfras ?? []).includes(code);
+  }
+
+  infraImg(code: InfraCode): string {
+    // ex: "FORGE" -> "/assets/cards/locations/forge.png"
+    return `/assets/cards/locations/${code.toLowerCase()}.png`;
+  }
+
+  private readonly INFRA_COSTS: Record<InfraCode, Partial<Record<string, number>>> = {
+    SAWMILL:    { stone: 5, iron: 3 },
+    MINE:       { wood: 6,  iron: 2 },
+    LIBRARY:    { wood: 8,  stone: 4, iron: 2 },
+    LABORATORY: { water: 5, herbs: 5, stone: 3, souls: 50 },
+    BALLROOM:   { stone: 8, iron: 2, souls: 50 },
+    ALTAR:      { stone: 4, wood: 2, iron: 2, souls: 50 },
+    FORGE:      { iron: 8,  stone: 4, wood: 2 },
+  };
+
+  private readonly RES_META: Record<string, { icon: string; label: string }> = {
+    wood:  { icon: '/assets/icons/wood.png',          label: 'Bois' },
+    stone: { icon: '/assets/icons/stone.png',         label: 'Pierre' },
+    iron:  { icon: '/assets/icons/iron.png',          label: 'Fer' },
+    water: { icon: '/assets/icons/water.png',         label: 'Eau pure' },
+    herbs: { icon: '/assets/icons/medical_grass.png', label: 'Herbe médicinale' },
+    souls: { icon: '/assets/icons/souls.png',         label: 'Âmes déchues' },
+  };
+
+  infraCostList(code: InfraCode): Array<{ qty: number; icon: string; label: string }> {
+    const costs = this.INFRA_COSTS[code] ?? {};
+    const order: string[] = ['wood','stone','iron','water','herbs','souls']; // ordre stable
+    const out: Array<{ qty: number; icon: string; label: string }> = [];
+
+    for (const k of order) {
+      const qty = costs[k];
+      if (!qty) continue;
+      const meta = this.RES_META[k];
+      out.push({ qty, icon: meta.icon, label: meta.label });
+    }
+    return out;
+  }
+
+  private readonly LOCATION_INFO: Partial<Record<string, string[]>> = {
+    forge: [
+      'Dépenser ressources pour piocher une carte arme ou armure.',
+    ],
+    library: [
+      'Étude des grimoires : piocher une carte action.',
+      'Subtilisation de manuscrit : prendre une carte action aléatoire de l’adversaire (un chasseur au choix si vampire) et la mélanger dans la pioche.',
+      'Prédiction occulte : révéler la prochaine carte Action de l’adversaire (sans la montrer) et choisir de la mettre au-dessus ou au-dessous de la pioche.',
+    ],
+    ballroom: [
+      'Danse macabre : quand le vampire réussit une attaque sur ce lieu, le chasseur visé subit aussi +1 corruption.',
+      'Charme du vampire : vole une ressource au hasard à chaque chasseur présent sur ce lieu (en plus d’attaquer).',
+      'Valse sanguinaire : jette autant de dés d’attaque que de chasseurs présents, garde le meilleur et applique l’attaque à tous les chasseurs sur ce lieu.',
+      'Les chasseurs sur ce lieu ont deux fois la récolte d’or sur ce lieu.',
+    ],
+
+    altar: [
+      'Autel purifié : un chasseur peut réduire de 1 la corruption.',
+      'Autel corrompu : dépenser eau bénite OU repousser le vampire lors des combats sur ce lieu pour PURIFIER l’autel.',
+      'Autel corrompu : le vampire peut augmenter de 1 la corruption d’un chasseur.',
+      'Autel purifié : morsure réussie OU sacrifier des âmes corrompues pour CORROMPRE l’autel.',
+      'Si le vampire a gagné au moins un affrontement sur ce lieu : le lieu n’est pas purifié.',
+    ],
+
+    laboratory: [
+      'Expérimentation : dépenser des âmes déchues pour créer un monstre (carte “monstre” jouée pour défendre un lieu).',
+      'Explosion alchimique : un chasseur peut détruire le labo → le vampire perd immédiatement 1 ressource au hasard et 20 âmes déchues.',
+      'Fabriquer une potion / un élixir : dépenser eau pure + herbes médicinales pour piocher une potion ou un élixir.',
+    ],
+  };
+
+  locationInfo(code: string | null | undefined): { key: string; lines: string[] } | null {
+    if (!code) return null;
+    const key = String(code).toLowerCase();
+    const lines = this.LOCATION_INFO[key];
+    if (!lines?.length) return null;
+    return { key, lines };
   }
 }
