@@ -2752,107 +2752,109 @@ interface ForgeOption {
           <h2 class="bg-badge">Construire un lieu</h2>
         </div>
 
-        <div class="res-board" *ngIf="me as m">
-          <span class="res-title">Ressources:</span>
+        <div class="construction-scroll">
+          <div class="res-board" *ngIf="me as m">
+            <span class="res-title">Ressources:</span>
 
-          <span *ngIf="m.role==='HUNTER'" class="res-item" title="L'or est utile pour obtenir des actions et de l'eau bénite">
-            <span class="res-ico-box">
-              <img class="res-ico res-ico-s" src="/assets/icons/gold.png" alt="Or">
+            <span *ngIf="m.role==='HUNTER'" class="res-item" title="L'or est utile pour obtenir des actions et de l'eau bénite">
+              <span class="res-ico-box">
+                <img class="res-ico res-ico-s" src="/assets/icons/gold.png" alt="Or">
+              </span>
+              <span class="res-val">{{ m.gold || 0 }}</span>
             </span>
-            <span class="res-val">{{ m.gold || 0 }}</span>
-          </span>
 
-          <span *ngIf="m.role==='VAMPIRE' || m.role==='SERVANT'" class="res-item" title="Les âmes déchues sont utiles pour obtenir des actions">
-            <span class="res-ico-box">
-              <img class="res-ico res-ico-s" src="/assets/icons/souls.png" alt="Âmes déchues">
+            <span *ngIf="m.role==='VAMPIRE' || m.role==='SERVANT'" class="res-item" title="Les âmes déchues sont utiles pour obtenir des actions">
+              <span class="res-ico-box">
+                <img class="res-ico res-ico-s" src="/assets/icons/souls.png" alt="Âmes déchues">
+              </span>
+              <span class="res-val">{{ m.souls || 0 }}</span>
             </span>
-            <span class="res-val">{{ m.souls || 0 }}</span>
-          </span>
 
-          <span class="res-item" title="L'eau pure est utile pour l'alchimie et obtenir de l'eau bénite">
-            <span class="res-ico-box">
-              <img class="res-ico res-ico-s" src="/assets/icons/water.png" alt="Eau pure">
+            <span class="res-item" title="L'eau pure est utile pour l'alchimie et obtenir de l'eau bénite">
+              <span class="res-ico-box">
+                <img class="res-ico res-ico-s" src="/assets/icons/water.png" alt="Eau pure">
+              </span>
+              <span class="res-val">{{ m.water || 0 }}</span>
             </span>
-            <span class="res-val">{{ m.water || 0 }}</span>
-          </span>
 
-          <span class="res-item" title="L'herbe médicinale est utile pour l'alchimie">
-            <span class="res-ico-box">
-              <img class="res-ico res-ico-s" src="/assets/icons/medical_grass.png" alt="Herbe médicinale">
+            <span class="res-item" title="L'herbe médicinale est utile pour l'alchimie">
+              <span class="res-ico-box">
+                <img class="res-ico res-ico-s" src="/assets/icons/medical_grass.png" alt="Herbe médicinale">
+              </span>
+              <span class="res-val">{{ m.herbs || 0 }}</span>
             </span>
-            <span class="res-val">{{ m.herbs || 0 }}</span>
-          </span>
 
-          <span class="res-item" title="Le bois est utile pour la fabrication d'équipement">
-            <span class="res-ico-box">
-              <img class="res-ico res-ico-l" src="/assets/icons/wood.png" alt="Bois">
+            <span class="res-item" title="Le bois est utile pour la fabrication d'équipement">
+              <span class="res-ico-box">
+                <img class="res-ico res-ico-l" src="/assets/icons/wood.png" alt="Bois">
+              </span>
+              <span class="res-val">{{ m.wood || 0 }}</span>
             </span>
-            <span class="res-val">{{ m.wood || 0 }}</span>
-          </span>
 
-          <span class="res-item" title="Le fer est utile pour la fabrication d'équipement">
-            <span class="res-ico-box">
-              <img class="res-ico res-ico-m" src="/assets/icons/iron.png" alt="Fer">
+            <span class="res-item" title="Le fer est utile pour la fabrication d'équipement">
+              <span class="res-ico-box">
+                <img class="res-ico res-ico-m" src="/assets/icons/iron.png" alt="Fer">
+              </span>
+              <span class="res-val">{{ m.iron || 0 }}</span>
             </span>
-            <span class="res-val">{{ m.iron || 0 }}</span>
-          </span>
 
-          <span class="res-item" title="La pierre est utile pour les constructions du vampire ou pour vendre a la ville et gagner de l'or">
-            <span class="res-ico-box">
-              <img class="res-ico res-ico-s" src="/assets/icons/stone.png" alt="Pierre">
+            <span class="res-item" title="La pierre est utile pour les constructions du vampire ou pour vendre a la ville et gagner de l'or">
+              <span class="res-ico-box">
+                <img class="res-ico res-ico-s" src="/assets/icons/stone.png" alt="Pierre">
+              </span>
+              <span class="res-val">{{ m.stone || 0 }}</span>
             </span>
-            <span class="res-val">{{ m.stone || 0 }}</span>
-          </span>
 
-          <span *ngIf="m.role==='HUNTER'" class="res-item" title="L'argent est utile late game pour fabriquer de l'équipement sacré">
-            <span class="res-ico-box">
-              <img class="res-ico res-ico-s" src="/assets/icons/silver.png" alt="Argent">
+            <span *ngIf="m.role==='HUNTER'" class="res-item" title="L'argent est utile late game pour fabriquer de l'équipement sacré">
+              <span class="res-ico-box">
+                <img class="res-ico res-ico-s" src="/assets/icons/silver.png" alt="Argent">
+              </span>
+              <span class="res-val">{{ m.silver || 0 }}</span>
             </span>
-            <span class="res-val">{{ m.silver || 0 }}</span>
-          </span>
-        </div>
-
-        <div>
-          <div class="build-grid">
-
-            <ng-container *ngFor="let opt of buildOptions">
-
-              <div class="build-item" *ngIf="!isInfraBuilt(opt.code)">
-
-                <!-- bouton = image du lieu + zoom -->
-                <button type="button"
-                        class="build-card-btn"
-                        (click)="onChooseInfra(opt.code)"
-                        (mouseenter)="zoomEnter($event, undefined, undefined, 'L', locationInfo(opt.code))"
-                        (mousemove)="zoomMove($event)"
-                        (mouseleave)="zoomLeave()">
-                  <img class="build-card-img"
-                      [src]="infraImg(opt.code)"
-                      [alt]="opt.title" />
-                </button>
-
-                <div class="build-title">{{ opt.title }}</div>
-                <div class="build-sub">Coûts de construction</div>
-
-                <!-- coût en icônes -->
-                <div class="build-cost price price-icons">
-                  <span class="cost-item" *ngFor="let c of infraCostList(opt.code)">
-                    <span class="cost-val">{{ c.qty }}</span>
-                    <span class="cost-ico-box">
-                      <img class="cost-ico cost-ico-s" [src]="c.icon" [alt]="c.label" />
-                    </span>
-                  </span>
-                </div>
-
-              </div>
-
-            </ng-container>
-
           </div>
 
+          <div>
+            <div class="build-grid">
 
-          <button class="btn-secondary" (click)="closeBuildModal()">Annuler</button>
-        </div>       
+              <ng-container *ngFor="let opt of buildOptions">
+
+                <div class="build-item" *ngIf="!isInfraBuilt(opt.code)">
+
+                  <!-- bouton = image du lieu + zoom -->
+                  <button type="button"
+                          class="build-card-btn"
+                          (click)="onChooseInfra(opt.code)"
+                          (mouseenter)="zoomEnter($event, undefined, undefined, 'L', locationInfo(opt.code))"
+                          (mousemove)="zoomMove($event)"
+                          (mouseleave)="zoomLeave()">
+                    <img class="build-card-img"
+                        [src]="infraImg(opt.code)"
+                        [alt]="opt.title" />
+                  </button>
+
+                  <div class="build-title">{{ opt.title }}</div>
+                  <div class="build-sub">Coûts de construction</div>
+
+                  <!-- coût en icônes -->
+                  <div class="build-cost price price-icons">
+                    <span class="cost-item" *ngFor="let c of infraCostList(opt.code)">
+                      <span class="cost-val">{{ c.qty }}</span>
+                      <span class="cost-ico-box">
+                        <img class="cost-ico cost-ico-s" [src]="c.icon" [alt]="c.label" />
+                      </span>
+                    </span>
+                  </div>
+
+                </div>
+
+              </ng-container>
+
+            </div>
+
+
+            <button class="btn-secondary" (click)="closeBuildModal()">Annuler</button>
+          </div>
+        </div> 
     </div>
   </div>
   <!-- ===== MODALE CONFIRMATION CONSTRUCTION ===== -->
@@ -2928,6 +2930,8 @@ interface ForgeOption {
         <div class="modal-button-row footer-row">
           <button
             type="button"
+            class="btn-primary"
+            style="margin-right: 10px;"
             (click)="chooseLocationEffect()"
             [disabled]="!canChooseLocationEffect || !effectChoice">
             Valider
@@ -3025,6 +3029,8 @@ interface ForgeOption {
         <div class="modal-button-row footer-row" *ngIf="isLocationEffectOwner">
           <button
             type="button"
+            class="btn-primary"
+            style="margin-right: 10px;"
             (click)="chooseLocationEffect()"
             [disabled]="!canChooseLocationEffect || !effectChoice">
             Valider
@@ -3116,6 +3122,8 @@ interface ForgeOption {
         <div class="modal-button-row footer-row" *ngIf="isLocationEffectOwner">
           <button
             type="button"
+            class="btn-primary"
+            style="margin-right: 10px;"
             (click)="chooseLocationEffect()"
             [disabled]="!canChooseLocationEffect || !effectChoice">
             Valider
@@ -3220,6 +3228,8 @@ interface ForgeOption {
         <div class="modal-button-row footer-row" *ngIf="isLocationEffectOwner">
           <button
             type="button"
+            class="btn-primary"
+            style="margin-right: 10px;"
             (click)="chooseLocationEffect()"
             [disabled]="!canChooseLocationEffect || !effectChoice">
             Valider
@@ -3278,6 +3288,8 @@ interface ForgeOption {
         <div class="modal-button-row footer-row" *ngIf="isLocationEffectOwner">
           <button
             type="button"
+            class="btn-primary"
+            style="margin-right: 10px;"
             (click)="chooseLocationEffect()"
             [disabled]="!canChooseLocationEffect || !effectChoice">
             Valider
@@ -3532,7 +3544,7 @@ interface ForgeOption {
               <button type="button"
                       (click)="confirmExperiment()"
                       [disabled]="!experimentCanSubmit || experimentSubmitting">
-                Valider l’expérience
+                {{ experimentSubmitting ? 'Validation…' : 'Valider l’expérience' }}
               </button>
             </div>
           </div>
@@ -5983,24 +5995,59 @@ interface ForgeOption {
     }
   }
 
-  /* animation pioche boutique */
-
   /* === MODALE CONSTRUCTION === */
   /* Conteneur de la modale construction */
-  .modal.construction-modal {
+  .modal.construction-modal{
     position: relative;
-    width: min(780px, 95vw);
-    min-height: 700px;
+
+    width: 80vw;
+    height: 90vh;
+
+    max-width: 1200px;
+    max-height: 1100px;
 
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
 
-    padding: 1.5rem;
+    padding: 1.25rem;
     text-align: center;
+
     background-size: cover;
     background-position: center;
+    box-sizing: border-box;
+  }
+
+  /* zone scrollable */
+  .modal.construction-modal .construction-scroll{
+    width: 100%;
+    max-width: 100%;
+
+    max-height: 100%;
+
+    overflow: auto;
+
+    box-sizing: border-box;
+
+    padding-right: 2px;
+  }
+
+  /* petit ajustement responsive */
+  @media (max-width: 900px){
+    .modal.construction-modal{
+      width: 92vw;
+      height: 86vh;
+      padding: 1rem;
+    }
+  }
+
+  @media (max-width: 600px){
+    .modal.construction-modal{
+      width: 96vw;
+      height: 90vh;
+      padding: .85rem;
+    }
   }
 
   .modal.construction-modal.choices {
@@ -6032,10 +6079,10 @@ interface ForgeOption {
 
   .modal.construction-modal .build-item{
     flex: 0 0 190px;
-  }
 
+    height: 280px;
+    box-sizing: border-box;
 
-  .modal.construction-modal .build-item{
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -6066,12 +6113,14 @@ interface ForgeOption {
   }
 
   .modal.construction-modal .build-title{
+    flex: 0 0 auto;
     font: 800 14px/1.1 system-ui, sans-serif;
     color: #fff;
     text-align: center;
   }
 
   .modal.construction-modal .build-sub{
+    flex: 0 0 auto;
     font: 650 12px/1.1 system-ui, sans-serif;
     color: rgba(255,255,255,.75);
     margin-top: -2px;
@@ -6164,8 +6213,10 @@ interface ForgeOption {
     background-position: center 30%;
   }
 
-  /* On réutilise la même overlay que construction */
-  .modal.location-effect-modal .modal-overlay-content {
+  .modal.location-effect-modal .modal-overlay-content{
+    box-sizing: border-box;
+
+    /* garde ton look */
     background: rgba(0, 0, 0, 0.65);
     padding: 1.5rem;
     border-radius: 8px;
@@ -6173,6 +6224,15 @@ interface ForgeOption {
     width: min(560px, 90vw);
     color: #fff;
     text-align: center;
+
+    max-height: 100%;
+    overflow: auto;
+
+    max-width: 100%;
+
+    /* autorise le shrink + scroll au lieu de déborder */
+    min-height: 0;
+    min-width: 0;
   }
 
   /* Boutons d'option d'effet (texte cliquable) */
@@ -6220,7 +6280,7 @@ interface ForgeOption {
 
   .monster-pick-grid{
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     gap: .75rem;
   }
 
@@ -6241,7 +6301,7 @@ interface ForgeOption {
   }
 
   .monster-img{
-    height: 300px;
+    height: min(300px, 30vh);
     width: auto;
     max-width: 100%;
     object-fit: contain;
@@ -6567,8 +6627,8 @@ export class GameComponent {
 
   experimentMonsterMeta = {
     REVENANT:   { cost: 100, hp: 5,  atkDice: 'D6',  defDice: 'D4' },
-    GARGOYLE:   { cost: 200, hp: 10, atkDice: 'D8',  defDice: 'D6' },
-    ABERRATION: { cost: 300, hp: 15, atkDice: 'D12', defDice: 'D8' },
+    GARGOYLE:   { cost: 250, hp: 10, atkDice: 'D8',  defDice: 'D6' },
+    ABERRATION: { cost: 500, hp: 15, atkDice: 'D12', defDice: 'D8' },
   } as const;
 
   // ALTAR
@@ -12335,7 +12395,6 @@ zoomMove(ev: MouseEvent) {
     // EXPERIMENT
     this.experimentMonsterType = null;
     this.experimentLocation = null;
-    this.experimentSubmitting = false;
     this.experimentPossibleLocations = [];
 
     // ALTAR
@@ -12518,7 +12577,6 @@ zoomMove(ev: MouseEvent) {
     ).subscribe({
       next: () => {
         // Le serveur fera LOCATION_USED + snapshot → la modale se fermera via syncLocationEffectFromSnapshot
-        this.experimentSubmitting = false;
       },
       error: (err) => {
         console.error('Erreur resolveLaboratoryExperiment', err);
