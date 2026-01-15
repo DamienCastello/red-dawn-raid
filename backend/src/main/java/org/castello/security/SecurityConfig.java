@@ -67,19 +67,32 @@ public class SecurityConfig {
 
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
-        var cfg = new CorsConfiguration();
-        cfg.setAllowedOrigins(List.of(
+        var source = new UrlBasedCorsConfigurationSource();
+
+        // --- API (strict) ---
+        var api = new CorsConfiguration();
+        api.setAllowedOrigins(List.of(
                 "http://localhost:4200",
                 "https://red-dawn-raid-preprod.castello.ovh",
                 "https://red-dawn-raid.castello.ovh"
         ));
-        cfg.setAllowedMethods(List.of("GET","POST","PUT","DELETE","OPTIONS"));
-        // Parfois Angular en preflight envoie d’autres headers -> wildcard = peace of mind
-        cfg.setAllowedHeaders(List.of("*"));
-        cfg.setAllowCredentials(false);
+        api.setAllowedMethods(List.of("GET","POST","PUT","DELETE","OPTIONS"));
+        api.setAllowedHeaders(List.of("*"));
+        api.setAllowCredentials(false);
 
-        var source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", cfg);
+        source.registerCorsConfiguration("/api/**", api);
+        source.registerCorsConfiguration("/uploads/**", api);
+
+        // --- WS (permissif, évite les 403 handshake derrière proxy) ---
+        var ws = new CorsConfiguration();
+        ws.setAllowedOriginPatterns(List.of("*"));  // ✅ important
+        ws.setAllowedMethods(List.of("GET", "OPTIONS"));
+        ws.setAllowedHeaders(List.of("*"));
+        ws.setAllowCredentials(false);
+
+        source.registerCorsConfiguration("/ws", ws);
+        source.registerCorsConfiguration("/ws/**", ws);
+
         return source;
     }
 }

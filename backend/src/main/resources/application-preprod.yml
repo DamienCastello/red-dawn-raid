@@ -5,7 +5,7 @@ server:
 
 danger:
   wipe:
-    enabled: true
+    enabled: false
 
 app:
   cors:
