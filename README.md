@@ -3,48 +3,12 @@
 Jeu de société "Chasseurs vs Vampire" — **frontend Angular** + **backend Spring Boot**.
 
 ## Sommaire
-- [Structure](#structure)
 - [Prérequis](#prérequis)
 - [Démarrage rapide (dev)](#démarrage-rapide-dev)
-- [API (aperçu)](#api-aperçu)
+- [Déployer & Démarrer le serveur (prod)](#déployer-démarrer)
 - [Identité / Auth légère](#identité--auth-légère)
 
 ---
-
-```text
-.
-├─ backend/                      # Spring Boot (Java 21, Maven)
-│  ├─ pom.xml
-│  └─ src/main/java/org/castello/
-│     ├─ RedDawnRaidApplication.java        # bootstrap Spring
-│     ├─ web/
-│     │  ├─ HealthController.java           # GET /api/health
-│     │  ├─ GameController.java             # REST /api/games...
-│     │  ├─ ApiError.java                   # format d’erreur JSON
-│     │  ├─ GlobalExceptionHandler.java     # exceptions -> ApiError
-│     │  └─ dto/
-│     │     ├─ JoinRequest.java             # { nickname }
-│     │     └─ JoinResponse.java            # { game, playerId, playerToken }
-│     ├─ game/
-│     │  ├─ GameStatus.java                 # CREATED / ACTIVE / ENDED
-│     │  ├─ Game.java                       # état d'une partie
-│     │  └─ GameService.java                # logique métier
-│     └─ player/
-│        ├─ Player.java                     # id, nickname, token, gameId
-│        └─ PlayerService.java              # gestion tokens / validations
-└─ frontend/                    # Angular 18 (Node 20+)
-   ├─ angular.json
-   ├─ package.json
-   ├─ proxy.conf.json                       # /api -> localhost:8080 (dev)
-   └─ src/app/
-      ├─ app.ts                             # composant racine
-      ├─ app.html                           # router-outlet
-      ├─ app.routes.ts                      # '' -> Lobby, 'game/:id' -> Game
-      ├─ api.service.ts                     # appels HTTP
-      ├─ auth.interceptor.ts                # ajoute Authorization: Bearer token
-      ├─ lobby.component.ts                 # lobby (lister/joindre/démarrer)
-      └─ game.component.ts                  # affichage players
-```
 
 ## Prérequis
 
@@ -77,19 +41,12 @@ ouvre http://localhost:4200
 
 Le proxy redirige /api/* vers http://localhost:8080/*
 
-## API (aperçu)
+## Déployer & Démarrer le serveur (prod)
 ```text
-GET /api/health → { "status":"ok" }
-POST /api/games → crée une partie -> Game
-GET /api/games → liste les parties -> Game[]
-GET /api/games/{id} → état d’une partie -> Game
-POST /api/games/{id}/join { nickname } → JoinResponse { game, playerId, playerToken }
-POST /api/games/{id}/start (header Authorization: Bearer token) → Game
-```
+scp -r /home/gamma/Documents/red-dawn-raid/* gamma@147.135.128.42:docker/red-dawn-raid-prod 
+scp -r /home/gamma/Documents/red-dawn-raid/.env.prod gamma@147.135.128.42:docker/red-dawn-raid-prod
 
-Erreurs renvoyées au format :
-```text
-{ "error":"400 BAD_REQUEST", "message":"...", "path":"/api/...", "timestamp":"..." }
+sudo docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build
 ```
 
 ## Identité / Auth légère

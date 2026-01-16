@@ -1563,7 +1563,7 @@ interface ForgeOption {
                       class="shop-card-action-btn"
                       [class.is-disabled]="!canUseActionNow(action)"
                       [attr.aria-disabled]="!canUseActionNow(action) ? true : null"
-                      [attr.title]="actionLabelFr(action)"
+                      [attr.title]="this.game?.shopBonusKind ? 'Il y a déjà un marchand itinérant' : null"
                       (click)="useAction(action)"
                       (mouseenter)="zoomEnter($event, undefined, undefined, 'L')"
                       (mousemove)="zoomMove($event)"
@@ -2155,7 +2155,7 @@ interface ForgeOption {
             <!-- Vue ACTEUR -->
             <ng-container *ngIf="isActionActor; else provocationSpectate">
               <p class="breakdown">
-                Choisissez un ennemi (vampire ou serviteur) à provoquer : il devra vous cibler
+                Choisissez un ennemi (vampire ou serviteur) à provoquer: il devra vous cibler
                 en priorité ce raid et ses autres attaques seront annulées.
               </p>
 
@@ -8962,39 +8962,90 @@ zoomMove(ev: MouseEvent) {
         const result  = payload.result as ('SUCCESS'|'CLOSED'|undefined);
         if (!id || !aId || !bId) break;
 
-        const meId    = this.me?.id;
-        const otherId = meId === aId ? bId : aId;
+        const me = this.me;
+        if (!me) break;
 
+        const success = (result === 'SUCCESS');
         const offerA = (payload.offerA || {}) as Record<string, number>;
         const offerB = (payload.offerB || {}) as Record<string, number>;
 
-        const success = (result === 'SUCCESS');
+        const meInvolved = (me.id === aId || me.id === bId);
 
+        // Déduire le camp de l’échange depuis les rôles dans le snapshot
+        const pa = this.game?.players?.find(p => p.id === aId);
+        const pb = this.game?.players?.find(p => p.id === bId);
+
+        const tradeSide: 'HUNTERS'|'VAMP_SIDE'|null =
+          (pa && pb && pa.role === 'HUNTER' && pb.role === 'HUNTER') ? 'HUNTERS'
+          : (pa && pb) ? 'VAMP_SIDE'
+          : null;
+
+        const mySide: 'HUNTERS'|'VAMP_SIDE' =
+          (me.role === 'HUNTER') ? 'HUNTERS' : 'VAMP_SIDE';
+
+        // Si je ne suis pas impliqué et pas dans le bon camp => je ne vois rien
+        if (!meInvolved && tradeSide && tradeSide !== mySide) {
+          // (optionnel) on peut quand même nettoyer la liste locale des trades
+          if (this.game?.trades) {
+            this.game.trades = this.game.trades.filter((x: STrade) => x.id !== id);
+            this.game = { ...(this.game as GameSnapshot) };
+          }
+          break;
+        }
+
+        // Animation “closing” (ok pour tout le monde du camp, ça ne casse rien)
         this.closingUntil[id] = Date.now() + 1500;
         this.closingKind[id]  = success ? 'ok' : 'ko';
         this.game = { ...(this.game as GameSnapshot) };
 
         setTimeout(() => {
-          if (this.game?.trades)
+          // retirer le trade du snapshot local
+          if (this.game?.trades) {
             this.game.trades = this.game.trades.filter((x: STrade) => x.id !== id);
-
-          if (otherId) delete this.myOffersByTarget[otherId];
-          if (this.selectedTradeTargetId === otherId) {
-            this.selectedTradeTargetId = null;
-            this.myOffer = {};
           }
+
+          // Si je suis impliqué => nettoyage UI + message détaillé
+          if (meInvolved) {
+            const otherId = (me.id === aId) ? bId : aId;
+
+            // nettoyer mes offres / sélection seulement si concerné
+            if (otherId) delete this.myOffersByTarget[otherId];
+            if (this.selectedTradeTargetId === otherId) {
+              this.selectedTradeTargetId = null;
+              this.myOffer = {};
+            }
+
+            if (success) {
+              const iAmA = (me.id === aId);
+              const give = iAmA ? offerA : offerB;
+              const recv = iAmA ? offerB : offerA;
+
+              const txt = `Vous avez échangé ${this.packToText(give)} contre ${this.packToText(recv)} avec ${this.usernameOf(otherId)}.`;
+              this.setFlashFor(otherId, txt, 'ok', 2500);
+
+              // resync ressources
+              this.api.getGame(this.gameId).subscribe({
+                next: g => this.game = g,
+                error: e => this.showError(e)
+              });
+            } else {
+              this.setFlashFor(otherId, `Échange annulé avec ${this.usernameOf(otherId)}.`, 'ko', 2500);
+              this.game = { ...(this.game as GameSnapshot) };
+            }
+            return;
+          }
+
+          // Sinon (spectateur mais même camp) => message neutre
+          const aName = this.usernameOf(aId);
+          const bName = this.usernameOf(bId);
 
           if (success) {
-            const iAmA = (meId === aId);
-            const give = iAmA ? offerA : offerB;
-            const recv = iAmA ? offerB : offerA;
-            const txt  = `Vous avez échangé ${this.packToText(give)} contre ${this.packToText(recv)} avec ${this.usernameOf(otherId)}.`;
-            this.setFlashFor(otherId, txt, 'ok', 2500);
-            this.api.getGame(this.gameId).subscribe({ next: g => this.game = g, error: e => this.showError(e) });
+            this.setFlashFor('__camp__', `${aName} et ${bName} ont conclu un échange.`, 'ok', 2500);
           } else {
-            this.setFlashFor(otherId, `Échange annulé avec ${this.usernameOf(otherId)}.`, 'ko', 2500);
-            this.game = { ...(this.game as GameSnapshot) };
+            this.setFlashFor('__camp__', `Échange fermé entre ${aName} et ${bName}.`, 'ko', 2500);
           }
+
+          this.game = { ...(this.game as GameSnapshot) };
         }, 1500);
 
         break;
@@ -9770,6 +9821,7 @@ zoomMove(ev: MouseEvent) {
         if (!me) return false;
         if (me.role !== 'HUNTER') return false;
         if (g.phase !== 'PHASE4') return false;
+        if (this.game?.shopBonusKind) return false;
 
         // Bloqué par Présence écrasante
         if (g.hunterActionsBlockedThisRaid) return false;
@@ -10935,15 +10987,21 @@ zoomMove(ev: MouseEvent) {
     }
 
     // 9) MARQUE_TENEBREUSE / EAU_BENITE / AFFAIBLISSEMENT_OCCULTE: actions de choix, on met en pause le timer local
-    if (this.actionMode === 'MARQUE_TENEBREUSE' 
-      || this.actionMode === 'EAU_BENITE' 
-      || this.actionMode === 'AFFAIBLISSEMENT_OCCULTE'
-      || this.actionMode === 'PROVOCATION'
-      || this.actionMode === 'AMBUSH') {
+    if (this.actionMode === 'MARQUE_TENEBREUSE'
+      || this.actionMode === 'EAU_BENITE'
+      || this.actionMode === 'AFFAIBLISSEMENT_OCCULTE') {
       this.trapEnemies = [];
       this.trapCurrentIndex = 0;
       this.incendiaireChoices = [];
-      // On met en pause le timer local de PREPHASE tant que la marque n'est pas résolue
+    }
+
+    // 9B) pause timer pour les actions qui bloquent la préphase
+    if (this.actionMode === 'MARQUE_TENEBREUSE'
+      || this.actionMode === 'EAU_BENITE'
+      || this.actionMode === 'AFFAIBLISSEMENT_OCCULTE'
+      || this.actionMode === 'PROVOCATION'
+      || this.actionMode === 'AMBUSH'
+      || this.actionMode === 'PASSAGE_SECRET') {
       this.stopPrephaseTimer();
     }
 

@@ -394,7 +394,7 @@ export class AuthComponent {
   // =========================
   // DANGER ZONE (à supprimer avant release)
   // =========================
-  enableDangerWipe = false;
+  enableDangerWipe = true;
 
   envName = location.origin;
 

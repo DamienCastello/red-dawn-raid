@@ -57,17 +57,7 @@ public class GameController {
         var user = authService.requireUser(authorization);
         String username = user.getUsername();
 
-        // 1) garde ta règle "1 game par user"
-        playerService.joinGame(user.getId(), id, username);
-
-        try {
-            // 2) écrit dans le JSONB
-            games.addOrUpdatePlayer(id, user.getId(), username);
-        } catch (Exception e) {
-            // rollback "simple" côté SQL si le JSONB refuse
-            playerService.leaveGame(user.getId(), id);
-            throw e;
-        }
+        games.join(id, user.getId(), username);
     }
 
     @PostMapping("/{id}/boot-ready")

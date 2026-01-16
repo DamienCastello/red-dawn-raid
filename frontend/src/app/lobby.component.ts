@@ -110,7 +110,7 @@ import { AssetPreloaderService } from './services/asset-preloader.service';
 
             <ng-template #canJoinHere>
               <p>Vous rejoindrez en tant que <b>{{ currentUsername }}</b>.</p>
-              <button class="btn btn-primary" (click)="join()" [disabled]="selected.status !== 'CREATED'">
+              <button class="btn btn-primary" (click)="join()" [disabled]="selected.status !== 'CREATED' || activePlayersCount(selected) >= 7">
                 Rejoindre
               </button>
             </ng-template>

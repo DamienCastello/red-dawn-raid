@@ -20,11 +20,11 @@ import org.castello.web.dto.EndedGameSummary;
 
 import org.castello.persistence.GameEntity;
 import org.castello.persistence.GameRepository;
+import org.castello.persistence.PlayerRepository;
 import org.castello.player.PlayerService;
 
 import java.util.*;
-//TODO: improve loby and leave end game
-//TODO: improve load img & finish design card/assets
+
 @Service
 public class GameService {
 
@@ -32,14 +32,16 @@ public class GameService {
     private final TransactionTemplate tx;
 
     // ----- PERSISTENCE -----
-    private final GameRepository repo;
+    private final GameRepository gameRepo;
+    private final PlayerRepository playerRepo;
     private final ObjectMapper mapper; // Jackson fourni par Spring Boot
     private final org.castello.live.LiveEvents live;
     private final PlayerService playerService;
 
-    public GameService(GameRepository repo, @Qualifier("raidTaskScheduler") TaskScheduler raidScheduler, PlatformTransactionManager tm, ObjectMapper mapper,
+    public GameService(GameRepository gameRepo, PlayerRepository playerRepo, @Qualifier("raidTaskScheduler") TaskScheduler raidScheduler, PlatformTransactionManager tm, ObjectMapper mapper,
                        org.castello.live.LiveEvents live, PlayerService playerService) {
-        this.repo = repo;
+        this.gameRepo = gameRepo;
+        this.playerRepo = playerRepo;
         this.raidScheduler = raidScheduler;
         this.tx = new TransactionTemplate(tm);
         this.mapper = mapper;
@@ -60,13 +62,13 @@ public class GameService {
     }
 
     private Game findOr404(String id) {
-        var e = repo.findById(id)
+        var e = gameRepo.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Game not found"));
         return fromJson(e.getStateJson());
     }
 
     private Game findOr404ForUpdate(String id) {
-        GameEntity ge = repo.findByIdForUpdate(id)
+        GameEntity ge = gameRepo.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "game not found"));
         return fromJson(ge.getStateJson());
     }
@@ -641,14 +643,14 @@ public class GameService {
 
     /** Sauvegarde en préservant la version (évite les inserts involontaires). */
     private void save(@NonNull Game g) {
-        repo.findById(g.getId()).ifPresentOrElse(existing -> {
+        gameRepo.findById(g.getId()).ifPresentOrElse(existing -> {
             existing.setStateJson(toJson(g));
-            repo.save(existing);
+            gameRepo.save(existing);
         }, () -> {
             GameEntity ne = new GameEntity();
             ne.setId(g.getId());
             ne.setStateJson(toJson(g));
-            repo.save(ne);
+            gameRepo.save(ne);
         });
     }
 
@@ -1055,12 +1057,21 @@ public class GameService {
     }
 
     public Collection<Game> list() {
-        return repo.findAll().stream()
+        return gameRepo.findAll().stream()
                 .map(ge -> fromJson(ge.getStateJson()))
                 .toList();
     }
 
-    // REM: findOr404(id) déjà défini ci-dessus (JSONB -> Game)
+    @Transactional
+    public Game join(String gameId, String userId, String username) {
+        // 1) D'abord: source de vérité + LOCK + limite max
+        Game g = addOrUpdatePlayer(gameId, userId, username);
+
+        // 2) Ensuite: mapping SQL (si ça échoue -> rollback de (1))
+        playerService.joinGame(userId, gameId, username);
+
+        return g;
+    }
 
     // ---------- LOBBY ----------
     private static final long STARTING_MAX_MS = 60_000; // 60s
@@ -1077,35 +1088,47 @@ public class GameService {
         return false;
     }
 
+    private static final int MAX_PLAYERS = 7;
+
     @Transactional
     public Game addOrUpdatePlayer(String gameId, String playerId, String username) {
         if (username == null || username.isBlank())
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "username required");
 
-        Game g = findOr404ForUpdate(gameId);
+        Game g = findOr404ForUpdate(gameId); // lock pessimiste => join sérialisées
         long now = System.currentTimeMillis();
-
         boolean changed = false;
 
-        // 1) si STARTING est bloqué depuis trop longtemps -> on repasse CREATED
-        if (ensureStartingTimeout(g, now)) {
-            changed = true;
-        }
+        if (ensureStartingTimeout(g, now)) changed = true;
 
-        // 2) maintenant seulement on vérifie le status
         if (g.getStatus() != GameStatus.CREATED)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "game already started/ended");
 
-        // 3) cleanup ghosts (ça met leftGame=true dans le Game)
+        // cleanup ghosts (met leftGame=true)
         Set<String> stale = cleanupStaleLobbyPlayers(g, now);
         if (!stale.isEmpty()) changed = true;
 
-        // ne PAS appeler playerService.leaveGame ici (voir section 3)
+        // ---- LIMITE MAX JOUEURS (après cleanup) ----
+        var existingOpt = g.getPlayers().stream()
+                .filter(p -> p.getId().equals(playerId))
+                .findFirst();
 
-        // 4) upsert player + lastSeen
-        var opt = g.getPlayers().stream().filter(p -> p.getId().equals(playerId)).findFirst();
-        if (opt.isPresent()) {
-            Player p = opt.get();
+        long activeCount = g.getPlayers().stream()
+                .filter(p -> !p.isLeftGame())
+                .count();
+
+        boolean alreadyActive = existingOpt.isPresent() && !existingOpt.get().isLeftGame();
+        boolean wouldConsumeSlot = !alreadyActive; // nouveau joueur OU retour d’un leftGame
+
+        if (wouldConsumeSlot && activeCount >= MAX_PLAYERS) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "game is full (max " + MAX_PLAYERS + ")");
+        }
+        // -------------------------------------------
+
+        // upsert + lastSeen
+        if (existingOpt.isPresent()) {
+            Player p = existingOpt.get();
             p.setUsername(username);
             p.setLeftGame(false);
             p.setLastSeenTs(now);
@@ -1118,7 +1141,6 @@ public class GameService {
         changed = true;
 
         save(g);
-
         if (changed) afterCommit(() -> live.lobbyUpdated(g));
         return g;
     }
@@ -1131,17 +1153,35 @@ public class GameService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "already started/ended");
 
         long now = System.currentTimeMillis();
+
+        // 1) marque leftGame=true pour les ghosts
         Set<String> stale = cleanupStaleLobbyPlayers(g, now);
-        for (String uid : stale) {
-            try { playerService.leaveGame(uid, id); } catch (Exception ignored) {}
+
+        // 2) on retire tous les leftGame du roster (ghosts + gens qui avaient leave)
+        var removedIds = g.getPlayers().stream()
+                .filter(Player::isLeftGame)
+                .map(Player::getId)
+                .toList();
+
+        if (!removedIds.isEmpty()) {
+            g.getPlayers().removeIf(Player::isLeftGame);
+            if (g.getReadyForStart() != null) g.getReadyForStart().removeAll(removedIds);
+
+            // mapping SQL : on libère ces users (ils ne font plus partie du roster)
+            for (String uid : removedIds) {
+                try { playerService.leaveGame(uid, id); } catch (Exception ignored) {}
+            }
         }
 
-        long activeCount = g.getPlayers().stream().filter(p -> !p.isLeftGame()).count();
-        if (activeCount < 2)
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "need at least 2 players (someone left the lobby)");
+        // 3) check players count (plus besoin de filter leftGame, ils sont déjà retirés)
+        if (g.getPlayers().size() < 2)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "need at least 2 players");
+
+        // 4) garde-fou max players (très important)
+        if (g.getPlayers().size() > MAX_PLAYERS)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "too many players (max " + MAX_PLAYERS + ")");
 
         g.setStatus(GameStatus.STARTING);
-
         g.setStartingAtTs(now);
 
         if (g.getReadyForStart() == null) g.setReadyForStart(new HashSet<>());
@@ -1289,10 +1329,18 @@ public class GameService {
 
     @Transactional
     public Game startReal(Game g) {
-        // Guard anti double-start (important)
         if (g.getStatus() == GameStatus.ACTIVE) return g;
         if (g.getStatus() != GameStatus.STARTING)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "not in STARTING");
+
+        // sécurité: au cas où
+        g.getPlayers().removeIf(Player::isLeftGame);
+
+        if (g.getPlayers().size() < 2)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "need at least 2 players");
+        if (g.getPlayers().size() > MAX_PLAYERS)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "too many players (max " + MAX_PLAYERS + ")");
+
 
         // === Etat global ===
         g.setStatus(GameStatus.ACTIVE);
@@ -1401,7 +1449,9 @@ public class GameService {
             }
 
         }
+        */
 
+        /*
         // --- Inventaire actions (dev/test) ---
         for (var p : g.getPlayers()) {
             if ("HUNTER".equals(p.getRole())) {
@@ -1421,7 +1471,7 @@ public class GameService {
                         "CLONES_OMBRE", "CLONES_OMBRE", "MARQUE_TENEBREUSE", "PRESENCE_ECRASANTE", "PRESENCE_ECRASANTE"
                 ));
             }
-        }
+         }
         */
 
         initDecks(g);
@@ -1517,8 +1567,13 @@ public class GameService {
 
             if (shouldDelete) {
                 // Supprime l'entity en base (JSONB)
-                repo.deleteById(gameId); // adapte si ton repo a une autre méthode
+                playerRepo.deleteByGameId(gameId);
+                gameRepo.deleteById(gameId);
             } else {
+                // si on quitte le lobby (CREATED/STARTING), on libère le mapping SQL
+                if (g.getStatus() != GameStatus.ACTIVE) {
+                    playerService.leaveGame(userId, gameId); // supprime PlayerEntity
+                }
                 if (g.getStatus() == GameStatus.ACTIVE) handleDeathsAndVictory(g);
                 save(g);
             }
@@ -1630,21 +1685,21 @@ public class GameService {
     private void initDecks(Game g) {
         // --- Potions ---
         Map<String,Integer> potionsComp = new HashMap<>();
-        potionsComp.put("FORCE",           3);
-        potionsComp.put("ENDURANCE",       3);
-        potionsComp.put("VIE",             4);
-        potionsComp.put("FOCALISATION",    2);
-        potionsComp.put("SANGSUE",         2);
+        potionsComp.put("FORCE",           6);
+        potionsComp.put("ENDURANCE",       6);
+        potionsComp.put("VIE",             7);
+        potionsComp.put("FOCALISATION",    4);
+        potionsComp.put("SANGSUE",         4);
 
         g.setPotionDeck(buildDeckFromComposition(potionsComp));
         g.setPotionDiscard(new ArrayList<>());
 
         // --- Rare Potions ---
         Map<String,Integer> elixirsComp = new HashMap<>();
-        elixirsComp.put("RESILIENCE",      2);
-        elixirsComp.put("RAGE",            2);
+        elixirsComp.put("RESILIENCE",      3);
+        elixirsComp.put("RAGE",            3);
         elixirsComp.put("RAPIDITE",        2);
-        elixirsComp.put("INVISIBILITE",    1);
+        elixirsComp.put("INVISIBILITE",    2);
         elixirsComp.put("INVULNERABILITE", 1);
 
         g.setElixirDeck(buildDeckFromComposition(elixirsComp));
@@ -1652,36 +1707,36 @@ public class GameService {
 
         // --- Actions chasseurs ---
         Map<String,Integer> hunterComp = new HashMap<>();
-        hunterComp.put("FUMIGATION_AIL",     3);
-        hunterComp.put("PISTEUR",            4);
+        hunterComp.put("FUMIGATION_AIL",     4);
+        hunterComp.put("PISTEUR",            6);
         hunterComp.put("FEU_DE_CAMP",        4);
-        hunterComp.put("NET",                3);
-        hunterComp.put("PIT",                2);
-        hunterComp.put("INCENDIAIRE",        2);
-        hunterComp.put("PROVOCATION",        3);
-        hunterComp.put("AMBUSH",             2);
-        hunterComp.put("BLESSED_STAKE",      3);
-        hunterComp.put("SACRED_ROSARY",      1);
+        hunterComp.put("NET",                8);
+        hunterComp.put("PIT",                6);
+        hunterComp.put("INCENDIAIRE",        4);
+        hunterComp.put("PROVOCATION",        4);
+        hunterComp.put("AMBUSH",             4);
+        hunterComp.put("BLESSED_STAKE",      6);
+        hunterComp.put("SACRED_ROSARY",      2);
         hunterComp.put("CHARISMATIQUE",      4);
-        hunterComp.put("MARCHAND_ITINERANT", 3);
+        hunterComp.put("MARCHAND_ITINERANT", 8);
 
         g.setHunterActionsDeck(buildDeckFromComposition(hunterComp));
         g.setHunterActionsDiscard(new ArrayList<>());
 
         // --- Actions vampire ---
         Map<String,Integer> vampComp = new HashMap<>();
-        vampComp.put("PRESENCE_ECRASANTE",     1);
-        vampComp.put("CATACLYSME",             1);
-        vampComp.put("CLONES_OMBRE",           1);
-        vampComp.put("IMAGE_MIROIR",           1);
-        vampComp.put("ECLIPSE",                2);
-        vampComp.put("BLOOD_MOON",             1);
-        vampComp.put("VOILE_DE_BRUME",         2);
-        vampComp.put("FAIM_IRREPRESSIBLE",     2);
-        vampComp.put("MARQUE_TENEBREUSE",      1);
-        vampComp.put("AFFAIBLISSEMENT_OCCULTE",3);
-        vampComp.put("PASSAGE_SECRET",         2);
-        vampComp.put("AVIDITE_NOCTURNE",       3);
+        vampComp.put("PRESENCE_ECRASANTE",     2);
+        vampComp.put("CATACLYSME",             2);
+        vampComp.put("CLONES_OMBRE",           3);
+        vampComp.put("IMAGE_MIROIR",           3);
+        vampComp.put("ECLIPSE",                3);
+        vampComp.put("BLOOD_MOON",             2);
+        vampComp.put("VOILE_DE_BRUME",         3);
+        vampComp.put("FAIM_IRREPRESSIBLE",     3);
+        vampComp.put("MARQUE_TENEBREUSE",      2);
+        vampComp.put("AFFAIBLISSEMENT_OCCULTE",4);
+        vampComp.put("PASSAGE_SECRET",         4);
+        vampComp.put("AVIDITE_NOCTURNE",       4);
 
         g.setVampActionsDeck(buildDeckFromComposition(vampComp));
         g.setVampActionsDiscard(new ArrayList<>());
@@ -5971,6 +6026,10 @@ public class GameService {
                             HttpStatus.CONFLICT,
                             "Marchand itinérant est utilisable uniquement pendant la maintenance (PHASE4)."
                     );
+                }
+
+                if (g.getShopBonusKind() != null) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Une offre du marchand est déjà disponible.");
                 }
 
                 // Consommer la carte dans la main du chasseur
@@ -10967,6 +11026,7 @@ public class GameService {
         if (vampOpt.isEmpty()) return;
         var vamp = vampOpt.get();
 
+        /*
         // 1) Si le vampire a pris des dégâts, la construction échoue,
         //    mais il récolte le lieu d'origine (forêt/carrière)
         if (g.isVampireTookDamageThisRaid()) {
@@ -10975,6 +11035,7 @@ public class GameService {
             applyBaseLocationHarvestForInfra(g, vamp, pc.infra);
             return;
         }
+        */
 
         // 2) Vérifier qu'il a encore les ressources
         if (!hasResourcesForInfra(vamp, pc.infra)) {

@@ -32,7 +32,12 @@ public class PlayerService {
         p.setUserId(userId);
         p.setGameId(gameId);
         p.setUsername(username);
-        return repo.save(p);
+        try {
+            return repo.save(p);
+        } catch (org.springframework.dao.DataIntegrityViolationException ex) {
+            // user_id unique => quelqu'un a gagné la course
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "user already in a game");
+        }
     }
 
     @Transactional

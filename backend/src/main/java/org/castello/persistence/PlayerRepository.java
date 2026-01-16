@@ -8,4 +8,6 @@ public interface PlayerRepository extends JpaRepository<PlayerEntity, String> {
     Optional<PlayerEntity> findByUserId(String userId);
     Optional<PlayerEntity> findByUserIdAndGameId(String userId, String gameId);
     List<PlayerEntity> findByGameId(String gameId);
+
+    void deleteByGameId(String gameId);
 }
