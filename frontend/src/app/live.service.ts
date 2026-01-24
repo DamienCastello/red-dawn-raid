@@ -30,6 +30,7 @@ export type GameEvent =
   | { type: 'BITE_RESOLVED';      gameId: string; payload: { attackerId: string; targetId: string; location: string }; ts: number } 
   | { type: 'POTION_BOUGHT';  gameId: string; payload: { playerId: string; type: string; pool: number }; ts: number }
   | { type: 'ACTION_BOUGHT';  gameId: string; payload: { playerId: string; type: string; pool: number }; ts: number }
+  | { type: 'STUFF_BOUGHT';  gameId: string; payload: { playerId: string; item: string; }; ts: number }
   | { type: 'SILVER_BOUGHT';  gameId: string; payload: { playerId: string; qty: number; cost: number }; ts: number }
   | { type: 'HOLY_WATER_BOUGHT';  gameId: string; payload: { playerId: string; costWater: number; costGold: number; }; ts: number }
   | { type: 'TRACKING_BOUGHT';  gameId: string; payload: { playerId: string; costGold: number; }; ts: number }
@@ -37,6 +38,7 @@ export type GameEvent =
   | { type: 'TRANSMUTED';     gameId: string; payload: { playerId: string; recipe: 'WOOD_TO_IRON'|'IRON_TO_WOOD'|'TRINITY_TO_SOULS' }; ts: number }
   | { type: 'TRADE_SYNC';     gameId: string; payload: TradeView; ts: number }
   | { type: 'TRADE_DELETED';  gameId: string; payload: { id: string }; ts: number }
+  | { type: 'BANK_UPDATED'; gameId: string; payload: { playerId: string }; ts: number }
   | { type: 'PHASE4_READY_UPDATED';gameId: string; payload: { playerId: string; ready: number; total: number }; ts: number };
 
   type AnyEvent = GameEvent & { ts?: number };

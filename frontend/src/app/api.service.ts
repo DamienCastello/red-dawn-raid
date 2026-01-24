@@ -40,7 +40,7 @@ export type GameSnapshot = {
   unstableHarvestLocByPlayer?: Record<string, string>;
 
   currentAction?: {
-    mode: 'EAU_BENITE' | 'NET' | 'PIT' | 'PROVOCATION' | 'INCENDIAIRE' | 'AMBUSH' | 'BLESSED_STAKE' | 'CHARISMATIQUE' | 'MARCHAND_ITINERANT' | 'MARCHAND_BONUS_BUY' | 'PRESENCE_ECRASANTE' | 'CATACLYSME' | 'CLONES_OMBRE' | 'IMAGE_MIROIR_SETUP' | 'IMAGE_MIROIR_RESOLVE' | 'ECLIPSE' | 'BLOOD_MOON' | 'VOILE_DE_BRUME' | 'FAIM_IRREPRESSIBLE' | 'AFFAIBLISSEMENT_OCCULTE' | 'MARQUE_TENEBREUSE' | 'PASSAGE_SECRET' | 'AVIDITE_NOCTURNE';
+    mode: 'EAU_BENITE' | 'NET' | 'PIT' | 'PROVOCATION' | 'INCENDIAIRE' | 'AMBUSH' | 'LONELY' | 'BLESSED_STAKE' | 'CHARISMATIQUE' | 'MARCHAND_ITINERANT' | 'MARCHAND_BONUS_BUY' | 'PRESENCE_ECRASANTE' | 'CATACLYSME' | 'CLONES_OMBRE' | 'IMAGE_MIROIR_SETUP' | 'IMAGE_MIROIR_RESOLVE' | 'ECLIPSE' | 'BLOOD_MOON' | 'VOILE_DE_BRUME' | 'FAIM_IRREPRESSIBLE' | 'AFFAIBLISSEMENT_OCCULTE' | 'MARQUE_TENEBREUSE' | 'PASSAGE_SECRET' | 'AVIDITE_NOCTURNE';
     ownerId: string;
     location: string;
     targetId: string | null;
@@ -50,6 +50,7 @@ export type GameSnapshot = {
     cloneAttack?: boolean;
   } | null;
 
+  trackerHunters?: string[];
   garlicBlockedLocations: string[];
   campfireLocations: string[];
   netHunters: string[];
@@ -60,7 +61,6 @@ export type GameSnapshot = {
   mirrorOwnerId?: string | null;
   mirrorAltLocations?: string[] | null;
   mirrorChosenLocation?: string | null;
-  shopBonusKind: string;
 
   pendingConstructionInfra?: 
     'SAWMILL' | 'MINE' | 'LIBRARY' | 'LABORATORY' | 'BALLROOM' | 'ALTAR' | 'FORGE'
@@ -75,10 +75,15 @@ export type GameSnapshot = {
   monsters?: Monster[];
   laboratoryDraftMonsterType?: 'REVENANT'|'GARGOYLE'|'ABERRATION' | null;
   laboratoryDraftLocation?: string | null;
+  laboratoryExplosionRoll?: number | null;
   ballroomBloodWaltz: boolean;
   ballroomWaltzRolls: number[];
   ballroomWaltzBest: number;
   altarCorrupted: boolean;
+  bankLevel: number;
+  bankStoneProgress: number;
+  shopWeaponOfferTypeByHunter: Record<string, 'BLEED' | 'RANGE' | 'STUN'>;
+  shopWeaponOfferTierByHunter: Record<string, number>;
 
   history: HistoryItem[];
   messages: string[];
@@ -141,6 +146,13 @@ export type Player = {
     isSacredRosary: boolean;
     charismaticThisRaid: boolean;
     leftGame: boolean;
+    merchantPending?: boolean;
+    merchantRoll?: number;
+
+    shopBonusKind?: 'POTION'|'ELIXIR'|'EQUIP_WEAPON'|'EQUIP_ARMOR';
+    shopBonusEquipId?: string;
+    shopBonusEquipTier?: number;
+    shopBonusBuyPending?: boolean;
 };
 
 type Monster = {
@@ -362,7 +374,6 @@ export class ApiService {
     );
   }
 
-
   buyShopBonus(gameId: string, payment: 'RESOURCE' | 'GOLD') {
     const params = new HttpParams().set('payment', payment);
     return this.http.post<void>(
@@ -519,6 +530,16 @@ export class ApiService {
     return this.http.post<void>(`${this.base}/games/${gameId}/transmutation/do`, { recipe });
   }
 
+  buyUpgradeWeapon(gameId: string, body: { tier: number; type: 'BLEED'|'RANGE'|'STUN' }) {
+    return this.http.post<void>(
+      `${this.base}/games/${gameId}/shop-upgrade-weapon`,
+      body
+    );
+  }
+  buyUpgradeArmor(gameId: string) {
+    return this.http.post<void>(`${this.base}/games/${gameId}/shop/buy-upgrade-armor`, {});
+  }
+
   // -------- Trades --------
   tradeOffer(gameId: string, targetId: string, offer: Record<string, number>) {
     return this.http.post<void>(`${this.base}/games/${gameId}/trade/offer`, { targetId, offer });
@@ -590,6 +611,13 @@ export class ApiService {
     );
   }
 
+  resolveLaboratoryExplosion(gameId: string) {
+    return this.http.post<void>(
+      `${this.base}/games/${gameId}/effect-lab-explosion`,
+      {}
+    );
+  }
+
   resolveAltarHeal(gameId: string, targetId: string) {
     const params = new HttpParams().set('targetId', targetId);
     return this.http.post<void>(
@@ -613,6 +641,10 @@ export class ApiService {
       `${this.base}/games/${gameId}/effect-forge`,
       { equipCode }
     );
+  }
+
+  contributeBankStone(gameId: string) {
+    return this.http.post<void>(`${this.base}/games/${gameId}/bank-contribute`, {});
   }
 
 

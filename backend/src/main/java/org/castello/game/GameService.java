@@ -133,22 +133,22 @@ public class GameService {
         List<String> messagesSrc                     = (g.getMessages()              != null) ? g.getMessages()              : java.util.Collections.emptyList();
 
         Map<String, List<String>> uTargets =
-                isVamp && g.getUnstableEligibleTargets()!=null
+                g.getUnstableEligibleTargets()!=null
                         ? new java.util.HashMap<>(g.getUnstableEligibleTargets())
                         : java.util.Collections.emptyMap();
 
         Map<String, List<String>> uLocs =
-                isVamp && g.getUnstableEligibleLocations()!=null
+                g.getUnstableEligibleLocations()!=null
                         ? new java.util.HashMap<>(g.getUnstableEligibleLocations())
                         : java.util.Collections.emptyMap();
 
         Map<String, String> uChosenTargets =
-                isVamp && g.getUnstableTargetByPlayer()!=null
+                g.getUnstableTargetByPlayer()!=null
                         ? new java.util.HashMap<>(g.getUnstableTargetByPlayer())
                         : java.util.Collections.emptyMap();
 
         Map<String, String> uChosenHarvests =
-                isVamp && g.getUnstableHarvestLocByPlayer()!=null
+                g.getUnstableHarvestLocByPlayer()!=null
                         ? new java.util.HashMap<>(g.getUnstableHarvestLocByPlayer())
                         : java.util.Collections.emptyMap();
 
@@ -208,15 +208,21 @@ public class GameService {
                     actionsView,
                     p.getHp(),
                     p.getCorruption(),
-                    p.getAttackDice() != null ? p.getAttackDice() : "D6",
-                    p.getDefenseDice() != null ? p.getDefenseDice() : "D6",
+                    p.getAttackDice() != null ? p.getAttackDice() : "D4",
+                    p.getDefenseDice() != null ? p.getDefenseDice() : "D4",
                     p.getWeapon(),
                     p.getArmor(),
                     p.getWood(), p.getHerbs(), p.getStone(), p.getIron(),
                     p.getWater(), p.getGold(), p.getSouls(), p.getSilver(),
                     p.isBlessedStake(),
                     p.isSacredRosary(),
-                    p.isCharismaticThisRaid()
+                    p.isCharismaticThisRaid(),
+                    p.isMerchantPending(),
+                    p.getMerchantRoll(),
+                    p.getShopBonusKind(),
+                    p.getShopBonusEquipId(),
+                    p.getShopBonusEquipTier(),
+                    p.isShopBonusBuyPending()
             );
         }).toList();
 
@@ -362,6 +368,7 @@ public class GameService {
                 || "INCENDIAIRE".equals(a.getMode())
                 || "PROVOCATION".equals(a.getMode())
                 || "AMBUSH".equals(a.getMode())
+                || "LONELY".equals(a.getMode())
                 || "BLESSED_STAKE".equals(a.getMode())
                 || "SACRED_ROSARY".equals(a.getMode())
                 || "CHARISMATIQUE".equals(a.getMode())
@@ -414,11 +421,6 @@ public class GameService {
         java.util.List<String> pitHunters = (g.getPitHunters() != null)
                 ? new java.util.ArrayList<>(g.getPitHunters())
                 : java.util.List.of();
-
-        String shopBonusKind = null;
-        if (g.getShopBonusKind() != null) {
-            shopBonusKind = g.getShopBonusKind();
-        }
 
         boolean hunterActionsBlockedThisRaid = g.isHunterActionsBlockedThisRaid();
 
@@ -497,6 +499,8 @@ public class GameService {
         String draftType = (g.getLaboratoryDraftMonsterType() != null ? g.getLaboratoryDraftMonsterType().name() : null);
         String draftLoc  = g.getLaboratoryDraftLocation();
 
+        Integer laboratoryExplosionRoll = g.getLaboratoryExplosionRoll();
+
         // --- Valse sanguinaire (état global du raid) ---
         boolean ballroomBloodWaltz = g.isBallroomBloodWaltz();
 
@@ -507,6 +511,21 @@ public class GameService {
         Integer ballroomWaltzBest = g.getBallroomBloodWaltzBestRoll();
 
         boolean altarCorrupted = Boolean.TRUE.equals(g.getAltarCorrupted());
+
+        Integer bankLevel = g.getBankLevel();
+        Integer bankStoneProgress = g.getBankStoneProgress();
+
+        // Offres boutique (armes hunters) - copie safe
+        java.util.Map<String, String> shopWeaponOfferTypeByHunter =
+                (g.getShopWeaponOfferTypeByHunter() != null)
+                        ? new java.util.HashMap<>(g.getShopWeaponOfferTypeByHunter())
+                        : java.util.Map.of();
+
+        java.util.Map<String, Integer> shopWeaponOfferTierByHunter =
+                (g.getShopWeaponOfferTierByHunter() != null)
+                        ? new java.util.HashMap<>(g.getShopWeaponOfferTierByHunter())
+                        : java.util.Map.of();
+
 
         return new GameSnapshot(
                 g.getId(),
@@ -539,7 +558,6 @@ public class GameService {
                 campfireLocations,
                 netHunters,
                 pitHunters,
-                shopBonusKind,
                 hunterActionsBlockedThisRaid,
                 clonesLocations,
                 clonesFaceUp,
@@ -557,10 +575,15 @@ public class GameService {
                 monsters,
                 draftType,
                 draftLoc,
+                laboratoryExplosionRoll,
                 ballroomBloodWaltz,
                 ballroomWaltzRolls,
                 ballroomWaltzBest,
                 altarCorrupted,
+                bankLevel,
+                bankStoneProgress,
+                shopWeaponOfferTypeByHunter,
+                shopWeaponOfferTierByHunter,
                 history,
                 messagesSrc,
                 System.currentTimeMillis(),
@@ -636,8 +659,8 @@ public class GameService {
         // Pour chaque joueur, on s'assure que la main est non nulle
         for (var p : g.getPlayers()) {
             if (p.getHand() == null) p.setHand(new java.util.ArrayList<>());
-            if (p.getAttackDice() == null)  p.setAttackDice("D6");
-            if (p.getDefenseDice() == null) p.setDefenseDice("D6");
+            if (p.getAttackDice() == null)  p.setAttackDice("D4");
+            if (p.getDefenseDice() == null) p.setDefenseDice("D4");
         }
     }
 
@@ -982,8 +1005,9 @@ public class GameService {
             } else if (s.startsWith("ACTION:")) {
                 String type = s.substring("ACTION:".length());
                 src = switch (type) {
-                    case "NET"     -> "par l'effet d'action filet";
-                    case "PIT" -> "par l'effet d'action fosse";
+                    case "NET"     -> "par l'effet du filet";
+                    case "PIT" -> "par l'effet de la fosse";
+                    case "LONELY" -> "par l'effet de solitaire";
                     case "AFFAIBLISSEMENT_OCCULTE" -> "par l'effet d'affaiblissement occulte";
                     default          -> "par l'effet action";
                 };
@@ -1365,8 +1389,8 @@ public class GameService {
             p.setHand(new ArrayList<>(List.of("forest", "quarry", "lake", "manor")));
 
             // dés de base
-            p.setAttackDice("D6");
-            p.setDefenseDice("D6");
+            p.setAttackDice("D4");
+            p.setDefenseDice("D4");
         }
 
         // PV init (vamp = 20 + 10 * nb chasseurs)
@@ -1708,15 +1732,15 @@ public class GameService {
         // --- Actions chasseurs ---
         Map<String,Integer> hunterComp = new HashMap<>();
         hunterComp.put("FUMIGATION_AIL",     4);
-        hunterComp.put("PISTEUR",            6);
         hunterComp.put("FEU_DE_CAMP",        4);
         hunterComp.put("NET",                8);
         hunterComp.put("PIT",                6);
-        hunterComp.put("INCENDIAIRE",        4);
+        hunterComp.put("INCENDIAIRE",        2);
         hunterComp.put("PROVOCATION",        4);
-        hunterComp.put("AMBUSH",             4);
+        hunterComp.put("AMBUSH",             2);
+        hunterComp.put("LONELY",             2);
         hunterComp.put("BLESSED_STAKE",      6);
-        hunterComp.put("SACRED_ROSARY",      2);
+        hunterComp.put("SACRED_ROSARY",      1);
         hunterComp.put("CHARISMATIQUE",      4);
         hunterComp.put("MARCHAND_ITINERANT", 8);
 
@@ -1727,14 +1751,14 @@ public class GameService {
         Map<String,Integer> vampComp = new HashMap<>();
         vampComp.put("PRESENCE_ECRASANTE",     2);
         vampComp.put("CATACLYSME",             2);
-        vampComp.put("CLONES_OMBRE",           3);
-        vampComp.put("IMAGE_MIROIR",           3);
-        vampComp.put("ECLIPSE",                3);
+        vampComp.put("CLONES_OMBRE",           5);
+        vampComp.put("IMAGE_MIROIR",           4);
+        vampComp.put("ECLIPSE",                4);
         vampComp.put("BLOOD_MOON",             2);
         vampComp.put("VOILE_DE_BRUME",         3);
-        vampComp.put("FAIM_IRREPRESSIBLE",     3);
+        vampComp.put("FAIM_IRREPRESSIBLE",     4);
         vampComp.put("MARQUE_TENEBREUSE",      2);
-        vampComp.put("AFFAIBLISSEMENT_OCCULTE",4);
+        vampComp.put("AFFAIBLISSEMENT_OCCULTE",3);
         vampComp.put("PASSAGE_SECRET",         4);
         vampComp.put("AVIDITE_NOCTURNE",       4);
 
@@ -1802,7 +1826,7 @@ public class GameService {
                 }
                 g.setProvokedTargetByEnemy(null);
                 g.setAmbushHuntersByEnemy(null);
-                g.setShopBonusKind(null);
+                g.setLaboratoryExplosionRoll(null);
                 if (g.getInfrasToDestroyEndOfRaid() == null) {
                     g.setInfrasToDestroyEndOfRaid(java.util.EnumSet.noneOf(Infra.class));
                 } else {
@@ -1814,6 +1838,23 @@ public class GameService {
                         pl.setCharismaticThisRaid(false);
                     }
                 }
+
+                // --- RESET MARCHAND (perso) ---
+                for (var pl : g.getPlayers()) {
+                    pl.setMerchantPending(false);
+                    pl.setMerchantRoll(null);
+                    pl.setShopBonusKind(null);
+                    pl.setShopBonusEquipId(null);
+                    pl.setShopBonusEquipTier(null);
+                    pl.setShopBonusBuyPending(false);
+                }
+
+                // Sécurité : si une currentAction marchand traîne encore
+                var a = g.getCurrentAction();
+                if (a != null && ("MARCHAND_ITINERANT".equals(a.getMode()) || "MARCHAND_BONUS_BUY".equals(a.getMode()))) {
+                    g.setCurrentAction(null);
+                }
+
                 g.setHunterActionsBlockedThisRaid(false);
                 g.setClonesLocations(new ArrayList<>());
                 g.setClonesFaceUp(false);
@@ -2002,14 +2043,37 @@ public class GameService {
                 // Détruire le labo s'il a été marqué pour destruction
                 destroyRaidInfrasAtEnd(g);
 
+                // gain ressource auto sawmill & mine
+                var vampOpt = getVamp(g);
+                if (vampOpt.isPresent() && g.getBuiltInfras() != null) {
+                    Player vamp = vampOpt.get();
+
+                    java.util.List<String> gains = new java.util.ArrayList<>();
+
+                    if (g.getBuiltInfras().contains(Infra.SAWMILL)) {
+                        grant(vamp, "wood", 1);
+                        gains.add("+1 bois");
+                    }
+                    if (g.getBuiltInfras().contains(Infra.MINE)) {
+                        grant(vamp, "iron", 1);
+                        gains.add("+1 fer");
+                    }
+
+                    if (!gains.isEmpty()) {
+                        String line = "Infrastructures — " + nameOf(g, vamp.getId())
+                                + " reçoit " + String.join(" et ", gains) + " (bonus PHASE4).";
+                        addHistory(g, line);
+                    }
+                }
+
                 g.setMessages(new ArrayList<>(List.of("Maintenance…")));
                 addHistory(g, "Maintenance…");
 
-                long deadline = System.currentTimeMillis() + 120_000L;
+                long deadline = System.currentTimeMillis() + 600_000_000L;
                 g.setPhase4DeadlineMillis(deadline);
 
                 int raidForTimeout = g.getRaid(); // raid actuel
-                schedulePhase4Timeout(g.getId(), 120_000L, raidForTimeout);
+                schedulePhase4Timeout(g.getId(), 600_000_000L, raidForTimeout);
             }
 
             default -> { /* rien */ }
@@ -2308,7 +2372,9 @@ public class GameService {
                     if (to != Phase.PHASE4) throw new ResponseStatusException(HttpStatus.CONFLICT, "illegal advance");
                     resolveInfraConstruction(g);
                     applyPhaseEntry(g, Phase.PHASE4);
+                    applyBankBonusOnPhase4Entry(g);
                     g.setCurrentAction(null);
+                    purgeTransientRaidMods(g);
                 }
                 case PHASE4 -> {
                     if (to != Phase.PHASE0) throw new ResponseStatusException(HttpStatus.CONFLICT, "illegal advance");
@@ -2662,8 +2728,6 @@ public class GameService {
             clonesSet.addAll(g.getClonesLocations());
         }
 
-        boolean anyCombat = false;
-
         for (var e : groups.entrySet()) {
             String loc = e.getKey();
             List<Player> onLoc = e.getValue();
@@ -2685,33 +2749,31 @@ public class GameService {
 
             boolean clonesHere = clonesSet.contains(loc);
 
+
             boolean combatHere =
                     (!enemiesHere.isEmpty() || !monstersHere.isEmpty() || clonesHere)
                             && !huntersHere.isEmpty();
 
-            if (!combatHere) {
-                // Récoltes indépendantes
-                for (var p : onLoc) {
-                    boolean isHunter = "HUNTER".equals(p.getRole());
-                    if (isHunter && instablePending.contains(p.getId())) {
-                        continue;
-                    }
-                    if (isHunter && g.isFogBlocksHunterHarvestThisRaid()) {
-                        continue;
-                    }
-                    String who;
-                    if ("VAMPIRE".equals(p.getRole())) {
-                        who = "le vampire (" + nameOf(g, p.getId()) + ")";
-                    } else if ("SERVANT".equals(p.getRole())) {
-                        who = "le serviteur (" + nameOf(g, p.getId()) + ")";
-                    } else {
-                        who = nameOf(g, p.getId());
-                    }
-                    out.add("Récolte de " + labelLieuFr(loc) + " par " + who);
+            // Récoltes
+            for (var p : onLoc) {
+                boolean isHunter = "HUNTER".equals(p.getRole());
+                if (isHunter && instablePending.contains(p.getId())) {
+                    continue;
                 }
-            } else {
-                anyCombat = true;
-
+                if (isHunter && g.isFogBlocksHunterHarvestThisRaid()) {
+                    continue;
+                }
+                String who;
+                if ("VAMPIRE".equals(p.getRole())) {
+                    who = "le vampire (" + nameOf(g, p.getId()) + ")";
+                } else if ("SERVANT".equals(p.getRole())) {
+                    who = "le serviteur (" + nameOf(g, p.getId()) + ")";
+                } else {
+                    who = nameOf(g, p.getId());
+                }
+                out.add("Récolte de " + labelLieuFr(loc) + " par " + who);
+            }
+            if(combatHere){
                 String huntersNames = String.join(", ",
                         huntersHere.stream().map(h -> {
                             String n = h.getUsername();
@@ -2723,12 +2785,14 @@ public class GameService {
                 for (var enemy : enemiesHere) {
                     String enemyName = nameOf(g, enemy.getId());
                     out.add("Combat — " + enemyName + " VS " + huntersNames + " à " + labelLieuFr(loc));
+                    out.add("Récolte de " + huntersNames + " divisée par 2");
                 }
 
                 // Combats contre monstres (les clones restent traités plus bas)
                 for (var m : monstersHere) {
                     String enemyName = monsterNameFr(m.type);
                     out.add("Combat — " + enemyName + " VS " + huntersNames + " à " + labelLieuFr(loc));
+                    out.add("Récolte de " + huntersNames + " divisée par 2");
                 }
             }
         }
@@ -2736,9 +2800,6 @@ public class GameService {
         // --- CLONES DES OMBRES : combats supplémentaires pour l’aperçu ---
         var clonesLocs = g.getClonesLocations();
         if (clonesLocs != null && !clonesLocs.isEmpty()) {
-            String vampName = getVamp(g)
-                    .map(v -> nameOf(g, v.getId()))
-                    .orElse("le vampire");
 
             for (String loc : clonesLocs) {
                 var onLoc = groups.get(loc);
@@ -2760,8 +2821,7 @@ public class GameService {
 
                 out.add("Combat — clones d'ombre VS "
                         + huntersNames + " à " + labelLieuFr(loc));
-
-                anyCombat = true;
+                out.add("Récolte de " + huntersNames + " divisée par 2");
             }
         }
 
@@ -3684,7 +3744,7 @@ public class GameService {
                     && "HUNTER".equals(atkPlayer.getRole())
                     && "VAMPIRE".equals(defPlayer.getRole())
                     && vampArmorHasEvasion(defPlayer.getArmor())
-                    && rawAtk >= 19) {   // 19 ou 20 sur le D20 du chasseur
+                    && rawAtk == 12) {   //12 sur le D12 du chasseur
                 ecorceEvade = true;
             }
 
@@ -3864,8 +3924,8 @@ public class GameService {
                 }
             }
 
-            // 2) Vol de base : uniquement si l’attaque inflige des dégâts
-            if (vampVsHunter && dmg > 0) {
+            // 2) Vol de base : uniquement si l’attaque inflige des dégâts et dé max
+            if (vampVsHunter && dmg > 0 && rawAtk == diceSides(atkPlayer.getAttackDice())) {
                 String line = vampStealOne(g, atkPlayer, defPlayer);
                 if (line != null) theftLines.add(line);
             }
@@ -4207,7 +4267,9 @@ public class GameService {
                         return out;
                     }
 
-                    consumeHitModsAfterFight(g, r);
+                    boolean modsChanged = consumeHitModsAfterFight(g, r);
+                    // pour forcer live.phaseChanged => snapshot frais côté front
+                    if (modsChanged) out.advanced = true;
 
                     // déclencheur Pieu béni
                     if (r.isBlessedStakePending() && g.getCurrentAction() == null) {
@@ -4746,12 +4808,15 @@ public class GameService {
             cloneLocs.addAll(g.getClonesLocations());
         }
 
-        // Participants à des duels instable → cible : ils ne récoltent pas
-        java.util.Set<String> duelParticipants = new java.util.HashSet<>();
+        // Duels instable -> cible :
+        // - l'instable ne récolte pas
+        // - la cible récolte /2
+        java.util.Set<String> duelUnstables = new java.util.HashSet<>();
+        java.util.Set<String> duelTargets   = new java.util.HashSet<>();
         if (g.getUnstableTargetByPlayer() != null) {
             g.getUnstableTargetByPlayer().forEach((unstableId, targetId) -> {
-                if (unstableId != null) duelParticipants.add(unstableId);
-                if (targetId   != null) duelParticipants.add(targetId);
+                if (unstableId != null) duelUnstables.add(unstableId);
+                if (targetId   != null) duelTargets.add(targetId);
             });
         }
 
@@ -4784,21 +4849,32 @@ public class GameService {
                         && g.getUnstableHarvestLocByPlayer().containsKey(p.getId());
 
                 boolean isVamp = "VAMPIRE".equals(p.getRole());
+                boolean isHunter = "HUNTER".equals(p.getRole());
 
-                // Voile de brume : bloque la récolte des chasseurs "normaux"
+                // 1) Voile de brume : bloque la récolte des chasseurs "normaux"
                 if (g.isFogBlocksHunterHarvestThisRaid()
-                        && "HUNTER".equals(p.getRole())
+                        && isHunter
                         && !harvestForVamp) {
                     continue;
                 }
 
-                // en cas de combat, on bloque tout le monde
-                // sauf :
-                //   - les instables qui récoltent pour le vampire
-                //   - le vampire lui-même
-                if (combatHere && !harvestForVamp && !isVamp) continue;
+                // 2) Duel instable -> cible :
+                //    - instable ne récolte pas
+                if (duelUnstables.contains(p.getId())) continue;
 
-                if (duelParticipants.contains(p.getId())) continue;
+                // 3) Détermine si la récolte doit être divisée par 2
+                boolean halfHarvest = false;
+
+                //    - la cible du duel récolte /2
+                if (duelTargets.contains(p.getId())) halfHarvest = true;
+
+                //    - si combat prévu : chasseur récolte /2
+                //      (mais on garde les exceptions : instable harvestForVamp + vampire)
+                if (combatHere && !harvestForVamp && !isVamp) {
+                    if (isHunter) halfHarvest = true;
+                    else continue; // serviteur (ou autre) reste bloqué comme avant
+                }
+
 
                 if (skipHarvestBecauseOfConstruction(g, p, loc)) {
                     continue;
@@ -4809,54 +4885,75 @@ public class GameService {
                 java.util.List<String> gains = new java.util.ArrayList<>();
                 switch (loc) {
                     case "forest" -> {
-                        grant(recipient, "wood", 1);  gains.add("+1 bois");
-                        grant(recipient, "herbs", 2); gains.add("+2 herbe médicinale");
+                        int wood = halfHarvest ? (2 / 2) : 2;
+                        int herbs = halfHarvest ? (4 / 2) : 4;
+
+                        grant(recipient, "wood", wood);  gains.add("+" + wood + " bois");
+                        grant(recipient, "herbs", herbs); gains.add("+" + herbs + " herbe médicinale");
                     }
                     case "quarry" -> {
-                        grant(recipient, "iron", 1);  gains.add("+1 fer");
-                        grant(recipient, "stone", 2); gains.add("+2 pierre");
+                        int iron = halfHarvest ? (2 / 2) : 2;
+                        int stone = halfHarvest ? (4 / 2) : 4;
+
+                        grant(recipient, "iron", iron);   gains.add("+" + iron + " fer");
+                        grant(recipient, "stone", stone); gains.add("+" + stone + " pierre");
                     }
                     case "lake" -> {
-                        grant(recipient, "water", 2); gains.add("+2 eau pure");
-                        grant(recipient, "herbs", 1); gains.add("+1 herbe médicinale");
+                        int herbs = halfHarvest ? (2 / 2) : 2;
+                        int water = halfHarvest ? (4 / 2) : 4;
+
+                        grant(recipient, "herbs", herbs); gains.add("+" + herbs + " herbe médicinale");
+                        grant(recipient, "water", water); gains.add("+" + water + " eau pure");
                     }
                     case "manor" -> {
                         int roll = rollD100Tens();
                         if (harvestForVamp && vamp != null) {
                             // Instable qui récolte pour le vampire au Manoir → conversion en âmes
-                            grant(vamp, "souls", roll);
-                            gains.add("+" + roll + " âmes déchues (pour " + nameOf(g, vamp.getId()) + ")");
+                            grant(vamp, "souls", roll+100);
+                            gains.add("+" + (roll + 100) + " âmes déchues (pour " + nameOf(g, vamp.getId()) + ")");
                         } else {
                             if ("HUNTER".equals(p.getRole())) {
-                                grant(p, "gold", roll); gains.add("+" + roll + " or");
+                                grant(p, "gold", roll+100); gains.add("+" + (roll + 100) + " or");
                             } else if ("VAMPIRE".equals(p.getRole()) || "SERVANT".equals(p.getRole())) {
-                                grant(p, "souls", roll); gains.add("+" + roll + " âmes déchues");
+                                grant(p, "souls", roll+100); gains.add("+" + (roll + 100) + " âmes déchues");
                             }
                         }
                     }
                     case "sawmill" -> {
-                        grant(recipient, "wood", 2);
+                        int base = 4;
+                        int wood = halfHarvest ? (base / 2) : base;
+                        if (wood <= 0) wood = 1;
+
+                        grant(recipient, "wood", wood);
+                        gains.add("+" + wood + " bois");
                     }
+
                     case "mine" -> {
-                        grant(recipient, "iron", 2);
+                        int base = 4;
+                        int iron = halfHarvest ? (base / 2) : base;
+                        if (iron <= 0) iron = 1;
+
+                        grant(recipient, "iron", iron);
+                        gains.add("+" + iron + " fer");
                     }
-                    case "library", "laboratory", "ballroom" -> {
+
+                    case "library", "laboratory", "ballroom", "altar", "forge" -> {
                         int roll = rollD100Tens();
 
                         if (harvestForVamp && vamp != null) {
                             // Instable qui récolte pour le vampire → âmes
-                            grant(vamp, "souls", roll);
-                            gains.add("+" + roll + " âmes déchues (pour " + nameOf(g, vamp.getId()) + ")");
+                            grant(vamp, "souls", roll+50);
+                            gains.add("+" + (roll + 50) + " âmes déchues (pour " + nameOf(g, vamp.getId()) + ")");
                         } else {
                             // Récolte normale sur les lieux spéciaux du Manoir :
                             // - Chasseur : or
                             // - Vampire / Serviteur : âmes
                             if ("HUNTER".equals(p.getRole())) {
-                                grant(recipient, "gold", roll);
-                                gains.add("+" + roll + " or");
+                                grant(recipient, "gold", roll+50);
+                                gains.add("+" + (roll + 50) + " or");
                             } else if ("VAMPIRE".equals(p.getRole()) || "SERVANT".equals(p.getRole())) {
-                                grant(recipient, "souls", roll);
-                                gains.add("+" + roll + " âmes déchues");
+                                grant(recipient, "souls", roll+50);
+                                gains.add("+" + (roll + 50) + " âmes déchues");
                             }
                         }
                     }
@@ -5048,9 +5145,15 @@ public class GameService {
                 .findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game"));
 
-        List<String> inv = p.getPotions();
-        if (inv == null || !inv.contains(type.name()))
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "potion not in inventory");
+        List<String> potionInv = p.getPotions();
+        List<String> elixirInv = p.getElixirs();
+
+        boolean hasPotion = potionInv != null && potionInv.contains(type.name());
+        boolean hasElixir = elixirInv != null && elixirInv.contains(type.name());
+
+        if (!hasPotion && !hasElixir) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "item not in inventory");
+        }
 
         if (!isAlive(p)) {
             throw new ResponseStatusException(
@@ -5088,11 +5191,17 @@ public class GameService {
                         .filter(x -> "HUNTER".equals(x.getRole()))
                         .count() * 10)
                         : 20;
-                p.setHp(Math.min(max, p.getHp() + 10));
+
+                int d6 = 1 + RND.nextInt(6);
+                int amount = 2 + d6;
+
+                p.setHp(Math.min(max, p.getHp() + amount));
                 int healed = p.getHp() - before;
+
                 discardPotion(g, type.name());
 
-                addHistory(g, nameOf(g, playerId) + " utilise une potion de vie et regénère " + healed + " pv.");
+                addHistory(g, nameOf(g, playerId)
+                        + " utilise une potion de vie et régénère " + healed + " pv (2 + d6=" + d6 + ").");
                 feedText = nameOf(g, playerId) + " boit une potion de vie !";
             }
             case FOCALISATION -> {
@@ -5188,7 +5297,11 @@ public class GameService {
         }
 
         // consommer l’item sur le Player
-        inv.remove(type.name());
+        if (hasPotion) {
+            potionInv.remove(type.name());
+        } else {
+            elixirInv.remove(type.name());
+        }
 
         // --- commit
         save(g);
@@ -5300,10 +5413,6 @@ public class GameService {
             case EAU_BENITE -> {
                 if (!isHunter) {
                     throw new ResponseStatusException(HttpStatus.FORBIDDEN, "chasseur uniquement");
-                }
-                if (g.getPhase() != Phase.PREPHASE3) {
-                    throw new ResponseStatusException(HttpStatus.CONFLICT,
-                            "L'Eau bénite est utilisable uniquement juste avant les combats (PREPHASE3).");
                 }
 
                 // Pas deux actions bloquantes en même temps
@@ -5535,6 +5644,10 @@ public class GameService {
                             "Filet n’a d’effet que s’il y a au moins un ennemi sur ton lieu.");
                 }
 
+                if (g.getWeatherStatus() == WeatherStatus.NIGHT_DARK && !isCampfireCancellingWeather(g, loc)) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Nuit obscure : piège interdit sans feu de camp sur ce lieu.");
+                }
+
                 // Marque ce chasseur comme ayant un Filet préparé pour ce raid
                 g.getNetHunters().add(playerId);
 
@@ -5582,6 +5695,10 @@ public class GameService {
                 if (enemies.isEmpty()) {
                     throw new ResponseStatusException(HttpStatus.CONFLICT,
                             "Fosse n’a d’effet que s’il y a au moins un ennemi sur ton lieu.");
+                }
+
+                if (g.getWeatherStatus() == WeatherStatus.NIGHT_DARK && !isCampfireCancellingWeather(g, loc)) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Nuit obscure : piège interdit sans feu de camp sur ce lieu.");
                 }
 
                 // Marque ce chasseur comme ayant une Fosse préparée
@@ -5833,6 +5950,81 @@ public class GameService {
                 return g;
             }
 
+            case LONELY -> {
+                if (!isHunter) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "chasseurs uniquement");
+                if (g.getPhase() != Phase.PREPHASE3)
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Solitaire utilisable uniquement en PREPHASE3.");
+
+                if (hasBlockingActionInProgress(g))
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Une autre action est déjà en cours de résolution.");
+
+                String loc = locationOf(g, playerId);
+                if (loc == null)
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Tu dois être sur un lieu pour utiliser Solitaire.");
+
+                // consomme la carte
+                inv.remove(type.name());
+                discardHunterAction(g, type.name());
+
+                // Hunters éligibles = vivants + pas récolteur instable
+                var harvestMap = g.getUnstableHarvestLocByPlayer();
+                java.util.function.Predicate<Player> eligibleHunter = pl ->
+                        "HUNTER".equals(pl.getRole())
+                                && pl.getHp() > 0
+                                && (harvestMap == null || !harvestMap.containsKey(pl.getId()));
+
+                var eligibleHunters = g.getPlayers().stream().filter(eligibleHunter).toList();
+
+                long huntersHere = eligibleHunters.stream()
+                        .filter(pl -> loc.equals(locationOf(g, pl.getId())))
+                        .count();
+
+                int absent = Math.max(0, eligibleHunters.size() - (int) huntersHere);
+
+                // mods
+                addRaidMod(g, playerId, "ATTACK", absent, "ACTION:LONELY:ENG");
+                addRaidMod(g, playerId, "DEFENSE", absent, "ACTION:LONELY:ENG");
+
+                String msg = "Solitaire — " + nameOf(g, playerId)
+                        + " gagne +" + absent + " ATK et +" + absent + " DEF (" + absent + " absent(s)).";
+                addHistory(g, msg);
+                feedText = msg;
+
+                // currentAction informatif (comme ECLIPSE)
+                Game.Action a = new Game.Action();
+                a.setMode("LONELY");
+                a.setOwnerId(playerId);
+                a.setLocation(loc);
+                a.setTargetId(null);
+                a.setRoll(absent); // on réutilise roll pour passer le bonus au front
+                a.setBreakdownLines(new java.util.ArrayList<>(java.util.List.of(
+                        "Solitaire : +" + absent + " ATK et +" + absent + " DEF.",
+                        absent + " chasseur(s) absent(s) sur ce lieu."
+                )));
+                a.setResolvedAtMillis(System.currentTimeMillis());
+                g.setCurrentAction(a);
+
+                // reset timer prephase (comme ECLIPSE)
+                int newVersion = g.getPrephaseTimerVersion() + 1;
+                g.setPrephaseTimerVersion(newVersion);
+
+                save(g);
+
+                final String fFeed = feedText;
+                final String fUserId = playerId;
+                final String fType = type.name();
+                final int version = newVersion;
+
+                afterCommit(() -> {
+                    pushLive(g, fFeed);
+                    live.raidModsUpdated(g);
+                    live.actionUsed(g, fUserId, fType);
+                    schedulePrephaseTimeout(gameId, 30_000L, version);
+                });
+
+                return g;
+            }
+
             case BLESSED_STAKE -> {
                 if (!"HUNTER".equals(p.getRole())) {
                     throw new ResponseStatusException(HttpStatus.FORBIDDEN, "chasseurs uniquement");
@@ -6028,28 +6220,25 @@ public class GameService {
                     );
                 }
 
-                if (g.getShopBonusKind() != null) {
-                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Une offre du marchand est déjà disponible.");
+                // perso : si CE joueur a déjà une offre / un jet / une modale achat ouverte -> refuse
+                if (p.isMerchantPending()
+                        || p.getShopBonusKind() != null
+                        || p.isShopBonusBuyPending()
+                        || p.getMerchantRoll() != null) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "tu as déjà une offre du marchand en cours.");
                 }
 
                 // Consommer la carte dans la main du chasseur
                 inv.remove(type.name());
                 discardHunterAction(g, type.name());
 
-                // On efface un éventuel bonus précédent par sécurité
-                g.setShopBonusKind(null);
-
-                // currentAction pour la modale + D6
-                Game.Action a = new Game.Action();
-                a.setMode("MARCHAND_ITINERANT");
-                a.setOwnerId(playerId);
-                a.setLocation(null);
-                a.setTargetId(null);
-                a.setRoll(null); // D6 pas encore lancé
-                a.setBreakdownLines(new java.util.ArrayList<>());
-                a.setResolvedAtMillis(null);
-
-                g.setCurrentAction(a);
+                // init état marchand perso
+                p.setMerchantPending(true);
+                p.setMerchantRoll(null);
+                p.setShopBonusKind(null);
+                p.setShopBonusEquipId(null);
+                p.setShopBonusEquipTier(null);
+                p.setShopBonusBuyPending(false);
 
                 String msg = nameOf(g, playerId) + " appelle un marchand itinérant à la boutique.";
                 addHistory(g, msg);
@@ -6306,17 +6495,17 @@ public class GameService {
                 inv.remove(type.name());
                 discardVampAction(g, type.name());
 
-                g.setWeatherStatus(WeatherStatus.NIGHT_DARK);
+                g.setWeatherStatus(WeatherStatus.FULL_MOON);
 
-                g.setWeatherStatusNameFr(weatherNameFr(WeatherStatus.NIGHT_DARK));
-                g.setWeatherDescriptionFr(weatherDescFr(WeatherStatus.NIGHT_DARK));
+                g.setWeatherStatusNameFr(weatherNameFr(WeatherStatus.FULL_MOON));
+                g.setWeatherDescriptionFr(weatherDescFr(WeatherStatus.FULL_MOON));
 
                 // Rebuild des mods météo (WEATHER:...)
                 rebuildWeatherMods(g);
 
                 // Historique + feed
                 String msg = nameOf(g, playerId)
-                        + " invoque une éclipse: l'obscurité s'installe.";
+                        + " invoque une éclipse: la pleine lune obscurcit les lieux.";
                 addHistory(g, msg);
                 feedText = msg;
 
@@ -6824,6 +7013,8 @@ public class GameService {
                  "PIT",
                  "INCENDIAIRE",
                  "EAU_BENITE",
+                 "PROVOCATION",
+                 "AMBUSH",
                  "MARQUE_TENEBREUSE",
                  "AFFAIBLISSEMENT_OCCULTE",
                  "CLONES_OMBRE",
@@ -6832,7 +7023,7 @@ public class GameService {
                  "PASSAGE_SECRET",
                  "CATACLYSME" -> true;
 
-            default -> false; // FAIM, PRESENCE, ECLIPSE, BLOOD_MOON, VOILE_DE_BRUME => non bloquantes
+            default -> false; // FAIM, PRESENCE, ECLIPSE, LONELY, BLOOD_MOON, VOILE_DE_BRUME => non bloquantes
         };
     }
 
@@ -7480,12 +7671,12 @@ public class GameService {
         java.util.List<String> breakdown = new java.util.ArrayList<>();
         breakdown.add("Jet d'Incendiaire : 1d20 = " + roll);
 
-        String infraLocCode = infra.locationCode();               // ex: "sawmill","mine","library","laboratory","ballroom","altar","forge"
+        String infraLocCode = infra.locationCode(); // ex: "sawmill","mine","library","laboratory","ballroom","altar","forge"
         String infraLabel   = (infraLocCode != null ? labelLieuFr(infraLocCode) : infra.name());
 
         String msg;
 
-        if (roll > 10) {
+        if (roll > 5) {
             boolean destroyedPending = false;
             boolean willDestroyBuilt = false;
 
@@ -7530,7 +7721,7 @@ public class GameService {
         }
 
         // On marque le résultat sur l'action courante
-        ca.setTargetId(infra.name());               // pour que le front sache de quoi on parle
+        ca.setTargetId(infra.name()); // pour que le front sache de quoi on parle
         ca.setRoll(roll);
         ca.setBreakdownLines(breakdown);
         ca.setResolvedAtMillis(System.currentTimeMillis());
@@ -7933,67 +8124,100 @@ public class GameService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE4");
         }
 
-        Game.Action a = g.getCurrentAction();
-        if (a == null || !"MARCHAND_ITINERANT".equals(a.getMode())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "no merchant action pending");
+        Player p = findPlayer(g, userId);
+        if (p == null) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
+        if (!isAlive(p)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Tu es hors de combat pour le reste de la partie.");
+        }
+        if (!"HUNTER".equals(p.getRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "hunters only");
         }
 
-        if (!userId.equals(a.getOwnerId())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "only acting hunter can roll");
+        // le jet n'existe que si le joueur a déclenché le marchand
+        if (!p.isMerchantPending()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "no merchant roll pending");
         }
-
-        if (a.getRoll() != null) {
+        if (p.getMerchantRoll() != null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "merchant already rolled");
         }
 
         int d6 = 1 + RND.nextInt(6);
-        a.setRoll(d6);
+        p.setMerchantRoll(d6);
+        p.setMerchantPending(false);     // plus en attente
+        p.setShopBonusBuyPending(false); // reset sécurité
 
-        // On détermine le type de bonus
+        // reset offer
+        p.setShopBonusKind(null);
+        p.setShopBonusEquipId(null);
+        p.setShopBonusEquipTier(null);
+
         String kind;
         String line;
 
         if (d6 == 1 || d6 == 2) {
             kind = "POTION";
-            line = "Marchand itinérant — une potion est disponible à la boutique pour ce tour.";
+            line = "Marchand itinérant — une potion est disponible à la boutique pour " + nameOf(g, userId) + ".";
         } else if (d6 == 3 || d6 == 4) {
             kind = "ELIXIR";
-            line = "Marchand itinérant — un élixir est disponible à la boutique pour ce tour.";
+            line = "Marchand itinérant — un élixir est disponible à la boutique pour " + nameOf(g, userId) + ".";
         } else {
-            // 5 ou 6 → équipement : 50/50 arme / armure
-            boolean weapon = RND.nextBoolean();
+            // 5-6 : équipement perso
+            int wTier = hunterWeaponTier(p.getWeapon());
+            int aTier = hunterArmorTier(p.getArmor());
+
+            Integer wOffer = (wTier < 2) ? Math.min(2, wTier + 1) : null;
+            Integer aOffer = (aTier < 2) ? Math.min(2, aTier + 1) : null;
+
+            // Règle : si T0/T1 => on propose celui qui est le plus bas, sinon 50/50
+            boolean preferWeapon;
+            if (wTier < aTier) preferWeapon = true;
+            else if (aTier < wTier) preferWeapon = false;
+            else preferWeapon = RND.nextBoolean();
+
+            boolean weapon;
+            Integer tier;
+
+            if (preferWeapon && wOffer != null) {
+                weapon = true;  tier = wOffer;
+            } else if (!preferWeapon && aOffer != null) {
+                weapon = false; tier = aOffer;
+            } else if (wOffer != null) {
+                weapon = true;  tier = wOffer;
+            } else if (aOffer != null) {
+                weapon = false; tier = aOffer;
+            } else {
+                // déjà T2 partout => pas d’équipement (jamais T3) => fallback
+                kind = "ELIXIR";
+                p.setShopBonusKind(kind);
+                addHistory(g, "Marchand itinérant — " + nameOf(g, userId) + " est déjà équipé au maximum (T2). Offre remplacée par un élixir.");
+                save(g);
+                afterCommit(() -> live.actionResolved(g, "MARCHAND_ITINERANT", userId, null));
+                return g;
+            }
+
             kind = weapon ? "EQUIP_WEAPON" : "EQUIP_ARMOR";
-            line = "Marchand itinérant — un équipement est disponible à la boutique pour ce tour "
-                    + "(" + (weapon ? "arme" : "armure") + ").";
+
+            String equipId = weapon ? merchantWeaponIdForTier(tier) : merchantArmorIdForTier(tier);
+
+            p.setShopBonusEquipTier(tier);  // sert au prix
+            p.setShopBonusEquipId(equipId); // offre stable
+            line = "Marchand itinérant — " + (weapon ? "une arme" : "une armure")
+                    + " T" + tier + " est disponible à la boutique pour " + nameOf(g, userId) + ".";
         }
 
-        g.setShopBonusKind(kind);
-
-        if (a.getBreakdownLines() == null) {
-            a.setBreakdownLines(new java.util.ArrayList<>());
-        } else {
-            a.getBreakdownLines().clear();
-        }
-        a.getBreakdownLines().add(line);
-
+        p.setShopBonusKind(kind);
         addHistory(g, line);
-
-        // on peut marquer résolu (la modale restera quand même 5s côté front)
-        a.setResolvedAtMillis(System.currentTimeMillis());
 
         save(g);
 
-        final int rollF       = d6;
-        final String kindF    = kind;
-        final String ownerF   = a.getOwnerId();
-
         afterCommit(() -> {
-            // Pour que le front rafraîchisse la modale + shopBonusKind
-            live.actionResolved(g, "MARCHAND_ITINERANT", ownerF, null);
+            // juste pour forcer les clients à refresh le snapshot (sans modale spectateur)
+            live.actionResolved(g, "MARCHAND_ITINERANT", userId, null);
         });
 
         return g;
     }
+
 
     private int hunterWeaponTier(String weaponId) {
         if (weaponId == null) return 0;
@@ -8009,45 +8233,6 @@ public class GameService {
         if (armorId.startsWith("H_ARMOR_T2_")) return 2;
         if (armorId.startsWith("H_ARMOR_T3_")) return 3;
         return 0;
-    }
-
-    private int merchantWeaponTierForHunters(Game g) {
-        int minTier = 3; // max
-        boolean anyHunter = false;
-
-        if (g.getPlayers() != null) {
-            for (Player p : g.getPlayers()) {
-                if ("HUNTER".equals(p.getRole())) {
-                    anyHunter = true;
-                    int t = hunterWeaponTier(p.getWeapon());
-                    if (t < minTier) minTier = t;
-                }
-            }
-        }
-        if (!anyHunter) return 1;
-
-        // ex : T0 -> propose T1 ; min T1 -> propose T2 ; min T2/T3 -> propose T2 (cap)
-        int offer = Math.min(2, minTier + 1);
-        return offer;
-    }
-
-    private int merchantArmorTierForHunters(Game g) {
-        int minTier = 3;
-        boolean anyHunter = false;
-
-        if (g.getPlayers() != null) {
-            for (Player p : g.getPlayers()) {
-                if ("HUNTER".equals(p.getRole())) {
-                    anyHunter = true;
-                    int t = hunterArmorTier(p.getArmor());
-                    if (t < minTier) minTier = t;
-                }
-            }
-        }
-        if (!anyHunter) return 1;
-
-        int offer = Math.min(2, minTier + 1);
-        return offer;
     }
 
     private String merchantWeaponIdForTier(int tier) {
@@ -8091,58 +8276,24 @@ public class GameService {
         if (g.getPhase() != Phase.PHASE4)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE4");
 
-        var p = findPlayer(g, userId);
-        if (!isAlive(p)) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Tu es hors de combat pour le reste de la partie."
-            );
-        }
-        if (p == null)
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
+        Player p = findPlayer(g, userId);
+        if (p == null) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
+        if (!isAlive(p))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Tu es hors de combat pour le reste de la partie.");
         if (!"HUNTER".equals(p.getRole()))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "hunters only");
 
-        String kind = g.getShopBonusKind();
+        String kind = p.getShopBonusKind();
         if (kind == null)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "no bonus item available");
 
-        // Option de sécurité : éviter d’écraser une autre action importante
-        Game.Action ca = g.getCurrentAction();
-        if (ca != null && ca.getResolvedAtMillis() == null) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "another action is pending");
-        }
-
-        Game.Action a = new Game.Action();
-        a.setMode("MARCHAND_BONUS_BUY");
-        a.setOwnerId(userId);
-        a.setLocation(null);
-        a.setTargetId(null);
-        a.setRoll(null);
-
-        java.util.List<String> lines = new java.util.ArrayList<>();
-
-        String kindFr = switch (kind) {
-            case "POTION"       -> "une potion";
-            case "ELIXIR"       -> "un élixir";
-            case "EQUIP_WEAPON" -> "une arme du marchand";
-            case "EQUIP_ARMOR"  -> "une armure du marchand";
-            default             -> "un objet du marchand";
-        };
-
-        lines.add("Marchand itinérant — "
-                + nameOf(g, userId)
-                + " souhaite acheter " + kindFr + ". Il doit choisir un mode de paiement.");
-        a.setBreakdownLines(lines);
-        a.setResolvedAtMillis(null);
-
-        g.setCurrentAction(a);
+        // perso : ouvre la modale paiement seulement pour CE joueur
+        p.setShopBonusBuyPending(true);
 
         save(g);
 
-        final String fUserId = userId;
         afterCommit(() -> {
-            // juste pour que le front ouvre la modale d’action
+            // refresh clients (ne déclenche pas de modale chez les autres)
             live.actionStarted(g, "MARCHAND_BONUS_BUY", userId, null, null);
         });
 
@@ -8156,15 +8307,10 @@ public class GameService {
         if (g.getPhase() != Phase.PHASE4)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE4");
 
-        var p = findPlayer(g, userId);
-        if (p == null)
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
-        if (!isAlive(p)) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Tu es hors de combat pour le reste de la partie."
-            );
-        }
+        Player p = findPlayer(g, userId);
+        if (p == null) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
+        if (!isAlive(p))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Tu es hors de combat pour le reste de la partie.");
         if (!"HUNTER".equals(p.getRole()))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "hunters only");
 
@@ -8172,211 +8318,167 @@ public class GameService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid payment mode");
         }
 
-        String kind = g.getShopBonusKind();
+        String kind = p.getShopBonusKind();
         if (kind == null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "no bonus item available");
         }
+
+        // prix adaptables
+        Integer tier = p.getShopBonusEquipTier();
+        boolean greedy = g.isShopPricesIncreasedThisRaid();
+        boolean charismatic = p.isCharismaticThisRaid();
+
+        java.util.function.IntUnaryOperator goldCost = (base) -> {
+            int c = base;
+            if (greedy) c += 50;
+            if (charismatic) c = Math.max(0, c - 20);
+            return c;
+        };
 
         String message;
 
         switch (kind) {
             case "POTION" -> {
-                // OPTION 1 : ressources (eau + herbes)
                 if ("RESOURCE".equals(payment)) {
-                    final int waterCost = 4;
-                    final int herbsCost = 3;
-
-                    if (p.getWater() < waterCost || p.getHerbs() < herbsCost) {
+                    final int waterCost = 1, herbsCost = 2;
+                    if (p.getWater() < waterCost || p.getHerbs() < herbsCost)
                         throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
-                    }
-
                     p.setWater(p.getWater() - waterCost);
                     p.setHerbs(p.getHerbs() - herbsCost);
-                }
-                // OPTION 2 : or
-                else {
-                    int baseGold = 60;
-
-                    if (g.isShopPricesIncreasedThisRaid()) {
-                        baseGold += 50;
-                    }
-                    if (p.isCharismaticThisRaid()) {
-                        baseGold = Math.max(0, baseGold - 20);
-                    }
-                    if (p.getGold() < baseGold) {
-                        throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
-                    }
-                    p.setGold(p.getGold() - baseGold);
+                } else {
+                    int cost = goldCost.applyAsInt(30);
+                    if (p.getGold() < cost) throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
+                    p.setGold(p.getGold() - cost);
                 }
 
                 String potionId = drawFromDeck(g.getPotionDeck(), g.getPotionDiscard());
-                if (potionId == null) {
-                    throw new ResponseStatusException(HttpStatus.CONFLICT, "no potions left");
-                }
+                if (potionId == null) throw new ResponseStatusException(HttpStatus.CONFLICT, "no potions left");
 
                 if (p.getPotions() == null) p.setPotions(new java.util.ArrayList<>());
                 p.getPotions().add(potionId);
 
-                message = nameOf(g, userId) + " achète une potion (" + potionId
-                        + ") via le marchand itinérant (" + (payment.equals("RESOURCE") ? "ressources" : "or") + ").";
+                message = nameOf(g, userId) + " achète une potion (" + potionId + ") via le marchand itinérant ("
+                        + ("RESOURCE".equals(payment) ? "ressources" : "or") + ").";
                 addHistory(g, message);
             }
+
             case "ELIXIR" -> {
                 if ("RESOURCE".equals(payment)) {
-                    final int waterCost = 6;
-                    final int herbsCost = 6;
-
-                    if (p.getWater() < waterCost || p.getHerbs() < herbsCost) {
+                    final int waterCost = 2, herbsCost = 4;
+                    if (p.getWater() < waterCost || p.getHerbs() < herbsCost)
                         throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
-                    }
-
                     p.setWater(p.getWater() - waterCost);
                     p.setHerbs(p.getHerbs() - herbsCost);
                 } else {
-                    int baseGold = 120;
-
-                    if (g.isShopPricesIncreasedThisRaid()) {
-                        baseGold += 50;
-                    }
-                    if (p.isCharismaticThisRaid()) {
-                        baseGold = Math.max(0, baseGold - 20);
-                    }
-
-                    if (p.getGold() < baseGold) {
-                        throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
-                    }
-                    p.setGold(p.getGold() - baseGold);
+                    int cost = goldCost.applyAsInt(60);
+                    if (p.getGold() < cost) throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
+                    p.setGold(p.getGold() - cost);
                 }
 
                 String elixirId = drawFromDeck(g.getElixirDeck(), g.getElixirDiscard());
-                if (elixirId == null) {
-                    throw new ResponseStatusException(HttpStatus.CONFLICT, "no elixirs left");
-                }
+                if (elixirId == null) throw new ResponseStatusException(HttpStatus.CONFLICT, "no elixirs left");
 
-                if (p.getPotions() == null) p.setPotions(new java.util.ArrayList<>());
-                p.getPotions().add(elixirId);
+                // FIX: elixirs dans la bonne liste
+                if (p.getElixirs() == null) p.setElixirs(new java.util.ArrayList<>());
+                p.getElixirs().add(elixirId);
 
-                message = nameOf(g, userId) + " achète un élixir (" + elixirId
-                        + ") via le marchand itinérant (" + (payment.equals("RESOURCE") ? "ressources" : "or") + ").";
+                message = nameOf(g, userId) + " achète un élixir (" + elixirId + ") via le marchand itinérant ("
+                        + ("RESOURCE".equals(payment) ? "ressources" : "or") + ").";
                 addHistory(g, message);
             }
-            case "EQUIP_WEAPON" -> {
-                if ("RESOURCE".equals(payment)) {
-                    final int woodCost = 6;
-                    final int ironCost = 6;
 
-                    if (p.getWood() < woodCost || p.getIron() < ironCost) {
+            case "EQUIP_WEAPON" -> {
+                int t = (tier == null) ? 1 : Math.max(1, Math.min(2, tier)); // sécurité 1..2
+                String weaponId = p.getShopBonusEquipId();
+                if (weaponId == null) throw new ResponseStatusException(HttpStatus.CONFLICT, "invalid offer");
+
+                // coût selon tier
+                int woodCost = (t == 2) ? 3 : 2;
+                int ironCost = (t == 2) ? 3 : 2;
+                int baseGold = (t == 2) ? 150 : 100;
+
+                if ("RESOURCE".equals(payment)) {
+                    if (p.getWood() < woodCost || p.getIron() < ironCost)
                         throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
-                    }
                     p.setWood(p.getWood() - woodCost);
                     p.setIron(p.getIron() - ironCost);
                 } else {
-                    int baseGold = 150;
-
-                    if (g.isShopPricesIncreasedThisRaid()) {
-                        baseGold += 50;
-                    }
-                    if (p.isCharismaticThisRaid()) {
-                        baseGold = Math.max(0, baseGold - 20);
-                    }
-
-                    if (p.getGold() < baseGold) {
-                        throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
-                    }
-                    p.setGold(p.getGold() - baseGold);
+                    int cost = goldCost.applyAsInt(baseGold);
+                    if (p.getGold() < cost) throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
+                    p.setGold(p.getGold() - cost);
                 }
-
-                int tier = merchantWeaponTierForHunters(g);
-                String weaponId = merchantWeaponIdForTier(tier);
 
                 int current = hunterWeaponTier(p.getWeapon());
-                if (current > tier) {
-                    throw new ResponseStatusException(HttpStatus.CONFLICT, "tu as déjà une arme supérieure");
-                }
+                if (current >= t) throw new ResponseStatusException(HttpStatus.CONFLICT, "tu as déjà une arme supérieure");
 
                 p.setWeapon(weaponId);
-
-                switch (tier) {
-                    case 1 -> p.setAttackDice("D8");
-                    case 2 -> p.setAttackDice("D12");
-                    default -> { /* éventuellement rien */ }
+                switch (t) {
+                    case 1 -> p.setAttackDice("D6");
+                    case 2 -> p.setAttackDice("D8");
                 }
 
-                message = nameOf(g, userId)
-                        + " achète une arme de tier " + tier
-                        + " (" + weaponId + ") via le marchand itinérant ("
-                        + (payment.equals("RESOURCE") ? "ressources" : "or") + ").";
+                message = nameOf(g, userId) + " achète une arme T" + t + " (" + weaponId + ") via le marchand ("
+                        + ("RESOURCE".equals(payment) ? "ressources" : "or") + ").";
                 addHistory(g, message);
             }
-            case "EQUIP_ARMOR" -> {
-                if ("RESOURCE".equals(payment)) {
-                    final int woodCost = 6;
-                    final int ironCost = 6;
 
-                    if (p.getWood() < woodCost || p.getIron() < ironCost) {
+            case "EQUIP_ARMOR" -> {
+                int t = (tier == null) ? 1 : Math.max(1, Math.min(2, tier));
+                String armorId = p.getShopBonusEquipId();
+                if (armorId == null) throw new ResponseStatusException(HttpStatus.CONFLICT, "invalid offer");
+
+                int woodCost = (t == 2) ? 3 : 2;
+                int ironCost = (t == 2) ? 3 : 2;
+                int baseGold = (t == 2) ? 150 : 100;
+
+                if ("RESOURCE".equals(payment)) {
+                    if (p.getWood() < woodCost || p.getIron() < ironCost)
                         throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
-                    }
                     p.setWood(p.getWood() - woodCost);
                     p.setIron(p.getIron() - ironCost);
                 } else {
-                    int baseGold = 150;
-
-                    if (g.isShopPricesIncreasedThisRaid()) {
-                        baseGold += 50;
-                    }
-                    if (p.isCharismaticThisRaid()) {
-                        baseGold = Math.max(0, baseGold - 20);
-                    }
-
-                    if (p.getGold() < baseGold) {
-                        throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
-                    }
-                    p.setGold(p.getGold() - baseGold);
+                    int cost = goldCost.applyAsInt(baseGold);
+                    if (p.getGold() < cost) throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
+                    p.setGold(p.getGold() - cost);
                 }
-
-                int tier = merchantArmorTierForHunters(g);
-                String armorId = merchantArmorIdForTier(tier);
 
                 int current = hunterArmorTier(p.getArmor());
-                if (current > tier) {
-                    throw new ResponseStatusException(HttpStatus.CONFLICT, "tu as déjà une armure supérieure");
-                }
+                if (current >= t) throw new ResponseStatusException(HttpStatus.CONFLICT, "tu as déjà une armure supérieure");
 
                 p.setArmor(armorId);
-
-                switch (tier) {
-                    case 1 -> p.setDefenseDice("D8");
-                    case 2 -> p.setDefenseDice("D12");
-                    default -> { /* rien */ }
+                switch (t) {
+                    case 1 -> p.setDefenseDice("D6");
+                    case 2 -> p.setDefenseDice("D8");
                 }
 
-                message = nameOf(g, userId)
-                        + " achète une armure de tier " + tier
-                        + " (" + armorId + ") via le marchand itinérant ("
-                        + (payment.equals("RESOURCE") ? "ressources" : "or") + ").";
+                message = nameOf(g, userId) + " achète une armure T" + t + " (" + armorId + ") via le marchand ("
+                        + ("RESOURCE".equals(payment) ? "ressources" : "or") + ").";
                 addHistory(g, message);
             }
+
             default -> throw new ResponseStatusException(HttpStatus.CONFLICT, "invalid bonus kind");
         }
 
-        // Bonus consommé + action fermée
-        g.setShopBonusKind(null);
-        g.setCurrentAction(null);
+        // consume l'offre perso + ferme modale paiement perso
+        p.setShopBonusKind(null);
+        p.setShopBonusEquipId(null);
+        p.setShopBonusEquipTier(null);
+        p.setShopBonusBuyPending(false);
+        p.setMerchantRoll(null);
 
         rebuildEquipmentMods(g);
-
         save(g);
 
         final String fMessage = message;
-        final String fUserId = userId;
 
         afterCommit(() -> {
             pushLive(g, fMessage);
-            live.actionResolved(g, "MARCHAND_BONUS_BUY", fUserId, null);
+            live.actionResolved(g, "MARCHAND_BONUS_BUY", userId, null);
         });
 
         return g;
     }
+
 
     @Transactional
     public Game cancelShopBonusPurchase(String gameId, String userId) {
@@ -8391,28 +8493,30 @@ public class GameService {
         if (!"HUNTER".equals(p.getRole()))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "hunters only");
 
-        if (g.getShopBonusKind() == null)
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "no bonus item available");
-
-        Game.Action a = g.getCurrentAction();
-        if (a == null || !"MARCHAND_BONUS_BUY".equals(a.getMode()) || !userId.equals(a.getOwnerId())) {
+        // annulation basée sur l'état joueur
+        if (!p.isShopBonusBuyPending()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "no merchant buy in progress");
         }
 
-        // On ferme juste l’action d’achat, on laisse le bonus dispo dans la boutique
-        g.setCurrentAction(null);
+        // fermer la modale achat perso
+        p.setShopBonusBuyPending(false);
+
+        // sécurité : si un currentAction marchand traîne encore, on le ferme
+        Game.Action a = g.getCurrentAction();
+        if (a != null
+                && "MARCHAND_BONUS_BUY".equals(a.getMode())
+                && userId.equals(a.getOwnerId())) {
+            g.setCurrentAction(null);
+        }
 
         String msg = nameOf(g, userId) + " renonce à acheter l’objet du marchand itinérant.";
         addHistory(g, msg);
 
         save(g);
 
-        final String fMsg = msg;
-        final String fUserId = userId;
         afterCommit(() -> {
-            pushLive(g, fMsg);
-            // Pour que le front ferme la modale
-            live.actionResolved(g, "MARCHAND_BONUS_BUY", fUserId, null);
+            pushLive(g, msg);
+            live.actionResolved(g, "MARCHAND_BONUS_BUY", userId, null);
         });
 
         return g;
@@ -8673,10 +8777,13 @@ public class GameService {
         int cancelledCampfires      = 0;
         int cancelledNets           = 0;
         int cancelledPits           = 0;
+        int cancelledAmbush         = 0;
+        int cancelledLonely         = 0;
         int cancelledIncendiaires   = 0;
         int cancelledProvocations   = 0;
         int cancelledBlessedStakes  = 0;
         int cancelledSacredRosaries = 0;
+
 
         // ---------- Feux de camp ----------
         if (g.getCampfireLocations() != null) {
@@ -8745,6 +8852,7 @@ public class GameService {
                 java.util.List<String> hunters = e.getValue();
                 hunters.removeIf(hId -> java.util.Objects.equals(locationOf(g, hId), vampLoc));
                 if (hunters.isEmpty()) {
+                    cancelledAmbush++;
                     it.remove();
                 }
             }
@@ -8767,7 +8875,7 @@ public class GameService {
             }
         }
 
-        // ---------- Pieu béni / Chapelet sacré (flags + mods) ----------
+        // ---------- Pieu béni / Chapelet sacré / Solitaire (flags + mods) ----------
         if (g.getPlayers() != null && vampLoc != null) {
             for (Player player : g.getPlayers()) {
                 if (!"HUNTER".equals(player.getRole())) continue;
@@ -8806,6 +8914,18 @@ public class GameService {
                         }
                     }
                 }
+
+                // ---------- Lonely ----------
+                if (g.getRaidMods() != null) {
+                    var mods = g.getRaidMods().get(player.getId());
+                    if (mods != null) {
+                        boolean removed = mods.removeIf(m -> {
+                            String s = m.getSource();
+                            return s != null && s.startsWith("ACTION:LONELY");
+                        });
+                        if (removed) cancelledLonely++;
+                    }
+                }
             }
         }
 
@@ -8816,6 +8936,7 @@ public class GameService {
                 || "INCENDIAIRE".equals(ca.getMode())
                 || "PROVOCATION".equals(ca.getMode())
                 || "AMBUSH".equals(ca.getMode())
+                || "LONELY".equals(ca.getMode())
                 || "EAU_BENITE".equals(ca.getMode())
                 || "BLESSED_STAKE".equals(ca.getMode()))) {
 
@@ -8833,6 +8954,8 @@ public class GameService {
         if (cancelledCampfires > 0)          parts.add(cancelledCampfires      + " Feu de camp");
         if (cancelledNets > 0)               parts.add(cancelledNets           + " Filet");
         if (cancelledPits > 0)               parts.add(cancelledPits           + " Fosse");
+        if (cancelledAmbush > 0)             parts.add(cancelledAmbush         + " Embuscade");
+        if (cancelledLonely > 0)             parts.add(cancelledLonely         + " Solitaire");
         if (cancelledIncendiaires > 0)       parts.add(cancelledIncendiaires   + " Incendiaire");
         if (cancelledProvocations > 0)       parts.add(cancelledProvocations   + " Provocation");
         if (cancelledBlessedStakes > 0)      parts.add(cancelledBlessedStakes  + " Épieu béni");
@@ -9146,9 +9269,6 @@ public class GameService {
 
         if (g.getStatus() != GameStatus.ACTIVE) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "game not active");
-        }
-        if (g.getPhase() != Phase.PREPHASE3) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PREPHASE3");
         }
 
         Player p = findPlayer(g, playerId);
@@ -9620,7 +9740,7 @@ public class GameService {
             String unstableName = nameOf(g, unstableId);
             String locLabel     = labelLieuFr(targetLoc);
 
-            String interruptionLine = "Récolte de " + targetName + " interrompue par " + unstableName + ".";
+            String interruptionLine = "Récolte de " + targetName + " perturbée par " + unstableName + " (récolte réduite).";
             String combatLine       = "Combat — " + unstableName + " VS " + targetName + " à " + locLabel + ".";
 
             if (g.getMessages() == null) g.setMessages(new ArrayList<>());
@@ -9847,14 +9967,14 @@ public class GameService {
                         + "si cette morsure réussit sur le sanctuaire, l'autel sera profané.");
             }
 
-            int roll = 1 + RND.nextInt(6);
+            int roll = 1 + RND.nextInt(20);
             b.setRoll(roll);
             addHistory(g, nameOf(g, b.getAttackerId()) + " — jet de morsure = " + roll + ".");
 
             boolean sendMods = false;
             boolean becameServant = false;
 
-            if (target != null && roll > 3) {
+            if (target != null && roll > 8) {
                 // Morsure réussie côté D6
 
                 boolean targetHasSacredRosary = (target != null && target.isSacredRosary());
@@ -9925,6 +10045,15 @@ public class GameService {
 
                     rebuildCorruptionMods(g);
                     sendMods = true;
+
+                    // Bonus : morsure réussie => +50 âmes au vampire
+                    var vampOpt2 = getVamp(g);
+                    if (vampOpt2.isPresent()) {
+                        Player vamp2 = vampOpt2.get();
+                        vamp2.setSouls(vamp2.getSouls() + 50);
+                        addHistory(g, "Morsure — le sang versé nourrit le vampire : +50 âmes déchues.");
+                    }
+
 
                     b.setResolvedAtMillis(System.currentTimeMillis());
                 }
@@ -10019,6 +10148,14 @@ public class GameService {
 
             rebuildCorruptionMods(g);
             sendMods2 = true;
+
+            // Bonus : morsure réussie malgré armure => +50 âmes au vampire
+            var vampOpt2 = getVamp(g);
+            if (vampOpt2.isPresent()) {
+                Player vamp2 = vampOpt2.get();
+                vamp2.setSouls(vamp2.getSouls() + 50);
+                addHistory(g, "Morsure — le sang versé nourrit le vampire : +50 âmes déchues.");
+            }
         }
 
         b.setResolvedAtMillis(System.currentTimeMillis());
@@ -10094,7 +10231,7 @@ public class GameService {
     private String drawFromDeck(List<String> deck, List<String> discard) {
         if (deck == null) return null;
 
-        // Si le deck est vide mais qu'il y a des cartes en défausse, on recrée le deck
+        // 1) Si deck vide AVANT pioche, on recrée depuis la défausse
         if (deck.isEmpty() && discard != null && !discard.isEmpty()) {
             java.util.Collections.shuffle(discard, RND);
             deck.addAll(discard);
@@ -10103,8 +10240,17 @@ public class GameService {
 
         if (deck.isEmpty()) return null;
 
-        // top = fin de la liste
-        return deck.remove(deck.size() - 1);
+        // 2) Pioche (top = fin)
+        String card = deck.remove(deck.size() - 1);
+
+        // 3) NOUVEAU : si le deck vient de tomber à 0, on reshuffle TOUT DE SUITE
+        if (deck.isEmpty() && discard != null && !discard.isEmpty()) {
+            java.util.Collections.shuffle(discard, RND);
+            deck.addAll(discard);
+            discard.clear();
+        }
+
+        return card;
     }
 
     private void putOnTop(List<String> deck, String cardId) {
@@ -10361,8 +10507,8 @@ public class GameService {
         }
 
         // Coût de base
-        final int baseGoldCost = 50;
-        final int waterCost    = 3;
+        final int baseGoldCost = 150;
+        final int waterCost    = 6;
 
         int costGold = baseGoldCost;
 
@@ -10428,7 +10574,7 @@ public class GameService {
         }
 
         // Coût de base
-        final int baseGoldCost = 50;
+        final int baseGoldCost = 100;
 
         int costGold = baseGoldCost;
 
@@ -10472,6 +10618,163 @@ public class GameService {
     }
 
     @Transactional
+    public Game buyUpgradeWeapon(String gameId, String userId, int expectedTier, String expectedType) {
+        Game g = findOr404(gameId);
+        if (g.getPhase() != Phase.PHASE4)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE4");
+
+        var p = findPlayer(g, userId);
+        if (p == null) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
+        if (!"HUNTER".equals(p.getRole()))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "hunters only");
+        if (!isAlive(p))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Tu es hors de combat pour le reste de la partie.");
+
+        int cur = hunterWeaponTier(p.getWeapon());
+        if (cur >= 2)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "arme déjà au maximum");
+
+        int tier = Math.min(2, cur + 1); // 0->1, 1->2
+
+        // Le front DOIT envoyer ce qu'il affiche
+        if (expectedTier != tier) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "offer tier mismatch (refresh)");
+        }
+
+        // Normalisation type
+        String type = (expectedType == null) ? null : expectedType.trim().toUpperCase();
+        if (!"BLEED".equals(type) && !"RANGE".equals(type) && !"STUN".equals(type)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid offer type");
+        }
+
+        // Maps (canon serveur)
+        if (g.getShopWeaponOfferTypeByHunter() == null) {
+            g.setShopWeaponOfferTypeByHunter(new java.util.HashMap<>());
+        }
+        if (g.getShopWeaponOfferTierByHunter() == null) {
+            g.setShopWeaponOfferTierByHunter(new java.util.HashMap<>());
+        }
+
+        var typeMap = g.getShopWeaponOfferTypeByHunter();
+        var tierMap = g.getShopWeaponOfferTierByHunter();
+
+        // ⚠️ IMPORTANT : on aligne l’offre serveur sur ce que le client affiche
+        // (ça supprime définitivement le “j’ai acheté spear mais j’ai mace”)
+        tierMap.put(userId, tier);
+        typeMap.put(userId, type);
+
+        // Mapping type -> weaponId (doit matcher tes assets)
+        String weaponId;
+        if (tier == 1) {
+            weaponId = switch (type) {
+                case "BLEED" -> H_WEAPON_T1_SWORD;
+                case "RANGE" -> H_WEAPON_T1_SPEAR;
+                case "STUN"  -> H_WEAPON_T1_MACE;
+                default      -> H_WEAPON_T1_SWORD;
+            };
+        } else { // tier == 2
+            weaponId = switch (type) {
+                case "BLEED" -> H_WEAPON_T2_HALBERD;
+                case "RANGE" -> H_WEAPON_T2_CROSSBOW;
+                case "STUN"  -> H_WEAPON_T2_HAMMER;
+                default      -> H_WEAPON_T2_HALBERD;
+            };
+        }
+
+        // Coûts (doit matcher le front)
+        int woodCost = (tier == 1) ? 3 : 4;
+        int ironCost = (tier == 1) ? 3 : 4;
+
+        if (p.getWood() < woodCost || p.getIron() < ironCost)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
+
+        p.setWood(p.getWood() - woodCost);
+        p.setIron(p.getIron() - ironCost);
+
+        p.setWeapon(weaponId);
+        if (tier == 1) p.setAttackDice("D6");
+        if (tier == 2) p.setAttackDice("D8");
+
+        String msg = nameOf(g, userId)
+                + " forge une arme de tier " + tier
+                + " (" + weaponId + ").";
+        addHistory(g, msg);
+
+        // Préparer l’offre suivante (T2) ou clear (si T2 acheté)
+        if (tier >= 2) {
+            typeMap.remove(userId);
+            tierMap.remove(userId);
+        } else {
+            int nextTier = 2;
+            int r2 = RND.nextInt(3);
+            String nextType = (r2 == 0) ? "BLEED" : (r2 == 1) ? "RANGE" : "STUN";
+            tierMap.put(userId, nextTier);
+            typeMap.put(userId, nextType);
+        }
+
+        rebuildEquipmentMods(g);
+        save(g);
+
+        afterCommit(() -> {
+            pushLive(g, msg);
+            live.stuffBought(g, userId);
+        });
+
+        return g;
+    }
+
+    @Transactional
+    public Game buyUpgradeArmor(String gameId, String userId) {
+        Game g = findOr404(gameId);
+        if (g.getPhase() != Phase.PHASE4)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE4");
+
+        var p = findPlayer(g, userId);
+        if (p == null) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
+        if (!"HUNTER".equals(p.getRole()))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "hunters only");
+        if (!isAlive(p))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Tu es hors de combat pour le reste de la partie.");
+
+        int cur = hunterArmorTier(p.getArmor());
+        if (cur >= 2)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "armure déjà au maximum");
+
+        int tier = cur + 1;
+        tier = Math.min(2, tier);
+
+        String armorId = (tier == 1) ? H_ARMOR_T1_BRIGANDINE : H_ARMOR_T2_HAUBERT;
+
+        int woodCost = (tier == 1) ? 3 : 4;
+        int ironCost = (tier == 1) ? 3 : 4;
+
+        if (p.getWood() < woodCost || p.getIron() < ironCost)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
+
+        p.setWood(p.getWood() - woodCost);
+        p.setIron(p.getIron() - ironCost);
+
+        p.setArmor(armorId);
+        if (tier == 1) p.setDefenseDice("D6");
+        if (tier == 2) p.setDefenseDice("D8");
+
+        String msg = nameOf(g, userId)
+                + " achète une armure de tier " + tier
+                + " (" + armorId + ").";
+        addHistory(g, msg);
+
+        rebuildEquipmentMods(g);
+        save(g);
+
+        afterCommit(() -> {
+            pushLive(g, msg);
+            live.stuffBought(g, userId);
+        });
+
+        return g;
+    }
+
+    @Transactional
     public Game sellResource(String gameId, String userId, String res, int qty) {
         if (qty <= 0) qty = 1;
         Game g = findOr404(gameId);
@@ -10505,8 +10808,11 @@ public class GameService {
             case "iron" -> p.setIron(have - qty);
             case "water"-> p.setWater(have - qty);
         }
+        int base = 10;
+        boolean charismatic = p.isCharismaticThisRaid();
+        if (charismatic) base += 10;
 
-        int gain = 10 * qty;
+        int gain = base * qty;
         p.setGold(p.getGold() + gain);
         addHistory(g, nameOf(g, userId) + " vend " + qty + " " + resLabelFr(res) + " (+" + gain + " or).");
 
@@ -10891,19 +11197,19 @@ public class GameService {
 
     private boolean hasResourcesForInfra(Player p, Infra infra) {
         return switch (infra) {
-            case SAWMILL    -> p.getStone() >= 5 && p.getIron() >= 3;
-            case MINE       -> p.getWood()  >= 6 && p.getIron() >= 2;
-            case LIBRARY    -> p.getWood()  >= 8 && p.getStone() >= 4 && p.getIron() >= 2;
-            case LABORATORY -> p.getWater() >= 5
-                    && p.getHerbs() >= 5
+            case SAWMILL    -> p.getStone() >= 2 && p.getIron() >= 2;
+            case MINE       -> p.getWood()  >= 3 && p.getIron() >= 1;
+            case LIBRARY    -> p.getWood()  >= 4 && p.getStone() >= 2 && p.getIron() >= 1;
+            case LABORATORY -> p.getWater() >= 2
+                    && p.getHerbs() >= 2
                     && p.getStone() >= 3
                     && p.getSouls() >= 50;
-            case BALLROOM -> p.getStone() >= 8  && p.getIron() >= 2 && p.getSouls() >= 50;
+            case BALLROOM -> p.getStone() >= 5  && p.getIron() >= 2 && p.getSouls() >= 50;
             case ALTAR -> p.getStone() >= 4
-                    && p.getWood() >= 2
+                    && p.getWood() >= 1
                     && p.getIron() >= 2
                     && p.getSouls() >= 50;
-            case FORGE -> p.getIron() >= 8
+            case FORGE -> p.getIron() >= 5
                     && p.getStone() >= 4
                     && p.getWood() >= 2;
         };
@@ -10912,37 +11218,37 @@ public class GameService {
     private void payResourcesForInfra(Player p, Infra infra) {
         switch (infra) {
             case SAWMILL -> {
-                p.setStone(p.getStone() - 5);
-                p.setIron(p.getIron()  - 3);
-            }
-            case MINE -> {
-                p.setWood(p.getWood()  - 6);
+                p.setStone(p.getStone() - 2);
                 p.setIron(p.getIron()  - 2);
             }
+            case MINE -> {
+                p.setWood(p.getWood()  - 3);
+                p.setIron(p.getIron()  - 1);
+            }
             case LIBRARY -> {
-                p.setWood (p.getWood()  - 8);
-                p.setStone(p.getStone() - 4);
-                p.setIron (p.getIron()  - 2);
+                p.setWood (p.getWood()  - 4);
+                p.setStone(p.getStone() - 2);
+                p.setIron (p.getIron()  - 1);
             }
             case LABORATORY -> {
-                p.setWater (p.getWater()  - 5);
-                p.setHerbs(p.getHerbs() - 5);
+                p.setWater (p.getWater()  - 2);
+                p.setHerbs(p.getHerbs() - 2);
                 p.setStone (p.getStone()  - 3);
                 p.setSouls (p.getSouls()  - 50);
             }
             case BALLROOM -> {
-                p.setStone (p.getStone()  - 8);
+                p.setStone (p.getStone()  - 5);
                 p.setIron(p.getIron() - 2);
                 p.setSouls (p.getSouls()  - 50);
             }
             case ALTAR -> {
                 p.setStone (p.getStone()  - 4);
-                p.setWood(p.getWood() - 2);
+                p.setWood(p.getWood() - 1);
                 p.setIron(p.getIron() - 2);
                 p.setSouls (p.getSouls()  - 50);
             }
             case FORGE -> {
-                p.setIron(p.getIron() - 8);
+                p.setIron(p.getIron() - 5);
                 p.setStone (p.getStone()  - 4);
                 p.setWood(p.getWood() - 2);
             }
@@ -10954,11 +11260,11 @@ public class GameService {
         java.util.List<String> gains = new java.util.ArrayList<>();
         switch (infra) {
             case SAWMILL -> {
-                grant(vamp, "wood", 2);
+                grant(vamp, "wood", 6);
                 gains.add("+2 bois");
             }
             case MINE -> {
-                grant(vamp, "iron", 2);
+                grant(vamp, "iron", 6);
                 gains.add("+2 fer");
             }
             case LIBRARY, LABORATORY, BALLROOM, ALTAR, FORGE -> {
@@ -11085,15 +11391,15 @@ public class GameService {
         switch (infra) {
             case SAWMILL -> {
                 // même logique que case "forest" de applyHarvests pour le vampire
-                grant(vamp, "wood", 1);  gains.add("+1 bois");
-                grant(vamp, "herbs", 2); gains.add("+2 herbe médicinale");
+                grant(vamp, "wood", 2);  gains.add("+1 bois");
+                grant(vamp, "herbs", 4); gains.add("+2 herbe médicinale");
                 locKey = "forest";
                 locLabel = labelLieuFr("forest");
             }
             case MINE -> {
                 // même logique que case "quarry"
-                grant(vamp, "iron", 1);  gains.add("+1 fer");
-                grant(vamp, "stone", 2); gains.add("+2 pierre");
+                grant(vamp, "iron", 2);  gains.add("+1 fer");
+                grant(vamp, "stone", 4); gains.add("+2 pierre");
                 locKey = "quarry";
                 locLabel = labelLieuFr("quarry");
             }
@@ -11101,11 +11407,11 @@ public class GameService {
                 // même logique que "manor" quand la construction échoue
                 int d100 = rollD100Tens();
                 if ("VAMPIRE".equals(vamp.getRole())) {
-                    grant(vamp, "souls", d100);
-                    gains.add("+" + d100 + " âmes déchues");
+                    grant(vamp, "souls", d100+100);
+                    gains.add("+" + (d100 + 100) + " âmes déchues");
                 } else {
-                    grant(vamp, "gold", d100);
-                    gains.add("+" + d100 + " or");
+                    grant(vamp, "gold", d100+100);
+                    gains.add("+" + (d100 + 100) + " or");
                 }
                 locKey = "manor";
                 locLabel = labelLieuFr("manor");
@@ -11789,10 +12095,19 @@ public class GameService {
                 case EXPLOSION -> {
                     if (!"HUNTER".equals(p.getRole())) {
                         throw new ResponseStatusException(HttpStatus.CONFLICT,
-                                "Seul un chasseur peut faire exploser le Laboratoire.");
+                                "Seul un chasseur peut tenter de faire exploser le Laboratoire.");
                     }
 
-                    applyLaboratoryExplosionEffect(g, p);
+                    // On prépare une résolution interactive (jet requis)
+                    // (pas obligatoire, mais utile pour UI/anti double roll)
+                    g.setLaboratoryExplosionRoll(null);
+
+                    // IMPORTANT : on n'applique pas l'effet ici
+                    // Et on n'avance pas la file d'effets ici : on attend resolveLaboratoryExplosion()
+                    waitForExtraResolution = true;
+
+                    addHistory(g, "Laboratoire occulte — " + nameOf(g, playerId)
+                            + " tente de déclencher une explosion alchimique… (jet de d20 requis).");
                 }
             }
         } else if (inst.infra == Infra.BALLROOM) {
@@ -12349,13 +12664,13 @@ public class GameService {
                 defDice   = "D4";
             }
             case GARGOYLE -> {
-                soulsCost = 250;
+                soulsCost = 200;
                 hp        = 10;
                 atkDice   = "D6";
                 defDice   = "D8";
             }
             case ABERRATION -> {
-                soulsCost = 500;
+                soulsCost = 400;
                 hp        = 15;
                 atkDice   = "D8";
                 defDice   = "D12";
@@ -12655,6 +12970,88 @@ public class GameService {
 
         addHistory(g, "Laboratoire occulte — " + nameOf(g, player.getId())
                 + " prépare une potion rare d'alchimie.");
+    }
+
+    @Transactional
+    public Game resolveLaboratoryExplosion(String gameId, String playerId) {
+        Game g = findOr404(gameId);
+
+        if (g.getStatus() != GameStatus.ACTIVE)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "game not active");
+
+        if (g.getPhase() != Phase.PREPHASE3)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "explosion only in PREPHASE3");
+
+        if (!g.getLocationEffectPending())
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "no location effect pending");
+
+        if (g.getLocationEffectsQueue() == null || g.getCurrentLocationEffectIndex() == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "no current location effect");
+        }
+
+        int idx = g.getCurrentLocationEffectIndex();
+        if (idx < 0 || idx >= g.getLocationEffectsQueue().size()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "invalid location effect index");
+        }
+
+        var inst = g.getLocationEffectsQueue().get(idx);
+
+        // On ne résout que EXPLOSION pour LABORATORY
+        if (inst.infra != Infra.LABORATORY || inst.choice != LocationEffectChoice.EXPLOSION) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "no explosion effect to resolve");
+        }
+
+        if (!inst.ownerId.equals(playerId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not your laboratory effect");
+        }
+
+        var hunter = findPlayer(g, playerId);
+        if (hunter == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "invalid player");
+        }
+        if (!"HUNTER".equals(hunter.getRole())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "only hunter can roll explosion");
+        }
+
+        // Anti double roll
+        if (g.getLaboratoryExplosionRoll() != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "explosion already resolved");
+        }
+
+        int roll = 1 + RND.nextInt(20);
+        g.setLaboratoryExplosionRoll(roll);
+
+        String who = nameOf(g, hunter.getId());
+
+        if (roll >= 15) {
+            addHistory(g, "Laboratoire occulte — " + who
+                    + " jette un d20 (" + roll + ") : explosion réussie !");
+            applyLaboratoryExplosionEffect(g, hunter);
+        } else {
+            int before = hunter.getHp();
+            int after  = Math.max(0, before - 2);
+            hunter.setHp(after);
+
+            addHistory(g, "Laboratoire occulte — " + who
+                    + " jette un d20 (" + roll + ") : échec. Il subit 2 dégâts (" + before + " → " + after + ").");
+
+            // si tu as un helper pour gérer mort/conséquences, appelle-le ici si after == 0
+        }
+
+        save(g);
+
+        afterCommit(() -> {
+            Game fresh = findOr404(gameId);
+            Player freshOwner = fresh.getPlayers().stream()
+                    .filter(pp -> pp.getId().equals(playerId))
+                    .findFirst().orElse(null);
+
+            // Effet complètement résolu (EXPLOSION)
+            live.locationEffectUsed(fresh, LocationEffectChoice.EXPLOSION, freshOwner);
+            scheduleNextLocationEffect(fresh.getId());
+        });
+
+        return g;
     }
 
     /**
@@ -12977,7 +13374,7 @@ public class GameService {
 
     @Transactional
     public Game resolveAltarHeal(String gameId, String playerId, String targetId) {
-        Game g = findOr404(gameId);
+        Game g = findOr404ForUpdate(gameId);
 
         if (g.getStatus() != GameStatus.ACTIVE)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "game not active");
@@ -13049,6 +13446,13 @@ public class GameService {
         // important : mettre à jour les mods liés à la corruption
         rebuildCorruptionMods(g);
 
+        // ---- CONSOMMER L'EFFET MAINTENANT (anti double resolve) ----
+        g.setLocationEffectPending(false);
+        g.setLocationEffectChoice(null);
+
+        // Très important : invalider l'instance courante
+        inst.choice = null;
+
         save(g);
 
         afterCommit(() -> {
@@ -13066,7 +13470,7 @@ public class GameService {
 
     @Transactional
     public Game resolveAltarCorrupt(String gameId, String playerId, String targetId) {
-        Game g = findOr404(gameId);
+        Game g = findOr404ForUpdate(gameId);
 
         if (g.getStatus() != GameStatus.ACTIVE)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "game not active");
@@ -13139,10 +13543,17 @@ public class GameService {
 
             addHistory(g, "Autel — "
                     + nameOf(g, target.getId())
-                    + " succombe à la corruption : il rejoint le vampire en tant que serviteur.");
+                    + " succombe à la corruption: il rejoint le vampire en tant que serviteur.");
         }
 
         rebuildCorruptionMods(g);
+
+        // ---- CONSOMMER L'EFFET MAINTENANT (anti double resolve) ----
+        g.setLocationEffectPending(false);
+        g.setLocationEffectChoice(null);
+
+        // Très important : invalider l'instance courante
+        inst.choice = null;
 
         save(g);
 
@@ -13232,7 +13643,7 @@ public class GameService {
     private static final String H_WEAPON_T1_SPEAR      = "H_WEAPON_T1_SPEAR";      // lance fer, range 1
 
     // CHASSEURS — armure T1
-    private static final String H_ARMOR_T1_BRIGANDINE  = "H_ARMOR_T1_BRIGANDINE";  // D8
+    private static final String H_ARMOR_T1_BRIGANDINE  = "H_ARMOR_T1_BRIGANDINE";  // D6
 
     // CHASSEURS — armes T2
     private static final String H_WEAPON_T2_HALBERD    = "H_WEAPON_T2_HALBERD";    // bleed +2
@@ -13240,7 +13651,7 @@ public class GameService {
     private static final String H_WEAPON_T2_CROSSBOW   = "H_WEAPON_T2_CROSSBOW";   // range 1-2
 
     // CHASSEURS — armure T2
-    private static final String H_ARMOR_T2_HAUBERT     = "H_ARMOR_T2_HAUBERT";     // D12
+    private static final String H_ARMOR_T2_HAUBERT     = "H_ARMOR_T2_HAUBERT";     // D8
 
     // CHASSEURS — armes T3
     private static final String H_WEAPON_T3_WRIST_BLADES = "H_WEAPON_T3_WRIST_BLADES"; // bleed +3
@@ -13251,14 +13662,14 @@ public class GameService {
     private static final String H_ARMOR_T3_PLATE_SILVER  = "H_ARMOR_T3_PLATE_SILVER";  // D20 + effet morsure
 
     // VAMPIRE/SERVITEUR — armes
-    private static final String V_WEAPON_T1_SCYTHE       = "V_WEAPON_T1_SCYTHE";       // D8, regen 1 sur roll 7-8
-    private static final String V_WEAPON_T2_SWORD        = "V_WEAPON_T2_SWORD";        // D12, regen 2 sur roll 10-12
-    private static final String V_WEAPON_T3_CLAWS        = "V_WEAPON_T3_CLAWS";        // D20, regen 3 sur roll >=16
+    private static final String V_WEAPON_T1_SCYTHE       = "V_WEAPON_T1_SCYTHE";       // D6, regen 1 sur roll 7-8
+    private static final String V_WEAPON_T2_SWORD        = "V_WEAPON_T2_SWORD";        // D8, regen 2 sur roll 10-12
+    private static final String V_WEAPON_T3_CLAWS        = "V_WEAPON_T3_CLAWS";        // D12, regen 3 sur roll >=10
 
     // VAMPIRE/SERVITEUR — armures
-    private static final String V_ARMOR_T1_CARAPACE      = "V_ARMOR_T1_CARAPACE";      // D8 +1 DEF
-    private static final String V_ARMOR_T2_HAUBERT       = "V_ARMOR_T2_HAUBERT";       // D12 +1 DEF
-    private static final String V_ARMOR_T3_ECORCE        = "V_ARMOR_T3_ECORCE";        // D20 + esquive sur 19-20
+    private static final String V_ARMOR_T1_CARAPACE      = "V_ARMOR_T1_CARAPACE";      // D6 +1 DEF
+    private static final String V_ARMOR_T2_HAUBERT       = "V_ARMOR_T2_HAUBERT";       // D8 +1 DEF
+    private static final String V_ARMOR_T3_ECORCE        = "V_ARMOR_T3_ECORCE";        // D12 + esquive sur 12
 
     private int currentWeaponTier(Player p) {
         String w = p.getWeapon();
@@ -13282,50 +13693,50 @@ public class GameService {
         // CHASSEURS
         switch (equipCode) {
             // --- T1 hunters ---
-            case H_WEAPON_T1_SWORD ->      // 2 bois, 4 fer
-            { return p.getWood() >= 2 && p.getIron() >= 4; }
-            case H_WEAPON_T1_MACE ->       // 3 bois, 3 fer
-            { return p.getWood() >= 3 && p.getIron() >= 3; }
-            case H_WEAPON_T1_SPEAR ->      // 5 bois, 1 fer
-            { return p.getWood() >= 5 && p.getIron() >= 1; }
-            case H_ARMOR_T1_BRIGANDINE ->  // 6 fer
-            { return p.getIron() >= 6; }
+            case H_WEAPON_T1_SWORD ->
+            { return p.getWood() >= 1 && p.getIron() >= 2; }
+            case H_WEAPON_T1_MACE ->
+            { return p.getWood() >= 1 && p.getIron() >= 2; }
+            case H_WEAPON_T1_SPEAR ->
+            { return p.getWood() >= 2 && p.getIron() >= 1; }
+            case H_ARMOR_T1_BRIGANDINE ->
+            { return p.getIron() >= 3; }
 
             // --- T2 hunters ---
-            case H_WEAPON_T2_HALBERD ->    // 6 bois, 4 fer
-            { return p.getWood() >= 6 && p.getIron() >= 4; }
-            case H_WEAPON_T2_HAMMER ->     // 4 bois, 6 fer
-            { return p.getWood() >= 4 && p.getIron() >= 6; }
-            case H_WEAPON_T2_CROSSBOW ->   // 5 bois, 5 fer
-            { return p.getWood() >= 5 && p.getIron() >= 5; }
-            case H_ARMOR_T2_HAUBERT ->     // 8 fer
-            { return p.getIron() >= 8; }
+            case H_WEAPON_T2_HALBERD ->
+            { return p.getWood() >= 2 && p.getIron() >= 2; }
+            case H_WEAPON_T2_HAMMER ->
+            { return p.getWood() >= 1 && p.getIron() >= 3; }
+            case H_WEAPON_T2_CROSSBOW ->
+            { return p.getWood() >= 3 && p.getIron() >= 1; }
+            case H_ARMOR_T2_HAUBERT ->
+            { return p.getIron() >= 4; }
 
             // --- T3 hunters ---
-            case H_WEAPON_T3_WRIST_BLADES -> // 6 fer, 10 argent
-            { return p.getIron() >= 6 && p.getSilver() >= 10; }
-            case H_WEAPON_T3_FLAIL ->        // 3 bois, 3 fer, 10 argent
-            { return p.getWood() >= 3 && p.getIron() >= 3 && p.getSilver() >= 10; }
-            case H_WEAPON_T3_PISTOL ->       // 6 bois, 10 argent
-            { return p.getWood() >= 6 && p.getSilver() >= 10; }
-            case H_ARMOR_T3_PLATE_SILVER ->  // 10 fer, 15 argent
-            { return p.getIron() >= 10 && p.getSilver() >= 15; }
+            case H_WEAPON_T3_WRIST_BLADES ->
+            { return p.getIron() >= 5 && p.getSilver() >= 3; }
+            case H_WEAPON_T3_FLAIL ->
+            { return p.getWood() >= 2 && p.getIron() >= 3 && p.getSilver() >= 3; }
+            case H_WEAPON_T3_PISTOL ->
+            { return p.getWood() >= 5 && p.getSilver() >= 3; }
+            case H_ARMOR_T3_PLATE_SILVER ->
+            { return p.getIron() >= 5 && p.getSilver() >= 4; }
 
             // --- VAMPIRE / SERVITEUR ---
-            case V_WEAPON_T1_SCYTHE ->     // 2 bois, 4 fer, 40 âmes
-            { return p.getWood() >= 2 && p.getIron() >= 4 && p.getSouls() >= 40; }
-            case V_ARMOR_T1_CARAPACE ->    // 4 fer, 40 âmes
-            { return p.getIron() >= 4 && p.getSouls() >= 40; }
+            case V_WEAPON_T1_SCYTHE ->
+            { return p.getWood() >= 2 && p.getIron() >= 2 && p.getSouls() >= 40; }
+            case V_ARMOR_T1_CARAPACE ->
+            { return p.getIron() >= 3 && p.getSouls() >= 40; }
 
-            case V_WEAPON_T2_SWORD ->      // 3 bois, 6 fer, 60 âmes
-            { return p.getWood() >= 3 && p.getIron() >= 6 && p.getSouls() >= 60; }
-            case V_ARMOR_T2_HAUBERT ->     // 6 fer, 60 âmes
-            { return p.getIron() >= 6 && p.getSouls() >= 60; }
+            case V_WEAPON_T2_SWORD ->
+            { return p.getWood() >= 2 && p.getIron() >= 4 && p.getSouls() >= 60; }
+            case V_ARMOR_T2_HAUBERT ->
+            { return p.getIron() >= 4 && p.getSouls() >= 60; }
 
-            case V_WEAPON_T3_CLAWS ->      // 4 bois, 4 fer, 100 âmes
-            { return p.getWood() >= 4 && p.getIron() >= 4 && p.getSouls() >= 100; }
-            case V_ARMOR_T3_ECORCE ->      // 3 bois, 6 fer, 100 âmes
-            { return p.getWood() >= 3 && p.getIron() >= 6 && p.getSouls() >= 100; }
+            case V_WEAPON_T3_CLAWS ->
+            { return p.getWood() >= 5 && p.getIron() >= 5 && p.getSouls() >= 100; }
+            case V_ARMOR_T3_ECORCE ->
+            { return p.getWood() >= 2 && p.getIron() >= 4 && p.getSouls() >= 100; }
 
             default -> {
                 return false;
@@ -13337,84 +13748,84 @@ public class GameService {
         switch (equipCode) {
             // CHASSEURS T1
             case H_WEAPON_T1_SWORD -> {
-                p.setWood(p.getWood() - 2);
-                p.setIron(p.getIron() - 4);
+                p.setWood(p.getWood() - 1);
+                p.setIron(p.getIron() - 2);
             }
             case H_WEAPON_T1_MACE -> {
-                p.setWood(p.getWood() - 3);
-                p.setIron(p.getIron() - 3);
+                p.setWood(p.getWood() - 1);
+                p.setIron(p.getIron() - 2);
             }
             case H_WEAPON_T1_SPEAR -> {
-                p.setWood(p.getWood() - 5);
+                p.setWood(p.getWood() - 2);
                 p.setIron(p.getIron() - 1);
             }
             case H_ARMOR_T1_BRIGANDINE -> {
-                p.setIron(p.getIron() - 6);
+                p.setIron(p.getIron() - 3);
             }
 
             // CHASSEURS T2
             case H_WEAPON_T2_HALBERD -> {
-                p.setWood(p.getWood() - 6);
-                p.setIron(p.getIron() - 4);
+                p.setWood(p.getWood() - 2);
+                p.setIron(p.getIron() - 2);
             }
             case H_WEAPON_T2_HAMMER -> {
-                p.setWood(p.getWood() - 4);
-                p.setIron(p.getIron() - 6);
+                p.setWood(p.getWood() - 1);
+                p.setIron(p.getIron() - 3);
             }
             case H_WEAPON_T2_CROSSBOW -> {
-                p.setWood(p.getWood() - 5);
-                p.setIron(p.getIron() - 5);
+                p.setWood(p.getWood() - 3);
+                p.setIron(p.getIron() - 1);
             }
             case H_ARMOR_T2_HAUBERT -> {
-                p.setIron(p.getIron() - 8);
+                p.setIron(p.getIron() - 4);
             }
 
             // CHASSEURS T3
             case H_WEAPON_T3_WRIST_BLADES -> {
-                p.setIron(p.getIron() - 6);
-                p.setSilver(p.getSilver() - 10);
+                p.setIron(p.getIron() - 5);
+                p.setSilver(p.getSilver() - 3);
             }
             case H_WEAPON_T3_FLAIL -> {
-                p.setWood(p.getWood() - 3);
+                p.setWood(p.getWood() - 2);
                 p.setIron(p.getIron() - 3);
-                p.setSilver(p.getSilver() - 10);
+                p.setSilver(p.getSilver() - 3);
             }
             case H_WEAPON_T3_PISTOL -> {
-                p.setWood(p.getWood() - 6);
-                p.setSilver(p.getSilver() - 10);
+                p.setWood(p.getWood() - 5);
+                p.setSilver(p.getSilver() - 3);
             }
             case H_ARMOR_T3_PLATE_SILVER -> {
-                p.setIron(p.getIron() - 10);
-                p.setSilver(p.getSilver() - 15);
+                p.setIron(p.getIron() - 5);
+                p.setSilver(p.getSilver() - 4);
             }
 
             // VAMPIRE / SERVITEUR
             case V_WEAPON_T1_SCYTHE -> {
                 p.setWood(p.getWood() - 2);
-                p.setIron(p.getIron() - 4);
+                p.setIron(p.getIron() - 2);
                 p.setSouls(p.getSouls() - 40);
             }
             case V_ARMOR_T1_CARAPACE -> {
-                p.setIron(p.getIron() - 4);
+                p.setIron(p.getIron() - 3);
                 p.setSouls(p.getSouls() - 40);
             }
             case V_WEAPON_T2_SWORD -> {
-                p.setWood(p.getWood() - 3);
-                p.setIron(p.getIron() - 6);
+                p.setWood(p.getWood() - 2);
+                p.setIron(p.getIron() - 4);
                 p.setSouls(p.getSouls() - 60);
             }
             case V_ARMOR_T2_HAUBERT -> {
-                p.setIron(p.getIron() - 6);
+                p.setIron(p.getIron() - 4);
                 p.setSouls(p.getSouls() - 60);
             }
             case V_WEAPON_T3_CLAWS -> {
-                p.setWood(p.getWood() - 4);
-                p.setIron(p.getIron() - 4);
+                p.setWood(p.getWood() - 5);
+                p.setIron(p.getIron() - 5);
                 p.setSouls(p.getSouls() - 100);
             }
             case V_ARMOR_T3_ECORCE -> {
-                p.setWood(p.getWood() - 3);
-                p.setIron(p.getIron() - 6);
+                p.setWood(p.getWood() - 2);
+                p.setIron(p.getIron() - 4);
                 p.setSouls(p.getSouls() - 100);
             }
         }
@@ -13529,29 +13940,29 @@ public class GameService {
             // --- weapons ---
             case H_WEAPON_T1_SWORD, H_WEAPON_T1_MACE, H_WEAPON_T1_SPEAR, V_WEAPON_T1_SCYTHE -> {
                 p.setWeapon(equipCode);
-                p.setAttackDice("D8");
+                p.setAttackDice("D6");
             }
             case H_WEAPON_T2_HALBERD, H_WEAPON_T2_HAMMER, H_WEAPON_T2_CROSSBOW, V_WEAPON_T2_SWORD -> {
                 p.setWeapon(equipCode);
-                p.setAttackDice("D12");
+                p.setAttackDice("D8");
             }
             case H_WEAPON_T3_WRIST_BLADES, H_WEAPON_T3_FLAIL, H_WEAPON_T3_PISTOL, V_WEAPON_T3_CLAWS -> {
                 p.setWeapon(equipCode);
-                p.setAttackDice("D20");
+                p.setAttackDice("D12");
             }
 
             // --- armors ---
             case H_ARMOR_T1_BRIGANDINE, V_ARMOR_T1_CARAPACE -> {
                 p.setArmor(equipCode);
-                p.setDefenseDice("D8");
+                p.setDefenseDice("D6");
             }
             case H_ARMOR_T2_HAUBERT, V_ARMOR_T2_HAUBERT -> {
                 p.setArmor(equipCode);
-                p.setDefenseDice("D12");
+                p.setDefenseDice("D8");
             }
             case H_ARMOR_T3_PLATE_SILVER, V_ARMOR_T3_ECORCE -> {
                 p.setArmor(equipCode);
-                p.setDefenseDice("D20");
+                p.setDefenseDice("D12");
             }
 
             default -> throw new IllegalArgumentException("unknown equipment: " + equipCode);
@@ -13752,9 +14163,9 @@ public class GameService {
     private boolean rangedKeepAwayTriggered(String weaponCode, int rawAtk) {
         if (weaponCode == null) return false;
         return switch (weaponCode) {
-            case H_WEAPON_T1_SPEAR    -> (rawAtk == 8);
-            case H_WEAPON_T2_CROSSBOW -> (rawAtk == 11 || rawAtk == 12);
-            case H_WEAPON_T3_PISTOL   -> (rawAtk == 18 || rawAtk == 19 || rawAtk == 20);
+            case H_WEAPON_T1_SPEAR    -> (rawAtk == 6);
+            case H_WEAPON_T2_CROSSBOW -> (rawAtk == 7 || rawAtk == 8);
+            case H_WEAPON_T3_PISTOL   -> (rawAtk == 10 || rawAtk == 11 || rawAtk == 12);
             default -> false;
         };
     }
@@ -13764,9 +14175,9 @@ public class GameService {
         if (weaponCode == null) return 0;
 
         return switch (weaponCode) {
-            case V_WEAPON_T1_SCYTHE -> (attackRoll == 7 || attackRoll == 8) ? 1 : 0;
-            case V_WEAPON_T2_SWORD  -> (attackRoll >= 10 && attackRoll <= 12) ? 2 : 0;
-            case V_WEAPON_T3_CLAWS  -> (attackRoll >= 16) ? 3 : 0;
+            case V_WEAPON_T1_SCYTHE -> (attackRoll == 6) ? 1 : 0;
+            case V_WEAPON_T2_SWORD  -> (attackRoll >= 7 && attackRoll <= 8) ? 2 : 0;
+            case V_WEAPON_T3_CLAWS  -> (attackRoll >= 10) ? 3 : 0;
             default -> 0;
         };
     }
@@ -13852,9 +14263,10 @@ public class GameService {
      *
      * Appelé après la résolution d'un duel, juste avant de passer au combat suivant.
      */
-    private void consumeHitModsAfterFight(Game g, RoundFight r) {
+    private boolean consumeHitModsAfterFight(Game g, RoundFight r) {
+        boolean changed = false;
 
-        // 1) Étourdissement : se consomme quand la cible étourdie vient d'attaquer
+        // 1) Étourdissement (sur l'attaquant vampire/serviteur)
         var atkPlayer = g.getPlayers().stream()
                 .filter(p -> p.getId().equals(r.getAttackerId()))
                 .findFirst()
@@ -13867,22 +14279,39 @@ public class GameService {
             if (mods != null && !mods.isEmpty()) {
                 boolean removed = mods.removeIf(m -> "HIT:STUN_WEAPON:ENG".equals(m.getSource()));
                 if (removed) {
-                    String line = nameOf(g, atkPlayer.getId()) + " se remet de l'étourdissement.";
-                    addHistory(g, line);
+                    changed = true;
+                    addHistory(g, nameOf(g, atkPlayer.getId()) + " se remet de l'étourdissement.");
                 }
+                if (mods.isEmpty()) g.getRaidMods().remove(atkPlayer.getId()); // optionnel mais propre
             }
         }
 
-        // 2) Tenu à distance : la puce DSP est portée par la cible (défenseur)
+        // 2) Tenu à distance (sur le défenseur)
         var defMods = (g.getRaidMods() != null) ? g.getRaidMods().get(r.getDefenderId()) : null;
         if (defMods != null && !defMods.isEmpty()) {
             boolean removed = defMods.removeIf(m -> "HIT:RANGED_WEAPON:DSP".equals(m.getSource()));
             if (removed) {
-                String line = entityName(g, r.getDefenderId())
-                        + " n'est plus tenu à distance.";
-                addHistory(g, line);
+                changed = true;
+                addHistory(g, entityName(g, r.getDefenderId()) + " n'est plus tenu à distance.");
             }
+            if (defMods.isEmpty()) g.getRaidMods().remove(r.getDefenderId());
         }
+
+        return changed;
+    }
+
+    private void purgeTransientRaidMods(Game g) {
+        if (g.getRaidMods() == null) return;
+
+        for (var e : g.getRaidMods().entrySet()) {
+            var mods = e.getValue();
+            if (mods == null) continue;
+            mods.removeIf(m -> {
+                String s = m.getSource();
+                return "HIT:STUN_WEAPON:ENG".equals(s) || "HIT:RANGED_WEAPON:DSP".equals(s);
+            });
+        }
+        g.getRaidMods().entrySet().removeIf(e -> e.getValue() == null || e.getValue().isEmpty());
     }
 
     /**
@@ -13903,5 +14332,94 @@ public class GameService {
                 break;
             }
         }
+    }
+
+    @Transactional
+    public void contributeBankStone(String gameId, String playerId) {
+        Game g = findOr404(gameId);
+
+        if (g.getStatus() != GameStatus.ACTIVE)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "game not active");
+
+        if (g.getPhase() != Phase.PHASE4)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "bank only in PHASE4");
+
+        Player p = findPlayer(g, playerId);
+        if (p == null) throw new ResponseStatusException(HttpStatus.CONFLICT, "invalid player");
+
+        if (!"HUNTER".equals(p.getRole()))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "hunters only");
+
+        if (p.getHp() <= 0)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "dead player");
+
+        int lvl = (g.getBankLevel() == null ? 0 : g.getBankLevel());
+        int prog = (g.getBankStoneProgress() == null ? 0 : g.getBankStoneProgress());
+
+        if (lvl >= 3)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "bank already max");
+
+        if (p.getStone() <= 0)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "not enough stone");
+
+        // 1) payer 1 pierre
+        p.setStone(p.getStone() - 1);
+
+        // 2) progresser
+        prog += 1;
+
+        // 3) coût requis selon niveau actuel -> prochain niveau
+        int required = switch (lvl + 1) {
+            case 1 -> 10;
+            case 2 -> 15;
+            case 3 -> 20;
+            default -> Integer.MAX_VALUE;
+        };
+
+        boolean leveledUp = false;
+        if (prog >= required) {
+            lvl += 1;
+            prog = 0; // reset pour le prochain palier
+            leveledUp = true;
+
+            addHistory(g, "Banque — amélioration réussie : la banque passe au niveau " + lvl + ".");
+        } else {
+            addHistory(g, "Banque — dépôt d’1 pierre (" + prog + "/" + required + ").");
+        }
+
+        g.setBankLevel(lvl);
+        g.setBankStoneProgress(prog);
+
+        save(g);
+
+        afterCommit(() -> {
+            Game fresh = findOr404(gameId);
+            live.bankUpdated(fresh, playerId); // WS (refresh front)
+        });
+    }
+
+    private void applyBankBonusOnPhase4Entry(Game g) {
+        int lvl = (g.getBankLevel() == null ? 0 : g.getBankLevel());
+        if (lvl <= 0) return;
+
+        for (Player p : g.getPlayers()) {
+            if (!"HUNTER".equals(p.getRole())) continue;
+            if (p.getHp() <= 0) continue;
+
+            int goldGain = (lvl >= 3) ? 100 : 50;
+            p.setGold(p.getGold() + goldGain);
+
+            if (lvl >= 2) {
+                int r = RND.nextInt(4); // 0..3
+                switch (r) {
+                    case 0 -> p.setWood(p.getWood() + 1);
+                    case 1 -> p.setIron(p.getIron() + 1);
+                    case 2 -> p.setHerbs(p.getHerbs() + 1);
+                    case 3 -> p.setWater(p.getWater() + 1);
+                }
+            }
+        }
+
+        addHistory(g, "Banque — bonus appliqué (niveau " + lvl + ") au début de la phase 4.");
     }
 }

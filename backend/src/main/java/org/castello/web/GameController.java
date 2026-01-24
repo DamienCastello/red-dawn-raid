@@ -393,6 +393,33 @@ public class GameController {
         games.tradeAction(id, user.getId(), targetId, action);
     }
 
+    public record UpgradeWeaponReq(Integer tier, String type) {}
+
+    @PostMapping("/{id}/shop-upgrade-weapon")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void buyUpgradeWeapon(@PathVariable String id,
+                                 @RequestBody UpgradeWeaponReq body,
+                                 @RequestHeader("Authorization") String authorization) {
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+
+        if (body == null || body.tier() == null || body.type() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid payload");
+        }
+
+        games.buyUpgradeWeapon(id, user.getId(), body.tier(), body.type());
+    }
+
+
+    @PostMapping("/{id}/shop/buy-upgrade-armor")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void buyUpgradeArmor(@PathVariable String id,
+                                @RequestHeader("Authorization") String authorization) {
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+        games.buyUpgradeArmor(id, user.getId());
+    }
+
     // --- Utiliser une carte action ---
     public static class UseActionReq { public String type; }
 
@@ -457,7 +484,6 @@ public class GameController {
         playerService.requireInGame(user.getId(), id);
         games.resolveAmbush(id, user.getId(), targetId);
     }
-
 
     @PostMapping("/{id}/actions/blessed-stake/resolve")
     public void resolveBlessedStake(@PathVariable String id,
@@ -664,6 +690,16 @@ public class GameController {
         games.resolveLaboratoryExperiment(id, user.getId(), body.type, body.location);
     }
 
+    @PostMapping("/{id}/effect-lab-explosion")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resolveLabExplosion(@PathVariable String id,
+                                    @RequestHeader("Authorization") String authorization) {
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+
+        games.resolveLaboratoryExplosion(id, user.getId());
+    }
+
     @PostMapping("/{id}/effect-heal")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void resolveAltarHeal(@PathVariable String id,
@@ -702,5 +738,15 @@ public class GameController {
 
         // on utilise toujours le userId authentifié comme owner
         games.resolveForge(id, user.getId(), body.equipCode);
+    }
+
+    @PostMapping("/{id}/bank-contribute")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void contributeBankStone(@PathVariable String id,
+                                    @RequestHeader("Authorization") String authorization) {
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+
+        games.contributeBankStone(id, user.getId());
     }
 }

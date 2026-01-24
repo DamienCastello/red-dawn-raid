@@ -309,6 +309,14 @@ public class LiveEvents {
         ));
     }
 
+    public void stuffBought(Game g, String playerId) {
+        send(g.getId(), new GameEvents(
+                GameEvents.Type.STUFF_BOUGHT, g.getId(),
+                Map.of("playerId", playerId),
+                System.currentTimeMillis()
+        ));
+    }
+
     public void potionBought(Game g, String playerId, String type, int left) {
         send(g.getId(), new GameEvents(
                 GameEvents.Type.POTION_BOUGHT, g.getId(),
@@ -471,6 +479,15 @@ public class LiveEvents {
         send(g.getId(), new GameEvents(
                 GameEvents.Type.INFRA_BUILT, g.getId(),
                 Map.of("builderId", builderId, "infra", infra),
+                System.currentTimeMillis()
+        ));
+    }
+
+    public void bankUpdated(Game g, String playerId) {
+        send(g.getId(), new GameEvents(
+                GameEvents.Type.BANK_UPDATED,
+                g.getId(),
+                Map.of("playerId", playerId),
                 System.currentTimeMillis()
         ));
     }

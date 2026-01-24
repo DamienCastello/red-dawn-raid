@@ -42,7 +42,6 @@ public record GameSnapshot(
         List<String> campfireLocations,
         List<String> netHunters,
         List<String> pitHunters,
-        String shopBonusKind,
         boolean hunterActionsBlockedThisRaid,
         List<String> clonesLocations,
         Boolean clonesFaceUp,
@@ -61,10 +60,15 @@ public record GameSnapshot(
         List<MonsterView> monsters,
         String laboratoryDraftMonsterType,
         String laboratoryDraftLocation,
+        Integer laboratoryExplosionRoll,
         boolean ballroomBloodWaltz,
         List<Integer> ballroomWaltzRolls,
         Integer ballroomWaltzBest,
         boolean altarCorrupted,
+        Integer bankLevel,
+        Integer bankStoneProgress,
+        java.util.Map<String, String> shopWeaponOfferTypeByHunter,
+        java.util.Map<String, Integer> shopWeaponOfferTierByHunter,
 
         List<HistoryItemView> history,
         List<String> messages,
@@ -100,7 +104,13 @@ public record GameSnapshot(
             int water, int gold, int souls, int silver,
             boolean isBlessedStake,
             boolean isSacredRosary,
-            boolean charismaticThisRaid
+            boolean charismaticThisRaid,
+            boolean merchantPending,
+            Integer merchantRoll,
+            String shopBonusKind,
+            String shopBonusEquipId,
+            Integer shopBonusEquipTier,
+            boolean shopBonusBuyPending
     ) {}
 
     public record DecksView(Pile actionsVamp, Pile actionsHunters, Pile potions, Pile elixirs) {

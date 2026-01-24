@@ -11,6 +11,7 @@ public enum Action {
     PROVOCATION,
     INCENDIAIRE,
     AMBUSH,
+    LONELY,
     BLESSED_STAKE,
     SACRED_ROSARY,
     CHARISMATIQUE,

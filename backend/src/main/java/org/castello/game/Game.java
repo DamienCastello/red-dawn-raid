@@ -114,11 +114,6 @@ public class Game {
     // Infras qui seront détruites à la fin du raid courant (Incendiaire)
     private java.util.EnumSet<Infra> infrasToDestroyEndOfRaid = java.util.EnumSet.noneOf(Infra.class);
 
-    // Boutique : bonus unique (Marchand itinérant)
-    private String shopBonusKind; // "POTION", "ELIXIR", "EQUIP_WEAPON", "EQUIP_ARMOR";
-
-    private String shopBonusEquipId; // ex: H_WEAPON_T2_HAMMER ou H_ARMOR_T1_BRIGANDINE
-
     // Blocage des actions chasseur
     private boolean hunterActionsBlockedThisRaid;
 
@@ -307,6 +302,9 @@ public class Game {
         public void setUpdatedAt(long updatedAt) { this.updatedAt = updatedAt; }
     }
 
+    private java.util.Map<String, String> shopWeaponOfferTypeByHunter;
+    private java.util.Map<String, Integer> shopWeaponOfferTierByHunter;
+
     private List<Trade> trades = new ArrayList<>();
 
     // Constructions
@@ -358,6 +356,7 @@ public class Game {
     private MonsterType laboratoryDraftMonsterType; // nullable
     private String laboratoryDraftLocation;         // nullable
 
+    private Integer laboratoryExplosionRoll;
     private boolean laboratoryToDestroy;
     private boolean ballroomDeathDance;
     private boolean ballroomSneakAttack;
@@ -374,6 +373,10 @@ public class Game {
     private boolean altarVampTookDamageThisRaid;         // le vampire a pris des dégâts sur ce lieu ce raid
 
     private Map<String, Integer> bleedDamageByTarget = new HashMap<>();
+
+    // ---- Banque (global) ----
+    private Integer bankLevel = 0;          // 0..3
+    private Integer bankStoneProgress = 0;  // pierres déposées vers le prochain niveau
 
     public Game() {}
 
@@ -523,12 +526,6 @@ public class Game {
         this.ambushHuntersByEnemy = (m != null ? m : new HashMap<>());
     }
 
-    public String getShopBonusKind() { return shopBonusKind; }
-    public void setShopBonusKind(String shopBonusKind) { this.shopBonusKind = shopBonusKind; }
-
-    public String getShopBonusEquipId() { return shopBonusEquipId; }
-    public void setShopBonusEquipId(String v) { this.shopBonusEquipId = v; }
-
     public java.util.EnumSet<Infra> getInfrasToDestroyEndOfRaid() { return infrasToDestroyEndOfRaid; }
     public void setInfrasToDestroyEndOfRaid(java.util.EnumSet<Infra> v) { this.infrasToDestroyEndOfRaid = v; }
 
@@ -635,6 +632,12 @@ public class Game {
     public Long getPhase4DeadlineMillis() { return phase4DeadlineMillis; }
     public void setPhase4DeadlineMillis(Long v) { this.phase4DeadlineMillis = v; }
 
+    public java.util.Map<String, String> getShopWeaponOfferTypeByHunter() { return shopWeaponOfferTypeByHunter; }
+    public void setShopWeaponOfferTypeByHunter(java.util.Map<String, String> v) { this.shopWeaponOfferTypeByHunter = v; }
+
+    public java.util.Map<String, Integer> getShopWeaponOfferTierByHunter() { return shopWeaponOfferTierByHunter; }
+    public void setShopWeaponOfferTierByHunter(java.util.Map<String, Integer> v) { this.shopWeaponOfferTierByHunter = v; }
+
     public List<Trade> getTrades(){ return trades; }
     public void setTrades(List<Trade> t){ this.trades = t; }
 
@@ -686,6 +689,9 @@ public class Game {
     public String getLaboratoryDraftLocation() { return laboratoryDraftLocation; }
     public void setLaboratoryDraftLocation(String v) { this.laboratoryDraftLocation = v; }
 
+    public Integer getLaboratoryExplosionRoll() { return laboratoryExplosionRoll; }
+    public void setLaboratoryExplosionRoll(Integer v) { this.laboratoryExplosionRoll = v; }
+
     public boolean isLaboratoryToDestroy() { return laboratoryToDestroy; }
     public void setLaboratoryToDestroy(boolean v) { this.laboratoryToDestroy = v; }
 
@@ -728,4 +734,10 @@ public class Game {
 
     public Map<String, Integer> getBleedDamageByTarget() { return bleedDamageByTarget; }
     public void setBleedDamageByTarget(Map<String,Integer> m) { this.bleedDamageByTarget = m; }
+
+    public Integer getBankLevel() { return bankLevel; }
+    public void setBankLevel(Integer bankLevel) { this.bankLevel = bankLevel; }
+
+    public Integer getBankStoneProgress() { return bankStoneProgress; }
+    public void setBankStoneProgress(Integer bankStoneProgress) { this.bankStoneProgress = bankStoneProgress; }
 }

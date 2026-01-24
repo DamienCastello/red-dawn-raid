@@ -3,12 +3,45 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ApiService, GameSnapshot, RawStatMod, Phase, Pile } from './api.service';
 import { LiveService, GameEvent } from './live.service';
-import { AssetPreloaderService } from './services/asset-preloader.service';
 import { NotifyService } from './services/notif.service';
 import { ChangeDetectorRef } from '@angular/core';
 
 import { PhaseBubbleComponent } from './phase-buble.component';
 import { ToastComponent } from './toast.component';
+
+type ForgeRes = 'wood' | 'iron' | 'silver' | 'souls';
+type ForgeCost = Partial<Record<ForgeRes, number>>;
+
+const FORGE_COSTS: Record<string, ForgeCost> = {
+  // Hunters T1
+  H_WEAPON_T1_SWORD:     { wood: 1, iron: 2 },
+  H_WEAPON_T1_MACE:      { wood: 1, iron: 2 },
+  H_WEAPON_T1_SPEAR:     { wood: 2, iron: 1 },
+  H_ARMOR_T1_BRIGANDINE: { iron: 3 },
+
+  // Hunters T2
+  H_WEAPON_T2_HALBERD:   { wood: 2, iron: 2 },
+  H_WEAPON_T2_HAMMER:    { wood: 1, iron: 3 },
+  H_WEAPON_T2_CROSSBOW:  { wood: 3, iron: 1 },
+  H_ARMOR_T2_HAUBERT:    { iron: 4 },
+
+  // Hunters T3
+  H_WEAPON_T3_WRIST_BLADES: { iron: 5, silver: 3 },
+  H_WEAPON_T3_FLAIL:        { wood: 2, iron: 3, silver: 3 },
+  H_WEAPON_T3_PISTOL:       { wood: 5, iron: 3, silver: 3 },
+  H_ARMOR_T3_PLATE_SILVER:  { iron: 5, silver: 4 },
+
+  // Vamp/Servant
+  V_WEAPON_T1_SCYTHE:  { iron: 2, wood: 2, souls: 40 },
+  V_ARMOR_T1_CARAPACE: { iron: 3, souls: 40 },
+
+  V_WEAPON_T2_SWORD:   { iron: 2, wood: 4, souls: 60 },
+  V_ARMOR_T2_HAUBERT:  { iron: 4, souls: 60 },
+
+  V_WEAPON_T3_CLAWS:   { iron: 5, wood: 5, souls: 100 },
+  V_ARMOR_T3_ECORCE:   { iron: 4, wood: 2, souls: 100 },
+};
+
 
 type InfraCode =
       'SAWMILL' | 'MINE' | 'LIBRARY' | 'LABORATORY' | 'BALLROOM' | 'ALTAR' | 'FORGE';
@@ -30,6 +63,7 @@ interface ForgeOption {
   tier: 1 | 2 | 3;
   label: string;
   desc: string;
+  cost: any;
 }
 
 @Component({
@@ -54,7 +88,7 @@ interface ForgeOption {
     </button>
     <h2 style="margin: 0px;">Raid {{ game?.raid }} — {{ game?.phase || '...' }}</h2>
 
-    <div *ngIf="errorMsg" style="background:#fee;border:1px solid #f99;padding:.5rem;margin:.5rem 0">
+    <div *ngIf="errorMsg" class="error-msg">
       {{ errorMsg }}
     </div>
 
@@ -276,7 +310,7 @@ interface ForgeOption {
             </div>
 
             <!-- Centre (cartes) -->
-            <ng-container *ngIf="(game?.center?.length || 0) + (game?.clonesLocations?.length || 0) > 0; else emptyCenter">
+            <ng-container *ngIf="centerHasAnything; else emptyCenter">
               <div class="center-cards">
 
                 <!-- Cartes jouées -->
@@ -306,6 +340,19 @@ interface ForgeOption {
                       (mouseleave)="zoomLeave()" />
                 </div>
 
+                <!-- Pisteur (affiché comme une carte "jouée") -->
+                <div class="center-card" *ngFor="let pid of (game?.trackerHunters || [])">
+                  <div class="center-card-name name-hunter">
+                    {{ usernameOf(pid) }}
+                  </div>
+
+                  <img class="center-card-img"
+                      [src]="actionImg('PISTEUR')"
+                      alt="Pisteur"
+                      (mouseenter)="zoomEnter($event, usernameOf(pid), true)"
+                      (mousemove)="zoomMove($event)"
+                      (mouseleave)="zoomLeave()" />
+                </div>
               </div>
             </ng-container>
 
@@ -475,7 +522,7 @@ interface ForgeOption {
 
                 <img *ngIf="discardCount(game?.decks?.elixirs) > 0"
                     class="mini-back-img deck-img"
-                    [src]="discardImgFor('ELIXIRS', game?.decks?.elixirs)"
+                    [src]="discardImgFor('POTIONS', game?.decks?.elixirs)"
                     alt="défausse élixirs" />
 
                 <span class="mini-badge">
@@ -614,7 +661,9 @@ interface ForgeOption {
                   [attr.aria-disabled]="!canUseActionNow(action) ? true : null"
                   [class.selected]="selectedAction === action && selectedActionIndex === i"
                   (click)="onActionClick(action, i)"
-                  [attr.title]="canUseActionNow(action) ? null : 'Disponible uniquement en PREPHASE3'"
+                  [attr.title]="isMeHunterUnstablePending()
+                    ? 'Impossible tant que vous succombez à la corruption.'
+                    : (!canUseActionNow(action) ? 'Disponible uniquement en PREPHASE3' : null)"
                   type="button">
             <span class="card-frame">
               <span class="card-surface">
@@ -636,10 +685,12 @@ interface ForgeOption {
                   (click)="onPotionClick(potion, i)"
                   [attr.title]="canUsePotionNow(potion)
                     ? null
-                    : ((game.weather?.status === 'BLIZZARD'
-                        || game.weather?.secondaryStatus === 'BLIZZARD')
-                        ? 'Potions gelées'
-                        : 'Disponible uniquement en PREPHASE3')"
+                    : (isMeHunterUnstablePending()
+                        ? 'Impossible tant que vous succombez à la corruption.'
+                        : ((game.weather?.status === 'BLIZZARD'
+                            || game.weather?.secondaryStatus === 'BLIZZARD')
+                            ? 'Potions gelées'
+                            : 'Disponible uniquement en PREPHASE3'))"
                   type="button">
             <span class="card-frame">
               <span class="card-surface">
@@ -661,10 +712,12 @@ interface ForgeOption {
                   (click)="onPotionClick(potion, i)"
                   [attr.title]="canUsePotionNow(potion)
                     ? null
-                    : ((game.weather?.status === 'BLIZZARD'
-                        || game.weather?.secondaryStatus === 'BLIZZARD')
-                        ? 'Potions gelées'
-                        : 'Disponible uniquement en PREPHASE3')"
+                    : (isMeHunterUnstablePending()
+                        ? 'Impossible tant que vous succombez à la corruption.'
+                        : ((game.weather?.status === 'BLIZZARD'
+                            || game.weather?.secondaryStatus === 'BLIZZARD')
+                            ? 'Potions gelées'
+                            : 'Disponible uniquement en PREPHASE3'))"
                   type="button">
             <span class="card-frame">
               <span class="card-surface">
@@ -1373,8 +1426,8 @@ interface ForgeOption {
 
         <div class="dice-row">
           <!-- D6 de morsure -->
-          <div class="dice-wrap" [attr.data-digits]="1">
-            <img class="dice-big" src="/assets/dices/d6-red.png" alt="d6"/>
+          <div class="dice-wrap" [attr.data-digits]="2">
+            <img class="dice-big" src="/assets/dices/d20-red.png" alt="d20"/>
             <div class="dice-overlay" *ngIf="game?.currentBite?.roll != null">
               {{ game?.currentBite?.roll }}
             </div>
@@ -1382,10 +1435,10 @@ interface ForgeOption {
 
           <!-- D4 d’armure (si armure d’argent concernée) -->
           <div class="dice-wrap"
-              *ngIf="showArmorDie"
+              *ngIf="showArmorDice"
               [attr.data-digits]="1">
             <!-- adapte le visuel si tu n’as pas de d4 -->
-            <img class="dice-big" src="/assets/dices/d4-white.png" alt="d4"/>
+            <img class="dice-big" src="/assets/dices/d4-blue.png" alt="d4"/>
             <div class="dice-overlay" *ngIf="game?.currentBite?.armorRoll != null">
               {{ game?.currentBite?.armorRoll }}
             </div>
@@ -1394,7 +1447,7 @@ interface ForgeOption {
       </div>
 
       <div class="footer">
-        <!-- Étape 1 : jet de morsure (D6) -->
+        <!-- Étape 1 : jet de morsure (D20) -->
         <ng-container *ngIf="biteStage() === 'BITE'; else afterFirstRoll">
           <ng-container *ngIf="canRollBite(); else waitBite">
             <button (click)="rollCorruption()" class="btn-primary">Jeter le dé</button>
@@ -1563,7 +1616,6 @@ interface ForgeOption {
                       class="shop-card-action-btn"
                       [class.is-disabled]="!canUseActionNow(action)"
                       [attr.aria-disabled]="!canUseActionNow(action) ? true : null"
-                      [attr.title]="this.game?.shopBonusKind ? 'Il y a déjà un marchand itinérant' : null"
                       (click)="useAction(action)"
                       (mouseenter)="zoomEnter($event, undefined, undefined, 'L')"
                       (mousemove)="zoomMove($event)"
@@ -1684,7 +1736,7 @@ interface ForgeOption {
                 <h4>Eau bénite</h4>
                 <span class="price price-icons">
                   <span class="cost-item">
-                    <span class="cost-val">3</span>
+                    <span class="cost-val">6</span>
                     <span class="cost-ico-box"><img class="cost-ico cost-ico-s" src="/assets/icons/water.png" alt="Eau"></span>
                     <span class="cost-val">{{ holyWaterGoldPrice }}</span>
                     <span class="cost-ico-box"><img class="cost-ico cost-ico-s" src="/assets/icons/gold.png" alt="Or"></span>
@@ -1701,6 +1753,56 @@ interface ForgeOption {
                       (mouseleave)="zoomLeave()">
                 <img class="buy-img" [src]="actionImg('EAU_BENITE')" alt="Eau bénite">
               </button>
+            </div>
+          </div>
+          <!-- BANQUE : 2 cards sur 1 ligne -->
+          <div class="card-row row-2 bank-row" *ngIf="isHunter">
+            <!-- Améliorer la banque -->
+            <div class="card card-buy-bottom">
+              <div class="card-header-line">
+                <h4>Améliorer la banque</h4>
+              </div>
+
+              <button class="shop-btn bank-upgrade-btn"
+                      (click)="onContributeBankStone()"
+                      [disabled]="!canContributeBankStone()">
+                <div class="bank-ico">🏛️</div>
+                <div class="bank-cta">Améliorer</div>
+                <div class="bank-sub">Fournir 1 pierre</div>
+              </button>
+
+              <small class="muted" *ngIf="bankLevel() >= 3">Niveau maximum atteint.</small>
+
+              <span class="price price-icons" *ngIf="bankNextCost() as need">
+                <span class="cost-item">
+                  <span class="cost-val">{{ bankStoneProgress() }}</span>
+                  <span class="cost-plus">/</span>
+                  <span class="cost-val">{{ need }}</span>
+                  <span class="cost-ico-box">
+                    <img class="cost-ico cost-ico-s" src="/assets/icons/stone.png" alt="Pierre">
+                  </span>
+                </span>
+              </span>
+            </div>
+
+            <!-- Niveau de banque -->
+            <div class="card card-buy-bottom">
+              <div class="card-header-line">
+                <h4>Niveau de banque</h4>
+              </div>
+
+              <div class="bank-level">{{ bankLevel() }}</div>
+
+              <div class="bank-bonus">
+                <b>Bonus actuel :</b> {{ bankBonusText(bankLevel()) }}
+              </div>
+
+              <div class="bank-bonus" *ngIf="bankLevel() < 3; else maxBonus">
+                <b>Prochain bonus :</b> {{ bankBonusText(bankLevel() + 1) }}
+              </div>
+              <ng-template #maxBonus>
+                <div class="bank-bonus"><b>Prochain bonus :</b> Aucun (max).</div>
+              </ng-template>
             </div>
           </div>
 
@@ -1833,7 +1935,7 @@ interface ForgeOption {
               <span class="price price-icons">
                 <span class="cost-item" title="Or gagné">
                   <span class="cost-plus">+</span>
-                  <span class="cost-val">10</span>
+                  <span class="cost-val">{{ salesAmount }}</span>
                   <span class="cost-ico-box">
                     <img class="cost-ico cost-ico-s" src="/assets/icons/gold.png" alt="Or">
                   </span>
@@ -1866,6 +1968,86 @@ interface ForgeOption {
             </div>
           </div>
 
+          <!-- UPGRADE ÉQUIPEMENT (par joueur) : 2 cards sur 1 ligne (comme eau bénite & espion) -->
+          <h4>Forger de l'équipement</h4>
+          <div class="card-row row-2" *ngIf="isHunter">
+            <!-- Arme -->
+            <div class="card card-buy-bottom">
+              <div class="card-header-line">
+                <h4>Arme</h4>
+
+                <span class="price price-icons" *ngIf="weaponUpgradeCost() as c; else noWeaponOfferCost">
+                  <span class="cost-item">
+                    <span class="cost-val">{{ c.wood }}</span>
+                    <span class="cost-ico-box"><img class="cost-ico cost-ico-s" src="/assets/icons/wood.png" alt="Bois"></span>
+                    <span class="cost-val">{{ c.iron }}</span>
+                    <span class="cost-ico-box"><img class="cost-ico cost-ico-s" src="/assets/icons/iron.png" alt="Fer"></span>
+                  </span>
+                </span>
+
+                <ng-template #noWeaponOfferCost>
+                  <span class="price price-icons">
+                    <span class="cost-item">
+                      <span class="cost-val">MAX</span>
+                    </span>
+                  </span>
+                </ng-template>
+              </div>
+
+              <button *ngIf="weaponUpgradeCost() as c; else noWeaponOfferText"
+                      class="shop-btn buy-card-btn shop-card-action-btn"
+                      (click)="onBuyUpgradeWeapon($event)"
+                      [disabled]="!canBuyUpgradeWeapon()"
+                      aria-label="Acheter une arme"
+                      (mouseenter)="zoomEnter($event, undefined, undefined, 'L')"
+                      (mousemove)="zoomMove($event)"
+                      (mouseleave)="zoomLeave()">
+                <img class="buy-img" [src]="weaponUpgradeImgSrc()" alt="forge_arme">
+              </button>
+              <ng-template #noWeaponOfferText>
+                <span>Aller à la forge pour upgrade arme tier 3</span>
+              </ng-template>
+            </div>
+
+            <!-- Armure -->
+            <div class="card card-buy-bottom">
+              <div class="card-header-line">
+                <h4>Armure</h4>
+
+                <span class="price price-icons" *ngIf="armorUpgradeCost() as c; else noArmorOfferCost">
+                  <span class="cost-item">
+                    <span class="cost-val">{{ c.wood }}</span>
+                    <span class="cost-ico-box"><img class="cost-ico cost-ico-s" src="/assets/icons/wood.png" alt="Bois"></span>
+                    <span class="cost-val">{{ c.iron }}</span>
+                    <span class="cost-ico-box"><img class="cost-ico cost-ico-s" src="/assets/icons/iron.png" alt="Fer"></span>
+                  </span>
+                </span>
+
+                <ng-template #noArmorOfferCost>
+                  <span class="price price-icons">
+                    <span class="cost-item">
+                      <span class="cost-val">MAX</span>
+                    </span>
+                  </span>
+                </ng-template>
+              </div>
+
+              <button *ngIf="armorUpgradeCost() as c; else noArmorOfferText"
+                      class="shop-btn buy-card-btn shop-card-action-btn"
+                      (click)="onBuyUpgradeArmor($event)"
+                      [disabled]="!canBuyUpgradeArmor()"
+                      aria-label="Acheter une armure"
+                      (mouseenter)="zoomEnter($event, undefined, undefined, 'L')"
+                      (mousemove)="zoomMove($event)"
+                      (mouseleave)="zoomLeave()">
+                <img class="buy-img" [src]="armorUpgradeImgSrc()" alt="forge_armure">
+              </button>
+              <ng-template #noArmorOfferText>
+                <span>Aller à la forge pour upgrade armure tier 3</span>
+              </ng-template>
+            </div>
+          </div>
+
           <div class="card">
             <div class="card-header-line">
               <h4>Acheter de l’argent</h4>
@@ -1886,7 +2068,7 @@ interface ForgeOption {
           </div>
 
 
-          <div class="card card-buy-bottom" *ngIf="game?.shopBonusKind">
+          <div class="card card-buy-bottom" *ngIf="me?.shopBonusKind">
             <div class="card-header-line">
               <h4>{{ bonusTitle() }}</h4>
 
@@ -1918,6 +2100,7 @@ interface ForgeOption {
             <button class="shop-btn buy-card-btn shop-card-action-btn"
                     (click)="onBuyBonus($event)"
                     [disabled]="!canBuyBonus()"
+                    [attr.title]="!canBuyBonus() ? bonusBuyDisabledTitle() : null"
                     aria-label="Acheter objet bonus"
                     (mouseenter)="zoomEnter($event, bonusTitle(), true, 'L')"
                     (mousemove)="zoomMove($event)"
@@ -2036,7 +2219,7 @@ interface ForgeOption {
           <h2>{{ actionLabelFr(actionMode) }}</h2>
 
           <p *ngIf="actionLocation">
-            Lieu : {{ actionLocation }}
+            Lieu: {{ actionLocation }}
           </p>
 
           <!-- ========== EAU BENITE (PREPHASE3 : choix d'effet) ========== -->
@@ -2049,9 +2232,7 @@ interface ForgeOption {
               <ul class="breakdown">
                 <li>Purifier une partie de votre corruption.</li>
                 <li>Consacrer votre arme contre le vampire (+4 dégâts).</li>
-                <li *ngIf="isDarkMarkedMe()">
-                  Dissiper la Marque ténébreuse qui pèse sur vous.
-                </li>
+                <li>Dissiper la Marque ténébreuse qui pèse sur vous.</li>
               </ul>
 
               <div class="holy-water-choices">
@@ -2068,7 +2249,6 @@ interface ForgeOption {
                 </button>
 
                 <button type="button"
-                        *ngIf="isDarkMarkedMe()"
                         (click)="onHolyWaterChoice('CLEANSE')"
                         [disabled]="!canHolyWaterCleanse() || actionResolving">
                   Purifier la marque
@@ -2089,7 +2269,7 @@ interface ForgeOption {
             <!-- Vue ACTEUR : choix de cible + bouton de dé -->
             <ng-container *ngIf="isActionActor; else netSpectate">
 
-              <p>Choisis une cible :</p>
+              <p>Choisis une cible:</p>
 
               <div class="action-targets">
                 <button
@@ -2113,7 +2293,7 @@ interface ForgeOption {
             <!-- Vue SPECTATEUR : on montre seulement la cible choisie / en attente -->
             <ng-template #netSpectate>
               <ng-container *ngIf="actionSelectedTargetId; else netWaitTarget">
-                <p>Cible : {{ ActionTargetName }}</p>
+                <p>Cible: {{ ActionTargetName }}</p>
               </ng-container>
               <ng-template #netWaitTarget>
                 <p>En attente du choix de la cible...</p>
@@ -2128,7 +2308,7 @@ interface ForgeOption {
             <ng-container *ngIf="isActionActor; else pitSpectate">
 
               <p *ngIf="currentPitTarget">
-                Cible : {{ currentPitTarget.username }} ({{ currentPitTarget.role }})
+                Cible: {{ currentPitTarget.username }} ({{ currentPitTarget.role }})
               </p>
 
               <button
@@ -2142,7 +2322,7 @@ interface ForgeOption {
             <!-- Vue SPECTATEUR -->
             <ng-template #pitSpectate>
               <ng-container *ngIf="currentPitTarget; else pitWaitTarget">
-                <p>Cible : {{ currentPitTarget.username }} ({{ currentPitTarget.role }})</p>
+                <p>Cible: {{ currentPitTarget.username }} ({{ currentPitTarget.role }})</p>
               </ng-container>
               <ng-template #pitWaitTarget>
                 <p>En attente du jet pour la fosse...</p>
@@ -2190,7 +2370,7 @@ interface ForgeOption {
               <!-- Cas classique (1 ou plusieurs choix) -->
               <ng-container *ngIf="incendiaireChoices.length === 1">
                 <p>
-                  Construction ciblée :
+                  Construction ciblée:
                   {{ labelLocation(incendiaireChoices[0].toLowerCase()) }}
                 </p>
 
@@ -2203,7 +2383,7 @@ interface ForgeOption {
               </ng-container>
 
               <ng-container *ngIf="incendiaireChoices.length > 1">
-                <p>Choisis une construction à incendier :</p>
+                <p>Choisis une construction à incendier:</p>
 
                 <div class="action-targets">
                   <button
@@ -2228,7 +2408,7 @@ interface ForgeOption {
             <!-- Vue SPECTATEUR -->
             <ng-template #incendiaireSpectate>
               <ng-container *ngIf="actionSelectedTargetId; else incendiaireWait">
-                <p>Cible : {{ ActionTargetName }}</p>
+                <p>Cible: {{ ActionTargetName }}</p>
               </ng-container>
               <ng-template #incendiaireWait>
                 <p>En attente du choix de la construction...</p>
@@ -2240,7 +2420,7 @@ interface ForgeOption {
           <ng-container *ngIf="actionMode === 'AMBUSH'">
             <ng-container *ngIf="isActionActor; else ambushSpectate">
               <p class="breakdown">
-                Choisissez un ennemi (vampire ou serviteur) : tous les chasseurs sur ce lieu
+                Choisissez un ennemi (vampire ou serviteur): tous les chasseurs sur ce lieu
                 gagnent +1 ATK par chasseur présent et cette cible ne pourra pas riposter
                 contre eux ce raid.
               </p>
@@ -2251,7 +2431,7 @@ interface ForgeOption {
                   type="button"
                   (click)="onAmbushChoose(e.id)"
                   [disabled]="actionResolving">
-                  {{ e.username }} (PV : {{ e.hp }})
+                  {{ e.username }} (PV: {{ e.hp }})
                 </button>
               </div>
             </ng-container>
@@ -2259,6 +2439,24 @@ interface ForgeOption {
             <ng-template #ambushSpectate>
               <p class="breakdown">
                 Un chasseur prépare une embuscade et choisit sa cible...
+              </p>
+            </ng-template>
+          </ng-container>
+
+          <!-- ========== LONELY ========== -->
+          <ng-container *ngIf="actionMode === 'LONELY'">
+            <ng-container *ngIf="isActionActor; else lonelySpectate">
+              <p class="breakdown">
+                Vous jouez <b>Solitaire</b>: vous gagnez
+                <b>+{{ actionRoll || 0 }}</b> ATK et <b>+{{ actionRoll || 0 }}</b> DEF
+                ({{ actionRoll || 0 }} chasseur(s) absent(s) sur ce lieu).
+              </p>
+            </ng-container>
+
+            <ng-template #lonelySpectate>
+              <p class="breakdown">
+                Un chasseur joue <b>Solitaire</b>: bonus de
+                <b>+{{ actionRoll || 0 }}</b> ATK / <b>+{{ actionRoll || 0 }}</b> DEF.
               </p>
             </ng-template>
           </ng-container>
@@ -2284,7 +2482,7 @@ interface ForgeOption {
               </button>
 
               <div *ngIf="actionRoll !== null" class="result-line">
-                Résultat : {{ actionRoll }} dégâts sacrés supplémentaires.
+                Résultat: {{ actionRoll }} dégâts sacrés supplémentaires.
               </div>
             </ng-container>
 
@@ -2301,7 +2499,7 @@ interface ForgeOption {
               </p>
 
               <div *ngIf="actionRoll !== null" class="result-line">
-                Résultat : {{ actionRoll }} dégâts sacrés supplémentaires.
+                Résultat: {{ actionRoll }} dégâts sacrés supplémentaires.
               </div>
             </ng-template>
           </ng-container>
@@ -2527,7 +2725,7 @@ interface ForgeOption {
             <ng-container *ngIf="isActionActor; else miroirSetupSpectate">
 
               <p class="breakdown">
-                Choisissez un lieu supplémentaire où projeter votre reflet :
+                Choisissez un lieu supplémentaire où projeter votre reflet:
               </p>
 
               <div class="action-targets">
@@ -2559,14 +2757,14 @@ interface ForgeOption {
           <ng-container *ngIf="actionMode === 'IMAGE_MIROIR_RESOLVE'">
             <ng-container *ngIf="isActionActor; else miroirResolveSpectate">
               <p class="breakdown">
-                Choisissez un lieu pour vous matérialiser :
+                Choisissez un lieu pour vous matérialiser:
               </p>
 
               <div class="mirror-locations-summary">
                 <div class="mirror-option" *ngFor="let loc of mirrorChoices">
                   <h3>{{ labelLocation(loc) }}</h3>
                   <p>
-                    Chasseurs présents :
+                    Chasseurs présents:
                     <span *ngIf="mirrorHuntersByLoc[loc]?.length; else noHuntersHere">
                       <ng-container *ngFor="let h of mirrorHuntersByLoc[loc]; let last = last">
                         {{ h.username }}<span *ngIf="!last">, </span>
@@ -2593,19 +2791,19 @@ interface ForgeOption {
             </ng-template>
           </ng-container>
 
-          <!-- ========== ECLIPSE (PRÉPHASE3 : météo forcée Nuit obscure) ========== -->
+          <!-- ========== ECLIPSE (PRÉPHASE3 : météo forcée Pleine lune) ========== -->
           <ng-container *ngIf="actionMode === 'ECLIPSE'">
             <!-- Vue ACTEUR -->
             <ng-container *ngIf="isActionActor; else eclipseSpectate">
               <p class="breakdown">
-                Vous invoquez une éclipse: la météo devient <b>Nuit obscure</b> pour ce raid.
+                Vous invoquez une éclipse: la météo devient <b>Pleine lune</b> pour ce raid.
               </p>
             </ng-container>
 
             <!-- Vue SPECTATEUR -->
             <ng-template #eclipseSpectate>
               <p class="breakdown">
-                Le vampire invoque une éclipse : les ténèbres recouvrent le domaine.
+                Le vampire invoque une éclipse: les ténèbres recouvrent le domaine.
               </p>
             </ng-template>
           </ng-container>
@@ -2617,7 +2815,7 @@ interface ForgeOption {
           <ng-container *ngIf="actionMode === 'MARQUE_TENEBREUSE'">
             <ng-container *ngIf="isActionActor; else darkMarkSpectate">
               <p class="breakdown">
-                Choisissez un chasseur à marquer : il gagnera +1 corruption à chaque raid où
+                Choisissez un chasseur à marquer: il gagnera +1 corruption à chaque raid où
                 il croise le vampire, tant qu'il n'est pas purifié.
               </p>
 
@@ -2628,7 +2826,7 @@ interface ForgeOption {
                   (click)="onDarkMarkChoose(h.id)"
                   [disabled]="actionResolving"
                 >
-                  {{ h.username }} (corruption : {{ h.corruption }})
+                  {{ h.username }} (corruption: {{ h.corruption }})
                 </button>
               </div>
             </ng-container>
@@ -2644,7 +2842,7 @@ interface ForgeOption {
           <ng-container *ngIf="actionMode === 'AFFAIBLISSEMENT_OCCULTE'">
             <ng-container *ngIf="isActionActor; else weakeningSpectate">
               <p class="breakdown">
-                Choisissez un chasseur : il subira -2 à son jet d’attaque ce raid.
+                Choisissez un chasseur: il subira -2 à son jet d’attaque ce raid.
               </p>
 
               <div class="target-list">
@@ -2950,7 +3148,7 @@ interface ForgeOption {
         <!-- Quand le serveur a figé le choix, on l’affiche clairement -->
         <p *ngIf="game?.locationEffectChoice"
           class="location-effect-result">
-          Effet choisi : {{ translateLocationEffect(game?.locationEffectChoice) }}
+          Effet choisi: {{ translateLocationEffect(game?.locationEffectChoice) }}
         </p>
       </div>
     </div>
@@ -3047,7 +3245,7 @@ interface ForgeOption {
 
         <p *ngIf="game?.locationEffectChoice"
           class="location-effect-result">
-          Effet choisi : {{ translateLocationEffect(game?.locationEffectChoice) }}
+          Effet choisi: {{ translateLocationEffect(game?.locationEffectChoice) }}
         </p>
       </div>
     </div>
@@ -3141,7 +3339,7 @@ interface ForgeOption {
         <!-- Résultat figé (info pour tous) -->
         <p *ngIf="game?.locationEffectChoice"
           class="location-effect-result">
-          Effet choisi : {{ translateLocationEffect(game?.locationEffectChoice) }}
+          Effet choisi: {{ translateLocationEffect(game?.locationEffectChoice) }}
         </p>
       </div>
     </div>
@@ -3247,7 +3445,7 @@ interface ForgeOption {
         <!-- Résultat figé (info pour tous) -->
         <p *ngIf="game?.locationEffectChoice"
           class="location-effect-result">
-          Effet choisi : {{ translateLocationEffect(game?.locationEffectChoice) }}
+          Effet choisi: {{ translateLocationEffect(game?.locationEffectChoice) }}
         </p>
       </div>
     </div>
@@ -3306,7 +3504,7 @@ interface ForgeOption {
 
         <p *ngIf="game?.locationEffectChoice"
           class="location-effect-result">
-          Effet choisi : {{ translateLocationEffect(game?.locationEffectChoice) }}
+          Effet choisi: {{ translateLocationEffect(game?.locationEffectChoice) }}
         </p>
       </div>
     </div>
@@ -3341,11 +3539,11 @@ interface ForgeOption {
         <p class="bg-badge">
           <ng-container *ngIf="game?.locationEffectOwnerId as ownerId">
             <ng-container *ngIf="ownerId === me?.id; else otherLocActionOwner">
-              Vous résolvez l’effet :
+              Vous résolvez l’effet:
               {{ translateLocationEffect(game?.locationEffectChoice) }}.
             </ng-container>
             <ng-template #otherLocActionOwner>
-              {{ usernameOf(ownerId) }} résout l’effet :
+              {{ usernameOf(ownerId) }} résout l’effet:
               {{ translateLocationEffect(game?.locationEffectChoice) }}…
             </ng-template>
           </ng-container>
@@ -3430,7 +3628,7 @@ interface ForgeOption {
 
               <!-- Slots de cartes pour la cible sélectionnée -->
               <div class="theft-slots" *ngIf="theftSelectedTargetId && theftSlots.length > 0">
-                <p>Choisissez une carte :</p>
+                <p>Choisissez une carte:</p>
                 <div class="slot-row">
                   <button
                     type="button"
@@ -3485,10 +3683,10 @@ interface ForgeOption {
                     <img class="monster-img" src="/assets/monster/revenant.png" alt="Revenant" />
                     <div class="monster-name">Revenant</div>
                     <div class="monster-stats">
-                      <div>Coût : {{ experimentMonsterMeta.REVENANT.cost }}</div>
-                      <div>PV : {{ experimentMonsterMeta.REVENANT.hp }}</div>
-                      <div>ATK : {{ experimentMonsterMeta.REVENANT.atkDice }}</div>
-                      <div>DEF : {{ experimentMonsterMeta.REVENANT.defDice }}</div>
+                      <div>Coût: {{ experimentMonsterMeta.REVENANT.cost }}</div>
+                      <div>PV: {{ experimentMonsterMeta.REVENANT.hp }}</div>
+                      <div>ATK: {{ experimentMonsterMeta.REVENANT.atkDice }}</div>
+                      <div>DEF: {{ experimentMonsterMeta.REVENANT.defDice }}</div>
                     </div>
                   </button>
 
@@ -3501,10 +3699,10 @@ interface ForgeOption {
                     <img class="monster-img" src="/assets/monster/gargouille.png" alt="Gargouille" />
                     <div class="monster-name">Gargouille</div>
                     <div class="monster-stats">
-                      <div>Coût : {{ experimentMonsterMeta.GARGOYLE.cost }}</div>
-                      <div>PV : {{ experimentMonsterMeta.GARGOYLE.hp }}</div>
-                      <div>ATK : {{ experimentMonsterMeta.GARGOYLE.atkDice }}</div>
-                      <div>DEF : {{ experimentMonsterMeta.GARGOYLE.defDice }}</div>
+                      <div>Coût: {{ experimentMonsterMeta.GARGOYLE.cost }}</div>
+                      <div>PV: {{ experimentMonsterMeta.GARGOYLE.hp }}</div>
+                      <div>ATK: {{ experimentMonsterMeta.GARGOYLE.atkDice }}</div>
+                      <div>DEF: {{ experimentMonsterMeta.GARGOYLE.defDice }}</div>
                     </div>
                   </button>
 
@@ -3517,10 +3715,10 @@ interface ForgeOption {
                     <img class="monster-img" src="/assets/monster/aberration.png" alt="Aberration" />
                     <div class="monster-name">Aberration</div>
                     <div class="monster-stats">
-                      <div>Coût : {{ experimentMonsterMeta.ABERRATION.cost }}</div>
-                      <div>PV : {{ experimentMonsterMeta.ABERRATION.hp }}</div>
-                      <div>ATK : {{ experimentMonsterMeta.ABERRATION.atkDice }}</div>
-                      <div>DEF : {{ experimentMonsterMeta.ABERRATION.defDice }}</div>
+                      <div>Coût: {{ experimentMonsterMeta.ABERRATION.cost }}</div>
+                      <div>PV: {{ experimentMonsterMeta.ABERRATION.hp }}</div>
+                      <div>ATK: {{ experimentMonsterMeta.ABERRATION.atkDice }}</div>
+                      <div>DEF: {{ experimentMonsterMeta.ABERRATION.defDice }}</div>
                     </div>
                   </button>
                 </div>
@@ -3547,6 +3745,41 @@ interface ForgeOption {
                 {{ experimentSubmitting ? 'Validation…' : 'Valider l’expérience' }}
               </button>
             </div>
+          </div>
+
+          <!-- EXPLOSION: jet d20 -->
+          <div *ngSwitchCase="'EXPLOSION'" class="explosion-container">
+            <p class="bg-badge">
+              Jet de d20: <b>15+</b> = explosion, sinon vous perdez <b>2 PV</b>.
+            </p>
+
+            <div class="dice-row">
+              <div class="dice-wrap" [attr.data-digits]="2">
+                <img class="dice-big" src="/assets/dices/d20-red.png" alt="d20"/>
+                <div class="dice-overlay" *ngIf="game?.laboratoryExplosionRoll != null">
+                  {{ game?.laboratoryExplosionRoll }}
+                </div>
+              </div>
+            </div>
+
+            <!-- Bouton / attente / résultat -->
+            <ng-container *ngIf="game?.laboratoryExplosionRoll == null; else explosionResult">
+              <ng-container *ngIf="isLocationActionOwner; else waitExplosion">
+                <button type="button" class="btn-primary" (click)="rollLabExplosion()">
+                  Jeter le d20
+                </button>
+              </ng-container>
+
+              <ng-template #waitExplosion>
+                <span class="bg-badge">En attente du jet…</span>
+              </ng-template>
+            </ng-container>
+
+            <ng-template #explosionResult>
+              <span class="bg-badge">
+                {{ (game?.laboratoryExplosionRoll || 0) >= 15 ? 'Explosion réussie !' : 'Échec : -2 PV.' }}
+              </span>
+            </ng-template>
           </div>
 
           <!-- ALTAR: HEAL -->
@@ -3635,6 +3868,33 @@ interface ForgeOption {
                 pour ce raid.
               </p>
 
+              <!-- template Cout ressources appelé pour chaque options -->
+              <ng-template #forgeCostTpl let-c>
+                <div class="forge-costs">
+                  <span class="cost-item">
+                    <ng-container *ngIf="c?.wood">
+                      <span class="cost-val">{{ c.wood }}</span>
+                      <span class="cost-ico-box"><img class="cost-ico cost-ico-s" src="/assets/icons/wood.png" alt="Bois"></span>
+                    </ng-container>
+
+                    <ng-container *ngIf="c?.iron">
+                      <span class="cost-val">{{ c.iron }}</span>
+                      <span class="cost-ico-box"><img class="cost-ico cost-ico-s" src="/assets/icons/iron.png" alt="Fer"></span>
+                    </ng-container>
+
+                    <ng-container *ngIf="c?.silver">
+                      <span class="cost-val">{{ c.silver }}</span>
+                      <span class="cost-ico-box"><img class="cost-ico cost-ico-s" src="/assets/icons/silver.png" alt="Argent"></span>
+                    </ng-container>
+
+                    <ng-container *ngIf="c?.souls">
+                      <span class="cost-val">{{ c.souls }}</span>
+                      <span class="cost-ico-box"><img class="cost-ico cost-ico-s" src="/assets/icons/souls.png" alt="Âmes"></span>
+                    </ng-container>
+                  </span>
+                </div>
+              </ng-template>
+
               <!-- Armes disponibles -->
               <div class="forge-section" *ngIf="forgeWeaponOptions.length > 0">
                 <h3>Armes disponibles</h3>
@@ -3649,6 +3909,7 @@ interface ForgeOption {
                   >
                     {{ opt.label }}<br />
                     <small>{{ opt.desc }}</small>
+                    <ng-container *ngTemplateOutlet="forgeCostTpl; context:{ $implicit: opt.cost }"></ng-container>
                   </button>
                 </div>
               </div>
@@ -3667,6 +3928,7 @@ interface ForgeOption {
                   >
                     {{ opt.label }}<br />
                     <small>{{ opt.desc }}</small>
+                    <ng-container *ngTemplateOutlet="forgeCostTpl; context:{ $implicit: opt.cost }"></ng-container>
                   </button>
                 </div>
               </div>
@@ -3733,11 +3995,11 @@ interface ForgeOption {
       </span>
     </div>
 
-    <!-- panneau info (uniquement quand zoomEnter() reçoit une info) -->
+    <!-- ===== panneau info (uniquement quand zoomEnter() reçoit une info) ===== -->
     <div *ngIf="zoomInfoOn" class="zoom-info">
 
-      <!--rendu spécial ALTAR -->
-      <ng-container *ngIf="zoomInfoKey === 'altar'; else normalInfo">
+      <!-- rendu spécial ALTAR -->
+      <ng-container *ngIf="zoomInfoKey === 'altar'; else notAltar">
 
         <div class="zoom-info-section">Chasseur</div>
         <ul class="zoom-info-list">
@@ -3753,11 +4015,206 @@ interface ForgeOption {
 
       </ng-container>
 
-      <!-- rendu normal -->
-      <ng-template #normalInfo>
-        <ul class="zoom-info-list">
-          <li *ngFor="let line of zoomInfoLines">{{ line }}</li>
-        </ul>
+      <ng-template #notAltar>
+
+        <!-- rendu spécial FORGE -->
+        <ng-container *ngIf="zoomInfoKey === 'forge'; else normalInfo">
+
+          <!-- lignes existantes -->
+          <ul class="zoom-info-list" *ngIf="hasZoomInfoLines">
+            <li *ngFor="let line of zoomInfoLines" [hidden]="!(line ?? '').trim()">
+              {{ line }}
+            </li>
+          </ul>
+
+          <div class="zoom-info-section">Coûts de fabrication</div>
+
+          <!-- ===== PALIER 1 ===== -->
+          <div class="forge-cost-title">Vampire — palier 1</div>
+          <div class="forge-costs-grid">
+            <div class="forge-cost-row" *ngFor="let it of forgeCostGroups.V[1]">
+              <div class="forge-cost-name">{{ it.label }}</div>
+
+              <div class="forge-cost-line">
+                <span class="forge-cost-piece" *ngIf="it.cost?.wood">
+                  <span class="forge-cost-val">{{ it.cost.wood }}</span>
+                  <img class="forge-cost-ico" src="/assets/icons/wood.png" alt="Bois">
+                </span>
+
+                <span class="forge-cost-piece" *ngIf="it.cost?.iron">
+                  <span class="forge-cost-val">{{ it.cost.iron }}</span>
+                  <img class="forge-cost-ico" src="/assets/icons/iron.png" alt="Fer">
+                </span>
+
+                <span class="forge-cost-piece" *ngIf="it.cost?.silver">
+                  <span class="forge-cost-val">{{ it.cost.silver }}</span>
+                  <img class="forge-cost-ico" src="/assets/icons/silver.png" alt="Argent">
+                </span>
+
+                <span class="forge-cost-piece" *ngIf="it.cost?.souls">
+                  <span class="forge-cost-val">{{ it.cost.souls }}</span>
+                  <img class="forge-cost-ico" src="/assets/icons/souls.png" alt="Âmes">
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="forge-cost-title">Chasseur — palier 1</div>
+          <div class="forge-costs-grid">
+            <div class="forge-cost-row" *ngFor="let it of forgeCostGroups.H[1]">
+              <div class="forge-cost-name">{{ it.label }}</div>
+
+              <div class="forge-cost-line">
+                <span class="forge-cost-piece" *ngIf="it.cost?.wood">
+                  <span class="forge-cost-val">{{ it.cost.wood }}</span>
+                  <img class="forge-cost-ico" src="/assets/icons/wood.png" alt="Bois">
+                </span>
+
+                <span class="forge-cost-piece" *ngIf="it.cost?.iron">
+                  <span class="forge-cost-val">{{ it.cost.iron }}</span>
+                  <img class="forge-cost-ico" src="/assets/icons/iron.png" alt="Fer">
+                </span>
+
+                <span class="forge-cost-piece" *ngIf="it.cost?.silver">
+                  <span class="forge-cost-val">{{ it.cost.silver }}</span>
+                  <img class="forge-cost-ico" src="/assets/icons/silver.png" alt="Argent">
+                </span>
+
+                <span class="forge-cost-piece" *ngIf="it.cost?.souls">
+                  <span class="forge-cost-val">{{ it.cost.souls }}</span>
+                  <img class="forge-cost-ico" src="/assets/icons/souls.png" alt="Âmes">
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- ===== PALIER 2 ===== -->
+          <div class="forge-cost-title">Vampire — palier 2</div>
+          <div class="forge-costs-grid">
+            <div class="forge-cost-row" *ngFor="let it of forgeCostGroups.V[2]">
+              <div class="forge-cost-name">{{ it.label }}</div>
+
+              <div class="forge-cost-line">
+                <span class="forge-cost-piece" *ngIf="it.cost?.wood">
+                  <span class="forge-cost-val">{{ it.cost.wood }}</span>
+                  <img class="forge-cost-ico" src="/assets/icons/wood.png" alt="Bois">
+                </span>
+
+                <span class="forge-cost-piece" *ngIf="it.cost?.iron">
+                  <span class="forge-cost-val">{{ it.cost.iron }}</span>
+                  <img class="forge-cost-ico" src="/assets/icons/iron.png" alt="Fer">
+                </span>
+
+                <span class="forge-cost-piece" *ngIf="it.cost?.silver">
+                  <span class="forge-cost-val">{{ it.cost.silver }}</span>
+                  <img class="forge-cost-ico" src="/assets/icons/silver.png" alt="Argent">
+                </span>
+
+                <span class="forge-cost-piece" *ngIf="it.cost?.souls">
+                  <span class="forge-cost-val">{{ it.cost.souls }}</span>
+                  <img class="forge-cost-ico" src="/assets/icons/souls.png" alt="Âmes">
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="forge-cost-title">Chasseur — palier 2</div>
+          <div class="forge-costs-grid">
+            <div class="forge-cost-row" *ngFor="let it of forgeCostGroups.H[2]">
+              <div class="forge-cost-name">{{ it.label }}</div>
+
+              <div class="forge-cost-line">
+                <span class="forge-cost-piece" *ngIf="it.cost?.wood">
+                  <span class="forge-cost-val">{{ it.cost.wood }}</span>
+                  <img class="forge-cost-ico" src="/assets/icons/wood.png" alt="Bois">
+                </span>
+
+                <span class="forge-cost-piece" *ngIf="it.cost?.iron">
+                  <span class="forge-cost-val">{{ it.cost.iron }}</span>
+                  <img class="forge-cost-ico" src="/assets/icons/iron.png" alt="Fer">
+                </span>
+
+                <span class="forge-cost-piece" *ngIf="it.cost?.silver">
+                  <span class="forge-cost-val">{{ it.cost.silver }}</span>
+                  <img class="forge-cost-ico" src="/assets/icons/silver.png" alt="Argent">
+                </span>
+
+                <span class="forge-cost-piece" *ngIf="it.cost?.souls">
+                  <span class="forge-cost-val">{{ it.cost.souls }}</span>
+                  <img class="forge-cost-ico" src="/assets/icons/souls.png" alt="Âmes">
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- ===== PALIER 3 ===== -->
+          <div class="forge-cost-title">Vampire — palier 3</div>
+          <div class="forge-costs-grid">
+            <div class="forge-cost-row" *ngFor="let it of forgeCostGroups.V[3]">
+              <div class="forge-cost-name">{{ it.label }}</div>
+
+              <div class="forge-cost-line">
+                <span class="forge-cost-piece" *ngIf="it.cost?.wood">
+                  <span class="forge-cost-val">{{ it.cost.wood }}</span>
+                  <img class="forge-cost-ico" src="/assets/icons/wood.png" alt="Bois">
+                </span>
+
+                <span class="forge-cost-piece" *ngIf="it.cost?.iron">
+                  <span class="forge-cost-val">{{ it.cost.iron }}</span>
+                  <img class="forge-cost-ico" src="/assets/icons/iron.png" alt="Fer">
+                </span>
+
+                <span class="forge-cost-piece" *ngIf="it.cost?.silver">
+                  <span class="forge-cost-val">{{ it.cost.silver }}</span>
+                  <img class="forge-cost-ico" src="/assets/icons/silver.png" alt="Argent">
+                </span>
+
+                <span class="forge-cost-piece" *ngIf="it.cost?.souls">
+                  <span class="forge-cost-val">{{ it.cost.souls }}</span>
+                  <img class="forge-cost-ico" src="/assets/icons/souls.png" alt="Âmes">
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="forge-cost-title">Chasseur — palier 3</div>
+          <div class="forge-costs-grid">
+            <div class="forge-cost-row" *ngFor="let it of forgeCostGroups.H[3]">
+              <div class="forge-cost-name">{{ it.label }}</div>
+
+              <div class="forge-cost-line">
+                <span class="forge-cost-piece" *ngIf="it.cost?.wood">
+                  <span class="forge-cost-val">{{ it.cost.wood }}</span>
+                  <img class="forge-cost-ico" src="/assets/icons/wood.png" alt="Bois">
+                </span>
+
+                <span class="forge-cost-piece" *ngIf="it.cost?.iron">
+                  <span class="forge-cost-val">{{ it.cost.iron }}</span>
+                  <img class="forge-cost-ico" src="/assets/icons/iron.png" alt="Fer">
+                </span>
+
+                <span class="forge-cost-piece" *ngIf="it.cost?.silver">
+                  <span class="forge-cost-val">{{ it.cost.silver }}</span>
+                  <img class="forge-cost-ico" src="/assets/icons/silver.png" alt="Argent">
+                </span>
+
+                <span class="forge-cost-piece" *ngIf="it.cost?.souls">
+                  <span class="forge-cost-val">{{ it.cost.souls }}</span>
+                  <img class="forge-cost-ico" src="/assets/icons/souls.png" alt="Âmes">
+                </span>
+              </div>
+            </div>
+          </div>
+
+        </ng-container>
+
+        <!-- rendu normal -->
+        <ng-template #normalInfo>
+          <ul class="zoom-info-list">
+            <li *ngFor="let line of zoomInfoLines">{{ line }}</li>
+          </ul>
+        </ng-template>
+
       </ng-template>
 
     </div>
@@ -3818,6 +4275,24 @@ interface ForgeOption {
       radial-gradient(1200px 600px at 20% -10%, rgba(105,167,255,.10), transparent 60%),
       radial-gradient(900px 500px at 110% 10%, rgba(255,107,107,.10), transparent 55%),
       var(--bg);
+  }
+
+  .error-msg {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+
+    background: #fee;
+    border: 1px solid #f99;
+    padding: .5rem .75rem;
+    border-radius: 12px;
+    color: black;
+
+    z-index: 40000; /* au-dessus des modales */
+    box-shadow: 0 10px 26px rgba(0,0,0,.25);
+
+    max-width: min(720px, 92vw);
   }
 
   /* Container */
@@ -4122,304 +4597,373 @@ interface ForgeOption {
     color: var(--text);
   }
 
-/* --- Barre d'équipement --- */
-.equip-bar{
-  display:flex;
-  align-items:stretch;
-  gap:.5rem;
-  flex-wrap:nowrap;
-}
+  /* --- Barre d'équipement --- */
+  .equip-bar{
+    display:flex;
+    align-items:stretch;
+    gap:.5rem;
+    flex-wrap:nowrap;
+  }
 
-.equip-bar .equip-item{
-  width: 100px;
-  height: 136px;
-  display: block;
-  object-fit: contain;
-  filter: drop-shadow(0 6px 10px rgba(0,0,0,.25));
-}
+  .equip-bar .equip-item{
+    width: 100px;
+    height: 136px;
+    display: block;
+    object-fit: contain;
+    filter: drop-shadow(0 6px 10px rgba(0,0,0,.25));
+  }
 
-/* Zoom box */
-.equip-zoom{
-  position: fixed;
-  z-index: 9999;
-  pointer-events: none;
+  /* Zoom box */
+  .equip-zoom{
+    position: fixed;
+    z-index: 9999;
+    pointer-events: none;
 
-  border: 1px solid var(--border-2);
-  border-radius: 12px;
-  background: rgba(21,26,36,.92);
+    border: 1px solid var(--border-2);
+    border-radius: 12px;
+    background: rgba(21,26,36,.92);
 
-  overflow: visible;
+    overflow: visible;
 
-  box-shadow: var(--shadow);
-}
+    box-shadow: var(--shadow);
+  }
 
-.equip-zoom-media{
-  position: relative;
-}
+  .equip-zoom-media{
+    position: relative;
+  }
 
-/* image */
-.equip-zoom-img{
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: contain;
-}
+  /* image */
+  .equip-zoom-img{
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: contain;
+  }
 
-.zoom-info{
-  position: absolute;
-  left: calc(100% + 10px);
-  top: 0;
+  .zoom-info{
+    position: absolute;
+    left: calc(100% + 10px);
+    top: 0;
 
-  width: 340px;
-  max-width: 340px;
-  height: 100%;
+    width: 340px;
+    max-width: 340px;
+    height: 100%;
 
-  overflow: auto;
+    overflow: auto;
 
-  border-radius: 10px;
-  border: 1px solid rgba(255,255,255,.14);
-  background: rgb(0, 0, 0);
-  padding: .55rem .65rem;
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,.14);
+    background: rgba(32, 40, 58, 0.88);
+    padding: .55rem .65rem;
 
-  color: rgba(255,255,255,.92);
-}
+    color: rgba(255,255,255,.92);
+  }
 
-.zoom-info-section{
-  font: 900 16px/1.1 system-ui, sans-serif;
-  margin: .35rem 0 .25rem;
-  color: rgba(255,255,255,.96);
-}
+  .zoom-info-section{
+    font: 900 16px/1.1 system-ui, sans-serif;
+    margin: .35rem 0 .25rem;
+    color: rgba(255,255,255,.96);
+  }
 
-.zoom-info-note{
-  margin-top: .55rem;
-  padding-top: .45rem;
-  border-top: 1px solid rgba(255,255,255,.12);
+  .zoom-info-note{
+    margin-top: .55rem;
+    padding-top: .45rem;
+    border-top: 1px solid rgba(255,255,255,.12);
 
-  font: 650 16px/1.25 system-ui, sans-serif;
-  color: rgba(255,255,255,.9);
-}
+    font: 650 16px/1.25 system-ui, sans-serif;
+    color: rgba(255,255,255,.9);
+  }
 
 
-.zoom-info-list{
-  margin: 0;
-  padding-left: 1.05rem;
-}
+  .zoom-info-list{
+    margin: 0;
+    padding-left: 1.05rem;
+  }
 
-.zoom-info-list li{
-  margin: .2rem 0;
-  font: 650 16px/1.25 system-ui, sans-serif;
-  color: rgba(255,255,255,.88);
-}
+  .zoom-info-list li{
+    margin: .2rem 0;
+    font: 650 16px/1.25 system-ui, sans-serif;
+    color: rgba(255,255,255,.88);
+  }
 
-.mini-badge{
-  pointer-events: none;
-}
+  /* Forge - coûts ultra compacts (doit tenir sans scroll) */
+  .forge-costs{
+    margin-top: .2rem;
+    display: grid;
+    gap: .15rem;
+  }
 
-/* Centre : cartes jouées */
-.center-cards{
-  display: flex;
-  flex-wrap: wrap;
-  gap: .5rem;
-  align-items: flex-start;
-}
+  /* titres plus compacts (gagne de la place) */
+  .forge-cost-title{
+    margin-top: .25rem;
+    font: 900 13px/1.05 system-ui, sans-serif;
+    color: rgba(255,255,255,.96);
+  }
 
-.center-card{
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: .25rem;
-}
+  /* grille 2 colonnes : ça limite la hauteur */
+  .forge-costs-grid{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .18rem .45rem;
+  }
 
-.center-card-name{
-  font: 700 12px/1.1 system-ui, sans-serif;
-  color: var(--muted);
-}
+  /* item : nom au-dessus / coûts dessous */
+  .forge-cost-row{
+    display: flex;
+    flex-direction: column;
+    gap: .12rem;
+    min-width: 0;
+  }
 
-.center-card-img{
-  width: 60px;
-  height: 82px;
-  display: block;
-  object-fit: contain;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: rgba(0,0,0,.15);
-}
+  /* IMPORTANT : plus de nowrap/ellipsis */
+  .forge-cost-name{
+    font: 800 11.5px/1.05 system-ui, sans-serif;
+    color: rgba(255,255,255,.92);
 
-/* Badges */
-.equip-zoom-badge.badge-hunter{
-  background: rgba(105, 167, 255, .35);
-  border: 1px solid rgba(105, 167, 255, .35);
-  color: #fff;
-}
+    white-space: normal;        /* autorise retour ligne */
+    overflow: visible;
+    text-overflow: unset;
 
-.equip-zoom-badge.badge-vamp{
-  background: rgba(255, 107, 107, .33);
-  border: 1px solid rgba(255, 107, 107, .33);
-  color: #fff;
-}
+    word-break: normal;         /* évite de couper les mots */
+    overflow-wrap: break-word;  /* casse seulement si mot trop long */
+  }
 
-.mini-card.deck-pile.deck-discard-common .mini-badge{
-  background: rgba(62,62,62, .35);
-  border: 1px solid rgba(62,62,62, .33);
-}
+  /* coûts : compact, wrap si besoin */
+  .forge-cost-line{
+    display: flex;
+    align-items: center;
+    gap: .25rem;
+    flex-wrap: wrap;
+  }
 
-.name-hunter { color: var(--hunter); }
-.name-vamp   { color: var(--vamp); }
+  /* chaque ressource */
+  .forge-cost-piece{
+    display: inline-flex;
+    align-items: center;
+    gap: .12rem;
+  }
 
-/* Badge dans le zoom (texte ou nombre) */
-.equip-zoom-badge{
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
+  .forge-cost-val{
+    font: 900 11.5px/1 system-ui, sans-serif;
+    color: rgba(255,255,255,.92);
+  }
 
-  padding: 6px 10px;
-  border-radius: 999px;
+  .forge-cost-ico{
+    width: 12px;
+    height: 12px;
+    object-fit: contain;
+    opacity: .95;
+  }
 
-  font: 900 14px/1.1 system-ui, sans-serif;
-  color: #fff;
-  background: rgba(0,0,0,.55);
-  box-shadow: 0 2px 10px rgba(0,0,0,.35);
+  .mini-badge{
+    pointer-events: none;
+  }
 
-  max-width: calc(100% - 16px);
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* Centre : cartes jouées */
+  .center-cards{
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    align-items: flex-start;
+  }
 
-  pointer-events: none;
-}
+  .center-card{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .25rem;
+  }
 
-/* Mini stack */
-.equip-bar > .mini-stack{
-  flex: 0 0 50px;
-  width: 50px;
-  min-width: 0;
-  display:flex;
-  flex-direction:column;
-  gap:.5rem;
-}
+  .center-card-name{
+    font: 700 12px/1.1 system-ui, sans-serif;
+    color: var(--muted);
+  }
 
-.mini-card{
-  position: relative;
-  height: 62px;
-  width: 46px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  overflow: hidden;
-  background: rgba(27,33,48,.55);
-  margin: 1px 3px 0 0;
-}
+  .center-card-img{
+    width: 60px;
+    height: 82px;
+    display: block;
+    object-fit: contain;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: rgba(0,0,0,.15);
+  }
 
-.mini-back-img{
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-position: center;
-}
+  /* Badges */
+  .equip-zoom-badge.badge-hunter{
+    background: rgba(105, 167, 255, .35);
+    border: 1px solid rgba(105, 167, 255, .35);
+    color: #fff;
+  }
 
-.mini-badge{
-  position: absolute;
-  left: 50%;
-  bottom: -8%;
-  transform: translate(-50%, -50%);
+  .equip-zoom-badge.badge-vamp{
+    background: rgba(255, 107, 107, .33);
+    border: 1px solid rgba(255, 107, 107, .33);
+    color: #fff;
+  }
 
-  width: 10px;
-  height: 16px;
-  padding: 0 6px;
+  .mini-card.deck-pile.deck-discard-common .mini-badge{
+    background: rgba(62,62,62, .35);
+    border: 1px solid rgba(62,62,62, .33);
+  }
 
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  .name-hunter { color: var(--hunter); }
+  .name-vamp   { color: var(--vamp); }
 
-  border-radius: 999px;
-  background: rgba(0,0,0,.55);
-  border: 1px solid rgba(0,0,0,.55);
-  color: #fff;
-  font: 800 12px/1 system-ui, sans-serif;
-}
+  /* Badge dans le zoom (texte ou nombre) */
+  .equip-zoom-badge{
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
 
-.equip-label{
-  font:700 12px/1.1 system-ui, sans-serif;
-  color: var(--muted);
-  margin-bottom:.35rem;
-}
+    padding: 6px 10px;
+    border-radius: 999px;
 
-.dice-chip{
-  display:inline-block;
-  font:800 12px/1 system-ui, sans-serif;
-  padding:.25rem .5rem;
-  border-radius:999px;
-  background: rgba(255,255,255,.10);
-  color: var(--text);
-  border: 1px solid var(--border);
-}
+    font: 900 14px/1.1 system-ui, sans-serif;
+    color: #fff;
+    background: rgba(0,0,0,.55);
+    box-shadow: 0 2px 10px rgba(0,0,0,.35);
 
-/* ===== Decks layout : 2 colonnes / 2 lignes ===== */
-.decks-grid{
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: .9rem 1.2rem;
-  align-items: start;
-}
+    max-width: calc(100% - 16px);
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 
-.deck-block{
-  display: flex;
-  flex-direction: column;
-}
+    pointer-events: none;
+  }
 
-.deck-block-title{
-  font: 800 12px/1.1 system-ui, sans-serif;
-  color: var(--muted);
-}
+  /* Mini stack */
+  .equip-bar > .mini-stack{
+    flex: 0 0 50px;
+    width: 50px;
+    min-width: 0;
+    display:flex;
+    flex-direction:column;
+    gap:.5rem;
+  }
 
-/* 2 piles côte à côte */
-.deck-piles{
-  display: flex;
-  align-items: flex-start;
-}
+  .mini-card{
+    position: relative;
+    height: 62px;
+    width: 46px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    background: rgba(27,33,48,.55);
+    margin: 1px 3px 0 0;
+  }
 
-/* Mini-card en taille "carte" */
-.mini-card.deck-pile{
-  width: 60px;
-  height: 82px;
-}
+  .mini-back-img{
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-position: center;
+  }
 
-/* Images deck */
-.mini-back-img.deck-img{
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: contain;
-}
+  .mini-badge{
+    position: absolute;
+    left: 50%;
+    bottom: -8%;
+    transform: translate(-50%, -50%);
 
-/* Badge version deck */
-.mini-card.deck-pile .mini-badge{
-  left: 50%;
-  bottom: 4px;
-  transform: translateX(-50%);
-  width: auto;
-  height: auto;
-  padding: 2px 8px;
-  font: 900 12px/1 system-ui, sans-serif;
-}
+    width: 10px;
+    height: 16px;
+    padding: 0 6px;
 
-.mini-badge.badge-hunter{
-  background: rgba(105, 167, 255, .35);
-  border: 1px solid rgba(105, 167, 255, .35);
-}
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 
-.mini-badge.badge-vamp{
-  background: rgba(255, 107, 107, .33);
-  border: 1px solid rgba(255, 107, 107, .33);
-}
+    border-radius: 999px;
+    background: rgba(0,0,0,.55);
+    border: 1px solid rgba(0,0,0,.55);
+    color: #fff;
+    font: 800 12px/1 system-ui, sans-serif;
+  }
 
-/* Défausse vide */
-.mini-card.deck-pile.deck-empty{
-  background: linear-gradient(135deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
-  border: 1px solid var(--border);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
-}
+  .equip-label{
+    font:700 12px/1.1 system-ui, sans-serif;
+    color: var(--muted);
+    margin-bottom:.35rem;
+  }
+
+  .dice-chip{
+    display:inline-block;
+    font:800 12px/1 system-ui, sans-serif;
+    padding:.25rem .5rem;
+    border-radius:999px;
+    background: rgba(255,255,255,.10);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  /* ===== Decks layout : 2 colonnes / 2 lignes ===== */
+  .decks-grid{
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .9rem 1.2rem;
+    align-items: start;
+  }
+
+  .deck-block{
+    display: flex;
+    flex-direction: column;
+  }
+
+  .deck-block-title{
+    font: 800 12px/1.1 system-ui, sans-serif;
+    color: var(--muted);
+  }
+
+  /* 2 piles côte à côte */
+  .deck-piles{
+    display: flex;
+    align-items: flex-start;
+  }
+
+  /* Mini-card en taille "carte" */
+  .mini-card.deck-pile{
+    width: 60px;
+    height: 82px;
+  }
+
+  /* Images deck */
+  .mini-back-img.deck-img{
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: contain;
+  }
+
+  /* Badge version deck */
+  .mini-card.deck-pile .mini-badge{
+    left: 50%;
+    bottom: 4px;
+    transform: translateX(-50%);
+    width: auto;
+    height: auto;
+    padding: 2px 8px;
+    font: 900 12px/1 system-ui, sans-serif;
+  }
+
+  .mini-badge.badge-hunter{
+    background: rgba(105, 167, 255, .35);
+    border: 1px solid rgba(105, 167, 255, .35);
+  }
+
+  .mini-badge.badge-vamp{
+    background: rgba(255, 107, 107, .33);
+    border: 1px solid rgba(255, 107, 107, .33);
+  }
+
+  /* Défausse vide */
+  .mini-card.deck-pile.deck-empty{
+    background: linear-gradient(135deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+    border: 1px solid var(--border);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.06);
+  }
 
 
   /* --- BOARD DU BAS --- */
@@ -5897,6 +6441,13 @@ interface ForgeOption {
     object-fit:contain;
   }
 
+  .shop-upgrade-row .equip-buy {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+
   /* =========================
     Échanges
     ========================= */
@@ -5993,6 +6544,46 @@ interface ForgeOption {
     .modal.trade-modal .card .grid.sell-grid.sell-grid-icons{
       grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
     }
+  }
+
+  /* force la row banque en 1/4 - 3/4 */
+  .card-row.row-2.bank-row{
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2.2fr) !important;
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  .card-row.row-2.bank-row > .card{
+    min-width: 0;
+  }
+
+  .bank-upgrade-btn{
+    width: 100%;
+    padding: 10px;
+    border: 1px solid rgba(0,0,0,0.15) !important;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.25) !important;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:4px;
+  }
+
+  .bank-ico{ font-size: 26px; line-height: 1; }
+  .bank-cta{ font-weight: 700; }
+  .bank-sub{ font-size: 12px; opacity: 0.85; }
+
+  .bank-level{
+    font-size: 28px;
+    font-weight: 800;
+    text-align:center;
+    margin: 6px 0 10px;
+  }
+
+  .bank-bonus{
+    font-size: 13px;
+    margin-top: 6px;
   }
 
   /* === MODALE CONSTRUCTION === */
@@ -6235,6 +6826,22 @@ interface ForgeOption {
     min-width: 0;
   }
 
+  /* cout ressources forger item */
+  .forge-costs{
+    margin-top: .35rem;
+    display: flex;
+    justify-content: center;
+    opacity: .95;
+  }
+
+  .forge-costs .cost-item{
+    display: inline-flex;
+    gap: .35rem;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
   /* Boutons d'option d'effet (texte cliquable) */
   .modal.location-effect-modal .modal-button-row .effect-option,
   .modal.location-effect-modal .altar-target {
@@ -6440,6 +7047,9 @@ export class GameComponent {
   private lastPhaseNotified?: Phase;
   private harvestBubbleShown = false;
 
+  private pendingBonusFly: { src: string; rect: DOMRect } | null = null;
+  private shouldPlayBonusFlyAfterClose = false;
+
   meId = sessionStorage.getItem('userId') || '';
   username = sessionStorage.getItem('username') || '';
 
@@ -6502,7 +7112,7 @@ export class GameComponent {
   // --- Actions ---
   preparedGarlicForThisRaid = false;
   // NET ou PIT, ou null si pas de piège en cours
-  actionMode: 'NET' | 'PIT' | 'INCENDIAIRE' | 'PROVOCATION' | 'AMBUSH' | 'BLESSED_STAKE' | 'CHARISMATIQUE' | 'MARCHAND_ITINERANT' | 'MARCHAND_BONUS_BUY' | 'PRESENCE_ECRASANTE' | 'CATACLYSME' | 'CLONES_OMBRE' | 'IMAGE_MIROIR_SETUP' | 'IMAGE_MIROIR_RESOLVE' | 'ECLIPSE' | 'BLOOD_MOON' | 'VOILE_DE_BRUME' | 'FAIM_IRREPRESSIBLE' | 'MARQUE_TENEBREUSE' | 'AFFAIBLISSEMENT_OCCULTE' | 'PASSAGE_SECRET' | 'AVIDITE_NOCTURNE' | 'EAU_BENITE' | null = null;
+  actionMode: 'NET' | 'PIT' | 'INCENDIAIRE' | 'PROVOCATION' | 'AMBUSH' | 'LONELY' | 'BLESSED_STAKE' | 'CHARISMATIQUE' | 'MARCHAND_ITINERANT' | 'MARCHAND_BONUS_BUY' | 'PRESENCE_ECRASANTE' | 'CATACLYSME' | 'CLONES_OMBRE' | 'IMAGE_MIROIR_SETUP' | 'IMAGE_MIROIR_RESOLVE' | 'ECLIPSE' | 'BLOOD_MOON' | 'VOILE_DE_BRUME' | 'FAIM_IRREPRESSIBLE' | 'MARQUE_TENEBREUSE' | 'AFFAIBLISSEMENT_OCCULTE' | 'PASSAGE_SECRET' | 'AVIDITE_NOCTURNE' | 'EAU_BENITE' | null = null;
   actionOwnerId: string | null = null;
   actionLocation: string | null = null;
   trapEnemies: SPlayer[] = [];
@@ -6525,6 +7135,7 @@ export class GameComponent {
   )[] = [];
 
   ambushEnemies: SPlayer[] = [];
+  private lastLonelyShownAt = 0;
   isSacredRosaryUsed: boolean = false;
   lastCharismRaid: number | null = null;
 
@@ -6544,6 +7155,7 @@ export class GameComponent {
   private lastBloodMoonRaid: number | null = null;
   private lastFogRaid: number | null = null;
   private lastCataclysmeRaid: number | null = null;
+  private lastMerchantShownKey: string | null = null;
 
   // Image miroir
   selectedMirrorLoc: string | null = null;
@@ -6578,9 +7190,9 @@ export class GameComponent {
   private weatherModalHold = false;
 
   private static readonly WEATHER_WAIT_BEFORE_MODAL_MS = 2000;
-  readonly WEATHER_WHEEL_MS = 5000;   // durée de la roue
-  readonly WEATHER_BG_MS    = 5000;   // fondu du fond
-  readonly WEATHER_HOLD_MS  = 5000;   // petite pause lecturegarantie après fond
+  readonly WEATHER_WHEEL_MS = 2000;   // durée de la roue
+  readonly WEATHER_BG_MS    = 4000;   // fondu du fond
+  readonly WEATHER_HOLD_MS  = 4000;   // petite pause lecturegarantie après fond
 
   readonly CENTER_FLIP_HOLD_MS = 4000;   // petite pause après le flip en PREPHASE3
 
@@ -6605,7 +7217,7 @@ export class GameComponent {
 
   // ----- Effet de lieu : modale d'action (Bibliothèque) -----
   locationActionModalOpen = false;
-  locationActionKind: 'THEFT' | 'OMEN' | 'EXPERIMENT' | 'HEAL' | 'CORRUPT' | 'FORGE' | null = null;
+  locationActionKind: 'THEFT' | 'OMEN' | 'EXPERIMENT' | 'EXPLOSION' | 'HEAL' | 'CORRUPT' | 'FORGE' | null = null;
 
   // THEFT
   theftTargets: { id: string; username: string; actionsCount: number }[] = [];
@@ -6627,8 +7239,8 @@ export class GameComponent {
 
   experimentMonsterMeta = {
     REVENANT:   { cost: 100, hp: 5,  atkDice: 'D6',  defDice: 'D4' },
-    GARGOYLE:   { cost: 250, hp: 10, atkDice: 'D8',  defDice: 'D6' },
-    ABERRATION: { cost: 500, hp: 15, atkDice: 'D12', defDice: 'D8' },
+    GARGOYLE:   { cost: 200, hp: 10, atkDice: 'D8',  defDice: 'D6' },
+    ABERRATION: { cost: 400, hp: 15, atkDice: 'D12', defDice: 'D8' },
   } as const;
 
   // ALTAR
@@ -6745,48 +7357,53 @@ export class GameComponent {
   }
 
   private toastActionUsed(payload: any) {
-    const pid  = payload?.playerId ;
+    const pid  = payload?.playerId;
     const code = payload?.type;
 
     const who = pid ? this.usernameOf(pid) : 'Un joueur';
     const label = this.actionLabelFr(code as any);
 
-    this.notify.toast(`${who} utilise l'action ${label} !`);
+    const role = pid ? (this.game?.players?.find(p => p.id === pid) as any)?.role : null;
+    const tone = (role === 'HUNTER') ? 'HUNTER'
+              : (role === 'VAMPIRE' || role === 'SERVANT') ? 'VAMP'
+              : 'NEUTRAL';
+
+    this.notify.toast(`${who} utilise l'action ${label} !`, 4500, tone);
   }
 
   private toastPotionUsed(payload: any) {
-    let kind = payload?.type;
-    if(
-      payload?.type === 'FORCE'
-      || payload?.type === 'ENDURANCE'
-      || payload?.type === 'VIE'
-      || payload?.type === 'FOCALISATION'
-      || payload?.type === 'SANGSUE'
-    ) {
-      kind = 'la potion'
-    } else { kind = 'l\'élixir'}
-
-
-    const pid  = payload?.playerId ;
+    const pid  = payload?.playerId;
     const code = payload?.type;
 
-    const who = pid ? this.usernameOf(pid) : 'Un joueur';
+    const isPotion =
+      code === 'FORCE'
+      || code === 'ENDURANCE'
+      || code === 'VIE'
+      || code === 'FOCALISATION'
+      || code === 'SANGSUE';
 
+    const kind = isPotion ? 'la potion' : "l'élixir";
+
+    const who = pid ? this.usernameOf(pid) : 'Un joueur';
     const label = this.potionLabelFr(code as any);
 
-    this.notify.toast(`${who} utilise ${kind} ${label} !`);
+    const role = pid ? (this.game?.players?.find(p => p.id === pid) as any)?.role : null;
+    const tone = (role === 'HUNTER') ? 'HUNTER'
+              : (role === 'VAMPIRE' || role === 'SERVANT') ? 'VAMP'
+              : 'NEUTRAL';
+
+    this.notify.toast(`${who} utilise ${kind} ${label} !`, 4500, tone);
   }
 
   private toastInfraBuilt(payload: any) {
-    console.log('payload=', payload);
-
     const builderId = payload?.builderId ?? payload?.playerId ?? payload?.uid;
     const infra = payload?.infra ?? payload?.code ?? payload?.kind;
 
     const who = builderId ? this.usernameOf(builderId) : 'Le vampire';
     const what = infra ? (this.labelLocation(infra) || String(infra)) : 'un lieu';
 
-    this.notify.toast(`${who} construit ${what}`);
+    // infra = vampire/serviteur -> rouge
+    this.notify.toast(`${who} construit ${what}`, 4500, 'VAMP');
   }
 
   leave() {
@@ -7015,9 +7632,9 @@ export class GameComponent {
   // assets card style
   private diceToTier(d?: string): 0 | 1 | 2 | 3 {
     const s = (d || 'D6').toUpperCase();
-    if (s.includes('20')) return 3;
-    if (s.includes('12')) return 2;
-    if (s.includes('8'))  return 1;
+    if (s.includes('12')) return 3;
+    if (s.includes('8')) return 2;
+    if (s.includes('6'))  return 1;
     return 0;
   }
 
@@ -7093,6 +7710,7 @@ export class GameComponent {
       case 'PROVOCATION':      return 'provocation.png';
       case 'INCENDIAIRE':      return 'incendiaire.png';
       case 'AMBUSH':           return 'ambush.png';
+      case 'LONELY':           return 'lonely.png';
       case 'BLESSED_STAKE':    return 'blessed_stake.png';
       case 'SACRED_ROSARY':    return 'sacred_rosary.png';
       case 'CHARISMATIQUE':    return 'charismatique.png';
@@ -7207,22 +7825,26 @@ export class GameComponent {
 
   // ---- BONUS (marchand) : coûts + image ----
   bonusResCost(): { water?: number; herbs?: number; wood?: number; iron?: number, silver?: number } | null {
-    const kind = this.game?.shopBonusKind;
+    const kind = this.me?.shopBonusKind;
     if (!kind) return null;
 
+    const t = this.me?.shopBonusEquipTier ?? 1;
+
     switch (kind) {
-      case 'POTION':        return { water: 4, herbs: 3 };
-      case 'ELIXIR':        return { water: 6, herbs: 6 };
+      case 'POTION':  return { water: 1, herbs: 2 };
+      case 'ELIXIR':  return { water: 2, herbs: 4 };
       case 'EQUIP_WEAPON':
-      case 'EQUIP_ARMOR':   return { wood: 6, iron: 6 };
-      default:              return null;
+      case 'EQUIP_ARMOR':
+        return (t >= 2) ? { wood: 3, iron: 3 } : { wood: 2, iron: 2 };
+      default:
+        return null;
     }
   }
 
   bonusGoldCost(): number | null {
     const g: any = this.game;
     const me: any = this.me;
-    const kind = g?.shopBonusKind;
+    const kind = me?.shopBonusKind;
     if (!g || !me || !kind) return null;
 
     const greedy      = !!g.shopPricesIncreasedThisRaid;
@@ -7235,32 +7857,36 @@ export class GameComponent {
       return c;
     };
 
+    const t = me.shopBonusEquipTier ?? 1;
+
     switch (kind) {
-      case 'POTION':        return computeCost(60);
-      case 'ELIXIR':        return computeCost(120);
+      case 'POTION': return computeCost(30);
+      case 'ELIXIR': return computeCost(60);
       case 'EQUIP_WEAPON':
-      case 'EQUIP_ARMOR':   return computeCost(150);
-      default:              return null;
+      case 'EQUIP_ARMOR':
+        return computeCost(t >= 2 ? 150 : 100);
+      default:
+        return null;
     }
   }
 
-bonusBuyImgSrc(): string {
-  const kind = this.game?.shopBonusKind;
-  if (!kind) return '';
+  bonusBuyImgSrc(): string {
+    const kind = this.me?.shopBonusKind;
+    if (!kind) return '';
 
-  switch (kind) {
-    case 'POTION':
-    case 'ELIXIR':
-      return this.deckBackFor('POTIONS');
+    switch (kind) {
+      case 'POTION':
+      case 'ELIXIR':
+        return this.deckBackFor('POTIONS');
 
-    case 'EQUIP_WEAPON':
-    case 'EQUIP_ARMOR':
-      return this.deckBackFor('HUNTER_ACTIONS');
+      case 'EQUIP_WEAPON':
+      case 'EQUIP_ARMOR':
+        return this.deckBackFor('HUNTER_ACTIONS');
 
-    default:
-      return this.deckBackFor('HUNTER_ACTIONS');
+      default:
+        return this.deckBackFor('HUNTER_ACTIONS');
+    }
   }
-}
 
   // assets zoom
   zoomBadgeIsHunter: boolean | undefined = undefined;
@@ -7326,11 +7952,19 @@ bonusBuyImgSrc(): string {
       this.zoomBadgeIsHunter = undefined;
     }
 
-    // info (NOUVEAU)
-    if (info && info.lines?.length) {
+    // info
+    const key = (info as any)?.key || '';
+
+    // On affiche le panneau si :
+    // - forge (même si lines est vide)
+    // - OU il y a au moins une ligne non vide
+    const hasLines = Array.isArray(info?.lines) && info!.lines.some(l => !!(l ?? '').trim());
+    const showInfo = !!info && (key === 'forge' || hasLines);
+
+    if (showInfo) {
       this.zoomInfoOn = true;
-      this.zoomInfoKey = (info as any).key || '';
-      this.zoomInfoLines = info.lines;
+      this.zoomInfoKey = key;
+      this.zoomInfoLines = info?.lines ?? [];
 
       if (this.zoomInfoKey === 'altar' && this.zoomInfoLines.length >= 5) {
         this.zoomInfoLinesHunter = this.zoomInfoLines.slice(0, 2);
@@ -7398,7 +8032,7 @@ zoomMove(ev: MouseEvent) {
   if (left + totalW + 8 > vw) left = vw - totalW - 8;
   if (top + totalH + 8 > vh)  top  = vh - totalH - 8;
 
-  // ✅ IMPORTANT : on n'agrandit plus la box, elle reste à la taille de l'image
+  // IMPORTANT : on n'agrandit plus la box, elle reste à la taille de l'image
   this.zoomStyle = {
     left: left + 'px',
     top: top + 'px',
@@ -7815,7 +8449,7 @@ zoomMove(ev: MouseEvent) {
       const tooltipsEquip: Record<string, string> = {
         BLEED_WEAPON:     'Cette arme provoque un saignement lorsqu’elle inflige des dégâts.',
         STUN_WEAPON:      'Cette arme peut étourdir sa cible et réduire son attaque au prochain tour.',
-        RANGED_WEAPON:    'Cette arme peut tenir le vampire à distance sur une riposte avec un mauvais jet.',
+        RANGED_WEAPON:    'Cette arme peut tenir le vampire à distance si le chasseur réalise un succès critique.',
         HUNTER_ARMOR:     'Cette armure réduit les risques liés aux morsures du vampire.',
         VAMPIRE_WEAPON:   'Cette arme peut soigner le vampire lorsqu’il inflige des dégâts.',
         VAMPIRE_ARMOR_T3: 'Cette armure permet de se dématerialiser et esquiver une attaque critique.'
@@ -7907,6 +8541,13 @@ zoomMove(ev: MouseEvent) {
   */
 
   trackById(_i: number, p: SPlayer) { return p.id; }
+
+  get centerHasAnything(): boolean {
+    const g: any = this.game;
+    return ((g?.center?.length || 0)
+          + (g?.clonesLocations?.length || 0)
+          + (g?.trackerHunters?.length || 0)) > 0;
+  }
 
   get currentCombat() {
     return this.game?.currentCombat || null;
@@ -8174,7 +8815,8 @@ zoomMove(ev: MouseEvent) {
         'NET',
         'PIT',
         'PROVOCATION',
-        'AMBUSH'
+        'AMBUSH',
+        'LONELY'
       ];
 
       const isHunter = hunterActions.includes(code);
@@ -8225,12 +8867,13 @@ zoomMove(ev: MouseEvent) {
     return fallback;
   }
 
-  actionBackgroundSrc(mode: 'EAU_BENITE' | 'NET' | 'PIT' | 'INCENDIAIRE' | 'PROVOCATION' | 'AMBUSH' | 'BLESSED_STAKE' | 'CHARISMATIQUE' | 'MARCHAND_ITINERANT' | 'MARCHAND_BONUS_BUY' | 'PRESENCE_ECRASANTE' | 'CATACLYSME' | 'CLONES_OMBRE' | 'IMAGE_MIROIR_SETUP' | 'IMAGE_MIROIR_RESOLVE' | 'ECLIPSE' | 'BLOOD_MOON' | 'VOILE_DE_BRUME' | 'FAIM_IRREPRESSIBLE' | 'MARQUE_TENEBREUSE' | 'AFFAIBLISSEMENT_OCCULTE' | 'PASSAGE_SECRET' | 'AVIDITE_NOCTURNE' | null): String {
+  actionBackgroundSrc(mode: 'EAU_BENITE' | 'NET' | 'PIT' | 'INCENDIAIRE' | 'PROVOCATION' | 'AMBUSH' | 'LONELY' | 'BLESSED_STAKE' | 'CHARISMATIQUE' | 'MARCHAND_ITINERANT' | 'MARCHAND_BONUS_BUY' | 'PRESENCE_ECRASANTE' | 'CATACLYSME' | 'CLONES_OMBRE' | 'IMAGE_MIROIR_SETUP' | 'IMAGE_MIROIR_RESOLVE' | 'ECLIPSE' | 'BLOOD_MOON' | 'VOILE_DE_BRUME' | 'FAIM_IRREPRESSIBLE' | 'MARQUE_TENEBREUSE' | 'AFFAIBLISSEMENT_OCCULTE' | 'PASSAGE_SECRET' | 'AVIDITE_NOCTURNE' | null): String {
     if(mode === 'NET') return 'url(/assets/actions/net.png)';
     if(mode === 'PIT') return 'url(/assets/actions/traphole.png)';
     if(mode === 'INCENDIAIRE') return 'url(/assets/actions/burn.png)';
     if(mode === 'PROVOCATION') return 'url(/assets/actions/taunt.png)';
     if(mode === 'AMBUSH') return 'url(/assets/actions/ambush.png)';
+    if(mode === 'LONELY') return 'url(/assets/actions/lonely.png)';
     if(mode === 'BLESSED_STAKE') return 'url(/assets/actions/blessed_stake.png)';
     if(mode === 'CHARISMATIQUE') return 'url(/assets/actions/charismatic.png)';
     if(mode === 'MARCHAND_ITINERANT' || mode === 'MARCHAND_BONUS_BUY') return 'url(/assets/actions/traveling_merchant.png)';
@@ -8315,11 +8958,13 @@ zoomMove(ev: MouseEvent) {
 
     // Action sélectionnée
     if (this.selectedAction) {
+      if (this.isMeHunterUnstablePending()) return false;
       return this.canUseActionNow(this.selectedAction);
     }
 
     // Potion / élixir sélectionné
     if (this.selectedPotion) {
+      if (this.isMeHunterUnstablePending()) return false;
       return this.canUsePotionNow(this.selectedPotion);
     }
 
@@ -8399,6 +9044,7 @@ zoomMove(ev: MouseEvent) {
 
           // Modale action
           this.syncActionFromSnapshot(snap);
+          this.syncMerchantUiFromSnapshot(snap);
 
           // Effets de lieu (Bibliothèque, etc.)
           this.syncLocationEffectFromSnapshot(snap, previous);
@@ -8497,6 +9143,7 @@ zoomMove(ev: MouseEvent) {
 
 
             this.syncActionFromSnapshot(g);
+            this.syncMerchantUiFromSnapshot(g);
 
             // recalculer les choix instables à partir du snapshot
             this.recomputeUnstableChoices();
@@ -8747,17 +9394,26 @@ zoomMove(ev: MouseEvent) {
 
       case 'BITE_ROLLED': {
         this.isSacredRosaryUsed = event?.payload?.isSacredRosaryUsed;
-        // 1) refresh pour voir roll/resolvedAtMillis dans le snapshot
+
         this.api.getGame(this.gameId).subscribe({
-          next: g => this.game = g,
+          next: g => {
+            this.game = g;
+
+            const b: any = (g as any)?.currentBite;
+            const isResolved = !!b?.resolvedAtMillis; // en armure argent, c'est null
+
+            if (isResolved) {
+              setTimeout(() => {
+                this.api.combatContinue(this.gameId).subscribe({
+                  error: e => this.showError(e)
+                });
+              }, this.SPECTATE_HOLD_MS);
+            }
+            // sinon: on laisse la modale ouverte, la cible lancera le d4
+          },
           error: e => this.showError(e)
         });
-        // 2) laisse le résultat affiché, puis enchaîne
-        setTimeout(() => {
-          this.api.combatContinue(this.gameId).subscribe({
-            error: e => this.showError(e)
-          });
-        }, this.SPECTATE_HOLD_MS);
+
         break;
       }
 
@@ -8795,6 +9451,7 @@ zoomMove(ev: MouseEvent) {
       case 'POTION_BOUGHT':
       case 'ACTION_BOUGHT':
       case 'SILVER_BOUGHT':
+      case 'STUFF_BOUGHT':
       case 'HOLY_WATER_BOUGHT':
       case 'TRACKING_BOUGHT':
       case 'RESOURCE_SOLD':
@@ -8841,6 +9498,7 @@ zoomMove(ev: MouseEvent) {
             if (g.currentAction && 
               (g.currentAction.mode === 'PROVOCATION' 
               || g.currentAction.mode === 'AMBUSH'
+              || g.currentAction.mode === 'LONELY'
               || g.currentAction.mode === 'CHARISMATIQUE'
               || g.currentAction.mode === 'MARCHAND_ITINERANT'
               || g.currentAction.mode === 'MARCHAND_BONUS_BUY'
@@ -8860,6 +9518,7 @@ zoomMove(ev: MouseEvent) {
               || g.currentAction.mode === 'EAU_BENITE')) {
               this.syncActionFromSnapshot(g);
             }
+            this.syncMerchantUiFromSnapshot(g);
             this.bumpHistoryScroll(); // optionnel, mais cohérent avec les autres
           },
           error: e => this.showError(e)
@@ -8873,6 +9532,7 @@ zoomMove(ev: MouseEvent) {
             this.game = g;
             // ouvre/MAJ la modale selon currentAction (NET/PIT)
             this.syncActionFromSnapshot(g);
+            this.syncMerchantUiFromSnapshot(g);
             this.bumpHistoryScroll();
           },
           error: e => this.showError(e)
@@ -8886,6 +9546,7 @@ zoomMove(ev: MouseEvent) {
           next: g => {
             this.game = g;
             this.syncActionFromSnapshot(g); // met à jour actionRoll + breakdown dans la modale
+            this.syncMerchantUiFromSnapshot(g);
             this.bumpHistoryScroll();
           },
           error: e => this.showError(e)
@@ -8902,12 +9563,28 @@ zoomMove(ev: MouseEvent) {
       }
 
       case 'ACTION_RESOLVED': {
-        //const prevActionMode = this.actionMode;
-
         this.api.getGame(this.gameId).subscribe({
           next: g => {
             this.game = g;
             this.syncActionFromSnapshot(g); // ferme la modale si currentAction=null
+            this.syncMerchantUiFromSnapshot(g);
+
+            // si on vient juste de fermer la modale marchand après confirmation => play animation
+            const merchantJustClosed =
+              (this.actionMode === null || this.showActionModal === false); // modale fermée côté UI
+
+            if (merchantJustClosed && this.shouldPlayBonusFlyAfterClose && this.pendingBonusFly) {
+              const { src, rect } = this.pendingBonusFly;
+
+              // important : jouer après le repaint du DOM (modale vraiment disparue)
+              setTimeout(() => {
+                this.flyDomToViewportBottom(src, rect);
+              }, 0);
+
+              // cleanup
+              this.shouldPlayBonusFlyAfterClose = false;
+              this.pendingBonusFly = null;
+            }
 
           if (g.phase === 'PREPHASE3' && g.hasUpcomingCombat && !g.locationEffectPending) {
             // On (re)lance simplement le timer local.
@@ -9084,6 +9761,20 @@ zoomMove(ev: MouseEvent) {
         break;
       }
 
+      case 'BANK_UPDATED': {
+        this.api.getGame(this.gameId).subscribe({
+          next: g => {
+            const previous = this.game;
+            this.game = g;
+
+            this.syncShopVisibilityFromSnapshot();
+            this.bumpHistoryScroll();
+          },
+          error: e => this.showError(e),
+        });
+        break;
+      }
+
       case 'PHASE4_READY_UPDATED': {
         const pid = event?.payload?.playerId as string | undefined;
         if (pid && pid === this.meId) this.waitingDone = true;
@@ -9160,8 +9851,8 @@ zoomMove(ev: MouseEvent) {
         // Si aucune option => probablement full T3
         if (possible.length === 0) {
           const ok = window.confirm(
-            "Attention : vous ne pouvez plus forger d’amélioration.\n" +
-            "Raison : votre arme et votre armure semblent déjà au palier maximum (T3).\n\n" +
+            "Attention: vous ne pouvez plus forger d’amélioration.\n" +
+            "Raison: votre arme et votre armure semblent déjà au palier maximum (T3).\n\n" +
             "Voulez-vous quand même jouer cette carte ?"
           );
           if (!ok) {
@@ -9175,42 +9866,8 @@ zoomMove(ev: MouseEvent) {
           const silver = (me as any).silver ?? 0;
           const souls  = (me as any).souls  ?? 0;
 
-          const costOf = (id: string) => {
-            switch (id) {
-              // Hunters T1
-              case 'H_WEAPON_T1_SWORD':     return { wood: 2, iron: 4 };
-              case 'H_WEAPON_T1_MACE':      return { wood: 3, iron: 3 };
-              case 'H_WEAPON_T1_SPEAR':     return { wood: 5, iron: 1 };
-              case 'H_ARMOR_T1_BRIGANDINE': return { iron: 6 };
-
-              // Hunters T2
-              case 'H_WEAPON_T2_HALBERD':   return { wood: 6, iron: 4 };
-              case 'H_WEAPON_T2_HAMMER':    return { wood: 4, iron: 6 };
-              case 'H_WEAPON_T2_CROSSBOW':  return { wood: 5, iron: 5 };
-              case 'H_ARMOR_T2_HAUBERT':    return { iron: 8 };
-
-              // Hunters T3
-              case 'H_WEAPON_T3_WRIST_BLADES': return { iron: 6, silver: 10 };
-              case 'H_WEAPON_T3_FLAIL':        return { wood: 3, iron: 3, silver: 10 };
-              case 'H_WEAPON_T3_PISTOL':       return { wood: 6, silver: 10 };
-              case 'H_ARMOR_T3_PLATE_SILVER':  return { iron: 10, silver: 15 };
-
-              // Vamp/Servant
-              case 'V_WEAPON_T1_SCYTHE':    return { wood: 2, iron: 4, souls: 40 };
-              case 'V_ARMOR_T1_CARAPACE':   return { iron: 4, souls: 40 };
-
-              case 'V_WEAPON_T2_SWORD':     return { wood: 3, iron: 6, souls: 60 };
-              case 'V_ARMOR_T2_HAUBERT':    return { iron: 6, souls: 60 };
-
-              case 'V_WEAPON_T3_CLAWS':     return { wood: 4, iron: 4, souls: 100 };
-              case 'V_ARMOR_T3_ECORCE':     return { wood: 3, iron: 6, souls: 100 };
-
-              default: return null;
-            }
-          };
-
           const missingOf = (id: string) => {
-            const c = costOf(id);
+            const c = this.forgeCostOf(id);
             if (!c) return { total: 999, parts: ['coût inconnu'] };
 
             const missWood   = Math.max(0, (c.wood   ?? 0) - wood);
@@ -9224,10 +9881,7 @@ zoomMove(ev: MouseEvent) {
             if (missSilver) parts.push(`${missSilver} argent`);
             if (missSouls)  parts.push(`${missSouls} âmes`);
 
-            return {
-              total: missWood + missIron + missSilver + missSouls,
-              parts
-            };
+            return { total: missWood + missIron + missSilver + missSouls, parts };
           };
 
           const affordable = possible.filter(o => missingOf(o.id).total === 0);
@@ -9243,7 +9897,7 @@ zoomMove(ev: MouseEvent) {
             const reason =
               "Attention: aller à la Forge n’aura aucun effet pour l’instant.\n" +
               "Raison: vous n’avez pas assez de ressources pour forger un équipement.\n\n" +
-              `Option la plus proche : ${best.o.label}\n` +
+              `Option la plus proche: ${best.o.label}\n` +
               `Il vous manque: ${best.miss.parts.join(', ')}\n\n` +
               `Vos ressources: ${wood} bois, ${iron} fer, ${silver} argent, ${souls} âmes.\n\n` +
               "Voulez-vous quand même jouer cette carte ?";
@@ -9270,6 +9924,7 @@ zoomMove(ev: MouseEvent) {
     // 2) CAS ACTION SÉLECTIONNÉE
     if (this.selectedAction) {
       const action = this.selectedAction;
+      if (this.isMeHunterUnstablePending()) return;
       if (!this.canUseActionNow(action)) return;
 
       this.useAction(action);
@@ -9280,12 +9935,34 @@ zoomMove(ev: MouseEvent) {
     // 3) CAS POTION / ELIXIR SÉLECTIONNÉ
     if (this.selectedPotion) {
       const potion = this.selectedPotion;
+      if (this.isMeHunterUnstablePending()) return;
       if (!this.canUsePotionNow(potion)) return;
 
       this.usePotion(potion);
       this.selectedPotion = null;
       return;
     }
+  }
+
+  isMeHunterUnstablePending(): boolean {
+    const g: any = this.game;
+    const me = this.me;
+    if (!g || !me) return false;
+    if (g.phase !== 'PREPHASE3') return false;
+    if (me.role !== 'HUNTER' || me.hp <= 0) return false;
+
+    const id = me.id;
+
+    const has = (obj: any, key: string) =>
+      !!obj && Object.prototype.hasOwnProperty.call(obj, key);
+
+    // "instable sous contrôle" = pending OU assigné
+    return (
+      has(g.unstableEligibleTargets, id) ||
+      has(g.unstableEligibleLocations, id) ||
+      has(g.unstableTargetByPlayer, id) ||
+      has(g.unstableHarvestLocByPlayer, id)
+    );
   }
 
   skipNow() {
@@ -9407,8 +10084,6 @@ zoomMove(ev: MouseEvent) {
     return `translate(-50%, -50%) rotate(${angle}deg) translate(0, -${r}px) rotate(${-angle}deg)`;
   }
 
-
-
   //====== Action & potion ======/
   // afficher mes potions (IDs)
   myPotions(): string[] {
@@ -9433,6 +10108,8 @@ zoomMove(ev: MouseEvent) {
 
     const ws  = g.weather?.status;
     const wss = g.weather?.secondaryStatus;
+
+    if (this.isMeHunterUnstablePending()) return false;
 
     // Sous blizzard : potions inutilisables
     if (ws === 'BLIZZARD' || wss === 'BLIZZARD') {
@@ -9630,7 +10307,8 @@ zoomMove(ev: MouseEvent) {
     if (me.hp <= 0) return false;
 
     const ws = g.weather?.status;
-    const wss = g.weather?.secondaryStatus;
+
+    if (this.isMeHunterUnstablePending()) return false;
 
     // 1) Action vampire:
     if (_action === 'CATACLYSME' || _action === 'CLONES_OMBRE') {
@@ -9706,7 +10384,7 @@ zoomMove(ev: MouseEvent) {
       return true;
     }
 
-    if (_action === 'BLOOD_MOON' && (ws === 'FULL_MOON' || wss === 'FULL_MOON')) {
+    if (_action === 'BLOOD_MOON' && ws === 'FULL_MOON') {
       return g.phase === 'PREPHASE3' && me.role === 'VAMPIRE';
     }
 
@@ -9729,6 +10407,7 @@ zoomMove(ev: MouseEvent) {
           || _action === 'INCENDIAIRE'
           || _action === 'PROVOCATION'
           || _action === 'AMBUSH'
+          || _action === 'LONELY'
           || _action === 'BLESSED_STAKE'
           || _action === 'SACRED_ROSARY'
           || _action === 'CHARISMATIQUE'
@@ -9750,21 +10429,25 @@ zoomMove(ev: MouseEvent) {
     switch (_action) {
       case 'FEU_DE_CAMP':
         if (g.phase !== 'PREPHASE3') return false;
-        return (ws === 'DUSK' || ws === 'NIGHT_DARK' || ws === 'NIGHT_CLEAR') 
-        && (wss === 'DUSK' || wss === 'NIGHT_DARK' || wss === 'NIGHT_CLEAR') ;
+        return (ws === 'DUSK' || ws === 'NIGHT_DARK' || ws === 'NIGHT_CLEAR');
 
       case 'NET':
       case 'PIT': {
-        // météo qui bloque
-        if (ws === 'NIGHT_DARK' || wss === 'NIGHT_DARK') return false;
+        // météo qui bloque (sauf si feu de camp sur mon lieu)
+        const myLoc = this.locationOf(me.id);
+        const campfires = (g as any)?.campfireLocations ?? [];
+        const hasCampfireHere = Array.isArray(campfires) && myLoc ? campfires.includes(myLoc) : false;
+
+        if (ws === 'NIGHT_DARK' && !hasCampfireHere) return false;
 
         // rôle + phase
         if (g.phase !== 'PREPHASE3') return false;
         if (me.role !== 'HUNTER') return false;
 
-        // Il faut au moins un ennemi physique (vamp/serviteur/monstre) sur mon lieu.
+        // Il faut au moins un ennemi physique sur mon lieu
         return this.hasRealEnemyOnMyLocation();
       }
+
 
       case 'PROVOCATION': {
         if (g.phase !== 'PREPHASE3') return false;
@@ -9805,6 +10488,12 @@ zoomMove(ev: MouseEvent) {
         return hunters.length >= 2 && enemies.length >= 1;
       }
 
+      case 'LONELY': {
+        if (g.phase !== 'PREPHASE3') return false;
+        if (me.role !== 'HUNTER') return false;
+        return this.imInUpcomingCombat();
+      }
+
       case 'CHARISMATIQUE': {
         if (!me) return false;
         if (me.role !== 'HUNTER') return false;
@@ -9821,7 +10510,6 @@ zoomMove(ev: MouseEvent) {
         if (!me) return false;
         if (me.role !== 'HUNTER') return false;
         if (g.phase !== 'PHASE4') return false;
-        if (this.game?.shopBonusKind) return false;
 
         // Bloqué par Présence écrasante
         if (g.hunterActionsBlockedThisRaid) return false;
@@ -9830,7 +10518,7 @@ zoomMove(ev: MouseEvent) {
       }
 
       case 'EAU_BENITE':
-        if (g.phase !== 'PREPHASE3') return false;
+        if (g.phase !== 'PREPHASE3' && g.phase !== 'PHASE1') return false;
         return this.canPlayHolyWaterkHere();
 
       default:
@@ -9851,6 +10539,7 @@ zoomMove(ev: MouseEvent) {
     const canHoly = acts.includes('EAU_BENITE')       && this.canPlayHolyWaterkHere();
     const canProv  = acts.includes('PROVOCATION')     && this.canPlayProvocationHere();
     const canAmbush  = acts.includes('AMBUSH')        && this.canUseActionNow('AMBUSH');
+    const canLonely  = acts.includes('LONELY')        && this.canUseActionNow('LONELY');
     const canStake  = acts.includes('BLESSED_STAKE')  && this.canUseActionNow('BLESSED_STAKE');
     const canRosary  = acts.includes('SACRED_ROSARY')    && this.canUseActionNow('SACRED_ROSARY');
 
@@ -9908,6 +10597,7 @@ zoomMove(ev: MouseEvent) {
       case 'PROVOCATION':             return 'Provocation';
       case 'INCENDIAIRE':             return 'Incendiaire';
       case 'AMBUSH':                  return 'Embuscade';
+      case 'LONELY':                  return 'Solitaire';
       case 'BLESSED_STAKE':           return 'Pieu béni';
       case 'SACRED_ROSARY':           return 'Chapelet sacré';
       case 'CHARISMATIQUE':           return 'Charismatique';
@@ -10055,6 +10745,7 @@ zoomMove(ev: MouseEvent) {
       || this.actionMode === 'PROVOCATION'
       || this.actionMode === 'INCENDIAIRE'
       || this.actionMode === 'AMBUSH'
+      || this.actionMode === 'LONELY'
       || this.actionMode === 'BLESSED_STAKE'
       || this.actionMode === 'CHARISMATIQUE'
       || this.actionMode === 'MARCHAND_ITINERANT'
@@ -10323,18 +11014,17 @@ zoomMove(ev: MouseEvent) {
     const v = this.actionRoll;
     if (v == null) return '';
 
-    if (v === 1 || v === 2) {
-      return "une potion est disponible à la boutique.";
-    }
-    if (v === 3 || v === 4) {
-      return "un élixir est disponible à la boutique.";
-    }
+    if (v === 1 || v === 2) return "une potion est disponible à la boutique.";
+    if (v === 3 || v === 4) return "un élixir est disponible à la boutique.";
+
+    const k = this.me?.shopBonusKind;
+    if (k === 'EQUIP_WEAPON') return "une arme est disponible à la boutique.";
+    if (k === 'EQUIP_ARMOR')  return "une armure est disponible à la boutique.";
     return "un équipement est disponible à la boutique.";
   }
 
   merchantBuyText(): string {
-    const g = this.game;
-    const kind = g?.shopBonusKind;
+    const kind = this.me?.shopBonusKind;
     if (!kind) return 'Marchand itinérant — offre spéciale disponible.';
 
     switch (kind) {
@@ -10349,11 +11039,10 @@ zoomMove(ev: MouseEvent) {
       default:
         return 'Marchand itinérant — choisissez un mode de paiement.';
     }
-  }
+}
 
   bonusTitle(): string {
-    const g = this.game;
-    const kind = g?.shopBonusKind;
+    const kind = this.me?.shopBonusKind;
     if (!kind) return 'Objet bonus';
 
     switch (kind) {
@@ -10366,69 +11055,54 @@ zoomMove(ev: MouseEvent) {
   }
 
   canBuyBonus(): boolean {
-    const me = this.me;
+    const me: any = this.me;
     if (!me) return false;
     if (me.hp <= 0) return false;
+
+    // si max atteint (équipement), on bloque
+    if (!this.canReceiveBonusItem()) return false;
+
     return this.canPayBonusWithResource() || this.canPayBonusWithGold();
   }
 
   canPayBonusWithResource(): boolean {
-    const g = this.game;
     const me = this.me;
-    const kind = g?.shopBonusKind;
-    if (!g || !me || me.role !== 'HUNTER' || !kind) return false;
+    const rc = this.bonusResCost();
+    if (!me || me.role !== 'HUNTER' || !rc) return false;
 
-    switch (kind) {
-      case 'POTION':
-        return me.water >= 4 && me.herbs >= 3;
-      case 'ELIXIR':
-        return me.water >= 6 && me.herbs >= 6;
-      case 'EQUIP_WEAPON':
-      case 'EQUIP_ARMOR':
-        return me.wood >= 6 && me.iron >= 6;
-      default:
-        return false;
-    }
+    if (rc.water && me.water < rc.water) return false;
+    if (rc.herbs && me.herbs < rc.herbs) return false;
+    if (rc.wood && me.wood < rc.wood) return false;
+    if (rc.iron && me.iron < rc.iron) return false;
+    if (rc.silver && (me as any).silver < rc.silver) return false;
+
+    return true;
   }
 
+
   canPayBonusWithGold(): boolean {
-    const g = this.game;
     const me = this.me;
-    const kind = g?.shopBonusKind;
-    if (!g || !me || me.role !== 'HUNTER' || !kind) return false;
-
-    let base: number;
-    switch (kind) {
-      case 'POTION':       base = 60; break;
-      case 'ELIXIR':       base = 120; break;
-      case 'EQUIP_WEAPON':
-      case 'EQUIP_ARMOR':  base = 150; break;
-      default:             return false;
-    }
-
-    let cost = base;
-    const greedy = (g as any).shopPricesIncreasedThisRaid;
-    if (greedy) cost += 50;
-
-    if (me.charismaticThisRaid) {
-      cost = Math.max(0, cost - 20);
-    }
-    return me.gold >= cost;
+    const gc = this.bonusGoldCost();
+    if (!me || me.role !== 'HUNTER' || gc == null) return false;
+    return me.gold >= gc;
   }
 
   onConfirmBonus(mode: 'RESOURCE' | 'GOLD'): void {
     if (!this.game) return;
-    this.actionResolving = true;
 
+    this.shouldPlayBonusFlyAfterClose = true;
+
+    this.actionResolving = true;
     this.api.buyShopBonus(this.gameId, mode).subscribe({
-      next: g => {
+      next: _g => {
         this.actionResolving = false;
-        // currentAction est remis à null côté back → syncActionFromSnapshot fermera la modale
         this.bumpHistoryScroll();
       },
       error: e => {
         this.actionResolving = false;
         this.showError(e);
+        // si erreur, on ne joue rien
+        this.shouldPlayBonusFlyAfterClose = false;
       }
     });
   }
@@ -10440,12 +11114,12 @@ zoomMove(ev: MouseEvent) {
     const img = btn?.querySelector('img') as HTMLImageElement | null;
     if (!img?.src) return;
 
-    const src = img.src;
-    const rect = img.getBoundingClientRect();
+    // on mémorise pour plus tard
+    this.pendingBonusFly = { src: img.src, rect: img.getBoundingClientRect() };
+    this.shouldPlayBonusFlyAfterClose = false; // pas encore confirmé
 
     this.api.StartShopBonus(this.gameId).subscribe({
-      next: g => {
-        this.flyDomToViewportBottom(src, rect);
+      next: _g => {
         this.bumpHistoryScroll();
       },
       error: e => this.showError(e)
@@ -10459,16 +11133,60 @@ zoomMove(ev: MouseEvent) {
     this.api.cancelShopBonus(this.gameId).subscribe({
       next: () => {
         this.actionResolving = false;
-        // currentAction passe à null côté back et ACTION_RESOLVED est émis,
-        // donc on va recevoir l’event, faire getGame(), syncActionFromSnapshot()
-        // et la modale se fermera toute seule.
         this.bumpHistoryScroll();
+
+        // annulation => aucune animation
+        this.shouldPlayBonusFlyAfterClose = false;
+        this.pendingBonusFly = null;
       },
       error: e => {
         this.actionResolving = false;
         this.showError(e);
       }
     });
+  }
+
+    /** true si l'objet bonus est achetable (règles "max atteint" inclues) */
+  private canReceiveBonusItem(): boolean {
+    const me: any = this.me;
+    const kind = (me as any)?.shopBonusKind;
+    if (!me || me.role !== 'HUNTER' || !kind) return false;
+
+    // potions / elixirs : pas de notion de max ici
+    if (kind === 'POTION' || kind === 'ELIXIR') return true;
+
+    // équipements : le marchand ne doit jamais donner T3, et si tu as déjà T2/T3 -> pas achetable
+    if (kind === 'EQUIP_WEAPON') {
+      const t = this.hunterWeaponTier(me.weapon);
+      return t < 2; // T0/T1 -> OK ; T2/T3 -> NON
+    }
+    if (kind === 'EQUIP_ARMOR') {
+      const t = this.hunterArmorTier(me.armor);
+      return t < 2;
+    }
+
+    return false;
+  }
+
+  /** Tooltip explicite pour le bouton d'achat bonus */
+  bonusBuyDisabledTitle(): string | null {
+    const me: any = this.me;
+    const kind = me?.shopBonusKind;
+    if (!me || me.role !== 'HUNTER' || !kind) return null;
+
+    // 1) max atteint ?
+    if (!this.canReceiveBonusItem()) {
+      if (kind === 'EQUIP_WEAPON') return "Impossible: tu as déjà une arme T2/T3 (le T3 s'achète uniquement à la forge).";
+      if (kind === 'EQUIP_ARMOR')  return "Impossible: tu as déjà une armure T2/T3 (le T3 s'achète uniquement à la forge).";
+      return "Impossible: maximum atteint.";
+    }
+
+    // 2) peut payer ?
+    const canRes  = this.canPayBonusWithResource();
+    const canGold = this.canPayBonusWithGold();
+    if (canRes || canGold) return null;
+
+    return "Impossible: pas assez de ressources ni d'or.";
   }
 
   onSelectWeather2(ws: string) {
@@ -10729,6 +11447,8 @@ zoomMove(ev: MouseEvent) {
 
     const list = g.raidMods[me.id] || [];
 
+    if(this.isDarkMarkedMe()) return false
+
     return list.some(m => {
       const src = (m as any).source as string | undefined;
       if (!src) return false;
@@ -10823,6 +11543,63 @@ zoomMove(ev: MouseEvent) {
 
   private syncActionFromSnapshot(g: GameSnapshot) {
     const act = g.currentAction;
+    const meId = this.me?.id;
+
+    // ------------------------------------------------------------------
+    // PHASE4 : popups "info" (perso) -> 1 seule fois, uniquement acteur
+    // et surtout : ne jamais ré-ouvrir sur les refresh (buyBonus, etc.)
+    // ------------------------------------------------------------------
+    if (act && g.phase === 'PHASE4'
+        && (act.mode === 'CHARISMATIQUE' || act.mode === 'AVIDITE_NOCTURNE')) {
+
+      const isActor = !!meId && act.ownerId === meId;
+
+      // 1) Pas l'acteur -> on n'affiche pas, et on n'écrase rien (Marchand etc.)
+      if (!isActor) {
+        // si jamais une vieille popup info traînait, on la ferme
+        if (this.actionMode === 'CHARISMATIQUE' || this.actionMode === 'AVIDITE_NOCTURNE') {
+          this.actionMode = null;
+          this.actionOwnerId = null;
+          this.actionLocation = null;
+          this.actionSelectedTargetId = null;
+          this.actionRoll = null;
+          this.actionBreakdownLines = [];
+          this.trapEnemies = [];
+          this.trapCurrentIndex = 0;
+          this.showActionModal = false;
+          this.incendiaireChoices = [];
+          this.selectedWeather2 = null;
+          this.selectedWeather3 = null;
+        }
+        return;
+      }
+
+      // 2) Acteur : one-shot par raid
+      if (act.mode === 'CHARISMATIQUE') {
+        if (this.lastCharismRaid === g.raid) return; // déjà affiché -> ne rien faire
+        this.lastCharismRaid = g.raid;
+      } else { // AVIDITE_NOCTURNE
+        if (this.lastGreedRaid === g.raid) return; // déjà affiché -> ne rien faire
+        this.lastGreedRaid = g.raid;
+      }
+
+      // 3) Afficher 1 fois + autoclose
+      this.actionMode = act.mode as any;
+      this.actionOwnerId = act.ownerId;
+      this.actionLocation = act.location;
+      this.actionSelectedTargetId = act.targetId ?? null;
+      this.actionRoll = act.roll ?? null;
+      this.actionBreakdownLines = act.breakdownLines ?? [];
+      this.trapEnemies = [];
+      this.trapCurrentIndex = 0;
+      this.incendiaireChoices = [];
+      this.selectedWeather2 = null;
+      this.selectedWeather3 = null;
+
+      this.showActionModal = true;
+      this.scheduleActionAutoClose();
+      return;
+    }
 
     // 1) Pas d'action ou mode non géré -> on ferme
     if (!act || (act.mode !== 'NET'
@@ -10830,10 +11607,9 @@ zoomMove(ev: MouseEvent) {
               && act.mode !== 'PROVOCATION'
               && act.mode !== 'INCENDIAIRE'
               && act.mode !== 'AMBUSH'
+              && act.mode !== 'LONELY'
               && act.mode !== 'BLESSED_STAKE'
               && act.mode !== 'CHARISMATIQUE'
-              && act.mode !== 'MARCHAND_ITINERANT'
-              && act.mode !== 'MARCHAND_BONUS_BUY'
               && act.mode !== 'PRESENCE_ECRASANTE'
               && act.mode !== 'CATACLYSME'
               && act.mode !== 'CLONES_OMBRE'
@@ -10848,6 +11624,7 @@ zoomMove(ev: MouseEvent) {
               && act.mode !== 'PASSAGE_SECRET'
               && act.mode !== 'AVIDITE_NOCTURNE'
               && act.mode !== 'EAU_BENITE')) {
+
       this.actionMode = null;
       this.actionOwnerId = null;
       this.actionLocation = null;
@@ -10894,7 +11671,7 @@ zoomMove(ev: MouseEvent) {
       this.incendiaireChoices = [];
     }
 
-    // 3bis) EMBUSCADE : liste des ennemis sur le lieu
+    // 3bis) EMBUSCADE
     if (this.actionMode === 'AMBUSH') {
       if (this.actionLocation && g.players) {
         this.ambushEnemies = this.playersOnLocation(this.actionLocation)
@@ -10919,10 +11696,10 @@ zoomMove(ev: MouseEvent) {
       }
     }
 
-    // 5) PRÉSENCE ÉCRASANTE / ECLIPSE / BLOOD_MOON etc : juste info
+    // 5) actions "info" (hors PHASE4 one-shot géré au-dessus) + autres infos
     if (this.actionMode === 'CHARISMATIQUE'
-      || this.actionMode === 'PRESENCE_ECRASANTE' 
-      || this.actionMode === 'ECLIPSE' 
+      || this.actionMode === 'PRESENCE_ECRASANTE'
+      || this.actionMode === 'ECLIPSE'
       || this.actionMode === 'BLOOD_MOON'
       || this.actionMode === 'VOILE_DE_BRUME'
       || this.actionMode === 'FAIM_IRREPRESSIBLE'
@@ -10960,14 +11737,11 @@ zoomMove(ev: MouseEvent) {
       const ownerId = act.ownerId;
       const gSnap = g;
 
-      // Liste des lieux alternatifs envoyés par le back
       this.mirrorAltLocations = gSnap.mirrorAltLocations || [];
 
-      // Lieu principal = carte actuelle du vampire sur le centre
       const cb = gSnap.center?.find(c => c.playerId === ownerId) || null;
       this.mirrorPrimaryLoc = cb ? cb.card : null;
 
-      // Construire la liste de choix (primary + alts, sans doublons)
       this.mirrorChoices = [];
       this.mirrorHuntersByLoc = {};
 
@@ -10980,13 +11754,12 @@ zoomMove(ev: MouseEvent) {
         }
       }
 
-      // Pour chaque choix, pré-calculer les chasseurs présents
       for (const loc of this.mirrorChoices) {
         this.mirrorHuntersByLoc[loc] = this.playersOnLocation(loc).filter(p => p.role === 'HUNTER');
       }
     }
 
-    // 9) MARQUE_TENEBREUSE / EAU_BENITE / AFFAIBLISSEMENT_OCCULTE: actions de choix, on met en pause le timer local
+    // 9) MARQUE_TENEBREUSE / EAU_BENITE / AFFAIBLISSEMENT_OCCULTE
     if (this.actionMode === 'MARQUE_TENEBREUSE'
       || this.actionMode === 'EAU_BENITE'
       || this.actionMode === 'AFFAIBLISSEMENT_OCCULTE') {
@@ -11005,7 +11778,7 @@ zoomMove(ev: MouseEvent) {
       this.stopPrephaseTimer();
     }
 
-    // 10) PASSAGE_SECRET : choix d'un nouveau lieu
+    // 10) PASSAGE_SECRET
     if (this.actionMode === 'PASSAGE_SECRET') {
       this.trapEnemies = [];
       this.trapCurrentIndex = 0;
@@ -11019,13 +11792,12 @@ zoomMove(ev: MouseEvent) {
         this.selectedSecretPassageLoc = this.secretPassageChoices[0];
       }
 
-      // Pause du timer local de PREPHASE
       this.stopPrephaseTimer();
     }
 
+    // ---- Affichage modales "info" : uniquement l'acteur (grâce au guard en haut) ----
     if (this.actionMode === 'CHARISMATIQUE') {
       const alreadyShown = this.lastCharismRaid === g.raid;
-
       if (!alreadyShown) {
         this.lastCharismRaid = g.raid;
         this.showActionModal = true;
@@ -11035,7 +11807,6 @@ zoomMove(ev: MouseEvent) {
 
     if (this.actionMode === 'AVIDITE_NOCTURNE') {
       const alreadyShown = this.lastGreedRaid === g.raid;
-
       if (!alreadyShown) {
         this.lastGreedRaid = g.raid;
         this.showActionModal = true;
@@ -11069,7 +11840,19 @@ zoomMove(ev: MouseEvent) {
           this.startPrephaseTimer();
         }
       }
+    } else if (this.actionMode === 'LONELY') {
+      const ts = (act as any)?.resolvedAtMillis ?? 0;
 
+      // évite de re-pop la même exécution (refresh / getGame répétée)
+      if (ts && ts <= this.lastLonelyShownAt) return;
+      this.lastLonelyShownAt = ts;
+
+      this.showActionModal = true;
+      this.scheduleActionAutoClose();
+
+      if (g.phase === 'PREPHASE3' && !g.locationEffectPending) {
+        this.startPrephaseTimer();
+      }
     } else if (this.actionMode === 'BLOOD_MOON') {
       const alreadyShown = this.lastBloodMoonRaid === g.raid;
 
@@ -11119,28 +11902,100 @@ zoomMove(ev: MouseEvent) {
         }
       }
 
-    } else if (this.actionMode === 'MARQUE_TENEBREUSE' 
+    } else if (this.actionMode === 'MARQUE_TENEBREUSE'
       || this.actionMode === 'PROVOCATION'
       || this.actionMode === 'AMBUSH'
       || this.actionMode === 'BLESSED_STAKE'
-      || this.actionMode === 'EAU_BENITE' 
-      || this.actionMode === 'PASSAGE_SECRET' 
+      || this.actionMode === 'EAU_BENITE'
+      || this.actionMode === 'PASSAGE_SECRET'
       || this.actionMode === 'AFFAIBLISSEMENT_OCCULTE') {
-      // Marque ténébreuse : on affiche, PAS d’auto-close, PAS de reset de timer ici
-      // (le timer est déjà stoppé plus haut, et sera relancé dans ACTION_RESOLVED)
-      this.showActionModal = true;
 
-    } else if (this.actionMode === 'MARCHAND_ITINERANT') {
-        this.showActionModal = true;
-        if (this.actionRoll != null) this.scheduleActionAutoClose(); // on ferme 5s après le résultat
-    } else if (this.actionMode === 'MARCHAND_BONUS_BUY') {
-      // On ouvre, mais on ne met PAS d’auto-close :
-      // la modale se fermera quand currentAction repassera à null
       this.showActionModal = true;
 
     } else {
-      // NET / PIT / INCENDIAIRE / CLONES / IMAGE_MIROIR_SETUP / IMAGE_MIROIR_RESOLVE
       this.showActionModal = true;
+    }
+  }
+
+  private syncMerchantUiFromSnapshot(g: GameSnapshot) {
+    const me: any = this.me;
+    if (!g || !me || me.role !== 'HUNTER') return;
+
+    const act: any = (g as any).currentAction;
+
+    // En PHASE4, CHARISMATIQUE/AVIDITE sont des popups "info" -> elles ne doivent JAMAIS bloquer Marchand
+    const isP4Info =
+      (g.phase === 'PHASE4')
+      && (act?.mode === 'CHARISMATIQUE' || act?.mode === 'AVIDITE_NOCTURNE');
+
+    // Si une vraie action serveur est en cours (non marchand, non info PHASE4) -> on ne touche pas
+    if (act?.mode && !isP4Info && act.mode !== 'MARCHAND_ITINERANT' && act.mode !== 'MARCHAND_BONUS_BUY') {
+      return;
+    }
+
+    // Si je suis en train de lire MA popup info PHASE4, ne pas l'écraser (2-5s),
+    // Marchand s'ouvrira juste après quand la popup se ferme.
+    if (this.showActionModal
+        && (this.actionMode === 'CHARISMATIQUE' || this.actionMode === 'AVIDITE_NOCTURNE')
+        && this.actionOwnerId === me.id) {
+      return;
+    }
+
+    // 1) modale paiement (perso)
+    if (g.phase === 'PHASE4' && !!me.shopBonusBuyPending) {
+      this.actionMode = 'MARCHAND_BONUS_BUY' as any;
+      this.actionOwnerId = me.id;
+      this.actionLocation = null;
+      this.actionSelectedTargetId = null;
+      this.actionRoll = null;
+      this.actionBreakdownLines = [];
+      this.showActionModal = true;
+      return;
+    }
+
+    // 2) modale jet D6 (perso)
+    if (g.phase === 'PHASE4' && !!me.merchantPending) {
+      this.actionMode = 'MARCHAND_ITINERANT' as any;
+      this.actionOwnerId = me.id;
+      this.actionLocation = null;
+      this.actionSelectedTargetId = null;
+      this.actionRoll = null;
+      this.actionBreakdownLines = [];
+      this.showActionModal = true;
+      return;
+    }
+
+    // 3) afficher résultat une seule fois (5s)
+    const roll = me.merchantRoll;
+    const kind = me.shopBonusKind;
+    const equip = me.shopBonusEquipId;
+
+    if (g.phase === 'PHASE4' && roll != null && !!kind) {
+      const key = `${g.raid}|${roll}|${kind}|${equip || ''}`;
+      if (this.lastMerchantShownKey !== key) {
+        this.lastMerchantShownKey = key;
+
+        this.actionMode = 'MARCHAND_ITINERANT' as any;
+        this.actionOwnerId = me.id;
+        this.actionLocation = null;
+        this.actionSelectedTargetId = null;
+        this.actionRoll = roll;
+        this.actionBreakdownLines = [];
+        this.showActionModal = true;
+        this.scheduleActionAutoClose();
+        return;
+      }
+    }
+
+    // 4) si on était sur une modale marchand mais plus rien -> fermer
+    if (this.actionMode === 'MARCHAND_ITINERANT' || this.actionMode === 'MARCHAND_BONUS_BUY') {
+      this.actionMode = null;
+      this.actionOwnerId = null;
+      this.actionLocation = null;
+      this.actionSelectedTargetId = null;
+      this.actionRoll = null;
+      this.actionBreakdownLines = [];
+      this.showActionModal = false;
     }
   }
 
@@ -11173,14 +12028,14 @@ zoomMove(ev: MouseEvent) {
     const b = g?.currentBite;
     if (!b) return 'DONE';
 
-    // Pas encore de jet de morsure → D6
+    // Pas encore de jet de morsure → D20
     if (b.roll == null) return 'BITE';
 
     // Jet de morsure fait : voir si armure spéciale intervient
     const target = this.getPlayer?.(b.targetId);
     const hasArmor = this.hasSilverPlate(target);
 
-    if (b.roll > 3 && hasArmor && b.armorRoll == null) {
+    if (b.roll > 20 && hasArmor && b.armorRoll == null) {
       return 'ARMOR';
     }
 
@@ -11188,7 +12043,7 @@ zoomMove(ev: MouseEvent) {
   }
 
   // 2) Est-ce qu’on affiche le D4 d’armure ?
-  get showArmorDie(): boolean {
+  get showArmorDice(): boolean {
     const g: any = this.game;
     const b = g?.currentBite;
     if (!b) return false;
@@ -11197,7 +12052,7 @@ zoomMove(ev: MouseEvent) {
     return hasArmor && b.roll != null;
   }
 
-  // 3) Qui peut lancer le D6 de morsure ?
+  // 3) Qui peut lancer le D20 de morsure ?
   canRollBite(): boolean {
     const g = this.game;
     const b = g?.currentBite;
@@ -11207,7 +12062,7 @@ zoomMove(ev: MouseEvent) {
     const meId = this.me?.id;
     if (!meId) return false;
 
-    // Seul le vampire lance le D6
+    // Seul le vampire lance le D20
     const me = this.getPlayer(meId);
     return me?.role === 'VAMPIRE';
   }
@@ -11249,7 +12104,7 @@ zoomMove(ev: MouseEvent) {
     const hasArmor = this.hasSilverPlate(targetPlayer);
 
     // Échec direct du D6
-    if (b.roll <= 3) {
+    if (b.roll <= 8) {
       return `${attacker} échoue sa tentative de morsure.`;
     }
 
@@ -11259,12 +12114,10 @@ zoomMove(ev: MouseEvent) {
 
     // Pas d’armure spéciale → morsure réussie
     if (!hasArmor || b.armorRoll == null) {
-      return `${target} est mordu.`;
+      return `${target} est mordu. Le sang versé nourrit le vampire: +50 âmes déchues.`;
     }
 
-    // Avec armure: à adapter selon ta règle exacte !
-    // Ici j’assume : 1-2 = armure échoue (morsure passe), 3-4 = armure bloque.
-    if (b.armorRoll <= 2) {
+    if (b.armorRoll <= 3) {
       return `${target} est mordu malgré son armure d'argent.`;
     } else {
       return `L'armure d'argent de ${target} le protège de la morsure.`;
@@ -11283,17 +12136,17 @@ zoomMove(ev: MouseEvent) {
     const hasArmor = this.hasSilverPlate(target);
 
     let success = false;
-    if (b.roll > 3) {
+    if (b.roll > 8) {
       if (!hasArmor || b.armorRoll == null) {
         success = true;
       } else {
-        // même hypothèse que ci-dessus : 1-2 = morsure réussie
-        success = b.armorRoll <= 2;
+        // même hypothèse que ci-dessus : <= 3 = morsure réussie
+        success = b.armorRoll <= 3;
       }
     }
 
     if (success) {
-      return `Le rituel est accompli : l'autel est profané.`;
+      return `Le rituel est accompli: l'autel est profané.`;
     }
     return '';
   }
@@ -11303,7 +12156,7 @@ zoomMove(ev: MouseEvent) {
     if (!p) return false;
     // Adapte ce test au nom réel de l’armure dans ton snapshot :
     // ex : (p as any).armor === 'SILVER_PLATE'
-    return (p as any).armor === 'SILVER_PLATE';
+    return (p as any).armor === 'H_ARMOR_T3_PLATE_SILVER';
   }
 
   // Conditions d’ouverture de la modale (seulement vampire + PREPHASE3 + choix restants)
@@ -11668,7 +12521,7 @@ zoomMove(ev: MouseEvent) {
   get holyWaterGoldPrice(): number {
     const g = this.game;
     const me = this.me;
-    let price = 50;
+    let price = 150;
 
     const greedy = g && (g as any).shopPricesIncreasedThisRaid;
     if (greedy) price += 50;
@@ -11682,7 +12535,7 @@ zoomMove(ev: MouseEvent) {
   get trackingGoldPrice(): number {
     const g = this.game;
     const me = this.me;
-    let price = 50;
+    let price = 100;
 
     const greedy = g && (g as any).shopPricesIncreasedThisRaid;
     if (greedy) price += 50;
@@ -11691,6 +12544,17 @@ zoomMove(ev: MouseEvent) {
       price = Math.max(0, price - 20);
     }
     return price;
+  }
+
+  get salesAmount(): number {
+    const g = this.game;
+    const me = this.me;
+    let amount = 10;
+
+    if (me && me.role === 'HUNTER' && me.charismaticThisRaid) {
+      amount = Math.max(0, amount + 10);
+    }
+    return amount;
   }
 
   // UI Maintenance actions
@@ -11964,6 +12828,158 @@ zoomMove(ev: MouseEvent) {
     anim.oncancel = () => el.remove();
   }
 
+// --- TIERS (miroir back) ---
+private hunterWeaponTier(weaponId?: string | null): number {
+  if (!weaponId) return 0;
+  if (weaponId.startsWith("H_WEAPON_T1_")) return 1;
+  if (weaponId.startsWith("H_WEAPON_T2_")) return 2;
+  if (weaponId.startsWith("H_WEAPON_T3_")) return 3;
+  return 0;
+}
+private hunterArmorTier(armorId?: string | null): number {
+  if (!armorId) return 0;
+  if (armorId.startsWith("H_ARMOR_T1_")) return 1;
+  if (armorId.startsWith("H_ARMOR_T2_")) return 2;
+  if (armorId.startsWith("H_ARMOR_T3_")) return 3;
+  return 0;
+}
+
+// --- OFFRE : tier+1, cap à 2 ---
+private nextWeaponTier(): number | null {
+  const me = this.me;
+  if (!me || me.role !== 'HUNTER') return null;
+  const cur = this.hunterWeaponTier((me as any).weapon);
+  if (cur >= 2) return null;
+  return cur + 1;
+}
+private nextArmorTier(): number | null {
+  const me = this.me;
+  if (!me || me.role !== 'HUNTER') return null;
+  const cur = this.hunterArmorTier((me as any).armor);
+  if (cur >= 2) return null;
+  return cur + 1;
+}
+
+// --- ASSETS ---
+private stuffImg(file: string): string {
+  return `/assets/cards/stuff/${file}`;
+}
+
+// Armure : pas random
+private armorOfferFile(): string | null {
+  const t = this.nextArmorTier();
+  if (t == null) return null;
+  return `A_T${t}_HUNTER.png`;
+}
+
+// Offre canon (ce que tu affiches ET ce que tu envoies à l’achat)
+private myWeaponOffer(): { tier: number; type: 'BLEED'|'RANGE'|'STUN' } | null {
+  const t = this.nextWeaponTier();
+  if (t == null) return null;
+
+  const g: any = this.game;
+  const meId = this.me?.id;
+  if (!g || !meId) return { tier: t, type: 'BLEED' };
+
+  const mapTier = g.shopWeaponOfferTierByHunter as Record<string, number> | undefined;
+  const mapType = g.shopWeaponOfferTypeByHunter as Record<string, 'BLEED'|'RANGE'|'STUN'> | undefined;
+
+  const srvTier = mapTier?.[meId];
+  const srvType = mapType?.[meId];
+
+  const type: 'BLEED'|'RANGE'|'STUN' = (srvTier === t && srvType) ? srvType : 'BLEED';
+  return { tier: t, type };
+}
+
+// Image affichée = offre canon
+private weaponOfferFile(): string | null {
+  const offer = this.myWeaponOffer();
+  if (!offer) return null;
+  return `W_T${offer.tier}_${offer.type}_HUNTER.png`;
+}
+
+weaponUpgradeImgSrc(): string {
+  const file = this.weaponOfferFile();
+  return file ? this.stuffImg(file) : '/assets/icons/lock.png';
+}
+armorUpgradeImgSrc(): string {
+  const file = this.armorOfferFile();
+  return file ? this.stuffImg(file) : '/assets/icons/lock.png';
+}
+
+weaponUpgradeTitle(): string {
+  const t = this.nextWeaponTier();
+  if (t == null) return "Arme (max)";
+  return `Acheter une arme T${t}`;
+}
+armorUpgradeTitle(): string {
+  const t = this.nextArmorTier();
+  if (t == null) return "Armure (max)";
+  return `Acheter une armure T${t}`;
+}
+
+weaponUpgradeCost(): { wood: number; iron: number } | null {
+  const t = this.nextWeaponTier();
+  if (t == null) return null;
+  return t === 1 ? { wood: 3, iron: 3 } : { wood: 4, iron: 4 };
+}
+armorUpgradeCost(): { wood: number; iron: number } | null {
+  const t = this.nextArmorTier();
+  if (t == null) return null;
+  return t === 1 ? { wood: 3, iron: 3 } : { wood: 4, iron: 4 };
+}
+
+canBuyUpgradeWeapon(): boolean {
+  const me = this.me;
+  const c = this.weaponUpgradeCost();
+  if (!me || me.role !== 'HUNTER') return false;
+  if (me.hp <= 0) return false;
+  if (!c) return false;
+  return me.wood >= c.wood && me.iron >= c.iron;
+}
+canBuyUpgradeArmor(): boolean {
+  const me = this.me;
+  const c = this.armorUpgradeCost();
+  if (!me || me.role !== 'HUNTER') return false;
+  if (me.hp <= 0) return false;
+  if (!c) return false;
+  return me.wood >= c.wood && me.iron >= c.iron;
+}
+
+onBuyUpgradeWeapon(ev: MouseEvent): void {
+  const offer = this.myWeaponOffer();
+  if (!offer) return;
+
+  const btn = ev.currentTarget as HTMLElement | null;
+  const img = btn?.querySelector('img') as HTMLImageElement | null;
+
+  const src = img?.src;
+  const rect = img?.getBoundingClientRect();
+
+  this.api.buyUpgradeWeapon(this.gameId, offer).subscribe({
+    next: () => {
+      if (src && rect) this.flyDomToViewportBottom(src, rect);
+    },
+    error: e => this.showError(e)
+  });
+}
+
+onBuyUpgradeArmor(ev: MouseEvent): void {
+  const btn = ev.currentTarget as HTMLElement | null;
+  const img = btn?.querySelector('img') as HTMLImageElement | null;
+
+  const src = img?.src;
+  const rect = img?.getBoundingClientRect();
+
+  this.api.buyUpgradeArmor(this.gameId).subscribe({
+    next: () => {
+      if (src && rect) this.flyDomToViewportBottom(src, rect);
+    },
+    error: e => this.showError(e)
+  });
+}
+
+
   // Construction
   openBuildModal() {
     if (!this.game || !this.me) return;
@@ -12188,19 +13204,27 @@ zoomMove(ev: MouseEvent) {
     // ===  LABORATORY : nouvel effet EXPERIMENT                ===
     // ============================================================
     if (g.locationEffectInfra === 'LABORATORY') {
+
       if (g.locationEffectChoice === 'EXPERIMENT') {
         this.locationActionKind = 'EXPERIMENT';
         this.locationActionModalOpen = true;
 
-        // Tout le monde voit les lieux possibles
         this.experimentPossibleLocations = this.computeExperimentLocations(g);
-
-        // Tout le monde voit la sélection en cours (depuis snapshot)
         this.experimentMonsterType = (g.laboratoryDraftMonsterType as any) ?? null;
         this.experimentLocation = g.laboratoryDraftLocation ?? null;
-
         return;
       }
+
+      // EXPLOSION : modale d'action pour le jet de d20
+      if (g.locationEffectChoice === 'EXPLOSION') {
+        this.locationActionKind = 'EXPLOSION';
+        this.locationActionModalOpen = true;
+
+        // optionnel: reset local si tu as des champs UI dédiés à l'explosion
+        // (sinon rien)
+        return;
+      }
+
       return;
     }
 
@@ -12313,6 +13337,9 @@ zoomMove(ev: MouseEvent) {
           break;
         case 'ALTAR':
           locs.add('altar');
+          break;
+        case 'FORGE':
+          locs.add('forge');
           break;
       }
     }
@@ -12644,6 +13671,13 @@ zoomMove(ev: MouseEvent) {
     });
   }
 
+  rollLabExplosion() {
+    if (!this.game) return;
+    this.api.resolveLaboratoryExplosion(this.game.id).subscribe({
+      error: e => this.showError(e)
+    });
+  }
+
   isBallroomChoiceDisabled(
     choice: 'DEATH_DANCE' | 'SNEAK_ATTACK' | 'BLOOD_WALTZ' | 'LOOTING'
   ): boolean {
@@ -12846,21 +13880,26 @@ zoomMove(ev: MouseEvent) {
 
   private getWeaponTierFromPlayer(p: GameSnapshot['players'][number]): 0 | 1 | 2 | 3 {
     const faces = this.maxDiceFaces(p.attackDice);
-    if (faces >= 20) return 3;
-    if (faces >= 12) return 2;
-    if (faces >= 8)  return 1;
+    if (faces >= 12) return 3;
+    if (faces >= 8) return 2;
+    if (faces >= 6)  return 1;
     return 0;
   }
 
   private getArmorTierFromPlayer(p: GameSnapshot['players'][number]): 0 | 1 | 2 | 3 {
     const faces = this.maxDiceFaces(p.defenseDice);
-    if (faces >= 20) return 3;
-    if (faces >= 12) return 2;
-    if (faces >= 8)  return 1;
+    if (faces >=12) return 3;
+    if (faces >= 8) return 2;
+    if (faces >= 6)  return 1;
     return 0;
   }
 
-    private buildHunterWeaponOptions(tier: 1 | 2 | 3): ForgeOption[] {
+  private forgeCostOf(id: string): ForgeCost | null {
+    return FORGE_COSTS[id] ?? null;
+  }
+
+
+  private buildHunterWeaponOptions(tier: 1 | 2 | 3): ForgeOption[] {
     switch (tier) {
       case 1:
         return [
@@ -12870,6 +13909,7 @@ zoomMove(ev: MouseEvent) {
             tier: 1,
             label: 'Épée de fer',
             desc: 'Arme de chasseur — Saignement +1.',
+            cost: this.forgeCostOf('H_WEAPON_T1_SWORD')!
           },
           {
             id: 'H_WEAPON_T1_MACE',
@@ -12877,13 +13917,15 @@ zoomMove(ev: MouseEvent) {
             tier: 1,
             label: 'Masse de fer',
             desc: 'Arme de chasseur — Étourdissement -1.',
+            cost: this.forgeCostOf('H_WEAPON_T1_MACE')!
           },
           {
             id: 'H_WEAPON_T1_SPEAR',
             type: 'WEAPON',
             tier: 1,
             label: 'Lance de fer',
-            desc: 'Arme de chasseur — Portée 1.',
+            desc: 'Arme de chasseur — annule riposte vampire si 6 au dé.',
+            cost: this.forgeCostOf('H_WEAPON_T1_SPEAR')!
           },
         ];
       case 2:
@@ -12894,6 +13936,7 @@ zoomMove(ev: MouseEvent) {
             tier: 2,
             label: 'Hallebarde',
             desc: 'Arme de chasseur — Saignement +2.',
+            cost: this.forgeCostOf('H_WEAPON_T2_HALBERD')!
           },
           {
             id: 'H_WEAPON_T2_HAMMER',
@@ -12901,13 +13944,15 @@ zoomMove(ev: MouseEvent) {
             tier: 2,
             label: 'Marteau de guerre',
             desc: 'Arme de chasseur — Étourdissement -2.',
+            cost: this.forgeCostOf('H_WEAPON_T2_HAMMER')!
           },
           {
             id: 'H_WEAPON_T2_CROSSBOW',
             type: 'WEAPON',
             tier: 2,
             label: 'Arbalète',
-            desc: 'Arme de chasseur — Portée 1–2.',
+            desc: 'Arme de chasseur — annule riposte vampire si 7 ou 8 au dé.',
+            cost: this.forgeCostOf('H_WEAPON_T2_CROSSBOW')!
           },
         ];
       case 3:
@@ -12918,6 +13963,7 @@ zoomMove(ev: MouseEvent) {
             tier: 3,
             label: 'Lames de poignet',
             desc: 'Arme de chasseur — Saignement +3.',
+            cost: this.forgeCostOf('H_WEAPON_T3_WRIST_BLADES')!
           },
           {
             id: 'H_WEAPON_T3_FLAIL',
@@ -12925,13 +13971,15 @@ zoomMove(ev: MouseEvent) {
             tier: 3,
             label: 'Fléau',
             desc: 'Arme de chasseur — Étourdissement -3.',
+            cost: this.forgeCostOf('H_WEAPON_T3_FLAIL')!
           },
           {
             id: 'H_WEAPON_T3_PISTOL',
             type: 'WEAPON',
             tier: 3,
             label: 'Pistolet',
-            desc: 'Arme de chasseur — Portée 1–3.',
+            desc: 'Arme de chasseur — annule riposte vampire si 10 ou + au dé.',
+            cost: this.forgeCostOf('H_WEAPON_T3_PISTOL')!
           },
         ];
     }
@@ -12947,6 +13995,7 @@ zoomMove(ev: MouseEvent) {
             tier: 1,
             label: 'Brigandine',
             desc: 'Armure de chasseur — Dé de défense D8.',
+            cost: this.forgeCostOf('H_ARMOR_T1_BRIGANDINE')!
           },
         ];
       case 2:
@@ -12957,6 +14006,7 @@ zoomMove(ev: MouseEvent) {
             tier: 2,
             label: 'Haubert',
             desc: 'Armure de chasseur — Dé de défense D12.',
+            cost: this.forgeCostOf('H_ARMOR_T2_HAUBERT')!
           },
         ];
       case 3:
@@ -12967,6 +14017,7 @@ zoomMove(ev: MouseEvent) {
             tier: 3,
             label: 'Armure de plates en argent',
             desc: 'Armure de chasseur — D20 + effet spécial contre la morsure.',
+            cost: this.forgeCostOf('H_ARMOR_T3_PLATE_SILVER')!
           },
         ];
     }
@@ -12981,7 +14032,8 @@ zoomMove(ev: MouseEvent) {
             type: 'WEAPON',
             tier: 1,
             label: 'Faux maudite',
-            desc: 'Arme vampirique — D8, régénération 1 sur 7–8.',
+            desc: 'Arme vampirique — D6, régénération 1 pv sur 6.',
+            cost: this.forgeCostOf('V_WEAPON_T1_SCYTHE')!
           },
         ];
       case 2:
@@ -12991,7 +14043,8 @@ zoomMove(ev: MouseEvent) {
             type: 'WEAPON',
             tier: 2,
             label: 'Épée vampirique',
-            desc: 'Arme vampirique — D12, régénération 2 sur 10–12.',
+            desc: 'Arme vampirique — D8, régénération 2 pv sur 7 ou 8.',
+            cost: this.forgeCostOf('V_WEAPON_T2_SWORD')!
           },
         ];
       case 3:
@@ -13001,7 +14054,8 @@ zoomMove(ev: MouseEvent) {
             type: 'WEAPON',
             tier: 3,
             label: 'Griffes maudites',
-            desc: 'Arme vampirique — D20, régénération 3 sur 16+.',
+            desc: 'Arme vampirique — D12, régénération 3 pv sur 10 ou +.',
+            cost: this.forgeCostOf('V_WEAPON_T3_CLAWS')!
           },
         ];
     }
@@ -13016,7 +14070,8 @@ zoomMove(ev: MouseEvent) {
             type: 'ARMOR',
             tier: 1,
             label: 'Carapace d’ombre',
-            desc: 'Armure vampirique — D8 +1 DEF.',
+            desc: 'Armure vampirique — D6 +1 DEF.',
+            cost: this.forgeCostOf('V_ARMOR_T1_CARAPACE')!
           },
         ];
       case 2:
@@ -13026,7 +14081,8 @@ zoomMove(ev: MouseEvent) {
             type: 'ARMOR',
             tier: 2,
             label: 'Haubert de nuit',
-            desc: 'Armure vampirique — D12 +1 DEF.',
+            desc: 'Armure vampirique — D8 +1 DEF.',
+            cost: this.forgeCostOf('V_ARMOR_T2_HAUBERT')!
           },
         ];
       case 3:
@@ -13036,7 +14092,8 @@ zoomMove(ev: MouseEvent) {
             type: 'ARMOR',
             tier: 3,
             label: 'Écorce impie',
-            desc: 'Armure vampirique — D20 + esquive sur 19–20.',
+            desc: 'Armure vampirique — D12 + esquive sur 12.',
+            cost: this.forgeCostOf('V_ARMOR_T3_ECORCE')!
           },
         ];
     }
@@ -13132,13 +14189,13 @@ zoomMove(ev: MouseEvent) {
   }
 
   private readonly INFRA_COSTS: Record<InfraCode, Partial<Record<string, number>>> = {
-    SAWMILL:    { stone: 5, iron: 3 },
-    MINE:       { wood: 6,  iron: 2 },
-    LIBRARY:    { wood: 8,  stone: 4, iron: 2 },
-    LABORATORY: { water: 5, herbs: 5, stone: 3, souls: 50 },
-    BALLROOM:   { stone: 8, iron: 2, souls: 50 },
-    ALTAR:      { stone: 4, wood: 2, iron: 2, souls: 50 },
-    FORGE:      { iron: 8,  stone: 4, wood: 2 },
+    SAWMILL:    { stone: 2, iron: 2 },
+    MINE:       { wood: 3,  iron: 1 },
+    LIBRARY:    { wood: 4,  stone: 2, iron: 1 },
+    LABORATORY: { water: 2, herbs: 2, stone: 3, souls: 50 },
+    BALLROOM:   { stone: 5, iron: 2, souls: 50 },
+    ALTAR:      { stone: 4, wood: 1, iron: 2, souls: 50 },
+    FORGE:      { iron: 5,  stone: 4, wood: 2 },
   };
 
   private readonly RES_META: Record<string, { icon: string; label: string }> = {
@@ -13165,41 +14222,126 @@ zoomMove(ev: MouseEvent) {
   }
 
   private readonly LOCATION_INFO: Partial<Record<string, string[]>> = {
-    forge: [
-      'Dépenser ressources pour piocher une carte arme ou armure.',
-    ],
     library: [
-      'Étude des grimoires : piocher une carte action.',
-      'Subtilisation de manuscrit : prendre une carte action aléatoire de l’adversaire (un chasseur au choix si vampire) et la mélanger dans la pioche.',
-      'Prédiction occulte : révéler la prochaine carte Action de l’adversaire (sans la montrer) et choisir de la mettre au-dessus ou au-dessous de la pioche.',
+      'Étude des grimoires: piocher une carte action.',
+      'Subtilisation de manuscrit: prendre une carte action aléatoire de l’adversaire (un chasseur au choix si vampire) et la mélanger dans la pioche.',
+      'Prédiction occulte: révéler la prochaine carte Action de l’adversaire (sans la montrer) et choisir de la mettre au-dessus ou au-dessous de la pioche.',
     ],
     ballroom: [
-      'Danse macabre : quand le vampire réussit une attaque sur ce lieu, le chasseur visé subit aussi +1 corruption.',
-      'Charme du vampire : vole une ressource au hasard à chaque chasseur présent sur ce lieu (en plus d’attaquer).',
-      'Valse sanguinaire : jette autant de dés d’attaque que de chasseurs présents, garde le meilleur et applique l’attaque à tous les chasseurs sur ce lieu.',
+      'Danse macabre: quand le vampire réussit une attaque sur ce lieu, le chasseur visé subit aussi +1 corruption.',
+      'Charme du vampire: vole une ressource au hasard à chaque chasseur présent sur ce lieu (en plus d’attaquer).',
+      'Valse sanguinaire: jette autant de dés d’attaque que de chasseurs présents, garde le meilleur et applique l’attaque à tous les chasseurs sur ce lieu.',
       'Les chasseurs sur ce lieu ont deux fois la récolte d’or sur ce lieu.',
     ],
 
     altar: [
-      'Autel purifié : un chasseur peut réduire de 1 la corruption.',
-      'Autel corrompu : dépenser eau bénite OU repousser le vampire lors des combats sur ce lieu pour PURIFIER l’autel.',
-      'Autel corrompu : le vampire peut augmenter de 1 la corruption d’un chasseur.',
-      'Autel purifié : morsure réussie OU sacrifier des âmes corrompues pour CORROMPRE l’autel.',
-      'Si le vampire a gagné au moins un affrontement sur ce lieu : le lieu n’est pas purifié.',
+      'Autel purifié: un chasseur peut réduire de 1 la corruption.',
+      'Autel corrompu: dépenser eau bénite OU repousser le vampire lors des combats sur ce lieu pour PURIFIER l’autel.',
+      'Autel corrompu: le vampire peut augmenter de 1 la corruption d’un chasseur.',
+      'Autel purifié: morsure réussie OU sacrifier des âmes corrompues pour CORROMPRE l’autel.',
+      'Si le vampire a gagné au moins un affrontement sur ce lieu: le lieu n’est pas purifié.',
     ],
 
     laboratory: [
-      'Expérimentation : dépenser des âmes déchues pour créer un monstre (carte “monstre” jouée pour défendre un lieu).',
-      'Explosion alchimique : un chasseur peut détruire le labo → le vampire perd immédiatement 1 ressource au hasard et 20 âmes déchues.',
-      'Fabriquer une potion / un élixir : dépenser eau pure + herbes médicinales pour piocher une potion ou un élixir.',
+      'Expérimentation: dépenser des âmes déchues pour créer un monstre (carte “monstre” jouée pour défendre un lieu).',
+      'Explosion alchimique: un chasseur peut tenter de détruire le labo si D20 >= 15. S’il échou → le chasseur perd 2pv. S’il réussi → le vampire perd immédiatement 1 ressource au hasard et 20 âmes déchues.',
+      'Fabriquer une potion / un élixir: dépenser eau pure + herbes médicinales pour piocher une potion ou un élixir.',
     ],
   };
 
+  forgeCostGroups = {
+    V: {
+      1: [
+        { id: 'V_WEAPON_T1_SCYTHE', label: 'Faux maudite', cost: FORGE_COSTS['V_WEAPON_T1_SCYTHE'] ?? {} },
+        { id: 'V_ARMOR_T1_CARAPACE', label: 'Carapace d’ombre', cost: FORGE_COSTS['V_ARMOR_T1_CARAPACE'] ?? {} },
+      ],
+      2: [
+        { id: 'V_WEAPON_T2_SWORD', label: 'Épée vampirique', cost: FORGE_COSTS['V_WEAPON_T2_SWORD'] ?? {} },
+        { id: 'V_ARMOR_T2_HAUBERT', label: 'Haubert de nuit', cost: FORGE_COSTS['V_ARMOR_T2_HAUBERT'] ?? {} },
+      ],
+      3: [
+        { id: 'V_WEAPON_T3_CLAWS', label: 'Griffes maudites', cost: FORGE_COSTS['V_WEAPON_T3_CLAWS'] ?? {} },
+        { id: 'V_ARMOR_T3_ECORCE', label: 'Écorce impie', cost: FORGE_COSTS['V_ARMOR_T3_ECORCE'] ?? {} },
+      ],
+    },
+    H: {
+      1: [
+        { id: 'H_WEAPON_T1_SWORD', label: 'Épée de fer', cost: FORGE_COSTS['H_WEAPON_T1_SWORD'] ?? {} },
+        { id: 'H_WEAPON_T1_MACE', label: 'Masse de fer', cost: FORGE_COSTS['H_WEAPON_T1_MACE'] ?? {} },
+        { id: 'H_WEAPON_T1_SPEAR', label: 'Lance de fer', cost: FORGE_COSTS['H_WEAPON_T1_SPEAR'] ?? {} },
+        { id: 'H_ARMOR_T1_BRIGANDINE', label: 'Brigandine', cost: FORGE_COSTS['H_ARMOR_T1_BRIGANDINE'] ?? {} },
+      ],
+      2: [
+        { id: 'H_WEAPON_T2_HALBERD', label: 'Hallebarde', cost: FORGE_COSTS['H_WEAPON_T2_HALBERD'] ?? {} },
+        { id: 'H_WEAPON_T2_HAMMER', label: 'Marteau de guerre', cost: FORGE_COSTS['H_WEAPON_T2_HAMMER'] ?? {} },
+        { id: 'H_WEAPON_T2_CROSSBOW', label: 'Arbalète', cost: FORGE_COSTS['H_WEAPON_T2_CROSSBOW'] ?? {} },
+        { id: 'H_ARMOR_T2_HAUBERT', label: 'Haubert', cost: FORGE_COSTS['H_ARMOR_T2_HAUBERT'] ?? {} },
+      ],
+      3: [
+        { id: 'H_WEAPON_T3_WRIST_BLADES', label: 'Lames de poignet', cost: FORGE_COSTS['H_WEAPON_T3_WRIST_BLADES'] ?? {} },
+        { id: 'H_WEAPON_T3_FLAIL', label: 'Fléau', cost: FORGE_COSTS['H_WEAPON_T3_FLAIL'] ?? {} },
+        { id: 'H_WEAPON_T3_PISTOL', label: 'Pistolet', cost: FORGE_COSTS['H_WEAPON_T3_PISTOL'] ?? {} },
+        { id: 'H_ARMOR_T3_PLATE_SILVER', label: 'Armure de plates en argent', cost: FORGE_COSTS['H_ARMOR_T3_PLATE_SILVER'] ?? {} },
+      ],
+    },
+  } as const;
+
+  get hasZoomInfoLines(): boolean {
+    return Array.isArray(this.zoomInfoLines) && this.zoomInfoLines.some(l => !!(l ?? '').trim());
+  }
+
   locationInfo(code: string | null | undefined): { key: string; lines: string[] } | null {
     if (!code) return null;
+
     const key = String(code).toLowerCase();
+
+    // Forge : on veut afficher le panneau (coûts), même sans phrase d’intro
+    if (key === 'forge') return { key, lines: [] };
+
     const lines = this.LOCATION_INFO[key];
     if (!lines?.length) return null;
+
     return { key, lines };
+  }
+
+  bankLevel(): number {
+    return (this.game as any)?.bankLevel ?? 0;
+  }
+
+  bankStoneProgress(): number {
+    return (this.game as any)?.bankStoneProgress ?? 0;
+  }
+
+  bankNextCost(): number | null {
+    const lvl = this.bankLevel();
+    if (lvl >= 3) return null;
+    if (lvl === 0) return 10;
+    if (lvl === 1) return 15;
+    return 20;
+  }
+
+  bankBonusText(level: number): string {
+    switch (level) {
+      case 0: return 'Aucun bonus';
+      case 1: return 'Donne 50 pièces d’or aux chasseurs en début de Phase 4';
+      case 2: return 'Donne 50 pièces d’or et 1 ressource aléatoire aux chasseurs en début de Phase 4';
+      case 3: return 'Donne 100 pièces d’or et 1 ressource aléatoire aux chasseurs en début de Phase 4';
+      default: return 'Aucun bonus';
+    }
+  }
+
+  canContributeBankStone(): boolean {
+    if (!this.game || !this.me) return false;
+    if (!this.isHunter) return false;
+    if (this.isMeDead) return false;
+    if (this.bankLevel() >= 3) return false;
+    return (this.me.stone ?? 0) >= 1;
+  }
+
+  onContributeBankStone() {
+    if (!this.game) return;
+    this.api.contributeBankStone(this.game.id).subscribe({
+      error: e => this.showError(e)
+    });
   }
 }

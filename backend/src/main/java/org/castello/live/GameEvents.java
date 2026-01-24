@@ -24,6 +24,7 @@ public class GameEvents {
         UNSTABLE_ASSIGNED,
         POTION_BOUGHT,
         ACTION_BOUGHT,
+        STUFF_BOUGHT,
         HOLY_WATER_BOUGHT,
         TRACKING_BOUGHT,
         SILVER_BOUGHT,
@@ -36,7 +37,8 @@ public class GameEvents {
         ACTION_STARTED,
         ACTION_ROLLED,
         ACTION_RESOLVED,
-        INFRA_BUILT
+        INFRA_BUILT,
+        BANK_UPDATED,
     }
     private Type type; private String gameId; private Object payload; private long ts;
     public GameEvents() {}

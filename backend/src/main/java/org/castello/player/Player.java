@@ -45,6 +45,14 @@ public class Player {
     private boolean charismaticThisRaid;
     private Integer shopPisteurCount; // nb de PISTEUR achetés boutique (hors deck)
 
+    // Marchand itinérant (perso)
+    private boolean merchantPending;      // en attente du jet
+    private Integer merchantRoll;         // résultat du D6 (dernier)
+    private String shopBonusKind;         // "POTION","ELIXIR","EQUIP_WEAPON","EQUIP_ARMOR"
+    private String shopBonusEquipId;      // id d'équipement proposé (si equip)
+    private Integer shopBonusEquipTier;   // 1 ou 2 (si equip)
+    private boolean shopBonusBuyPending;  // modale paiement ouverte (perso)
+
     // --- RESSOURCES ---
     private int wood;
     private int herbs;
@@ -139,5 +147,16 @@ public class Player {
     public void setCharismaticThisRaid(boolean charismaticThisRaid) { this.charismaticThisRaid = charismaticThisRaid; }
     public Integer getShopPisteurCount() { return shopPisteurCount; }
     public void setShopPisteurCount(Integer v) { this.shopPisteurCount = v; }
-
+    public boolean isMerchantPending() { return merchantPending; }
+    public void setMerchantPending(boolean merchantPending) { this.merchantPending = merchantPending; }
+    public Integer getMerchantRoll() { return merchantRoll; }
+    public void setMerchantRoll(Integer merchantRoll) { this.merchantRoll = merchantRoll; }
+    public String getShopBonusKind() { return shopBonusKind; }
+    public void setShopBonusKind(String shopBonusKind) { this.shopBonusKind = shopBonusKind; }
+    public String getShopBonusEquipId() { return shopBonusEquipId; }
+    public void setShopBonusEquipId(String shopBonusEquipId) { this.shopBonusEquipId = shopBonusEquipId; }
+    public Integer getShopBonusEquipTier() { return shopBonusEquipTier; }
+    public void setShopBonusEquipTier(Integer shopBonusEquipTier) { this.shopBonusEquipTier = shopBonusEquipTier; }
+    public boolean isShopBonusBuyPending() { return shopBonusBuyPending; }
+    public void setShopBonusBuyPending(boolean shopBonusBuyPending) { this.shopBonusBuyPending = shopBonusBuyPending; }
 }
