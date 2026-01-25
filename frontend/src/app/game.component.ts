@@ -8,53 +8,54 @@ import { ChangeDetectorRef } from '@angular/core';
 
 import { PhaseBubbleComponent } from './phase-buble.component';
 import { ToastComponent } from './toast.component';
+import { DeathModalComponent } from './components/limit-modals/death-modal/death-modal.component';
 
 type ForgeRes = 'wood' | 'iron' | 'silver' | 'souls';
 type ForgeCost = Partial<Record<ForgeRes, number>>;
 
 const FORGE_COSTS: Record<string, ForgeCost> = {
   // Hunters T1
-  H_WEAPON_T1_SWORD:     { wood: 1, iron: 2 },
-  H_WEAPON_T1_MACE:      { wood: 1, iron: 2 },
-  H_WEAPON_T1_SPEAR:     { wood: 2, iron: 1 },
+  H_WEAPON_T1_SWORD: { wood: 1, iron: 2 },
+  H_WEAPON_T1_MACE: { wood: 1, iron: 2 },
+  H_WEAPON_T1_SPEAR: { wood: 2, iron: 1 },
   H_ARMOR_T1_BRIGANDINE: { iron: 3 },
 
   // Hunters T2
-  H_WEAPON_T2_HALBERD:   { wood: 2, iron: 2 },
-  H_WEAPON_T2_HAMMER:    { wood: 1, iron: 3 },
-  H_WEAPON_T2_CROSSBOW:  { wood: 3, iron: 1 },
-  H_ARMOR_T2_HAUBERT:    { iron: 4 },
+  H_WEAPON_T2_HALBERD: { wood: 2, iron: 2 },
+  H_WEAPON_T2_HAMMER: { wood: 1, iron: 3 },
+  H_WEAPON_T2_CROSSBOW: { wood: 3, iron: 1 },
+  H_ARMOR_T2_HAUBERT: { iron: 4 },
 
   // Hunters T3
   H_WEAPON_T3_WRIST_BLADES: { iron: 5, silver: 3 },
-  H_WEAPON_T3_FLAIL:        { wood: 2, iron: 3, silver: 3 },
-  H_WEAPON_T3_PISTOL:       { wood: 5, iron: 3, silver: 3 },
-  H_ARMOR_T3_PLATE_SILVER:  { iron: 5, silver: 4 },
+  H_WEAPON_T3_FLAIL: { wood: 2, iron: 3, silver: 3 },
+  H_WEAPON_T3_PISTOL: { wood: 5, iron: 3, silver: 3 },
+  H_ARMOR_T3_PLATE_SILVER: { iron: 5, silver: 4 },
 
   // Vamp/Servant
-  V_WEAPON_T1_SCYTHE:  { iron: 2, wood: 2, souls: 40 },
+  V_WEAPON_T1_SCYTHE: { iron: 2, wood: 2, souls: 40 },
   V_ARMOR_T1_CARAPACE: { iron: 3, souls: 40 },
 
-  V_WEAPON_T2_SWORD:   { iron: 2, wood: 4, souls: 60 },
-  V_ARMOR_T2_HAUBERT:  { iron: 4, souls: 60 },
+  V_WEAPON_T2_SWORD: { iron: 2, wood: 4, souls: 60 },
+  V_ARMOR_T2_HAUBERT: { iron: 4, souls: 60 },
 
-  V_WEAPON_T3_CLAWS:   { iron: 5, wood: 5, souls: 100 },
-  V_ARMOR_T3_ECORCE:   { iron: 4, wood: 2, souls: 100 },
+  V_WEAPON_T3_CLAWS: { iron: 5, wood: 5, souls: 100 },
+  V_ARMOR_T3_ECORCE: { iron: 4, wood: 2, souls: 100 },
 };
 
 
 type InfraCode =
-      'SAWMILL' | 'MINE' | 'LIBRARY' | 'LABORATORY' | 'BALLROOM' | 'ALTAR' | 'FORGE';
+  'SAWMILL' | 'MINE' | 'LIBRARY' | 'LABORATORY' | 'BALLROOM' | 'ALTAR' | 'FORGE';
 type RoundFightView = GameSnapshot['combatsQueue'][number];
 type SPlayer = GameSnapshot['players'][number];
 type SMonster = NonNullable<GameSnapshot['monsters']>[number];
 type UiStatMod = RawStatMod & { labelFr?: string; displayOnly?: boolean };
 type DefaultFightInfo = { willFight: boolean; loc?: string; opponentName?: string };
-type TradeStatus = 'PENDING'|'CONFIRMED'|'REFUSED'|'CANCELLED';
-type TradeSide = 'HUNTERS'|'VAMP_SIDE';
+type TradeStatus = 'PENDING' | 'CONFIRMED' | 'REFUSED' | 'CANCELLED';
+type TradeSide = 'HUNTERS' | 'VAMP_SIDE';
 interface STrade {
   id: string; side: TradeSide; aId: string; bId: string;
-  offerA: Record<string,number>; offerB: Record<string,number>;
+  offerA: Record<string, number>; offerB: Record<string, number>;
   statusA: TradeStatus; statusB: TradeStatus; updatedAt: number;
 }
 interface ForgeOption {
@@ -69,7 +70,7 @@ interface ForgeOption {
 @Component({
   standalone: true,
   selector: 'app-game',
-  imports: [CommonModule, PhaseBubbleComponent, ToastComponent],
+  imports: [CommonModule, PhaseBubbleComponent, ToastComponent, DeathModalComponent],
   templateUrl: './game.component.html',
   styleUrls: ['./game.component.scss']
 })
@@ -226,7 +227,7 @@ export class GameComponent {
   unstableLockedIds: Set<string> = new Set();
 
   isUnstableLocked = (unstableId: string) => this.unstableLockedIds.has(unstableId);
-  private lockUnstable(id: string)   { this.unstableLockedIds.add(id); }
+  private lockUnstable(id: string) { this.unstableLockedIds.add(id); }
   private unlockUnstable(id: string) { this.unstableLockedIds.delete(id); }
 
   // --- Météo: états/temporisations contrôlées côté client ---
@@ -240,8 +241,8 @@ export class GameComponent {
 
   private static readonly WEATHER_WAIT_BEFORE_MODAL_MS = 2000;
   readonly WEATHER_WHEEL_MS = 2000;   // durée de la roue
-  readonly WEATHER_BG_MS    = 4000;   // fondu du fond
-  readonly WEATHER_HOLD_MS  = 4000;   // petite pause lecturegarantie après fond
+  readonly WEATHER_BG_MS = 4000;   // fondu du fond
+  readonly WEATHER_HOLD_MS = 4000;   // petite pause lecturegarantie après fond
 
   readonly CENTER_FLIP_HOLD_MS = 4000;   // petite pause après le flip en PREPHASE3
 
@@ -251,7 +252,7 @@ export class GameComponent {
   private static readonly WHEEL_DEG_PER_FACE = 30;
   private static readonly WHEEL_BASE_OFFSET = 15;
   private static readonly WEATHER_ICON_RADIUS = 120;
-  
+
   // --- SHOP (modale Phase 4) --- //
   shopOpen = false;
   waitingDone = false;      // vrai après clic "Ne rien faire"
@@ -287,8 +288,8 @@ export class GameComponent {
   experimentPossibleLocations: string[] = [];
 
   experimentMonsterMeta = {
-    REVENANT:   { cost: 100, hp: 5,  atkDice: 'D6',  defDice: 'D4' },
-    GARGOYLE:   { cost: 200, hp: 10, atkDice: 'D8',  defDice: 'D6' },
+    REVENANT: { cost: 100, hp: 5, atkDice: 'D6', defDice: 'D4' },
+    GARGOYLE: { cost: 200, hp: 10, atkDice: 'D8', defDice: 'D6' },
     ABERRATION: { cost: 400, hp: 15, atkDice: 'D12', defDice: 'D8' },
   } as const;
 
@@ -309,17 +310,17 @@ export class GameComponent {
   myOffer: Record<string, number> = {};
 
   private closingUntil: Record<string, number> = {};
-  private closingKind:  Record<string, 'ok'|'ko'> = {};
+  private closingKind: Record<string, 'ok' | 'ko'> = {};
 
   // Ressources vendables à la boutique (typage littéral)
-  readonly sellableResources: ReadonlyArray<'wood'|'herbs'|'stone'|'iron'|'water'> =
-    ['wood','herbs','stone','iron','water'] as const;
+  readonly sellableResources: ReadonlyArray<'wood' | 'herbs' | 'stone' | 'iron' | 'water'> =
+    ['wood', 'herbs', 'stone', 'iron', 'water'] as const;
 
   // Ressources complètes pour la zone "Mes ressources" de l’échange
-  allResources: Array<'gold'|'silver'|'souls'|'wood'|'herbs'|'stone'|'iron'|'water'> =
-    ['gold','silver','souls','wood','herbs','stone','iron','water'] as const;
+  allResources: Array<'gold' | 'silver' | 'souls' | 'wood' | 'herbs' | 'stone' | 'iron' | 'water'> =
+    ['gold', 'silver', 'souls', 'wood', 'herbs', 'stone', 'iron', 'water'] as const;
 
-  back(){ this.router.navigate(['/lobby']); }
+  back() { this.router.navigate(['/lobby']); }
 
   private emitPhaseBubble(prev: Phase | undefined, g: GameSnapshot) {
     if (!g?.phase) return;
@@ -366,7 +367,7 @@ export class GameComponent {
     }
 
     if (phase === 'PREPHASE3' && this.imInUpcomingCombat()) return 'Préparation au combat !';
-    
+
     const hasCombat = g.currentCombat != null;
 
     if (phase === 'PHASE3') {
@@ -406,7 +407,7 @@ export class GameComponent {
   }
 
   private toastActionUsed(payload: any) {
-    const pid  = payload?.playerId;
+    const pid = payload?.playerId;
     const code = payload?.type;
 
     const who = pid ? this.usernameOf(pid) : 'Un joueur';
@@ -414,14 +415,14 @@ export class GameComponent {
 
     const role = pid ? (this.game?.players?.find(p => p.id === pid) as any)?.role : null;
     const tone = (role === 'HUNTER') ? 'HUNTER'
-              : (role === 'VAMPIRE' || role === 'SERVANT') ? 'VAMP'
-              : 'NEUTRAL';
+      : (role === 'VAMPIRE' || role === 'SERVANT') ? 'VAMP'
+        : 'NEUTRAL';
 
     this.notify.toast(`${who} utilise l'action ${label} !`, 4500, tone);
   }
 
   private toastPotionUsed(payload: any) {
-    const pid  = payload?.playerId;
+    const pid = payload?.playerId;
     const code = payload?.type;
 
     const isPotion =
@@ -438,8 +439,8 @@ export class GameComponent {
 
     const role = pid ? (this.game?.players?.find(p => p.id === pid) as any)?.role : null;
     const tone = (role === 'HUNTER') ? 'HUNTER'
-              : (role === 'VAMPIRE' || role === 'SERVANT') ? 'VAMP'
-              : 'NEUTRAL';
+      : (role === 'VAMPIRE' || role === 'SERVANT') ? 'VAMP'
+        : 'NEUTRAL';
 
     this.notify.toast(`${who} utilise ${kind} ${label} !`, 4500, tone);
   }
@@ -466,8 +467,8 @@ export class GameComponent {
 
     this.api.surrenderGame(this.game.id).subscribe({
       next: () => {
-      this.deathModalSeen = false;
-      this.deathModalOpen = true;
+        this.deathModalSeen = false;
+        this.deathModalOpen = true;
       },
       error: e => this.showError(e)
     });
@@ -536,9 +537,9 @@ export class GameComponent {
     }
   }
 
-  private showError(e:any){
-    try{ this.errorMsg = e?.error?.message || 'Erreur'; } catch { this.errorMsg='Erreur'; }
-    setTimeout(()=>this.errorMsg='', 4000);
+  private showError(e: any) {
+    try { this.errorMsg = e?.error?.message || 'Erreur'; } catch { this.errorMsg = 'Erreur'; }
+    setTimeout(() => this.errorMsg = '', 4000);
   }
 
   private advanceToPhase1IfNeeded() {
@@ -630,15 +631,15 @@ export class GameComponent {
       // petit hold UX (facultatif)
       setTimeout(() => {
         this.api.advancePhase(this.gameId, 'PHASE3').subscribe({
-        error: e => {
-          if (e?.status === 409 || e?.error?.message === 'illegal advance') return;
-          this.prephase3AdvanceSent = false;
-          this.showError(e);
-        }
+          error: e => {
+            if (e?.status === 409 || e?.error?.message === 'illegal advance') return;
+            this.prephase3AdvanceSent = false;
+            this.showError(e);
+          }
         });
       }, 400);
     }
-  }  
+  }
 
   /** Avance automatiquement en PHASE4 quand PHASE3 n’a plus rien à traiter. */
   private maybeAdvanceToPhase4EndOfRaid() {
@@ -683,7 +684,7 @@ export class GameComponent {
     const s = (d || 'D6').toUpperCase();
     if (s.includes('12')) return 3;
     if (s.includes('8')) return 2;
-    if (s.includes('6'))  return 1;
+    if (s.includes('6')) return 1;
     return 0;
   }
 
@@ -724,22 +725,22 @@ export class GameComponent {
   }
 
   private readonly HUNTER_ACTIONS_DIR = '/assets/cards/hunter_actions/';
-  private readonly VAMP_ACTIONS_DIR   = '/assets/cards/vampire_actions/';
-  private readonly POTIONS_DIR        = '/assets/cards/potions/';
+  private readonly VAMP_ACTIONS_DIR = '/assets/cards/vampire_actions/';
+  private readonly POTIONS_DIR = '/assets/cards/potions/';
 
   /** Action -> image (dossier dépend du rôle du joueur courant) */
   actionImg(code: string | null | undefined, role: string | null | undefined = undefined): string {
     if (!code) return '';
     let base;
 
-    if(role === 'HUNTER'){
+    if (role === 'HUNTER') {
       base = this.VAMP_ACTIONS_DIR;
-    } else if(role === 'VAMPIRE' || role === 'SERVANT'){
+    } else if (role === 'VAMPIRE' || role === 'SERVANT') {
       base = this.HUNTER_ACTIONS_DIR;
     } else {
       base = (this.me?.role === 'VAMPIRE')
-      ? this.VAMP_ACTIONS_DIR
-      : this.HUNTER_ACTIONS_DIR;
+        ? this.VAMP_ACTIONS_DIR
+        : this.HUNTER_ACTIONS_DIR;
     }
 
 
@@ -750,35 +751,35 @@ export class GameComponent {
   private actionFile(code: string): string {
     switch (code) {
       // --- HUNTER ---
-      case 'EAU_BENITE':       return 'eau_benite.png';
-      case 'FUMIGATION_AIL':   return 'fumigation_ail.png';
-      case 'PISTEUR':          return 'pistage.png';
-      case 'FEU_DE_CAMP':      return 'feu_de_camp.png';
-      case 'NET':              return 'net.png';
-      case 'PIT':              return 'pit.png';
-      case 'PROVOCATION':      return 'provocation.png';
-      case 'INCENDIAIRE':      return 'incendiaire.png';
-      case 'AMBUSH':           return 'ambush.png';
-      case 'LONELY':           return 'lonely.png';
-      case 'BLESSED_STAKE':    return 'blessed_stake.png';
-      case 'SACRED_ROSARY':    return 'sacred_rosary.png';
-      case 'CHARISMATIQUE':    return 'charismatique.png';
+      case 'EAU_BENITE': return 'eau_benite.png';
+      case 'FUMIGATION_AIL': return 'fumigation_ail.png';
+      case 'PISTEUR': return 'pistage.png';
+      case 'FEU_DE_CAMP': return 'feu_de_camp.png';
+      case 'NET': return 'net.png';
+      case 'PIT': return 'pit.png';
+      case 'PROVOCATION': return 'provocation.png';
+      case 'INCENDIAIRE': return 'incendiaire.png';
+      case 'AMBUSH': return 'ambush.png';
+      case 'LONELY': return 'lonely.png';
+      case 'BLESSED_STAKE': return 'blessed_stake.png';
+      case 'SACRED_ROSARY': return 'sacred_rosary.png';
+      case 'CHARISMATIQUE': return 'charismatique.png';
       case 'MARCHAND_ITINERANT':
       case 'MARCHAND_BONUS_BUY':
         return 'marchand_itinerant.png';
 
       // --- VAMPIRE ---
       case 'AFFAIBLISSEMENT_OCCULTE': return 'affaiblissement_occulte.png';
-      case 'CLONES_OMBRE':           return 'clones_ombre.png';
-      case 'MARQUE_TENEBREUSE':      return 'marque_tenebreuse.png';
-      case 'AVIDITE_NOCTURNE':       return 'avidite_nocturne.png';
-      case 'ECLIPSE':                return 'eclipse.png';
-      case 'PASSAGE_SECRET':         return 'passage_secret.png';
-      case 'BLOOD_MOON':             return 'blood_moon.png';
-      case 'FAIM_IRREPRESSIBLE':     return 'faim_irrepressible.png';
-      case 'PRESENCE_ECRASANTE':     return 'presence_ecrasante.png';
-      case 'CATACLYSME':             return 'cataclysme.png';
-      case 'VOILE_DE_BRUME':         return 'voile_de_brume.png';
+      case 'CLONES_OMBRE': return 'clones_ombre.png';
+      case 'MARQUE_TENEBREUSE': return 'marque_tenebreuse.png';
+      case 'AVIDITE_NOCTURNE': return 'avidite_nocturne.png';
+      case 'ECLIPSE': return 'eclipse.png';
+      case 'PASSAGE_SECRET': return 'passage_secret.png';
+      case 'BLOOD_MOON': return 'blood_moon.png';
+      case 'FAIM_IRREPRESSIBLE': return 'faim_irrepressible.png';
+      case 'PRESENCE_ECRASANTE': return 'presence_ecrasante.png';
+      case 'CATACLYSME': return 'cataclysme.png';
+      case 'VOILE_DE_BRUME': return 'voile_de_brume.png';
 
       case 'IMAGE_MIROIR':
       case 'IMAGE_MIROIR_SETUP':
@@ -851,24 +852,24 @@ export class GameComponent {
     return this.ELIXIRS_DIR + code.toLowerCase() + '.png';
   }
 
-  discardImgFor(kind: 'HUNTER_ACTIONS'|'VAMP_ACTIONS'|'POTIONS'|'ELIXIRS', pile: any): string {
+  discardImgFor(kind: 'HUNTER_ACTIONS' | 'VAMP_ACTIONS' | 'POTIONS' | 'ELIXIRS', pile: any): string {
     const id = this.lastDiscardId(pile);
     if (!id) return '';
 
     switch (kind) {
       case 'HUNTER_ACTIONS': return this.HUNTER_ACTIONS_DIR + this.actionFile(id);
-      case 'VAMP_ACTIONS':   return this.VAMP_ACTIONS_DIR + this.actionFile(id);
-      case 'POTIONS':        return this.potionImg(id);
-      case 'ELIXIRS':        return this.elixirImg(id);
+      case 'VAMP_ACTIONS': return this.VAMP_ACTIONS_DIR + this.actionFile(id);
+      case 'POTIONS': return this.potionImg(id);
+      case 'ELIXIRS': return this.elixirImg(id);
     }
   }
 
-  deckBackFor(kind: 'HUNTER_ACTIONS'|'VAMP_ACTIONS'|'POTIONS'|'ELIXIRS'): string {
+  deckBackFor(kind: 'HUNTER_ACTIONS' | 'VAMP_ACTIONS' | 'POTIONS' | 'ELIXIRS'): string {
     switch (kind) {
       case 'HUNTER_ACTIONS': return '/assets/cards/hunter_verso.png';
-      case 'VAMP_ACTIONS':   return '/assets/cards/vampire_verso.png';
-      case 'POTIONS':        return this.potionBackSrc;
-      case 'ELIXIRS':        return this.potionBackSrc;
+      case 'VAMP_ACTIONS': return '/assets/cards/vampire_verso.png';
+      case 'POTIONS': return this.potionBackSrc;
+      case 'ELIXIRS': return this.potionBackSrc;
     }
   }
 
@@ -880,8 +881,8 @@ export class GameComponent {
     const t = this.me?.shopBonusEquipTier ?? 1;
 
     switch (kind) {
-      case 'POTION':  return { water: 1, herbs: 2 };
-      case 'ELIXIR':  return { water: 2, herbs: 4 };
+      case 'POTION': return { water: 1, herbs: 2 };
+      case 'ELIXIR': return { water: 2, herbs: 4 };
       case 'EQUIP_WEAPON':
       case 'EQUIP_ARMOR':
         return (t >= 2) ? { wood: 3, iron: 3 } : { wood: 2, iron: 2 };
@@ -896,7 +897,7 @@ export class GameComponent {
     const kind = me?.shopBonusKind;
     if (!g || !me || !kind) return null;
 
-    const greedy      = !!g.shopPricesIncreasedThisRaid;
+    const greedy = !!g.shopPricesIncreasedThisRaid;
     const charismatic = !!me.charismaticThisRaid;
 
     const computeCost = (base: number) => {
@@ -976,7 +977,7 @@ export class GameComponent {
     ev: MouseEvent,
     badge?: string | number,
     badgeIsHunter?: boolean,
-    size: 'M'|'L' = 'M',
+    size: 'M' | 'L' = 'M',
     info?: { key: string; lines: string[] } | null
   ) {
     const host = ev.currentTarget as HTMLElement | null;
@@ -1017,12 +1018,12 @@ export class GameComponent {
 
       if (this.zoomInfoKey === 'altar' && this.zoomInfoLines.length >= 5) {
         this.zoomInfoLinesHunter = this.zoomInfoLines.slice(0, 2);
-        this.zoomInfoLinesVamp   = this.zoomInfoLines.slice(2, 4);
-        this.zoomInfoNote        = this.zoomInfoLines[4] || '';
+        this.zoomInfoLinesVamp = this.zoomInfoLines.slice(2, 4);
+        this.zoomInfoNote = this.zoomInfoLines[4] || '';
       } else {
         this.zoomInfoLinesHunter = [];
-        this.zoomInfoLinesVamp   = [];
-        this.zoomInfoNote        = '';
+        this.zoomInfoLinesVamp = [];
+        this.zoomInfoNote = '';
       }
 
     } else {
@@ -1061,34 +1062,34 @@ export class GameComponent {
     this.zoomMove(ev);
   }
 
-zoomMove(ev: MouseEvent) {
-  if (!this.zoomOn) return;
+  zoomMove(ev: MouseEvent) {
+    if (!this.zoomOn) return;
 
-  const mediaW = this.zoomW;
-  const mediaH = this.zoomH;
+    const mediaW = this.zoomW;
+    const mediaH = this.zoomH;
 
-  // largeur "réelle" à protéger à l'écran (image + panneau si présent)
-  const totalW = mediaW + (this.zoomInfoOn ? (this.zoomInfoGap + this.zoomInfoW) : 0);
-  const totalH = mediaH;
+    // largeur "réelle" à protéger à l'écran (image + panneau si présent)
+    const totalW = mediaW + (this.zoomInfoOn ? (this.zoomInfoGap + this.zoomInfoW) : 0);
+    const totalH = mediaH;
 
-  let left = ev.clientX + 12;
-  let top  = ev.clientY + 12;
+    let left = ev.clientX + 12;
+    let top = ev.clientY + 12;
 
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
 
-  // clamp avec totalW/totalH
-  if (left + totalW + 8 > vw) left = vw - totalW - 8;
-  if (top + totalH + 8 > vh)  top  = vh - totalH - 8;
+    // clamp avec totalW/totalH
+    if (left + totalW + 8 > vw) left = vw - totalW - 8;
+    if (top + totalH + 8 > vh) top = vh - totalH - 8;
 
-  // IMPORTANT : on n'agrandit plus la box, elle reste à la taille de l'image
-  this.zoomStyle = {
-    left: left + 'px',
-    top: top + 'px',
-    width: mediaW + 'px',
-    height: mediaH + 'px',
-  };
-}
+    // IMPORTANT : on n'agrandit plus la box, elle reste à la taille de l'image
+    this.zoomStyle = {
+      left: left + 'px',
+      top: top + 'px',
+      width: mediaW + 'px',
+      height: mediaH + 'px',
+    };
+  }
 
 
   zoomLeave() {
@@ -1112,14 +1113,14 @@ zoomMove(ev: MouseEvent) {
   private lastHistorySize = 0;
 
   /** Groupement dynamique par (raid, phase) */
-  historyGroups(){
+  historyGroups() {
     const hist = this.game?.history || [];
-    interface Group { raid:number; phase:string; phaseNum:string; items: typeof hist; }
+    interface Group { raid: number; phase: string; phaseNum: string; items: typeof hist; }
     const out: Group[] = [];
     let curKey = '';
     let cur: Group | null = null;
 
-    const phaseNum = (p:string) => p.startsWith('PHASE') ? p.substring(5) : p;
+    const phaseNum = (p: string) => p.startsWith('PHASE') ? p.substring(5) : p;
 
     for (const it of hist) {
       const key = `${it.raid}|${it.phase}`;
@@ -1133,7 +1134,7 @@ zoomMove(ev: MouseEvent) {
     return out;
   }
 
-  private bumpHistoryScroll(){
+  private bumpHistoryScroll() {
     const newSize = this.game?.history?.length || 0;
     const grew = newSize > this.lastHistorySize;
     this.lastHistorySize = newSize;
@@ -1148,18 +1149,18 @@ zoomMove(ev: MouseEvent) {
 
   // === Helpers buff/debuff ===
   // mêmes règles que modsForDisplay, mais en filtrant aussi par STAT
-  modsForStat(p: SPlayer | undefined, stat: 'ATTACK'|'DEFENSE'): RawStatMod[] {
+  modsForStat(p: SPlayer | undefined, stat: 'ATTACK' | 'DEFENSE'): RawStatMod[] {
     if (!p || !this.game?.raidMods) return [];
     const list = this.game.raidMods[p.id] || [];
 
-    const weatherActive    = this.isWeatherActive();
+    const weatherActive = this.isWeatherActive();
     const weatherCancelled = this.isWeatherCancelledForPlayer(p);
 
     const out: RawStatMod[] = list.filter(m => {
       if (m.stat !== stat) return false;
 
       const src = m.source || '';
-      const isWeather    = src.startsWith('WEATHER:');
+      const isWeather = src.startsWith('WEATHER:');
       const isCorruptEng = src.startsWith('CORRUPTION') && src.includes(':ENG');
 
       // on masque les mods CORRUPTION:...:ENG (comme avant)
@@ -1197,12 +1198,12 @@ zoomMove(ev: MouseEvent) {
     for (const pm of dspPotions) {
       const src = (pm as any).source as string;
 
-      const isFoca  = src.includes('FOCALISATION');
+      const isFoca = src.includes('FOCALISATION');
       const isLeech = src.includes('SANGSUE');
-      const isRage  = src.includes('RAGE');
-      const isResi  = src.includes('RESILIENCE');
-      const isRap   = src.includes('RAPIDITE');
-      const isInv   = src.includes('INVISIBILITE');
+      const isRage = src.includes('RAGE');
+      const isResi = src.includes('RESILIENCE');
+      const isRap = src.includes('RAPIDITE');
+      const isInv = src.includes('INVISIBILITE');
       const isInvul = src.includes('INVULNERABILITE');
 
       let shouldShow = false;
@@ -1226,7 +1227,7 @@ zoomMove(ev: MouseEvent) {
     return out;
   }
 
-  modsForEntityStat(id: string, stat: 'ATTACK'|'DEFENSE'): RawStatMod[] {
+  modsForEntityStat(id: string, stat: 'ATTACK' | 'DEFENSE'): RawStatMod[] {
     const p = this.getPlayer(id);
     if (p) return this.modsForStat(p, stat);
 
@@ -1238,11 +1239,11 @@ zoomMove(ev: MouseEvent) {
       if (m.stat !== stat) return false;
 
       const src = m.source || '';
-      const isWeather    = src.startsWith('WEATHER:');
+      const isWeather = src.startsWith('WEATHER:');
       const isCorruptEng = src.startsWith('CORRUPTION') && src.includes(':ENG');
 
       // pas de météo sur les monstres, ni CORRUPTION:...:ENG
-      if (isWeather)    return false;
+      if (isWeather) return false;
       if (isCorruptEng) return false;
 
       return true;
@@ -1264,12 +1265,12 @@ zoomMove(ev: MouseEvent) {
     if (!p || !this.game?.raidMods) return [];
     const list = this.game.raidMods[p.id] || [];
 
-    const weatherActive    = this.isWeatherActive();
+    const weatherActive = this.isWeatherActive();
     const weatherCancelled = this.isWeatherCancelledForPlayer(p);
 
     const filtered = list.filter(m => {
       const src = m.source || '';
-      const isWeather    = src.startsWith('WEATHER:');
+      const isWeather = src.startsWith('WEATHER:');
       const isCorruptEng = src.startsWith('CORRUPTION') && src.includes(':ENG');
 
       if (isCorruptEng) return false;
@@ -1285,26 +1286,26 @@ zoomMove(ev: MouseEvent) {
     return filtered;
   }
 
-  private totalModForDisplay(pId: string, stat: 'ATTACK'|'DEFENSE'): number {
-  const p = this.getPlayer(pId);
-  if (p) {
-    const mods = this.modsForDisplay(p);
-    return mods.reduce((sum, m) => sum + (m.stat === stat ? m.amount : 0), 0);
+  private totalModForDisplay(pId: string, stat: 'ATTACK' | 'DEFENSE'): number {
+    const p = this.getPlayer(pId);
+    if (p) {
+      const mods = this.modsForDisplay(p);
+      return mods.reduce((sum, m) => sum + (m.stat === stat ? m.amount : 0), 0);
+    }
+
+    // Monstre : somme simple des mods pertinents (sans météo ni CORRUPTION:...:ENG)
+    if (!this.game?.raidMods) return 0;
+    const list = this.game.raidMods[pId] || [];
+
+    return list.reduce((sum, m) => {
+      if (m.stat !== stat) return sum;
+      const src = m.source || '';
+      const isWeather = src.startsWith('WEATHER:');
+      const isCorruptEng = src.startsWith('CORRUPTION') && src.includes(':ENG');
+      if (isWeather || isCorruptEng) return sum;
+      return sum + m.amount;
+    }, 0);
   }
-
-  // Monstre : somme simple des mods pertinents (sans météo ni CORRUPTION:...:ENG)
-  if (!this.game?.raidMods) return 0;
-  const list = this.game.raidMods[pId] || [];
-
-  return list.reduce((sum, m) => {
-    if (m.stat !== stat) return sum;
-    const src = m.source || '';
-    const isWeather    = src.startsWith('WEATHER:');
-    const isCorruptEng = src.startsWith('CORRUPTION') && src.includes(':ENG');
-    if (isWeather || isCorruptEng) return sum;
-    return sum + m.amount;
-  }, 0);
-}
 
   // Construit UN chip d’affichage : MULTIPLE (L1), INSTABLE (L2) ou SERVITEUR (L3)
   private corruptionDisplayChip(p?: SPlayer): UiStatMod | null {
@@ -1348,8 +1349,8 @@ zoomMove(ev: MouseEvent) {
         return 'marqué';
       }
       switch ((m as any).stat) {
-        case 'MULTIPLE':  return 'affaibli';
-        case 'INSTABLE':  return 'instable';
+        case 'MULTIPLE': return 'affaibli';
+        case 'INSTABLE': return 'instable';
         case 'SERVITEUR': return 'serviteur';
       }
     }
@@ -1358,12 +1359,12 @@ zoomMove(ev: MouseEvent) {
     if (s.startsWith('POTION:') && s.includes(':DSP')) {
       const type = (s.split(':')[1] || '').toUpperCase();
       switch (type) {
-        case 'FOCALISATION':    return 'focalisation';
-        case 'SANGSUE':         return 'sangsue';
-        case 'RESILIENCE':      return 'résilience';
-        case 'RAGE':            return 'rage';
-        case 'RAPIDITE':        return 'rapidité';
-        case 'INVISIBILITE':    return 'invisibilité';
+        case 'FOCALISATION': return 'focalisation';
+        case 'SANGSUE': return 'sangsue';
+        case 'RESILIENCE': return 'résilience';
+        case 'RAGE': return 'rage';
+        case 'RAPIDITE': return 'rapidité';
+        case 'INVISIBILITE': return 'invisibilité';
         case 'INVULNERABILITE': return 'invulnérabilité';
       }
     }
@@ -1372,22 +1373,22 @@ zoomMove(ev: MouseEvent) {
     if (s.startsWith('ACTION:')) {
       const type = (s.split(':')[1] || '').toUpperCase();
       switch (type) {
-        case 'PROVOCATION':        return 'provoqué';
-        case 'BLESSED_STAKE':      return 'pieu béni';
-        case 'SACRED_ROSARY':      return 'chapelet sacré';
+        case 'PROVOCATION': return 'provoqué';
+        case 'BLESSED_STAKE': return 'pieu béni';
+        case 'SACRED_ROSARY': return 'chapelet sacré';
       }
     }
 
-        // Équipement DSP / ENG (EQUIP:...)
+    // Équipement DSP / ENG (EQUIP:...)
     if (s.startsWith('EQUIP:')) {
       const type = (s.split(':')[1] || '').toUpperCase();
       switch (type) {
-        case 'BLEED_WEAPON':       return 'arme tranchante';
-        case 'STUN_WEAPON':        return 'arme contondante';
-        case 'RANGED_WEAPON':      return 'arme à distance';
-        case 'HUNTER_ARMOR':       return 'armure sacrée';
-        case 'VAMPIRE_WEAPON':     return 'arme vampirique';
-        case 'VAMPIRE_ARMOR_T3':   return 'armure vampirique';
+        case 'BLEED_WEAPON': return 'arme tranchante';
+        case 'STUN_WEAPON': return 'arme contondante';
+        case 'RANGED_WEAPON': return 'arme à distance';
+        case 'HUNTER_ARMOR': return 'armure sacrée';
+        case 'VAMPIRE_WEAPON': return 'arme vampirique';
+        case 'VAMPIRE_ARMOR_T3': return 'armure vampirique';
       }
     }
 
@@ -1395,8 +1396,8 @@ zoomMove(ev: MouseEvent) {
     if (s.startsWith('HIT:')) {
       const type = (s.split(':')[1] || '').toUpperCase();
       switch (type) {
-        case 'BLEED_WEAPON':   return 'saigne';
-        case 'RANGED_WEAPON':  return 'tenu à distance';
+        case 'BLEED_WEAPON': return 'saigne';
+        case 'RANGED_WEAPON': return 'tenu à distance';
       }
     }
 
@@ -1468,15 +1469,15 @@ zoomMove(ev: MouseEvent) {
     if (s.startsWith('POTION:')) {
       const type = (s.split(':')[1] || '').toUpperCase();
       const tooltips: Record<string, string> = {
-        FORCE:           'Augmente de +1 le dé d’attaque.',
-        ENDURANCE:       'Augmente de +1 le dé de défense.',
-        VIE:             'Se soigner de +10 PV.',
-        FOCALISATION:    'Lancer 2 dés lors des combat et garder le meilleur.',
-        SANGSUE:         'Se soigner d’un montant égal aux dégats infligés.',
-        RESILIENCE:      'Double la défense.',
-        RAGE:            'Double l’attaque.',
-        RAPIDITE:        'Attaque x2.',
-        INVISIBILITE:    'L\'adversaire ne jette pas de dé de défense.',
+        FORCE: 'Augmente de +1 le dé d’attaque.',
+        ENDURANCE: 'Augmente de +1 le dé de défense.',
+        VIE: 'Se soigner de +10 PV.',
+        FOCALISATION: 'Lancer 2 dés lors des combat et garder le meilleur.',
+        SANGSUE: 'Se soigner d’un montant égal aux dégats infligés.',
+        RESILIENCE: 'Double la défense.',
+        RAGE: 'Double l’attaque.',
+        RAPIDITE: 'Attaque x2.',
+        INVISIBILITE: 'L\'adversaire ne jette pas de dé de défense.',
         INVULNERABILITE: 'Insensible aux dégâts.',
       };
       return tooltips[type] ?? null;
@@ -1485,22 +1486,22 @@ zoomMove(ev: MouseEvent) {
     if (s.startsWith('ACTION:')) {
       const type = (s.split(':')[1] || '').toUpperCase();
       const tooltips: Record<string, string> = {
-        PROVOCATION:    'Forcé d\'attaquer un seul chasseur.',
-        BLESSED_STAKE:  'Arme secondaire sacrée à utilisation unique.',
-        SACRED_ROSARY:  'Objet à utilisation unique qui annule une morsure réussie.'
+        PROVOCATION: 'Forcé d\'attaquer un seul chasseur.',
+        BLESSED_STAKE: 'Arme secondaire sacrée à utilisation unique.',
+        SACRED_ROSARY: 'Objet à utilisation unique qui annule une morsure réussie.'
       };
       return tooltips[type] ?? null;
     }
-    
-        // Effets d'équipement (EQUIP:...)
+
+    // Effets d'équipement (EQUIP:...)
     if (s.startsWith('EQUIP:')) {
       const type = (s.split(':')[1] || '').toUpperCase();
       const tooltipsEquip: Record<string, string> = {
-        BLEED_WEAPON:     'Cette arme provoque un saignement lorsqu’elle inflige des dégâts.',
-        STUN_WEAPON:      'Cette arme peut étourdir sa cible et réduire son attaque au prochain tour.',
-        RANGED_WEAPON:    'Cette arme peut tenir le vampire à distance si le chasseur réalise un succès critique.',
-        HUNTER_ARMOR:     'Cette armure réduit les risques liés aux morsures du vampire.',
-        VAMPIRE_WEAPON:   'Cette arme peut soigner le vampire lorsqu’il inflige des dégâts.',
+        BLEED_WEAPON: 'Cette arme provoque un saignement lorsqu’elle inflige des dégâts.',
+        STUN_WEAPON: 'Cette arme peut étourdir sa cible et réduire son attaque au prochain tour.',
+        RANGED_WEAPON: 'Cette arme peut tenir le vampire à distance si le chasseur réalise un succès critique.',
+        HUNTER_ARMOR: 'Cette armure réduit les risques liés aux morsures du vampire.',
+        VAMPIRE_WEAPON: 'Cette arme peut soigner le vampire lorsqu’il inflige des dégâts.',
         VAMPIRE_ARMOR_T3: 'Cette armure permet de se dématerialiser et esquiver une attaque critique.'
       };
       return tooltipsEquip[type] ?? 'Effet d’équipement';
@@ -1510,9 +1511,9 @@ zoomMove(ev: MouseEvent) {
     if (s.startsWith('HIT:')) {
       const type = (s.split(':')[1] || '').toUpperCase();
       const tooltipsHit: Record<string, string> = {
-        BLEED_WEAPON:   'Ce personnage saigne et subira des dégâts supplémentaires en phase 4.',
-        RANGED_WEAPON:  'Cette attaque a été repoussée par une arme à distance.',
-        STUN_WEAPON:    'Ce personnage est étourdi et sa prochaine attaque est réduite.'
+        BLEED_WEAPON: 'Ce personnage saigne et subira des dégâts supplémentaires en phase 4.',
+        RANGED_WEAPON: 'Cette attaque a été repoussée par une arme à distance.',
+        STUN_WEAPON: 'Ce personnage est étourdi et sa prochaine attaque est réduite.'
       };
       return tooltipsHit[type] ?? 'Effet de coup spécial';
     }
@@ -1543,7 +1544,7 @@ zoomMove(ev: MouseEvent) {
 
     // --- CAS CLONE DES OMBRES ---
     if (isClone && atkPlayer && defPlayer) {
-      const atkIsVamp   = atkPlayer.role === 'VAMPIRE';
+      const atkIsVamp = atkPlayer.role === 'VAMPIRE';
       const defIsHunter = defPlayer.role === 'HUNTER';
 
       if (atkIsVamp && defIsHunter) {
@@ -1566,7 +1567,7 @@ zoomMove(ev: MouseEvent) {
       const vampireName = vampireLeft
         ? this.entityDisplayName(r.attackerId)
         : this.entityDisplayName(r.defenderId);
-      const hunterName  = vampireLeft
+      const hunterName = vampireLeft
         ? this.entityDisplayName(r.defenderId)
         : this.entityDisplayName(r.attackerId);
 
@@ -1594,14 +1595,14 @@ zoomMove(ev: MouseEvent) {
   get centerHasAnything(): boolean {
     const g: any = this.game;
     return ((g?.center?.length || 0)
-          + (g?.clonesLocations?.length || 0)
-          + (g?.trackerHunters?.length || 0)) > 0;
+      + (g?.clonesLocations?.length || 0)
+      + (g?.trackerHunters?.length || 0)) > 0;
   }
 
   get currentCombat() {
     return this.game?.currentCombat || null;
   }
-  get waitingForMyRoll(): 'ATTACK'|'DEFENSE'|null {
+  get waitingForMyRoll(): 'ATTACK' | 'DEFENSE' | null {
     const r = this.currentCombat; if (!r) return null;
     if (r.attackerId === this.meId && (r.attackerRoll == null)) return 'ATTACK';
     if (r.defenderId === this.meId && (r.defenderRoll == null)) return 'DEFENSE';
@@ -1616,13 +1617,13 @@ zoomMove(ev: MouseEvent) {
   getPlayer(id: string): SPlayer | undefined {
     return this.game?.players.find(p => p.id === id);
   }
-  roleColorOf(p?: SPlayer): 'red'|'blue' {
+  roleColorOf(p?: SPlayer): 'red' | 'blue' {
     return (p?.role === 'VAMPIRE' || p?.role === 'SERVANT') ? 'red' : 'blue';
   }
-  getRole(p?: SPlayer): 'VAMPIRE'|'HUNTER'|'SERVANT'|undefined {
-    return p?.role ;
+  getRole(p?: SPlayer): 'VAMPIRE' | 'HUNTER' | 'SERVANT' | undefined {
+    return p?.role;
   }
-  diceAsset(dice: string | undefined, color: 'red'|'blue'|'purple'): string {
+  diceAsset(dice: string | undefined, color: 'red' | 'blue' | 'purple'): string {
     const d = (dice || 'D6').toLowerCase();
 
     // Monstre => dossier monster + dés violets
@@ -1633,7 +1634,7 @@ zoomMove(ev: MouseEvent) {
     // comportement existant
     return `/assets/dices/${d}-${color}.png`;
   }
-  roleIcon(role?: 'VAMPIRE'|'HUNTER'|'SERVANT'|undefined, name?: 'sword'|'armor'): string {
+  roleIcon(role?: 'VAMPIRE' | 'HUNTER' | 'SERVANT' | undefined, name?: 'sword' | 'armor'): string {
     return role === 'SERVANT' ? `/assets/icons/HUNTER-${name}.png` : `/assets/icons/${role}-${name}.png`;
   }
 
@@ -1650,10 +1651,10 @@ zoomMove(ev: MouseEvent) {
     const m = this.getMonster(id);
     if (m) {
       switch (m.type) {
-        case 'REVENANT':   return 'Revenant';
-        case 'GARGOYLE':   return 'Gargouille';
+        case 'REVENANT': return 'Revenant';
+        case 'GARGOYLE': return 'Gargouille';
         case 'ABERRATION': return 'Aberration';
-        default:           return 'Créature';
+        default: return 'Créature';
       }
     }
     return id;
@@ -1673,14 +1674,14 @@ zoomMove(ev: MouseEvent) {
     return m?.defenseDice;
   }
 
-  entityColor(id: string): 'red'|'blue'|'purple' {
+  entityColor(id: string): 'red' | 'blue' | 'purple' {
     const p = this.getPlayer(id);
     if (p) return this.roleColorOf(p);
 
     return 'purple';
   }
 
-  private servantEquipSide(p: SPlayer, name: 'sword'|'armor'): 'HUNTER'|'VAMPIRE' {
+  private servantEquipSide(p: SPlayer, name: 'sword' | 'armor'): 'HUNTER' | 'VAMPIRE' {
     const code = (name === 'sword') ? p.weapon : p.armor;
     if (!code) return 'HUNTER'; // pas d'équipement -> ancien chasseur
 
@@ -1694,7 +1695,7 @@ zoomMove(ev: MouseEvent) {
     return 'HUNTER';
   }
 
-  entityRoleIcon(id: string, name: 'sword'|'armor'): string {
+  entityRoleIcon(id: string, name: 'sword' | 'armor'): string {
     const p = this.getPlayer(id);
     if (p) {
       if (p.role === 'SERVANT') {
@@ -1711,7 +1712,7 @@ zoomMove(ev: MouseEvent) {
     return `/assets/icons/VAMPIRE-${name}.png`;
   }
 
-  entityHaloIcon(id: string, type: 'attack'|'defense'){
+  entityHaloIcon(id: string, type: 'attack' | 'defense') {
     const p = this.getPlayer(id);
 
     if (p?.role === 'VAMPIRE') {
@@ -1720,7 +1721,7 @@ zoomMove(ev: MouseEvent) {
     }
     if (p?.role === 'SERVANT') {
       if (p.weapon.startsWith('V_') && type === 'attack') return 'round';
-      return 'oval' 
+      return 'oval'
     }
     if (p?.role === 'HUNTER') return 'oval';
 
@@ -1749,15 +1750,15 @@ zoomMove(ev: MouseEvent) {
   resOf(p: SPlayer | undefined, res: string): number {
     if (!p) return 0;
     switch (res) {
-      case 'gold':   return p.gold;
+      case 'gold': return p.gold;
       case 'silver': return p.silver;
-      case 'souls':  return p.souls;
-      case 'wood':   return p.wood;
-      case 'herbs':  return p.herbs;
-      case 'stone':  return p.stone;
-      case 'iron':   return p.iron;
-      case 'water':  return p.water;
-      default:       return 0;
+      case 'souls': return p.souls;
+      case 'wood': return p.wood;
+      case 'herbs': return p.herbs;
+      case 'stone': return p.stone;
+      case 'iron': return p.iron;
+      case 'water': return p.water;
+      default: return 0;
     }
   }
 
@@ -1766,7 +1767,7 @@ zoomMove(ev: MouseEvent) {
     return this.myOffer && this.myOffer[res] ? this.myOffer[res] : 0;
   }
 
-  rollNow(){
+  rollNow() {
     if (!this.waitingForMyRoll || this.isRolling) return;
 
     this.isRolling = true;
@@ -1800,7 +1801,7 @@ zoomMove(ev: MouseEvent) {
   }
 
   // Image de fond une fois la météo tirée
-  setImageBackground(modal:'weather'|'location'|'bite'|'corruption'|'construction'|'construire'): string | null {
+  setImageBackground(modal: 'weather' | 'location' | 'bite' | 'corruption' | 'construction' | 'construire'): string | null {
 
     if (modal === 'weather') {
       const ws = this.game?.weather?.status;
@@ -1817,12 +1818,12 @@ zoomMove(ev: MouseEvent) {
     if (modal === 'bite') {
       return `url('/assets/corruption/bite.png')`;
     }
-    if(modal === 'construction') {
-      if(this.buildChoice === 'SAWMILL') return "url('/assets/locations/forest.png')";
-      if(this.buildChoice === 'MINE') return "url('/assets/locations/quarry.png')";
+    if (modal === 'construction') {
+      if (this.buildChoice === 'SAWMILL') return "url('/assets/locations/forest.png')";
+      if (this.buildChoice === 'MINE') return "url('/assets/locations/quarry.png')";
       else return "url('/assets/locations/manor.png')"
     }
-    if(modal === 'construire') return "url('/assets/actions/build.png')";
+    if (modal === 'construire') return "url('/assets/actions/build.png')";
 
     return 'none';
   }
@@ -1831,8 +1832,8 @@ zoomMove(ev: MouseEvent) {
   weatherIconSrc(ws?: string | null): string {
     if (!ws) return '';
 
-    if(ws.includes('WIND')) return `/assets/weather/icon-wind.png`;
-    if(ws.includes('BLOOD_MOON')) return `/assets/weather/icon-red_moon.png`;
+    if (ws.includes('WIND')) return `/assets/weather/icon-wind.png`;
+    if (ws.includes('BLOOD_MOON')) return `/assets/weather/icon-red_moon.png`;
     return `/assets/weather/icon-${ws.toLowerCase()}.png`;
   }
 
@@ -1906,10 +1907,10 @@ zoomMove(ev: MouseEvent) {
     if (source.startsWith('HIT:BLEED_WEAPON')) {
       return '/assets/icons/bleed.png';
     }
-      if (source.startsWith('HIT:STUN_WEAPON')) {
+    if (source.startsWith('HIT:STUN_WEAPON')) {
       return '/assets/icons/stun.png';
     }
-      if (source.startsWith('HIT:RANGED_WEAPON')) {
+    if (source.startsWith('HIT:RANGED_WEAPON')) {
       return '/assets/icons/range.png';
     }
 
@@ -1917,28 +1918,28 @@ zoomMove(ev: MouseEvent) {
   }
 
   actionBackgroundSrc(mode: 'EAU_BENITE' | 'NET' | 'PIT' | 'INCENDIAIRE' | 'PROVOCATION' | 'AMBUSH' | 'LONELY' | 'BLESSED_STAKE' | 'CHARISMATIQUE' | 'MARCHAND_ITINERANT' | 'MARCHAND_BONUS_BUY' | 'PRESENCE_ECRASANTE' | 'CATACLYSME' | 'CLONES_OMBRE' | 'IMAGE_MIROIR_SETUP' | 'IMAGE_MIROIR_RESOLVE' | 'ECLIPSE' | 'BLOOD_MOON' | 'VOILE_DE_BRUME' | 'FAIM_IRREPRESSIBLE' | 'MARQUE_TENEBREUSE' | 'AFFAIBLISSEMENT_OCCULTE' | 'PASSAGE_SECRET' | 'AVIDITE_NOCTURNE' | null): String {
-    if(mode === 'NET') return 'url(/assets/actions/net.png)';
-    if(mode === 'PIT') return 'url(/assets/actions/traphole.png)';
-    if(mode === 'INCENDIAIRE') return 'url(/assets/actions/burn.png)';
-    if(mode === 'PROVOCATION') return 'url(/assets/actions/taunt.png)';
-    if(mode === 'AMBUSH') return 'url(/assets/actions/ambush.png)';
-    if(mode === 'LONELY') return 'url(/assets/actions/lonely.png)';
-    if(mode === 'BLESSED_STAKE') return 'url(/assets/actions/blessed_stake.png)';
-    if(mode === 'CHARISMATIQUE') return 'url(/assets/actions/charismatic.png)';
-    if(mode === 'MARCHAND_ITINERANT' || mode === 'MARCHAND_BONUS_BUY') return 'url(/assets/actions/traveling_merchant.png)';
-    if(mode === 'PRESENCE_ECRASANTE') return 'url(/assets/actions/overwhelming_presence.png)';
-    if(mode === 'CATACLYSME') return 'url(/assets/actions/cataclysm.png)';
-    if(mode === 'CLONES_OMBRE') return 'url(/assets/actions/shadow_clones.png)';
-    if(mode === 'IMAGE_MIROIR_SETUP' || mode === 'IMAGE_MIROIR_RESOLVE') return 'url(/assets/actions/miror_image.png';
-    if(mode === 'ECLIPSE') return 'url(/assets/actions/eclipse.png';
-    if(mode === 'BLOOD_MOON') return 'url(/assets/actions/redmoon.png';
-    if(mode === 'VOILE_DE_BRUME') return 'url(/assets/actions/veil_of_mist.png';
-    if(mode === 'FAIM_IRREPRESSIBLE') return 'url(/assets/actions/irrepressible_hunger.png';
-    if(mode === 'MARQUE_TENEBREUSE') return 'url(/assets/actions/dark_mark.png';
-    if(mode === 'AFFAIBLISSEMENT_OCCULTE') return 'url(/assets/actions/occult_weakening.png';
-    if(mode === 'PASSAGE_SECRET') return 'url(/assets/actions/secret_passage.png';
-    if(mode === 'AVIDITE_NOCTURNE') return 'url(/assets/actions/nocturnal_greed.png)';
-    if(mode === 'EAU_BENITE') return 'url(/assets/actions/holy_water.png';
+    if (mode === 'NET') return 'url(/assets/actions/net.png)';
+    if (mode === 'PIT') return 'url(/assets/actions/traphole.png)';
+    if (mode === 'INCENDIAIRE') return 'url(/assets/actions/burn.png)';
+    if (mode === 'PROVOCATION') return 'url(/assets/actions/taunt.png)';
+    if (mode === 'AMBUSH') return 'url(/assets/actions/ambush.png)';
+    if (mode === 'LONELY') return 'url(/assets/actions/lonely.png)';
+    if (mode === 'BLESSED_STAKE') return 'url(/assets/actions/blessed_stake.png)';
+    if (mode === 'CHARISMATIQUE') return 'url(/assets/actions/charismatic.png)';
+    if (mode === 'MARCHAND_ITINERANT' || mode === 'MARCHAND_BONUS_BUY') return 'url(/assets/actions/traveling_merchant.png)';
+    if (mode === 'PRESENCE_ECRASANTE') return 'url(/assets/actions/overwhelming_presence.png)';
+    if (mode === 'CATACLYSME') return 'url(/assets/actions/cataclysm.png)';
+    if (mode === 'CLONES_OMBRE') return 'url(/assets/actions/shadow_clones.png)';
+    if (mode === 'IMAGE_MIROIR_SETUP' || mode === 'IMAGE_MIROIR_RESOLVE') return 'url(/assets/actions/miror_image.png';
+    if (mode === 'ECLIPSE') return 'url(/assets/actions/eclipse.png';
+    if (mode === 'BLOOD_MOON') return 'url(/assets/actions/redmoon.png';
+    if (mode === 'VOILE_DE_BRUME') return 'url(/assets/actions/veil_of_mist.png';
+    if (mode === 'FAIM_IRREPRESSIBLE') return 'url(/assets/actions/irrepressible_hunger.png';
+    if (mode === 'MARQUE_TENEBREUSE') return 'url(/assets/actions/dark_mark.png';
+    if (mode === 'AFFAIBLISSEMENT_OCCULTE') return 'url(/assets/actions/occult_weakening.png';
+    if (mode === 'PASSAGE_SECRET') return 'url(/assets/actions/secret_passage.png';
+    if (mode === 'AVIDITE_NOCTURNE') return 'url(/assets/actions/nocturnal_greed.png)';
+    if (mode === 'EAU_BENITE') return 'url(/assets/actions/holy_water.png';
     return '';
   }
 
@@ -1987,7 +1988,7 @@ zoomMove(ev: MouseEvent) {
     return list;
   }
   get canPlaySelection(): boolean {
-    const g  = this.game;
+    const g = this.game;
     const me = this.me;
     if (!g || !me) return false;
 
@@ -2033,10 +2034,10 @@ zoomMove(ev: MouseEvent) {
     // (plus tard, on pourra faire une vraie map id->username côté back si besoin)
   }
 
-  isCurrent(_p: SPlayer){ return false; } // on branchera plus tard
+  isCurrent(_p: SPlayer) { return false; } // on branchera plus tard
 
-  labelLocation(c: string){
-    switch(c){
+  labelLocation(c: string) {
+    switch (c) {
       case 'forest': return 'Forêt';
       case 'quarry': return 'Carrière';
       case 'lake': return 'Lac';
@@ -2121,12 +2122,12 @@ zoomMove(ev: MouseEvent) {
   /** DESTROY
    * on se désabonne du WS et on nettoie les timeouts météo.
    */
-  ngOnDestroy(){
+  ngOnDestroy() {
     this.unsubscribeGameTopic?.(); // <-- à la place du clearInterval
     if (this.weatherWaitTimer) clearTimeout(this.weatherWaitTimer);
-    if(this.weatherTimer) clearTimeout(this.weatherTimer);
-    if(this.weatherPostTimer) clearTimeout(this.weatherPostTimer);
-    if(this.actionTimeoutId) clearTimeout(this.actionTimeoutId);
+    if (this.weatherTimer) clearTimeout(this.weatherTimer);
+    if (this.weatherPostTimer) clearTimeout(this.weatherPostTimer);
+    if (this.actionTimeoutId) clearTimeout(this.actionTimeoutId);
     this.stopPrephaseTimer();
 
   }
@@ -2141,9 +2142,9 @@ zoomMove(ev: MouseEvent) {
    */
   private onLiveEvent(event: GameEvent) {
     // (optionnel) anti-doublon
-  const key = this.stableEventKey(event);
-  if (this.seenEventKeys.has(key)) return;
-  this.seenEventKeys.add(key);
+    const key = this.stableEventKey(event);
+    if (this.seenEventKeys.has(key)) return;
+    this.seenEventKeys.add(key);
 
     switch (event.type) {
       case 'PHASE_CHANGED': {
@@ -2196,7 +2197,7 @@ zoomMove(ev: MouseEvent) {
 
             // recalculer les choix instables à partir du snapshot
             this.recomputeUnstableChoices();
-            
+
             // Effets de lieu (Bibliothèque, etc.)
             this.syncLocationEffectFromSnapshot(g, previous);
 
@@ -2286,7 +2287,7 @@ zoomMove(ev: MouseEvent) {
         if (!this.game) {
           // Pas encore de snapshot → récupère tout et lance l’anim proprement
           this.api.getGame(this.gameId).subscribe({
-            next: g => { 
+            next: g => {
               this.game = g;
               // (optionnel) sécurité si le back a poussé WEATHER_ROLLED une micro-seconde avant d’écrire le roll
               if (!g.weather || g.weather.roll == null) {
@@ -2543,28 +2544,28 @@ zoomMove(ev: MouseEvent) {
         this.api.getGame(this.gameId).subscribe({
           next: g => {
             this.game = g;
-                  
-            if (g.currentAction && 
-              (g.currentAction.mode === 'PROVOCATION' 
-              || g.currentAction.mode === 'AMBUSH'
-              || g.currentAction.mode === 'LONELY'
-              || g.currentAction.mode === 'CHARISMATIQUE'
-              || g.currentAction.mode === 'MARCHAND_ITINERANT'
-              || g.currentAction.mode === 'MARCHAND_BONUS_BUY'
-              || g.currentAction.mode === 'PRESENCE_ECRASANTE' 
-              || g.currentAction.mode === 'CATACLYSME'
-              || g.currentAction.mode === 'CLONES_OMBRE'
-              || g.currentAction.mode === 'IMAGE_MIROIR_SETUP'
-              || g.currentAction.mode === 'IMAGE_MIROIR_RESOLVE'
-              || g.currentAction.mode === 'ECLIPSE'
-              || g.currentAction.mode === 'BLOOD_MOON'
-              || g.currentAction.mode === 'VOILE_DE_BRUME'
-              || g.currentAction.mode === 'FAIM_IRREPRESSIBLE'
-              || g.currentAction.mode === 'MARQUE_TENEBREUSE'
-              || g.currentAction.mode === 'AFFAIBLISSEMENT_OCCULTE'
-              || g.currentAction.mode === 'PASSAGE_SECRET'
-              || g.currentAction.mode === 'AVIDITE_NOCTURNE'
-              || g.currentAction.mode === 'EAU_BENITE')) {
+
+            if (g.currentAction &&
+              (g.currentAction.mode === 'PROVOCATION'
+                || g.currentAction.mode === 'AMBUSH'
+                || g.currentAction.mode === 'LONELY'
+                || g.currentAction.mode === 'CHARISMATIQUE'
+                || g.currentAction.mode === 'MARCHAND_ITINERANT'
+                || g.currentAction.mode === 'MARCHAND_BONUS_BUY'
+                || g.currentAction.mode === 'PRESENCE_ECRASANTE'
+                || g.currentAction.mode === 'CATACLYSME'
+                || g.currentAction.mode === 'CLONES_OMBRE'
+                || g.currentAction.mode === 'IMAGE_MIROIR_SETUP'
+                || g.currentAction.mode === 'IMAGE_MIROIR_RESOLVE'
+                || g.currentAction.mode === 'ECLIPSE'
+                || g.currentAction.mode === 'BLOOD_MOON'
+                || g.currentAction.mode === 'VOILE_DE_BRUME'
+                || g.currentAction.mode === 'FAIM_IRREPRESSIBLE'
+                || g.currentAction.mode === 'MARQUE_TENEBREUSE'
+                || g.currentAction.mode === 'AFFAIBLISSEMENT_OCCULTE'
+                || g.currentAction.mode === 'PASSAGE_SECRET'
+                || g.currentAction.mode === 'AVIDITE_NOCTURNE'
+                || g.currentAction.mode === 'EAU_BENITE')) {
               this.syncActionFromSnapshot(g);
             }
             this.syncMerchantUiFromSnapshot(g);
@@ -2635,15 +2636,15 @@ zoomMove(ev: MouseEvent) {
               this.pendingBonusFly = null;
             }
 
-          if (g.phase === 'PREPHASE3' && g.hasUpcomingCombat && !g.locationEffectPending) {
-            // On (re)lance simplement le timer local.
-            // Si tu veux éviter de le redémarrer toutes les 2s, tu peux ajouter un petit guard :
-            if (!this.prephaseTicker) {
-              this.startPrephaseTimer();
+            if (g.phase === 'PREPHASE3' && g.hasUpcomingCombat && !g.locationEffectPending) {
+              // On (re)lance simplement le timer local.
+              // Si tu veux éviter de le redémarrer toutes les 2s, tu peux ajouter un petit guard :
+              if (!this.prephaseTicker) {
+                this.startPrephaseTimer();
+              }
+            } else {
+              this.stopPrephaseTimer();
             }
-          } else {
-            this.stopPrephaseTimer();
-          }
             this.bumpHistoryScroll();
           },
           error: e => this.showError(e)
@@ -2670,7 +2671,7 @@ zoomMove(ev: MouseEvent) {
           (t.offerB && Object.keys(t.offerB).length > 0);
 
         if (meInvolved && this.shopOpen && !this.selectedTradeTargetId &&
-            mySt !== 'CANCELLED' && mySt !== 'REFUSED' && hasAnyOffer) {
+          mySt !== 'CANCELLED' && mySt !== 'REFUSED' && hasAnyOffer) {
           const otherId = this.otherIdFromTrade(t);
           this.selectedTradeTargetId = otherId;
           this.myOffer = { ...(this.myOffersByTarget[otherId] || {}) };
@@ -2682,10 +2683,10 @@ zoomMove(ev: MouseEvent) {
 
       case 'TRADE_DELETED': {
         const payload: any = event.payload || {};
-        const id      = payload.id as string | undefined;
-        const aId     = payload.aId as string | undefined;
-        const bId     = payload.bId as string | undefined;
-        const result  = payload.result as ('SUCCESS'|'CLOSED'|undefined);
+        const id = payload.id as string | undefined;
+        const aId = payload.aId as string | undefined;
+        const bId = payload.bId as string | undefined;
+        const result = payload.result as ('SUCCESS' | 'CLOSED' | undefined);
         if (!id || !aId || !bId) break;
 
         const me = this.me;
@@ -2701,12 +2702,12 @@ zoomMove(ev: MouseEvent) {
         const pa = this.game?.players?.find(p => p.id === aId);
         const pb = this.game?.players?.find(p => p.id === bId);
 
-        const tradeSide: 'HUNTERS'|'VAMP_SIDE'|null =
+        const tradeSide: 'HUNTERS' | 'VAMP_SIDE' | null =
           (pa && pb && pa.role === 'HUNTER' && pb.role === 'HUNTER') ? 'HUNTERS'
-          : (pa && pb) ? 'VAMP_SIDE'
-          : null;
+            : (pa && pb) ? 'VAMP_SIDE'
+              : null;
 
-        const mySide: 'HUNTERS'|'VAMP_SIDE' =
+        const mySide: 'HUNTERS' | 'VAMP_SIDE' =
           (me.role === 'HUNTER') ? 'HUNTERS' : 'VAMP_SIDE';
 
         // Si je ne suis pas impliqué et pas dans le bon camp => je ne vois rien
@@ -2721,7 +2722,7 @@ zoomMove(ev: MouseEvent) {
 
         // Animation “closing” (ok pour tout le monde du camp, ça ne casse rien)
         this.closingUntil[id] = Date.now() + 1500;
-        this.closingKind[id]  = success ? 'ok' : 'ko';
+        this.closingKind[id] = success ? 'ok' : 'ko';
         this.game = { ...(this.game as GameSnapshot) };
 
         setTimeout(() => {
@@ -2831,10 +2832,10 @@ zoomMove(ev: MouseEvent) {
       }
     }
   }
-  
+
   //====== Select location ======/
   canPlayLocation(c: string): boolean {
-    const g  = this.game;
+    const g = this.game;
     const me = this.me;
     if (!g || !me) return false;
     if (me.hp <= 0) return false;
@@ -2859,7 +2860,7 @@ zoomMove(ev: MouseEvent) {
   playSelected() {
     if (!this.game || !this.me) return;
 
-    const g  = this.game;
+    const g = this.game;
     const me = this.me;
 
     // 1) CAS LIEU SÉLECTIONNÉ
@@ -2910,25 +2911,25 @@ zoomMove(ev: MouseEvent) {
           }
         } else {
           // 2) Vérif ressources (copie des coûts back, en inline)
-          const wood   = (me as any).wood   ?? 0;
-          const iron   = (me as any).iron   ?? 0;
+          const wood = (me as any).wood ?? 0;
+          const iron = (me as any).iron ?? 0;
           const silver = (me as any).silver ?? 0;
-          const souls  = (me as any).souls  ?? 0;
+          const souls = (me as any).souls ?? 0;
 
           const missingOf = (id: string) => {
             const c = this.forgeCostOf(id);
             if (!c) return { total: 999, parts: ['coût inconnu'] };
 
-            const missWood   = Math.max(0, (c.wood   ?? 0) - wood);
-            const missIron   = Math.max(0, (c.iron   ?? 0) - iron);
+            const missWood = Math.max(0, (c.wood ?? 0) - wood);
+            const missIron = Math.max(0, (c.iron ?? 0) - iron);
             const missSilver = Math.max(0, (c.silver ?? 0) - silver);
-            const missSouls  = Math.max(0, (c.souls  ?? 0) - souls);
+            const missSouls = Math.max(0, (c.souls ?? 0) - souls);
 
             const parts: string[] = [];
-            if (missWood)   parts.push(`${missWood} bois`);
-            if (missIron)   parts.push(`${missIron} fer`);
+            if (missWood) parts.push(`${missWood} bois`);
+            if (missIron) parts.push(`${missIron} fer`);
             if (missSilver) parts.push(`${missSilver} argent`);
-            if (missSouls)  parts.push(`${missSouls} âmes`);
+            if (missSouls) parts.push(`${missSouls} âmes`);
 
             return { total: missWood + missIron + missSilver + missSouls, parts };
           };
@@ -3056,11 +3057,11 @@ zoomMove(ev: MouseEvent) {
    *  On ajoute un flag local (weatherAdvanceSent) pour éviter d'appeler /advance plusieurs fois
    *  si plusieurs onglets sont ouverts.
    */
-  private handleWeatherReveal(g: GameSnapshot){
+  private handleWeatherReveal(g: GameSnapshot) {
     const roll = g.weather?.roll ?? null;
 
     // ---- RESET si pas (encore) de tirage
-    if (roll == null){
+    if (roll == null) {
       this.lastWeatherRollSeen = null;
       this.weatherBgActive = false;
 
@@ -3081,20 +3082,20 @@ zoomMove(ev: MouseEvent) {
       this.weatherAdvanceSent = false;
 
       // cleanup timers
-      if (this.weatherTimer)     { clearTimeout(this.weatherTimer);     this.weatherTimer = undefined; }
+      if (this.weatherTimer) { clearTimeout(this.weatherTimer); this.weatherTimer = undefined; }
       if (this.weatherPostTimer) { clearTimeout(this.weatherPostTimer); this.weatherPostTimer = undefined; }
       return;
     }
 
     // ---- NOUVEAU TIRAGE détecté → lance l’animation locale
-    if (this.lastWeatherRollSeen !== roll){
+    if (this.lastWeatherRollSeen !== roll) {
       if (this.weatherWaitTimer) { clearTimeout(this.weatherWaitTimer); this.weatherWaitTimer = undefined; }
 
       this.lastWeatherRollSeen = roll;
       this.weatherAdvanceSent = false; // nouveau cycle météo → on réautorise 1 avance
 
       this.weatherModalHold = true;    // on garde la modale ouverte le temps de l’anim
-      this.weatherBgActive  = false;
+      this.weatherBgActive = false;
 
       if (this.weatherTimer) clearTimeout(this.weatherTimer);
       if (this.weatherPostTimer) clearTimeout(this.weatherPostTimer);
@@ -3105,7 +3106,7 @@ zoomMove(ev: MouseEvent) {
 
         // 2) petit “hold de lecture”
         const post = this.WEATHER_HOLD_MS;
-        if (post > 0){
+        if (post > 0) {
           this.weatherPostTimer = setTimeout(() => {
             this.weatherModalHold = false;       // on ferme la modale…
             this.advanceToPhase1IfNeeded();      // …et on avance PHASE1 exactement ici (une seule fois)
@@ -3155,7 +3156,7 @@ zoomMove(ev: MouseEvent) {
     if (!g || !me) return false;
     if (me.hp <= 0) return false;
 
-    const ws  = g.weather?.status;
+    const ws = g.weather?.status;
     const wss = g.weather?.secondaryStatus;
 
     if (this.isMeHunterUnstablePending()) return false;
@@ -3184,7 +3185,7 @@ zoomMove(ev: MouseEvent) {
     const faceUp = (game.center || []).filter(cb => cb.faceUp);
     if (faceUp.length === 0) return false;
 
-    const harvestMap: Record<string,string> =
+    const harvestMap: Record<string, string> =
       (game as any).unstableHarvestLocByPlayer || {};
 
     const allLocs = Array.from(new Set(faceUp.map(cb => cb.card)));
@@ -3256,10 +3257,10 @@ zoomMove(ev: MouseEvent) {
     const type = src.split(':')[1] || '';
 
     return type === 'RAGE'
-        || type === 'RESILIENCE'
-        || type === 'RAPIDITE'
-        || type === 'INVISIBILITE'
-        || type === 'INVULNERABILITE';
+      || type === 'RESILIENCE'
+      || type === 'RAPIDITE'
+      || type === 'INVISIBILITE'
+      || type === 'INVULNERABILITE';
   }
 
   usePotion(type: string) {
@@ -3269,7 +3270,7 @@ zoomMove(ev: MouseEvent) {
     });
   }
 
-  onPotionClick(potion: string, index: number){
+  onPotionClick(potion: string, index: number) {
     if (!this.canUsePotionNow(potion)) return;
     this.selectedPotion = potion;
     this.selectedPotionIndex = index;
@@ -3279,7 +3280,7 @@ zoomMove(ev: MouseEvent) {
     this.selectedActionIndex = null;
   }
 
-    /** Est-ce que ce joueur a un effet de focalisation actif ce raid ? */
+  /** Est-ce que ce joueur a un effet de focalisation actif ce raid ? */
   hasFocus(playerId?: string | null): boolean {
     if (!playerId || !this.game?.raidMods) return false;
     const list = this.game.raidMods[playerId] || [];
@@ -3291,7 +3292,7 @@ zoomMove(ev: MouseEvent) {
 
   /** Suis-je entre le 1er et le 2e dé de focalisation ? */
   get isMyFocusFirstStep(): boolean {
-    const r    = this.currentCombat;
+    const r = this.currentCombat;
     const side = this.waitingForMyRoll;
     if (!r || !side) return false;
     if (!this.hasFocus(this.meId)) return false;
@@ -3397,9 +3398,9 @@ zoomMove(ev: MouseEvent) {
       }
     }
 
-    if (_action === 'PRESENCE_ECRASANTE' 
-      || _action === 'ECLIPSE' 
-      || _action === 'VOILE_DE_BRUME' 
+    if (_action === 'PRESENCE_ECRASANTE'
+      || _action === 'ECLIPSE'
+      || _action === 'VOILE_DE_BRUME'
       || _action === 'MARQUE_TENEBREUSE') {
       return g.phase === 'PREPHASE3' && me.role === 'VAMPIRE';
     }
@@ -3450,29 +3451,29 @@ zoomMove(ev: MouseEvent) {
     // Si le vampire a joué Présence écrasante ce raid, les actions chasseurs sont bloquées
     // uniquement pour les chasseurs sur le même lieu que le vampire
     if (g.hunterActionsBlockedThisRaid &&
-        (_action === 'FEU_DE_CAMP'
-          || _action === 'NET'
-          || _action === 'PIT'
-          || _action === 'INCENDIAIRE'
-          || _action === 'PROVOCATION'
-          || _action === 'AMBUSH'
-          || _action === 'LONELY'
-          || _action === 'BLESSED_STAKE'
-          || _action === 'SACRED_ROSARY'
-          || _action === 'CHARISMATIQUE'
-          || _action === 'MARCHAND_ITINERANT'
-          || _action === 'EAU_BENITE')) {
+      (_action === 'FEU_DE_CAMP'
+        || _action === 'NET'
+        || _action === 'PIT'
+        || _action === 'INCENDIAIRE'
+        || _action === 'PROVOCATION'
+        || _action === 'AMBUSH'
+        || _action === 'LONELY'
+        || _action === 'BLESSED_STAKE'
+        || _action === 'SACRED_ROSARY'
+        || _action === 'CHARISMATIQUE'
+        || _action === 'MARCHAND_ITINERANT'
+        || _action === 'EAU_BENITE')) {
 
-      const me   = this.me;
+      const me = this.me;
       const vamp = g.players?.find(p => p.role === 'VAMPIRE') || null;
 
-      const myLoc   = me   ? this.locationOf(me.id)   : null;
+      const myLoc = me ? this.locationOf(me.id) : null;
       const vampLoc = vamp ? this.locationOf(vamp.id) : null;
 
       if (myLoc && vampLoc && myLoc === vampLoc) {
         return false;
       }
-    }    
+    }
 
     // 3) Règles par action
     switch (_action) {
@@ -3521,7 +3522,7 @@ zoomMove(ev: MouseEvent) {
       case 'INCENDIAIRE':
         if (g.phase !== 'PREPHASE3') return false;
         return this.canPlayIncendiaireHere();
-        
+
       case 'AMBUSH': {
         if (g.phase !== 'PREPHASE3' || me.role !== 'HUNTER') return false;
 
@@ -3584,13 +3585,13 @@ zoomMove(ev: MouseEvent) {
 
     const acts = me.actions || [];
 
-    const canInc  = acts.includes('INCENDIAIRE')      && this.canPlayIncendiaireHere();
-    const canHoly = acts.includes('EAU_BENITE')       && this.canPlayHolyWaterkHere();
-    const canProv  = acts.includes('PROVOCATION')     && this.canPlayProvocationHere();
-    const canAmbush  = acts.includes('AMBUSH')        && this.canUseActionNow('AMBUSH');
-    const canLonely  = acts.includes('LONELY')        && this.canUseActionNow('LONELY');
-    const canStake  = acts.includes('BLESSED_STAKE')  && this.canUseActionNow('BLESSED_STAKE');
-    const canRosary  = acts.includes('SACRED_ROSARY')    && this.canUseActionNow('SACRED_ROSARY');
+    const canInc = acts.includes('INCENDIAIRE') && this.canPlayIncendiaireHere();
+    const canHoly = acts.includes('EAU_BENITE') && this.canPlayHolyWaterkHere();
+    const canProv = acts.includes('PROVOCATION') && this.canPlayProvocationHere();
+    const canAmbush = acts.includes('AMBUSH') && this.canUseActionNow('AMBUSH');
+    const canLonely = acts.includes('LONELY') && this.canUseActionNow('LONELY');
+    const canStake = acts.includes('BLESSED_STAKE') && this.canUseActionNow('BLESSED_STAKE');
+    const canRosary = acts.includes('SACRED_ROSARY') && this.canUseActionNow('SACRED_ROSARY');
 
     return (
       canInc ||
@@ -3612,14 +3613,14 @@ zoomMove(ev: MouseEvent) {
 
     const acts = me.actions || [];
 
-    const canFog       = acts.includes('VOILE_DE_BRUME')          && this.canUseActionNow('VOILE_DE_BRUME');
-    const canPresence  = acts.includes('PRESENCE_ECRASANTE')      && this.canUseActionNow('PRESENCE_ECRASANTE');
-    const canEclipse   = acts.includes('ECLIPSE')                 && this.canUseActionNow('ECLIPSE');
-    const canBloodMoon = acts.includes('BLOOD_MOON')              && this.canUseActionNow('BLOOD_MOON');
-    const canHunger    = acts.includes('FAIM_IRREPRESSIBLE')      && this.canUseActionNow('FAIM_IRREPRESSIBLE');
-    const canDarkMark  = acts.includes('MARQUE_TENEBREUSE')       && this.canUseActionNow('MARQUE_TENEBREUSE');
+    const canFog = acts.includes('VOILE_DE_BRUME') && this.canUseActionNow('VOILE_DE_BRUME');
+    const canPresence = acts.includes('PRESENCE_ECRASANTE') && this.canUseActionNow('PRESENCE_ECRASANTE');
+    const canEclipse = acts.includes('ECLIPSE') && this.canUseActionNow('ECLIPSE');
+    const canBloodMoon = acts.includes('BLOOD_MOON') && this.canUseActionNow('BLOOD_MOON');
+    const canHunger = acts.includes('FAIM_IRREPRESSIBLE') && this.canUseActionNow('FAIM_IRREPRESSIBLE');
+    const canDarkMark = acts.includes('MARQUE_TENEBREUSE') && this.canUseActionNow('MARQUE_TENEBREUSE');
     const canWeakening = acts.includes('AFFAIBLISSEMENT_OCCULTE') && this.canUseActionNow('AFFAIBLISSEMENT_OCCULTE');
-    const canSecret    = acts.includes('PASSAGE_SECRET')          && this.canUseActionNow('PASSAGE_SECRET');
+    const canSecret = acts.includes('PASSAGE_SECRET') && this.canUseActionNow('PASSAGE_SECRET');
 
     return (
       canFog ||
@@ -3637,37 +3638,37 @@ zoomMove(ev: MouseEvent) {
     if (!mode) return '';
 
     switch (mode) {
-      case 'EAU_BENITE':              return 'Eau bénite';
-      case 'FUMIGATION_AIL':          return 'Fumigation d\'ail';
-      case 'PISTEUR':                 return 'Pisteur';
-      case 'FEU_DE_CAMP':             return 'Feu de camp';
-      case 'NET':                     return 'Filet';
-      case 'PIT':                     return 'Fosse';
-      case 'PROVOCATION':             return 'Provocation';
-      case 'INCENDIAIRE':             return 'Incendiaire';
-      case 'AMBUSH':                  return 'Embuscade';
-      case 'LONELY':                  return 'Solitaire';
-      case 'BLESSED_STAKE':           return 'Pieu béni';
-      case 'SACRED_ROSARY':           return 'Chapelet sacré';
-      case 'CHARISMATIQUE':           return 'Charismatique';
+      case 'EAU_BENITE': return 'Eau bénite';
+      case 'FUMIGATION_AIL': return 'Fumigation d\'ail';
+      case 'PISTEUR': return 'Pisteur';
+      case 'FEU_DE_CAMP': return 'Feu de camp';
+      case 'NET': return 'Filet';
+      case 'PIT': return 'Fosse';
+      case 'PROVOCATION': return 'Provocation';
+      case 'INCENDIAIRE': return 'Incendiaire';
+      case 'AMBUSH': return 'Embuscade';
+      case 'LONELY': return 'Solitaire';
+      case 'BLESSED_STAKE': return 'Pieu béni';
+      case 'SACRED_ROSARY': return 'Chapelet sacré';
+      case 'CHARISMATIQUE': return 'Charismatique';
       case 'MARCHAND_ITINERANT':
-      case 'MARCHAND_BONUS_BUY':      return 'Marchand itinérant';
-      case 'PRESENCE_ECRASANTE':      return 'Présence écrasante';
-      case 'CATACLYSME':              return 'Cataclysme';
-      case 'CLONES_OMBRE':            return 'Clones d’ombre';
+      case 'MARCHAND_BONUS_BUY': return 'Marchand itinérant';
+      case 'PRESENCE_ECRASANTE': return 'Présence écrasante';
+      case 'CATACLYSME': return 'Cataclysme';
+      case 'CLONES_OMBRE': return 'Clones d’ombre';
       case 'IMAGE_MIROIR':
       case 'IMAGE_MIROIR_SETUP':
-      case 'IMAGE_MIROIR_RESOLVE':    return 'Image miroir';
-      case 'ECLIPSE':                 return 'Éclipse';
-      case 'BLOOD_MOON':              return 'Lune sanglante';
-      case 'VOILE_DE_BRUME':          return 'Voile de brume';
-      case 'FAIM_IRREPRESSIBLE':      return 'Faim irrépressible';
-      case 'MARQUE_TENEBREUSE':       return 'Marque ténébreuse';
+      case 'IMAGE_MIROIR_RESOLVE': return 'Image miroir';
+      case 'ECLIPSE': return 'Éclipse';
+      case 'BLOOD_MOON': return 'Lune sanglante';
+      case 'VOILE_DE_BRUME': return 'Voile de brume';
+      case 'FAIM_IRREPRESSIBLE': return 'Faim irrépressible';
+      case 'MARQUE_TENEBREUSE': return 'Marque ténébreuse';
       case 'AFFAIBLISSEMENT_OCCULTE': return 'Affaiblissement occulte';
-      case 'PASSAGE_SECRET':          return 'Passage secret';
-      case 'AVIDITE_NOCTURNE':        return 'Avidité nocturne';
+      case 'PASSAGE_SECRET': return 'Passage secret';
+      case 'AVIDITE_NOCTURNE': return 'Avidité nocturne';
       // etc si tu as d’autres modes
-      default:                  return '';
+      default: return '';
     }
   }
 
@@ -3690,7 +3691,7 @@ zoomMove(ev: MouseEvent) {
     });
   }
 
-  onActionClick(action: string, index: number){
+  onActionClick(action: string, index: number) {
     if (!this.canUseActionNow(action)) return;
     this.selectedAction = action;
     this.selectedActionIndex = index;
@@ -3932,7 +3933,7 @@ zoomMove(ev: MouseEvent) {
         break;
 
       case 'manor':
-        (['LIBRARY','LABORATORY','BALLROOM','ALTAR','FORGE'] as InfraCode[])
+        (['LIBRARY', 'LABORATORY', 'BALLROOM', 'ALTAR', 'FORGE'] as InfraCode[])
           .forEach(addIfPresent);
         break;
 
@@ -3976,7 +3977,7 @@ zoomMove(ev: MouseEvent) {
     this.api.resolveIncendiaire(
       this.gameId,
       this.actionSelectedTargetId as
-        'SAWMILL' | 'MINE' | 'LIBRARY' | 'LABORATORY' | 'BALLROOM' | 'ALTAR' | 'FORGE'
+      'SAWMILL' | 'MINE' | 'LIBRARY' | 'LABORATORY' | 'BALLROOM' | 'ALTAR' | 'FORGE'
     ).subscribe({
       next: () => {
         // le résultat (d20 + texte) arrive via le snapshot / websocket
@@ -4068,7 +4069,7 @@ zoomMove(ev: MouseEvent) {
 
     const k = this.me?.shopBonusKind;
     if (k === 'EQUIP_WEAPON') return "une arme est disponible à la boutique.";
-    if (k === 'EQUIP_ARMOR')  return "une armure est disponible à la boutique.";
+    if (k === 'EQUIP_ARMOR') return "une armure est disponible à la boutique.";
     return "un équipement est disponible à la boutique.";
   }
 
@@ -4088,18 +4089,18 @@ zoomMove(ev: MouseEvent) {
       default:
         return 'Marchand itinérant — choisissez un mode de paiement.';
     }
-}
+  }
 
   bonusTitle(): string {
     const kind = this.me?.shopBonusKind;
     if (!kind) return 'Objet bonus';
 
     switch (kind) {
-      case 'POTION':        return 'Potion';
-      case 'ELIXIR':        return 'Élixir';
-      case 'EQUIP_WEAPON':  return 'Arme du marchand';
-      case 'EQUIP_ARMOR':   return 'Armure du marchand';
-      default:              return 'Objet bonus';
+      case 'POTION': return 'Potion';
+      case 'ELIXIR': return 'Élixir';
+      case 'EQUIP_WEAPON': return 'Arme du marchand';
+      case 'EQUIP_ARMOR': return 'Armure du marchand';
+      default: return 'Objet bonus';
     }
   }
 
@@ -4195,7 +4196,7 @@ zoomMove(ev: MouseEvent) {
     });
   }
 
-    /** true si l'objet bonus est achetable (règles "max atteint" inclues) */
+  /** true si l'objet bonus est achetable (règles "max atteint" inclues) */
   private canReceiveBonusItem(): boolean {
     const me: any = this.me;
     const kind = (me as any)?.shopBonusKind;
@@ -4226,12 +4227,12 @@ zoomMove(ev: MouseEvent) {
     // 1) max atteint ?
     if (!this.canReceiveBonusItem()) {
       if (kind === 'EQUIP_WEAPON') return "Impossible: tu as déjà une arme T2/T3 (le T3 s'achète uniquement à la forge).";
-      if (kind === 'EQUIP_ARMOR')  return "Impossible: tu as déjà une armure T2/T3 (le T3 s'achète uniquement à la forge).";
+      if (kind === 'EQUIP_ARMOR') return "Impossible: tu as déjà une armure T2/T3 (le T3 s'achète uniquement à la forge).";
       return "Impossible: maximum atteint.";
     }
 
     // 2) peut payer ?
-    const canRes  = this.canPayBonusWithResource();
+    const canRes = this.canPayBonusWithResource();
     const canGold = this.canPayBonusWithGold();
     if (canRes || canGold) return null;
 
@@ -4370,7 +4371,7 @@ zoomMove(ev: MouseEvent) {
 
   get clonesLocationChoices(): string[] {
     const me = this.me;
-    const g  = this.game;
+    const g = this.game;
     if (!g || !me || !me.hand) return [];
     return me.hand.filter(loc => !this.isGarlicBlockedLocation(loc));
   }
@@ -4409,7 +4410,7 @@ zoomMove(ev: MouseEvent) {
 
   get mirrorLocationChoices(): string[] {
     const me = this.me;
-    const g  = this.game;
+    const g = this.game;
     if (!g || !me || !me.hand) return [];
 
     const usedAlts: string[] = (g as any).mirrorAltLocations || [];
@@ -4496,7 +4497,7 @@ zoomMove(ev: MouseEvent) {
 
     const list = g.raidMods[me.id] || [];
 
-    if(this.isDarkMarkedMe()) return false
+    if (this.isDarkMarkedMe()) return false
 
     return list.some(m => {
       const src = (m as any).source as string | undefined;
@@ -4544,19 +4545,19 @@ zoomMove(ev: MouseEvent) {
     const built = g.builtInfras || [];
     for (const infra of built) {
       switch (infra) {
-        case 'SAWMILL':    choices.add('sawmill'); break;
-        case 'MINE':       choices.add('mine'); break;
-        case 'LIBRARY':    choices.add('library'); break;
+        case 'SAWMILL': choices.add('sawmill'); break;
+        case 'MINE': choices.add('mine'); break;
+        case 'LIBRARY': choices.add('library'); break;
         case 'LABORATORY': choices.add('laboratory'); break;
-        case 'BALLROOM':   choices.add('ballroom'); break;
-        case 'ALTAR':      choices.add('altar'); break;
-        case 'FORGE':      choices.add('forge'); break;
+        case 'BALLROOM': choices.add('ballroom'); break;
+        case 'ALTAR': choices.add('altar'); break;
+        case 'FORGE': choices.add('forge'); break;
       }
     }
 
-      return [...baseLocs, ...built]
-    .filter(loc => loc !== currentLoc)                    // pas le même lieu
-    .filter(loc => !this.isGarlicBlockedLocation(loc));   // pas fumigé
+    return [...baseLocs, ...built]
+      .filter(loc => loc !== currentLoc)                    // pas le même lieu
+      .filter(loc => !this.isGarlicBlockedLocation(loc));   // pas fumigé
   }
 
   onSecretPassageConfirm() {
@@ -4599,7 +4600,7 @@ zoomMove(ev: MouseEvent) {
     // et surtout : ne jamais ré-ouvrir sur les refresh (buyBonus, etc.)
     // ------------------------------------------------------------------
     if (act && g.phase === 'PHASE4'
-        && (act.mode === 'CHARISMATIQUE' || act.mode === 'AVIDITE_NOCTURNE')) {
+      && (act.mode === 'CHARISMATIQUE' || act.mode === 'AVIDITE_NOCTURNE')) {
 
       const isActor = !!meId && act.ownerId === meId;
 
@@ -4652,27 +4653,27 @@ zoomMove(ev: MouseEvent) {
 
     // 1) Pas d'action ou mode non géré -> on ferme
     if (!act || (act.mode !== 'NET'
-              && act.mode !== 'PIT'
-              && act.mode !== 'PROVOCATION'
-              && act.mode !== 'INCENDIAIRE'
-              && act.mode !== 'AMBUSH'
-              && act.mode !== 'LONELY'
-              && act.mode !== 'BLESSED_STAKE'
-              && act.mode !== 'CHARISMATIQUE'
-              && act.mode !== 'PRESENCE_ECRASANTE'
-              && act.mode !== 'CATACLYSME'
-              && act.mode !== 'CLONES_OMBRE'
-              && act.mode !== 'IMAGE_MIROIR_SETUP'
-              && act.mode !== 'IMAGE_MIROIR_RESOLVE'
-              && act.mode !== 'ECLIPSE'
-              && act.mode !== 'BLOOD_MOON'
-              && act.mode !== 'VOILE_DE_BRUME'
-              && act.mode !== 'FAIM_IRREPRESSIBLE'
-              && act.mode !== 'MARQUE_TENEBREUSE'
-              && act.mode !== 'AFFAIBLISSEMENT_OCCULTE'
-              && act.mode !== 'PASSAGE_SECRET'
-              && act.mode !== 'AVIDITE_NOCTURNE'
-              && act.mode !== 'EAU_BENITE')) {
+      && act.mode !== 'PIT'
+      && act.mode !== 'PROVOCATION'
+      && act.mode !== 'INCENDIAIRE'
+      && act.mode !== 'AMBUSH'
+      && act.mode !== 'LONELY'
+      && act.mode !== 'BLESSED_STAKE'
+      && act.mode !== 'CHARISMATIQUE'
+      && act.mode !== 'PRESENCE_ECRASANTE'
+      && act.mode !== 'CATACLYSME'
+      && act.mode !== 'CLONES_OMBRE'
+      && act.mode !== 'IMAGE_MIROIR_SETUP'
+      && act.mode !== 'IMAGE_MIROIR_RESOLVE'
+      && act.mode !== 'ECLIPSE'
+      && act.mode !== 'BLOOD_MOON'
+      && act.mode !== 'VOILE_DE_BRUME'
+      && act.mode !== 'FAIM_IRREPRESSIBLE'
+      && act.mode !== 'MARQUE_TENEBREUSE'
+      && act.mode !== 'AFFAIBLISSEMENT_OCCULTE'
+      && act.mode !== 'PASSAGE_SECRET'
+      && act.mode !== 'AVIDITE_NOCTURNE'
+      && act.mode !== 'EAU_BENITE')) {
 
       this.actionMode = null;
       this.actionOwnerId = null;
@@ -4985,8 +4986,8 @@ zoomMove(ev: MouseEvent) {
     // Si je suis en train de lire MA popup info PHASE4, ne pas l'écraser (2-5s),
     // Marchand s'ouvrira juste après quand la popup se ferme.
     if (this.showActionModal
-        && (this.actionMode === 'CHARISMATIQUE' || this.actionMode === 'AVIDITE_NOCTURNE')
-        && this.actionOwnerId === me.id) {
+      && (this.actionMode === 'CHARISMATIQUE' || this.actionMode === 'AVIDITE_NOCTURNE')
+      && this.actionOwnerId === me.id) {
       return;
     }
 
@@ -5147,7 +5148,7 @@ zoomMove(ev: MouseEvent) {
     if (!b || b.roll == null) return '';
 
     const attacker = this.getPlayer?.(b.attackerId)?.username ?? 'Le vampire';
-    const target   = this.getPlayer?.(b.targetId)?.username   ?? 'le chasseur';
+    const target = this.getPlayer?.(b.targetId)?.username ?? 'le chasseur';
 
     const targetPlayer = this.getPlayer?.(b.targetId);
     const hasArmor = this.hasSilverPlate(targetPlayer);
@@ -5173,7 +5174,7 @@ zoomMove(ev: MouseEvent) {
     }
   }
 
-  altarRitualText(): string  {
+  altarRitualText(): string {
     const g: any = this.game;
     const b = g?.currentBite;
     if (!b || b.roll == null) return '';
@@ -5240,7 +5241,7 @@ zoomMove(ev: MouseEvent) {
 
     this.lockUnstable(unstableId);
     this.api.assignUnstableTarget(this.gameId, unstableId, targetId).subscribe({
-      next: () => {},
+      next: () => { },
       error: e => {
         // 409 "no pending unstable choice" => le serveur a déjà pris une décision : on laisse lock
         if (!(e?.status === 409 || e?.error?.message === 'no pending unstable choice')) {
@@ -5256,7 +5257,7 @@ zoomMove(ev: MouseEvent) {
 
     this.lockUnstable(unstableId);
     this.api.assignUnstableHarvest(this.gameId, unstableId, loc).subscribe({
-      next: () => {},
+      next: () => { },
       error: e => {
         if (!(e?.status === 409 || e?.error?.message === 'no pending unstable choice')) {
           this.unlockUnstable(unstableId);
@@ -5306,7 +5307,7 @@ zoomMove(ev: MouseEvent) {
       this.unstableChoices = next;
     }
 
-      // ➜ purge des locks pour les IDs qui ne sont plus éligibles (ou déjà décidés)
+    // ➜ purge des locks pour les IDs qui ne sont plus éligibles (ou déjà décidés)
     const present = new Set(this.unstableChoices.map(x => x.unstableId));
     const decidedIds = new Set<string>([
       ...Object.keys(g.unstableTargetByPlayer || {}),
@@ -5358,7 +5359,7 @@ zoomMove(ev: MouseEvent) {
     const locName = this.labelLocation(info.loc!);
 
     return `${unstableName} va bientôt combattre sur ${locName} contre ${info.opponentName}. ` +
-          `Si vous lui ordonnez une récolte, cela annulera son combat !`;
+      `Si vous lui ordonnez une récolte, cela annulera son combat !`;
   }
 
   // encore éligible ? (présent dans l’un des deux maps serveur)
@@ -5428,7 +5429,7 @@ zoomMove(ev: MouseEvent) {
   }
 
   get canBuyPotion() {
-    const me = this.me; 
+    const me = this.me;
     const snapshot = this.game;
     if (!me || !snapshot) return false;
     if (me.hp <= 0) return false;
@@ -5440,7 +5441,7 @@ zoomMove(ev: MouseEvent) {
   }
 
   get canBuyElixir() {
-    const me = this.me; 
+    const me = this.me;
     const snapshot = this.game;
     if (!me || !snapshot) return false;
     if (me.hp <= 0) return false;
@@ -5452,7 +5453,7 @@ zoomMove(ev: MouseEvent) {
   }
 
   get canBuyVampAction() {
-    const me = this.me; 
+    const me = this.me;
     const snapshot = this.game;
     if (!me || !snapshot) return false;
     if (me.hp <= 0) return false;
@@ -5464,7 +5465,7 @@ zoomMove(ev: MouseEvent) {
   }
 
   get canBuyHunterAction() {
-    const me = this.me; 
+    const me = this.me;
     const snapshot = this.game;
     if (!me || !snapshot) return false;
     if (me.hp <= 0) return false;
@@ -5493,28 +5494,28 @@ zoomMove(ev: MouseEvent) {
 
   get canBuyHolyWaterAction(): boolean {
     const me = this.me;
-    const g  = this.game;
+    const g = this.game;
     if (!me || !g || me.role !== 'HUNTER') return false;
     if (me.hp <= 0) return false;
 
-    const goldCost  = this.holyWaterGoldPrice;
+    const goldCost = this.holyWaterGoldPrice;
     const waterCost = 3;
 
     if (me.water < waterCost) return false;
-    if (me.gold  < goldCost)  return false;
+    if (me.gold < goldCost) return false;
 
     return true;
   }
 
-    get canBuyTrackingAction(): boolean {
+  get canBuyTrackingAction(): boolean {
     const me = this.me;
-    const g  = this.game;
+    const g = this.game;
     if (!me || !g || me.role !== 'HUNTER') return false;
     if (me.hp <= 0) return false;
 
-    const goldCost  = this.trackingGoldPrice;
+    const goldCost = this.trackingGoldPrice;
 
-    if (me.gold  < goldCost)  return false;
+    if (me.gold < goldCost) return false;
 
     return true;
   }
@@ -5636,10 +5637,10 @@ zoomMove(ev: MouseEvent) {
     });
   }
   onBuySilver(qty: number) {
-    this.api.buySilver(this.gameId, qty).subscribe({ 
-      next: () => {},
-      error: e => this.showError(e) 
-    }); 
+    this.api.buySilver(this.gameId, qty).subscribe({
+      next: () => { },
+      error: e => this.showError(e)
+    });
   }
   onBuyHolyWaterAction(ev: MouseEvent): void {
     if (!this.game) return;
@@ -5671,23 +5672,23 @@ zoomMove(ev: MouseEvent) {
       error: e => this.showError(e)
     });
   }
-  onSell(res: 'wood'|'herbs'|'stone'|'iron'|'water', qty: number) { 
-    this.api.sellResource(this.gameId, res, qty).subscribe({ 
-      next: () => {}, 
-      error: e => this.showError(e) 
-    }); 
+  onSell(res: 'wood' | 'herbs' | 'stone' | 'iron' | 'water', qty: number) {
+    this.api.sellResource(this.gameId, res, qty).subscribe({
+      next: () => { },
+      error: e => this.showError(e)
+    });
   }
-  onTransmute(recipe: 'WOOD_TO_IRON'|'IRON_TO_WOOD'|'TRINITY_TO_SOULS') { 
-    this.api.transmute(this.gameId, recipe).subscribe({ 
-      next: () => {}, 
-      error: e => this.showError(e) 
-    }); 
+  onTransmute(recipe: 'WOOD_TO_IRON' | 'IRON_TO_WOOD' | 'TRINITY_TO_SOULS') {
+    this.api.transmute(this.gameId, recipe).subscribe({
+      next: () => { },
+      error: e => this.showError(e)
+    });
   }
   onFinishPhase4() {
     this.waitingDone = true;
-    this.api.finishPhase4(this.gameId).subscribe({ 
-      next: () => {}, 
-      error: e => this.showError(e) 
+    this.api.finishPhase4(this.gameId).subscribe({
+      next: () => { },
+      error: e => this.showError(e)
     });
   }
 
@@ -5724,7 +5725,7 @@ zoomMove(ev: MouseEvent) {
     if (this.selectedTradeTargetId) {
       this.myOffersByTarget[this.selectedTradeTargetId] = { ...this.myOffer };
       this.api.tradeOffer(this.gameId, this.selectedTradeTargetId, this.myOffer).subscribe({
-        next: () => {},
+        next: () => { },
         error: e => this.showError(e)
       });
     }
@@ -5750,10 +5751,10 @@ zoomMove(ev: MouseEvent) {
         const st = this.myStatus(t);
         return st !== 'CANCELLED' && st !== 'REFUSED';
       })
-      .sort((a,b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+      .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   }
 
-  onTradeAction(action: 'confirm'|'refuse'|'cancel'): void {
+  onTradeAction(action: 'confirm' | 'refuse' | 'cancel'): void {
     const targetId = this.selectedTradeTargetId; // capture
     if (!targetId) return;
 
@@ -5763,12 +5764,12 @@ zoomMove(ev: MouseEvent) {
     }
 
     this.api.tradeAction(this.gameId, action, targetId).subscribe({
-      next: () => {},
+      next: () => { },
       error: e => this.showError(e)
     });
   }
 
-  onTradeActionFor(action: 'confirm'|'refuse'|'cancel', targetId: string): void {
+  onTradeActionFor(action: 'confirm' | 'refuse' | 'cancel', targetId: string): void {
     if (action === 'cancel') {
       // 2.1 ferme "Mes ressources"
       if (this.selectedTradeTargetId === targetId) {
@@ -5786,7 +5787,7 @@ zoomMove(ev: MouseEvent) {
         );
         if (t) {
           if (t.aId === meId) t.statusA = 'CANCELLED';
-          else                t.statusB = 'CANCELLED';
+          else t.statusB = 'CANCELLED';
           t.updatedAt = Date.now();
         }
       }
@@ -5797,7 +5798,7 @@ zoomMove(ev: MouseEvent) {
 
     // appel serveur (confirmera l’état et/ou supprimera plus tard)
     this.api.tradeAction(this.gameId, action, targetId).subscribe({
-      next: () => {},
+      next: () => { },
       error: e => this.showError(e)
     });
   }
@@ -5807,15 +5808,15 @@ zoomMove(ev: MouseEvent) {
   isClosingKo(id: string): boolean { return this.isClosing(id) && this.closingKind[id] === 'ko'; }
 
   // --- Toasts (2,5 s) par cible ---
-  private flashByTarget: Record<string, { text: string; kind: 'ok'|'ko'; until: number }> = {};
+  private flashByTarget: Record<string, { text: string; kind: 'ok' | 'ko'; until: number }> = {};
 
   activeFlashes() {
     const now = Date.now();
     return Object.entries(this.flashByTarget)
-      .filter(([,v]) => v.until > now)
+      .filter(([, v]) => v.until > now)
       .map(([targetId, v]) => ({ targetId, ...v }));
   }
-  private setFlashFor(targetId: string, text: string, kind: 'ok'|'ko', ms = 2500) {
+  private setFlashFor(targetId: string, text: string, kind: 'ok' | 'ko', ms = 2500) {
     this.flashByTarget[targetId] = { text, kind, until: Date.now() + ms };
   }
 
@@ -5823,15 +5824,15 @@ zoomMove(ev: MouseEvent) {
   private labelFr(k: string): string {
     switch (k) {
       case 'wood': return 'bois'; case 'herbs': return 'herbes'; case 'stone': return 'pierre';
-      case 'iron': return 'fer';  case 'water': return 'eau';    case 'gold':  return 'or';
-      case 'souls':return 'âmes'; case 'silver':return 'argent'; default: return k;
+      case 'iron': return 'fer'; case 'water': return 'eau'; case 'gold': return 'or';
+      case 'souls': return 'âmes'; case 'silver': return 'argent'; default: return k;
     }
   }
   private packToText(pack?: Record<string, number>): string {
     if (!pack) return 'rien';
-    const entries = Object.entries(pack).filter(([_,q]) => (q||0) > 0);
+    const entries = Object.entries(pack).filter(([_, q]) => (q || 0) > 0);
     if (!entries.length) return 'rien';
-    return entries.map(([k,q]) => `${this.labelFr(k)} x${q}`).join(', ');
+    return entries.map(([k, q]) => `${this.labelFr(k)} x${q}`).join(', ');
   }
 
   // animation pioche
@@ -5877,156 +5878,156 @@ zoomMove(ev: MouseEvent) {
     anim.oncancel = () => el.remove();
   }
 
-// --- TIERS (miroir back) ---
-private hunterWeaponTier(weaponId?: string | null): number {
-  if (!weaponId) return 0;
-  if (weaponId.startsWith("H_WEAPON_T1_")) return 1;
-  if (weaponId.startsWith("H_WEAPON_T2_")) return 2;
-  if (weaponId.startsWith("H_WEAPON_T3_")) return 3;
-  return 0;
-}
-private hunterArmorTier(armorId?: string | null): number {
-  if (!armorId) return 0;
-  if (armorId.startsWith("H_ARMOR_T1_")) return 1;
-  if (armorId.startsWith("H_ARMOR_T2_")) return 2;
-  if (armorId.startsWith("H_ARMOR_T3_")) return 3;
-  return 0;
-}
+  // --- TIERS (miroir back) ---
+  private hunterWeaponTier(weaponId?: string | null): number {
+    if (!weaponId) return 0;
+    if (weaponId.startsWith("H_WEAPON_T1_")) return 1;
+    if (weaponId.startsWith("H_WEAPON_T2_")) return 2;
+    if (weaponId.startsWith("H_WEAPON_T3_")) return 3;
+    return 0;
+  }
+  private hunterArmorTier(armorId?: string | null): number {
+    if (!armorId) return 0;
+    if (armorId.startsWith("H_ARMOR_T1_")) return 1;
+    if (armorId.startsWith("H_ARMOR_T2_")) return 2;
+    if (armorId.startsWith("H_ARMOR_T3_")) return 3;
+    return 0;
+  }
 
-// --- OFFRE : tier+1, cap à 2 ---
-private nextWeaponTier(): number | null {
-  const me = this.me;
-  if (!me || me.role !== 'HUNTER') return null;
-  const cur = this.hunterWeaponTier((me as any).weapon);
-  if (cur >= 2) return null;
-  return cur + 1;
-}
-private nextArmorTier(): number | null {
-  const me = this.me;
-  if (!me || me.role !== 'HUNTER') return null;
-  const cur = this.hunterArmorTier((me as any).armor);
-  if (cur >= 2) return null;
-  return cur + 1;
-}
+  // --- OFFRE : tier+1, cap à 2 ---
+  private nextWeaponTier(): number | null {
+    const me = this.me;
+    if (!me || me.role !== 'HUNTER') return null;
+    const cur = this.hunterWeaponTier((me as any).weapon);
+    if (cur >= 2) return null;
+    return cur + 1;
+  }
+  private nextArmorTier(): number | null {
+    const me = this.me;
+    if (!me || me.role !== 'HUNTER') return null;
+    const cur = this.hunterArmorTier((me as any).armor);
+    if (cur >= 2) return null;
+    return cur + 1;
+  }
 
-// --- ASSETS ---
-private stuffImg(file: string): string {
-  return `/assets/cards/stuff/${file}`;
-}
+  // --- ASSETS ---
+  private stuffImg(file: string): string {
+    return `/assets/cards/stuff/${file}`;
+  }
 
-// Armure : pas random
-private armorOfferFile(): string | null {
-  const t = this.nextArmorTier();
-  if (t == null) return null;
-  return `A_T${t}_HUNTER.png`;
-}
+  // Armure : pas random
+  private armorOfferFile(): string | null {
+    const t = this.nextArmorTier();
+    if (t == null) return null;
+    return `A_T${t}_HUNTER.png`;
+  }
 
-// Offre canon (ce que tu affiches ET ce que tu envoies à l’achat)
-private myWeaponOffer(): { tier: number; type: 'BLEED'|'RANGE'|'STUN' } | null {
-  const t = this.nextWeaponTier();
-  if (t == null) return null;
+  // Offre canon (ce que tu affiches ET ce que tu envoies à l’achat)
+  private myWeaponOffer(): { tier: number; type: 'BLEED' | 'RANGE' | 'STUN' } | null {
+    const t = this.nextWeaponTier();
+    if (t == null) return null;
 
-  const g: any = this.game;
-  const meId = this.me?.id;
-  if (!g || !meId) return { tier: t, type: 'BLEED' };
+    const g: any = this.game;
+    const meId = this.me?.id;
+    if (!g || !meId) return { tier: t, type: 'BLEED' };
 
-  const mapTier = g.shopWeaponOfferTierByHunter as Record<string, number> | undefined;
-  const mapType = g.shopWeaponOfferTypeByHunter as Record<string, 'BLEED'|'RANGE'|'STUN'> | undefined;
+    const mapTier = g.shopWeaponOfferTierByHunter as Record<string, number> | undefined;
+    const mapType = g.shopWeaponOfferTypeByHunter as Record<string, 'BLEED' | 'RANGE' | 'STUN'> | undefined;
 
-  const srvTier = mapTier?.[meId];
-  const srvType = mapType?.[meId];
+    const srvTier = mapTier?.[meId];
+    const srvType = mapType?.[meId];
 
-  const type: 'BLEED'|'RANGE'|'STUN' = (srvTier === t && srvType) ? srvType : 'BLEED';
-  return { tier: t, type };
-}
+    const type: 'BLEED' | 'RANGE' | 'STUN' = (srvTier === t && srvType) ? srvType : 'BLEED';
+    return { tier: t, type };
+  }
 
-// Image affichée = offre canon
-private weaponOfferFile(): string | null {
-  const offer = this.myWeaponOffer();
-  if (!offer) return null;
-  return `W_T${offer.tier}_${offer.type}_HUNTER.png`;
-}
+  // Image affichée = offre canon
+  private weaponOfferFile(): string | null {
+    const offer = this.myWeaponOffer();
+    if (!offer) return null;
+    return `W_T${offer.tier}_${offer.type}_HUNTER.png`;
+  }
 
-weaponUpgradeImgSrc(): string {
-  const file = this.weaponOfferFile();
-  return file ? this.stuffImg(file) : '/assets/icons/lock.png';
-}
-armorUpgradeImgSrc(): string {
-  const file = this.armorOfferFile();
-  return file ? this.stuffImg(file) : '/assets/icons/lock.png';
-}
+  weaponUpgradeImgSrc(): string {
+    const file = this.weaponOfferFile();
+    return file ? this.stuffImg(file) : '/assets/icons/lock.png';
+  }
+  armorUpgradeImgSrc(): string {
+    const file = this.armorOfferFile();
+    return file ? this.stuffImg(file) : '/assets/icons/lock.png';
+  }
 
-weaponUpgradeTitle(): string {
-  const t = this.nextWeaponTier();
-  if (t == null) return "Arme (max)";
-  return `Acheter une arme T${t}`;
-}
-armorUpgradeTitle(): string {
-  const t = this.nextArmorTier();
-  if (t == null) return "Armure (max)";
-  return `Acheter une armure T${t}`;
-}
+  weaponUpgradeTitle(): string {
+    const t = this.nextWeaponTier();
+    if (t == null) return "Arme (max)";
+    return `Acheter une arme T${t}`;
+  }
+  armorUpgradeTitle(): string {
+    const t = this.nextArmorTier();
+    if (t == null) return "Armure (max)";
+    return `Acheter une armure T${t}`;
+  }
 
-weaponUpgradeCost(): { wood: number; iron: number } | null {
-  const t = this.nextWeaponTier();
-  if (t == null) return null;
-  return t === 1 ? { wood: 3, iron: 3 } : { wood: 4, iron: 4 };
-}
-armorUpgradeCost(): { wood: number; iron: number } | null {
-  const t = this.nextArmorTier();
-  if (t == null) return null;
-  return t === 1 ? { wood: 3, iron: 3 } : { wood: 4, iron: 4 };
-}
+  weaponUpgradeCost(): { wood: number; iron: number } | null {
+    const t = this.nextWeaponTier();
+    if (t == null) return null;
+    return t === 1 ? { wood: 3, iron: 3 } : { wood: 4, iron: 4 };
+  }
+  armorUpgradeCost(): { wood: number; iron: number } | null {
+    const t = this.nextArmorTier();
+    if (t == null) return null;
+    return t === 1 ? { wood: 3, iron: 3 } : { wood: 4, iron: 4 };
+  }
 
-canBuyUpgradeWeapon(): boolean {
-  const me = this.me;
-  const c = this.weaponUpgradeCost();
-  if (!me || me.role !== 'HUNTER') return false;
-  if (me.hp <= 0) return false;
-  if (!c) return false;
-  return me.wood >= c.wood && me.iron >= c.iron;
-}
-canBuyUpgradeArmor(): boolean {
-  const me = this.me;
-  const c = this.armorUpgradeCost();
-  if (!me || me.role !== 'HUNTER') return false;
-  if (me.hp <= 0) return false;
-  if (!c) return false;
-  return me.wood >= c.wood && me.iron >= c.iron;
-}
+  canBuyUpgradeWeapon(): boolean {
+    const me = this.me;
+    const c = this.weaponUpgradeCost();
+    if (!me || me.role !== 'HUNTER') return false;
+    if (me.hp <= 0) return false;
+    if (!c) return false;
+    return me.wood >= c.wood && me.iron >= c.iron;
+  }
+  canBuyUpgradeArmor(): boolean {
+    const me = this.me;
+    const c = this.armorUpgradeCost();
+    if (!me || me.role !== 'HUNTER') return false;
+    if (me.hp <= 0) return false;
+    if (!c) return false;
+    return me.wood >= c.wood && me.iron >= c.iron;
+  }
 
-onBuyUpgradeWeapon(ev: MouseEvent): void {
-  const offer = this.myWeaponOffer();
-  if (!offer) return;
+  onBuyUpgradeWeapon(ev: MouseEvent): void {
+    const offer = this.myWeaponOffer();
+    if (!offer) return;
 
-  const btn = ev.currentTarget as HTMLElement | null;
-  const img = btn?.querySelector('img') as HTMLImageElement | null;
+    const btn = ev.currentTarget as HTMLElement | null;
+    const img = btn?.querySelector('img') as HTMLImageElement | null;
 
-  const src = img?.src;
-  const rect = img?.getBoundingClientRect();
+    const src = img?.src;
+    const rect = img?.getBoundingClientRect();
 
-  this.api.buyUpgradeWeapon(this.gameId, offer).subscribe({
-    next: () => {
-      if (src && rect) this.flyDomToViewportBottom(src, rect);
-    },
-    error: e => this.showError(e)
-  });
-}
+    this.api.buyUpgradeWeapon(this.gameId, offer).subscribe({
+      next: () => {
+        if (src && rect) this.flyDomToViewportBottom(src, rect);
+      },
+      error: e => this.showError(e)
+    });
+  }
 
-onBuyUpgradeArmor(ev: MouseEvent): void {
-  const btn = ev.currentTarget as HTMLElement | null;
-  const img = btn?.querySelector('img') as HTMLImageElement | null;
+  onBuyUpgradeArmor(ev: MouseEvent): void {
+    const btn = ev.currentTarget as HTMLElement | null;
+    const img = btn?.querySelector('img') as HTMLImageElement | null;
 
-  const src = img?.src;
-  const rect = img?.getBoundingClientRect();
+    const src = img?.src;
+    const rect = img?.getBoundingClientRect();
 
-  this.api.buyUpgradeArmor(this.gameId).subscribe({
-    next: () => {
-      if (src && rect) this.flyDomToViewportBottom(src, rect);
-    },
-    error: e => this.showError(e)
-  });
-}
+    this.api.buyUpgradeArmor(this.gameId).subscribe({
+      next: () => {
+        if (src && rect) this.flyDomToViewportBottom(src, rect);
+      },
+      error: e => this.showError(e)
+    });
+  }
 
 
   // Construction
@@ -6059,23 +6060,23 @@ onBuyUpgradeArmor(ev: MouseEvent): void {
   getInfraConfirmText(infra: 'SAWMILL' | 'MINE' | 'LIBRARY' | 'LABORATORY' | 'BALLROOM' | 'ALTAR' | 'FORGE'): string {
     if (infra === 'SAWMILL') {
       return 'Se déplacer à la Forêt pour construire la Scierie ?';
-    } 
-    if (infra === 'MINE'){
+    }
+    if (infra === 'MINE') {
       return 'Se déplacer à la Carrière pour construire la Mine ?';
     }
-    if (infra === 'LIBRARY'){
+    if (infra === 'LIBRARY') {
       return 'Se déplacer au Manoir pour construire la Bibliothèque ?';
     }
-    if (infra === 'LABORATORY'){
+    if (infra === 'LABORATORY') {
       return 'Se déplacer au Manoir pour construire le Laboratoire ?';
     }
-    if (infra === 'BALLROOM'){
+    if (infra === 'BALLROOM') {
       return 'Se déplacer au Manoir pour construire la salle de bal ?';
     }
-    if (infra === 'ALTAR'){
+    if (infra === 'ALTAR') {
       return 'Se déplacer au Manoir pour construire l\'autel ?';
     }
-    if (infra === 'FORGE'){
+    if (infra === 'FORGE') {
       return 'Se déplacer au Manoir pour construire la forge ?';
     }
     return '';
@@ -6131,7 +6132,7 @@ onBuyUpgradeArmor(ev: MouseEvent): void {
         return 'Alchimie';
       case 'RARE_ALCHEMY':
         return 'Alchimie rare';
-      case 'EXPLOSION':    
+      case 'EXPLOSION':
         return 'Explosion alchimique';
       case 'DEATH_DANCE':
         return 'Danse macabre';
@@ -6414,7 +6415,7 @@ onBuyUpgradeArmor(ev: MouseEvent): void {
       return;
     }
 
-      // Garde Ballroom : cohérent avec isBallroomChoiceDisabled
+    // Garde Ballroom : cohérent avec isBallroomChoiceDisabled
     if (
       (choice === 'DEATH_DANCE' || choice === 'SNEAK_ATTACK' || choice === 'BLOOD_WALTZ') &&
       !this.isVampireSide
@@ -6566,10 +6567,10 @@ onBuyUpgradeArmor(ev: MouseEvent): void {
       const vamp = g.players.find(p => p.role === 'VAMPIRE' && p.hp > 0 && p.actions && p.actions.length > 0);
       return vamp
         ? [{
-            id: vamp.id,
-            username: vamp.username,
-            actionsCount: vamp.actions.length,
-          }]
+          id: vamp.id,
+          username: vamp.username,
+          actionsCount: vamp.actions.length,
+        }]
         : [];
     }
 
@@ -6625,7 +6626,7 @@ onBuyUpgradeArmor(ev: MouseEvent): void {
       }
     });
   }
-  
+
   onOmenPlacementClick(index: number, where: 'TOP' | 'BOTTOM') {
     if (!this.isLocationActionOwner) return;
     if (!this.omenPlacements || index < 0 || index >= this.omenPlacements.length) return;
@@ -6676,7 +6677,7 @@ onBuyUpgradeArmor(ev: MouseEvent): void {
     return m?.hp;
   }
 
-  onExperimentMonsterClick(type: 'REVENANT'|'GARGOYLE'|'ABERRATION') {
+  onExperimentMonsterClick(type: 'REVENANT' | 'GARGOYLE' | 'ABERRATION') {
     if (!this.isLocationActionOwner || !this.game) return;
 
     this.experimentMonsterType = type;
@@ -6825,7 +6826,7 @@ onBuyUpgradeArmor(ev: MouseEvent): void {
 
   get altarCanSubmit(): boolean {
     return (this.locationActionKind === 'HEAL'
-            || this.locationActionKind === 'CORRUPT')
+      || this.locationActionKind === 'CORRUPT')
       && this.isLocationActionOwner
       && !!this.altarSelectedTargetId;
   }
@@ -6931,15 +6932,15 @@ onBuyUpgradeArmor(ev: MouseEvent): void {
     const faces = this.maxDiceFaces(p.attackDice);
     if (faces >= 12) return 3;
     if (faces >= 8) return 2;
-    if (faces >= 6)  return 1;
+    if (faces >= 6) return 1;
     return 0;
   }
 
   private getArmorTierFromPlayer(p: GameSnapshot['players'][number]): 0 | 1 | 2 | 3 {
     const faces = this.maxDiceFaces(p.defenseDice);
-    if (faces >=12) return 3;
+    if (faces >= 12) return 3;
     if (faces >= 8) return 2;
-    if (faces >= 6)  return 1;
+    if (faces >= 6) return 1;
     return 0;
   }
 
@@ -7158,15 +7159,15 @@ onBuyUpgradeArmor(ev: MouseEvent): void {
     const role = owner.role; // 'HUNTER' | 'VAMPIRE' | 'SERVANT'
 
     const weaponTier = this.getWeaponTierFromPlayer(owner);
-    const armorTier  = this.getArmorTierFromPlayer(owner);
+    const armorTier = this.getArmorTierFromPlayer(owner);
 
     const nextWeaponTier = (weaponTier < 3 ? (weaponTier + 1) as 1 | 2 | 3 : null);
-    const nextArmorTier  = (armorTier  < 3 ? (armorTier  + 1) as 1 | 2 | 3 : null);
+    const nextArmorTier = (armorTier < 3 ? (armorTier + 1) as 1 | 2 | 3 : null);
 
     const options: ForgeOption[] = [];
 
     const isHunterCamp = role === 'HUNTER';
-    const isVampCamp   = role === 'VAMPIRE' || role === 'SERVANT';
+    const isVampCamp = role === 'VAMPIRE' || role === 'SERVANT';
 
     if (nextWeaponTier) {
       if (isHunterCamp) {
@@ -7219,13 +7220,13 @@ onBuyUpgradeArmor(ev: MouseEvent): void {
   }
 
   buildOptions: Array<{ code: InfraCode; title: string; where: string }> = [
-    { code: 'SAWMILL',     title: 'Scierie',             where: 'Forêt' },
-    { code: 'MINE',        title: 'Mine',                where: 'Carrière' },
-    { code: 'LIBRARY',     title: 'Bibliothèque',        where: 'Manoir' },
-    { code: 'LABORATORY',  title: 'Laboratoire occulte', where: 'Manoir' },
-    { code: 'BALLROOM',    title: 'Salle de bal',        where: 'Manoir' },
-    { code: 'ALTAR',       title: 'Sanctuaire / Autel',  where: 'Manoir' },
-    { code: 'FORGE',       title: 'Forge',               where: 'Manoir' },
+    { code: 'SAWMILL', title: 'Scierie', where: 'Forêt' },
+    { code: 'MINE', title: 'Mine', where: 'Carrière' },
+    { code: 'LIBRARY', title: 'Bibliothèque', where: 'Manoir' },
+    { code: 'LABORATORY', title: 'Laboratoire occulte', where: 'Manoir' },
+    { code: 'BALLROOM', title: 'Salle de bal', where: 'Manoir' },
+    { code: 'ALTAR', title: 'Sanctuaire / Autel', where: 'Manoir' },
+    { code: 'FORGE', title: 'Forge', where: 'Manoir' },
   ];
 
   isInfraBuilt(code: InfraCode): boolean {
@@ -7238,27 +7239,27 @@ onBuyUpgradeArmor(ev: MouseEvent): void {
   }
 
   private readonly INFRA_COSTS: Record<InfraCode, Partial<Record<string, number>>> = {
-    SAWMILL:    { stone: 2, iron: 2 },
-    MINE:       { wood: 3,  iron: 1 },
-    LIBRARY:    { wood: 4,  stone: 2, iron: 1 },
+    SAWMILL: { stone: 2, iron: 2 },
+    MINE: { wood: 3, iron: 1 },
+    LIBRARY: { wood: 4, stone: 2, iron: 1 },
     LABORATORY: { water: 2, herbs: 2, stone: 3, souls: 50 },
-    BALLROOM:   { stone: 5, iron: 2, souls: 50 },
-    ALTAR:      { stone: 4, wood: 1, iron: 2, souls: 50 },
-    FORGE:      { iron: 5,  stone: 4, wood: 2 },
+    BALLROOM: { stone: 5, iron: 2, souls: 50 },
+    ALTAR: { stone: 4, wood: 1, iron: 2, souls: 50 },
+    FORGE: { iron: 5, stone: 4, wood: 2 },
   };
 
   private readonly RES_META: Record<string, { icon: string; label: string }> = {
-    wood:  { icon: '/assets/icons/wood.png',          label: 'Bois' },
-    stone: { icon: '/assets/icons/stone.png',         label: 'Pierre' },
-    iron:  { icon: '/assets/icons/iron.png',          label: 'Fer' },
-    water: { icon: '/assets/icons/water.png',         label: 'Eau pure' },
+    wood: { icon: '/assets/icons/wood.png', label: 'Bois' },
+    stone: { icon: '/assets/icons/stone.png', label: 'Pierre' },
+    iron: { icon: '/assets/icons/iron.png', label: 'Fer' },
+    water: { icon: '/assets/icons/water.png', label: 'Eau pure' },
     herbs: { icon: '/assets/icons/medical_grass.png', label: 'Herbe médicinale' },
-    souls: { icon: '/assets/icons/souls.png',         label: 'Âmes déchues' },
+    souls: { icon: '/assets/icons/souls.png', label: 'Âmes déchues' },
   };
 
   infraCostList(code: InfraCode): Array<{ qty: number; icon: string; label: string }> {
     const costs = this.INFRA_COSTS[code] ?? {};
-    const order: string[] = ['wood','stone','iron','water','herbs','souls']; // ordre stable
+    const order: string[] = ['wood', 'stone', 'iron', 'water', 'herbs', 'souls']; // ordre stable
     const out: Array<{ qty: number; icon: string; label: string }> = [];
 
     for (const k of order) {

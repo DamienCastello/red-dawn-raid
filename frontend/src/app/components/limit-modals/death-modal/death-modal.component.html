@@ -1,0 +1,11 @@
+<div class="modal-overlay" *ngIf="show">
+    <div class="modal end-game-modal">
+        <h2>Vous êtes mort…</h2>
+        <p>Vous pouvez observer la partie ou retourner au lobby.</p>
+
+        <div class="end-game-actions">
+            <button (click)="observe.emit()" style="margin-right:.5rem">Observer</button>
+            <button (click)="leave.emit()">Retour au lobby</button>
+        </div>
+    </div>
+</div>

@@ -3424,17 +3424,7 @@
   </div>
 </div>
 <!-- Modale de mort (game pas finie) -->
-<div class="modal-overlay" *ngIf="showDeathModal">
-  <div class="modal end-game-modal">
-    <h2>Vous êtes mort…</h2>
-    <p>Vous pouvez observer la partie ou retourner au lobby.</p>
-
-    <div class="end-game-actions">
-      <button (click)="observeAfterDeath()" style="margin-right:.5rem">Observer</button>
-      <button (click)="leaveAfterDeath()">Retour au lobby</button>
-    </div>
-  </div>
-</div>
+<app-death-modal [show]="showDeathModal" (observe)="observeAfterDeath()" (leave)="leaveAfterDeath()"></app-death-modal>
 <!-- Modale de fin de partie -->
 <div class="modal-overlay" *ngIf="isGameEnded">
   <div class="modal end-game-modal">
