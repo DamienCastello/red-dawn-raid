@@ -1,0 +1,169 @@
+/* Base modal styles (needed due to view encapsulation) */
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal {
+    background: #fff;
+    padding: 1rem;
+    border-radius: 8px;
+    width: min(680px, 95vw);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .2);
+}
+
+/* Dice styles (needed for proper sizing) */
+.dice {
+    width: 180px;
+    height: auto;
+}
+
+.dice-big {
+    width: 240px;
+    height: auto;
+}
+
+.dice-wrap {
+    position: relative;
+    display: inline-block;
+}
+
+.dice-overlay {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font: 700 42px/1 system-ui, sans-serif;
+    color: #cc9c00;
+    pointer-events: none;
+    font-variant-numeric: tabular-nums;
+    transform: translate(var(--dx, 0px), var(--dy, 0px));
+}
+
+/* 1 chiffre */
+.dice-wrap[data-digits="1"] .dice-overlay {
+    --dx: -2px;
+    --dy: 7px;
+}
+
+/* 2 chiffres */
+.dice-wrap[data-digits="2"] .dice-overlay {
+    --dx: -5px;
+    --dy: 7px;
+    letter-spacing: -0.5px;
+}
+
+.footer {
+    margin-top: .75rem;
+    text-align: center;
+    color: #eeeeeeff;
+}
+
+.btn-primary {
+    padding: .5rem 1rem;
+    font-weight: 600;
+}
+
+/* Bite modal specific styles */
+.modal.bite-modal {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-position: center 30%;
+    min-height: 500px;
+    width: min(780px, 95vw);
+    min-height: 700px;
+}
+
+.modal.bite-modal .icon-side {
+    width: 120px;
+    height: 120px;
+    opacity: .9;
+}
+
+.modal.bite-modal .icon-halo.oval {
+    --halo-w: 120px;
+    --halo-h: 120px;
+    --halo-dx: 0px;
+    --halo-dy: 0px;
+}
+
+.modal.bite-modal .icon-halo.round {
+    --halo-w: 140px;
+    --halo-h: 140px;
+    --halo-dx: 0px;
+    --halo-dy: 0px;
+}
+
+.icon-bubble {
+    display: grid;
+    place-items: center;
+}
+
+.icon-halo {
+    position: relative;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+}
+
+.icon-halo::before {
+    content: "";
+    position: absolute;
+    z-index: 0;
+    width: var(--halo-w, 110px);
+    height: var(--halo-h, 160px);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) translate(var(--halo-dx, 0px), var(--halo-dy, 0px));
+    background: rgba(20, 22, 24, .45);
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+    box-shadow:
+        inset 0 8px 24px rgba(0, 0, 0, .35),
+        0 6px 16px rgba(0, 0, 0, .25);
+}
+
+.icon-halo.round::before {
+    border-radius: 50%;
+}
+
+.icon-halo.oval::before {
+    border-radius: 50%;
+}
+
+.content.action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 260px;
+    gap: .75rem;
+}
+
+.dice-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.bg-badge {
+    display: inline-block;
+    margin: 0 auto .4rem;
+    text-align: center;
+    line-height: 1.15;
+    padding: .35rem .75rem;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, .45);
+    color: #fff;
+}

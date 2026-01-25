@@ -12,6 +12,8 @@ import { DeathModalComponent } from './components/limit-modals/death-modal/death
 import { EndGameModalComponent } from './components/limit-modals/end-game-modal/end-game-modal.component';
 import { ZoomOverlayComponent } from './components/ui/zoom-overlay/zoom-overlay.component';
 import { WeatherModalComponent } from './components/weather-modal/weather-modal.component';
+import { BiteModalComponent } from './components/modals/bite-modal/bite-modal.component';
+import { CorruptionModalComponent } from './components/modals/corruption-modal/corruption-modal.component';
 
 type ForgeRes = 'wood' | 'iron' | 'silver' | 'souls';
 type ForgeCost = Partial<Record<ForgeRes, number>>;
@@ -73,7 +75,7 @@ interface ForgeOption {
 @Component({
   standalone: true,
   selector: 'app-game',
-  imports: [CommonModule, PhaseBubbleComponent, ToastComponent, DeathModalComponent, EndGameModalComponent, ZoomOverlayComponent, WeatherModalComponent],
+  imports: [CommonModule, PhaseBubbleComponent, ToastComponent, DeathModalComponent, EndGameModalComponent, ZoomOverlayComponent, WeatherModalComponent, BiteModalComponent, CorruptionModalComponent],
   templateUrl: './game.component.html',
   styleUrls: ['./game.component.scss']
 })

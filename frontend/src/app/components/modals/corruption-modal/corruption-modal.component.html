@@ -1,0 +1,59 @@
+<div *ngIf="show" class="modal-backdrop">
+    <div class="modal corruption-modal with-bg" [style.backgroundImage]="backgroundImage">
+        <h3 class="bg-badge" style="margin-top:0;">
+            Contrôle d'un chasseur instable
+        </h3>
+
+        <div class="scrim-bottom"></div>
+
+        <div class="content corruption">
+            <div class="bg-box">
+
+                <ng-container *ngFor="let it of unstableChoices; trackBy: trackByUnstable">
+                    <ng-container *ngIf="getUnstableDefaultFight(it.unstableId) as info">
+                        <div class="bg-badge warn" *ngIf="info.willFight">
+                            {{ usernameOf(it.unstableId) }} va bientôt combattre sur {{ labelLocation(info.loc!) }}
+                            contre {{ info.opponentName }}. Si vous lui ordonnez une récolte, cela annulera son combat !
+                        </div>
+                    </ng-container>
+
+                    <div *ngIf="it.targets?.length">
+                        <div class="label-choices">
+                            Choisir un chasseur pris pour cible par {{ usernameOf(it.unstableId) }}
+                        </div>
+                        <div class="choices">
+                            <button *ngFor="let tid of it.targets"
+                                (click)="assignTarget.emit({ unstableId: it.unstableId, targetId: tid })"
+                                [disabled]="!isMeVampire || isUnstableLocked(it.unstableId)"
+                                [class.is-disabled]="isUnstableAlreadyDecided(it.unstableId)"
+                                [attr.aria-disabled]="isUnstableAlreadyDecided(it.unstableId) ? true : null">
+                                {{ usernameOf(tid) }}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="label-choices">
+                            Choisir un lieu où {{ usernameOf(it.unstableId) }} récoltera pour {{ vampireName }}
+                        </div>
+                        <div class="choices">
+                            <button *ngFor="let loc of it.locations"
+                                (click)="assignHarvest.emit({ unstableId: it.unstableId, location: loc })"
+                                [disabled]="!isMeVampire || isUnstableLocked(it.unstableId)">
+                                {{ labelLocation(loc) }}
+                            </button>
+
+                            <!-- Bouton "Ne rien faire" seulement si combat par défaut ET choix encore possible -->
+                            <button
+                                *ngIf="getUnstableDefaultFight(it.unstableId).willFight && isPendingUnstable(it.unstableId)"
+                                (click)="assignNothing.emit(it.unstableId)"
+                                [disabled]="!isMeVampire || isUnstableLocked(it.unstableId)">
+                                Ne rien faire
+                            </button>
+                        </div>
+                    </div>
+                </ng-container>
+            </div>
+        </div>
+    </div>
+</div>

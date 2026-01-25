@@ -1131,126 +1131,23 @@
   </div>
 </div>
 <!-- === MODALE MORSURE (PHASE3, quand currentBite actif) === -->
-<div *ngIf="showBiteModal && !isGameEnded" class="modal-backdrop">
-  <div class="modal bite-modal" [style.backgroundImage]="setImageBackground('bite')">
-    <h3 class="bg-badge">Tentative de morsure</h3>
-
-    <div class="content action">
-      <div class="icon-bubble round">
-        <div class="icon-halo round">
-          <img class="icon-side" src="/assets/corruption/corruption-icon.png" alt="corruption" />
-        </div>
-      </div>
-
-      <div class="dice-row">
-        <!-- D6 de morsure -->
-        <div class="dice-wrap" [attr.data-digits]="2">
-          <img class="dice-big" src="/assets/dices/d20-red.png" alt="d20" />
-          <div class="dice-overlay" *ngIf="game?.currentBite?.roll != null">
-            {{ game?.currentBite?.roll }}
-          </div>
-        </div>
-
-        <!-- D4 d’armure (si armure d’argent concernée) -->
-        <div class="dice-wrap" *ngIf="showArmorDice" [attr.data-digits]="1">
-          <!-- adapte le visuel si tu n’as pas de d4 -->
-          <img class="dice-big" src="/assets/dices/d4-blue.png" alt="d4" />
-          <div class="dice-overlay" *ngIf="game?.currentBite?.armorRoll != null">
-            {{ game?.currentBite?.armorRoll }}
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="footer">
-      <!-- Étape 1 : jet de morsure (D20) -->
-      <ng-container *ngIf="biteStage() === 'BITE'; else afterFirstRoll">
-        <ng-container *ngIf="canRollBite(); else waitBite">
-          <button (click)="rollCorruption()" class="btn-primary">Jeter le dé</button>
-        </ng-container>
-        <ng-template #waitBite>
-          <span class="bg-badge">En attente du jet…</span>
-        </ng-template>
-      </ng-container>
-
-      <!-- Étape 2 : jet d’armure (D4) ou résultat final -->
-      <ng-template #afterFirstRoll>
-        <!-- Jet d’armure en attente -->
-        <ng-container *ngIf="biteStage() === 'ARMOR'; else finalResult">
-          <ng-container *ngIf="canRollArmor(); else waitArmor">
-            <button (click)="rollArmor()" class="btn-primary">Jet d’armure (d4)</button>
-          </ng-container>
-          <ng-template #waitArmor>
-            <span class="bg-badge">En attente du jet d’armure…</span>
-          </ng-template>
-        </ng-container>
-
-        <!-- Résultat final -->
-        <ng-template #finalResult>
-          <span class="bg-badge">{{ biteResultText() }}</span>
-          <span class="bg-badge">{{ altarRitualText() }}</span>
-        </ng-template>
-      </ng-template>
-    </div>
-  </div>
-</div>
+<app-bite-modal [show]="showBiteModal && !isGameEnded" [backgroundImage]="setImageBackground('bite')"
+  [biteRoll]="game?.currentBite?.roll" [armorRoll]="game?.currentBite?.armorRoll" [showArmorDice]="showArmorDice"
+  [biteStage]="biteStage()" [canRollBite]="canRollBite()" [canRollArmor]="canRollArmor()"
+  [biteResultText]="biteResultText()" [altarRitualText]="altarRitualText()" (rollCorruption)="rollCorruption()"
+  (rollArmor)="rollArmor()">
+</app-bite-modal>
 <!-- === MODALE CHOIX INSTABLE (PREPHASE3) === -->
-<div *ngIf="showUnstableModal()" class="modal-backdrop">
-  <div class="modal corruption-modal with-bg" [style.backgroundImage]="setImageBackground('corruption')">
-    <h3 class="bg-badge" style="margin-top:0;">
-      Contrôle d’un chasseur instable
-    </h3>
-
-    <div class="scrim-bottom"></div>
-
-    <div class="content corruption">
-      <div class="bg-box">
-
-        <ng-container *ngFor="let it of unstableChoices; trackBy: trackByUnstable">
-          <ng-container *ngIf="getUnstableDefaultFight(it.unstableId) as info">
-            <div class="bg-badge warn" *ngIf="info.willFight">
-              {{ usernameOf(it.unstableId) }} va bientôt combattre sur {{ labelLocation(info.loc!) }}
-              contre {{ info.opponentName }}. Si vous lui ordonnez une récolte, cela annulera son combat !
-            </div>
-          </ng-container>
-
-          <div *ngIf="it.targets?.length">
-            <div class="label-choices">
-              Choisir un chasseur pris pour cible par {{ usernameOf(it.unstableId) }}
-            </div>
-            <div class="choices">
-              <button *ngFor="let tid of it.targets" (click)="assignUnstableTarget(it.unstableId, tid)"
-                [disabled]="!isMeVampire || isUnstableLocked(it.unstableId)"
-                [class.is-disabled]="isUnstableAlreadyDecided(it.unstableId)"
-                [attr.aria-disabled]="isUnstableAlreadyDecided(it.unstableId) ? true : null">>
-                {{ usernameOf(tid) }}
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <div class="label-choices">
-              Choisir un lieu où {{ usernameOf(it.unstableId) }} récoltera pour {{ vampireName() }}
-            </div>
-            <div class="choices">
-              <button *ngFor="let loc of it.locations" (click)="assignUnstableHarvest(it.unstableId, loc)"
-                [disabled]="!isMeVampire || isUnstableLocked(it.unstableId)">
-                {{ labelLocation(loc) }}
-              </button>
-
-              <!-- Bouton "Ne rien faire" seulement si combat par défaut ET choix encore possible -->
-              <button *ngIf="getUnstableDefaultFight(it.unstableId).willFight && isPendingUnstable(it.unstableId)"
-                (click)="assignUnstableNothing(it.unstableId)"
-                [disabled]="!isMeVampire || isUnstableLocked(it.unstableId)">
-                Ne rien faire
-              </button>
-            </div>
-          </div>
-        </ng-container>
-      </div>
-    </div>
-  </div>
-</div>
+<app-corruption-modal [show]="showUnstableModal()" [backgroundImage]="setImageBackground('corruption')"
+  [unstableChoices]="unstableChoices" [isMeVampire]="isMeVampire" [vampireName]="vampireName()"
+  [usernameOf]="usernameOf.bind(this)" [labelLocation]="labelLocation.bind(this)"
+  [getUnstableDefaultFight]="getUnstableDefaultFight.bind(this)" [isUnstableLocked]="isUnstableLocked.bind(this)"
+  [isUnstableAlreadyDecided]="isUnstableAlreadyDecided.bind(this)" [isPendingUnstable]="isPendingUnstable.bind(this)"
+  [trackByUnstable]="trackByUnstable.bind(this)"
+  (assignTarget)="assignUnstableTarget($event.unstableId, $event.targetId)"
+  (assignHarvest)="assignUnstableHarvest($event.unstableId, $event.location)"
+  (assignNothing)="assignUnstableNothing($event)">
+</app-corruption-modal>
 <!-- ===== MODALE BOUTIQUE / TRANSMUTATION (Phase 4) ===== -->
 <div *ngIf="shopOpen && !isGameEnded" class="modal-backdrop">
   <div class="modal trade-modal" [class.hunters]="isHunter" [class.vampires]="isVampireSide">
