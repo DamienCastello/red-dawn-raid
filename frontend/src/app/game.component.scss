@@ -1342,94 +1342,7 @@
     --halo-dy: 0px;
   }
 
-  /* AJOUT WEATHER */
-  .modal.weather-modal {
-    width: min(680px, 95vw);
-    min-height: 540px;
-    background-color: #452000;
-    background-image: url("https://www.transparenttextures.com/patterns/purty-wood.png");
-    position: relative;
-  }
 
-  .weather-modal.with-bg {
-    background-size: cover;
-    background-position: center;
-    background-color: rgba(0, 0, 0, .30);
-    background-blend-mode: multiply;
-    color: #fff;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, .6);
-  }
-
-  .content.weather.result {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    gap: .5rem;
-    min-height: 260px;
-    text-align: center;
-  }
-
-  .weather-badge {
-    font: 800 1.1rem/1.1 system-ui, sans-serif;
-    padding: .35rem .75rem;
-    border-radius: 999px;
-    background: rgba(0, 0, 0, .45);
-  }
-
-  .weather-desc,
-  .weather-note {
-    max-width: 60ch;
-    white-space: pre-line;
-    margin: 0;
-    text-shadow: 0 2px 6px rgba(0, 0, 0, .55);
-    opacity: .95;
-  }
-
-  .content.weather {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 260px;
-    gap: .75rem;
-  }
-
-  /* Conteneur pour positionner l'icône sur la roue */
-  .wheel-wrap {
-    position: relative;
-    width: 400px;
-    height: auto;
-  }
-
-  .wheel-wrap .wheel {
-    display: block;
-    width: 100%;
-    height: auto;
-  }
-
-  /* icône météo sur une pale */
-  .weather-ico {
-    position: relative;
-    top: 0%;
-    left: 0%;
-    width: 28px;
-    height: 28px;
-    transform-origin: 50% 50%;
-    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .5));
-    transition: transform .25s ease-out;
-  }
-
-  .badge-weather {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 28px;
-    height: 28px;
-    background: #ddddddff;
-    border-radius: 999px;
-    opacity: .92;
-  }
 
   .mods-badge-weather,
   .mods-badge-potion,
@@ -1590,16 +1503,7 @@
     object-fit: contain;
   }
 
-  .weather-footer {
-    color: white;
-    font-weight: bold;
-  }
 
-  .wheel {
-    width: 400px;
-    height: auto;
-    opacity: .95;
-  }
 
   .btn-primary {
     padding: .5rem 1rem;
@@ -1696,6 +1600,18 @@
     padding-top: .5rem;
     border-top: 1px solid rgba(255, 255, 255, .25);
     text-align: center;
+  }
+
+  /* icône météo sur une pale (et sur les chips) */
+  .weather-ico {
+    position: relative;
+    top: 0%;
+    left: 0%;
+    width: 28px;
+    height: 28px;
+    transform-origin: 50% 50%;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .5));
+    transition: transform .25s ease-out;
   }
 
   .trap-info {

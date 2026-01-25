@@ -599,51 +599,13 @@
 </main>
 
 <!-- === MODALE METEO (PHASE0) === -->
-<div *ngIf="canShowWeatherModal()" class="modal-backdrop">
-  <div class="modal weather-modal" [ngClass]="{ 'with-bg': weatherBgActive }"
-    [style.backgroundImage]="weatherBgActive ? setImageBackground('weather') : null">
-    <h3 style="margin-top:0; color:white;">{{'Tirage météo'}}</h3>
-
-    <!-- AVANT affichage du fond météo : roue + dé (avec overlay résultat) -->
-    <ng-container *ngIf="isWeatherPreReveal(); else weatherResult">
-      <div class="content weather">
-        <div class="wheel-wrap">
-          <img class="wheel" src="/assets/weather/meteo_wheel.png" alt="roue météo" />
-          <!-- icône météo posée sur la pale tirée -->
-          <div class="badge-weather" *ngIf="game?.weather?.status && game?.weather?.roll != null"
-            [style.transform]="weatherIconTransform()">
-            <img class="weather-ico" [src]="weatherIconSrc(game?.weather?.status)" alt="icône météo" />
-          </div>
-        </div>
-
-        <div class="dice-wrap" style="margin-top:1rem" [attr.data-digits]="(game?.weather?.roll ?? 0) > 9 ? 2 : 1">
-          <img class="dice" src="/assets/dices/d12-red.png" alt="d12" />
-          <div class="dice-overlay" *ngIf="game?.weather?.roll != null">
-            {{ game?.weather?.roll }}
-          </div>
-        </div>
-      </div>
-
-      <div class="footer">
-        <ng-container *ngIf="isMeVampire && game?.weather?.roll == null; else waitWeather">
-          <button (click)="rollWeather()" class="btn-primary">Jeter le dé</button>
-        </ng-container>
-        <ng-template #waitWeather>
-          <span *ngIf="game?.weather?.roll == null">En attente du tirage…</span>
-          <span class="weather-footer" *ngIf="game?.weather?.roll != null">{{ game?.weather?.nameFr }}</span>
-        </ng-template>
-      </div>
-    </ng-container>
-
-    <!-- APRES le délai : fond météo + texte -->
-    <ng-template #weatherResult>
-      <div class="content weather result">
-        <div class="weather-badge">{{ game?.weather?.nameFr }}</div>
-        <p class="weather-desc">{{ game?.weather?.descFr }}</p>
-      </div>
-    </ng-template>
-  </div>
-</div>
+<app-weather-modal [show]="canShowWeatherModal()" [weatherBgActive]="weatherBgActive"
+  [weatherBgImage]="setImageBackground('weather')" [isWeatherPreReveal]="isWeatherPreReveal()"
+  [isMeVampire]="isMeVampire" [weatherRoll]="game?.weather?.roll ?? null" [weatherNameFr]="game?.weather?.nameFr"
+  [weatherDescFr]="game?.weather?.descFr" [weatherStatus]="game?.weather?.status"
+  [weatherIconTransform]="weatherIconTransform()" [weatherIconSrc]="weatherIconSrc(game?.weather?.status!)"
+  (roll)="rollWeather()">
+</app-weather-modal>
 <!-- === MODALE ROLL (joueur concerné) === -->
 <div *ngIf="showRollModal && !isGameEnded && currentCombat as r" class="modal-backdrop">
   <div class="modal location-modal" [style.backgroundImage]="setImageBackground('location')">
