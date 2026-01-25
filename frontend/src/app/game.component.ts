@@ -10,6 +10,7 @@ import { PhaseBubbleComponent } from './phase-buble.component';
 import { ToastComponent } from './toast.component';
 import { DeathModalComponent } from './components/limit-modals/death-modal/death-modal.component';
 import { EndGameModalComponent } from './components/limit-modals/end-game-modal/end-game-modal.component';
+import { ZoomOverlayComponent } from './components/ui/zoom-overlay/zoom-overlay.component';
 
 type ForgeRes = 'wood' | 'iron' | 'silver' | 'souls';
 type ForgeCost = Partial<Record<ForgeRes, number>>;
@@ -71,7 +72,7 @@ interface ForgeOption {
 @Component({
   standalone: true,
   selector: 'app-game',
-  imports: [CommonModule, PhaseBubbleComponent, ToastComponent, DeathModalComponent, EndGameModalComponent],
+  imports: [CommonModule, PhaseBubbleComponent, ToastComponent, DeathModalComponent, EndGameModalComponent, ZoomOverlayComponent],
   templateUrl: './game.component.html',
   styleUrls: ['./game.component.scss']
 })

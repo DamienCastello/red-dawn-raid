@@ -1,0 +1,233 @@
+<div *ngIf="show" class="equip-zoom" [class.with-info]="zoomInfoOn" [ngStyle]="zoomStyle">
+    <div class="equip-zoom-media" [style.width.px]="zoomMediaW" [style.height.px]="zoomMediaH">
+        <img class="equip-zoom-img" [src]="zoomSrc" alt="zoom" />
+        <span *ngIf="zoomBadgeOn" class="equip-zoom-badge" [class.badge-hunter]="zoomBadgeIsHunter === true"
+            [class.badge-vamp]="zoomBadgeIsHunter === false">
+            {{ zoomBadgeText }}
+        </span>
+    </div>
+
+    <!-- ===== panneau info (uniquement quand zoomEnter() reçoit une info) ===== -->
+    <div *ngIf="zoomInfoOn" class="zoom-info">
+
+        <!-- rendu spécial ALTAR -->
+        <ng-container *ngIf="zoomInfoKey === 'altar'; else notAltar">
+
+            <div class="zoom-info-section">Chasseur</div>
+            <ul class="zoom-info-list">
+                <li *ngFor="let line of zoomInfoLinesHunter">{{ line }}</li>
+            </ul>
+
+            <div class="zoom-info-section">Vampire</div>
+            <ul class="zoom-info-list">
+                <li *ngFor="let line of zoomInfoLinesVamp">{{ line }}</li>
+            </ul>
+
+            <div class="zoom-info-note">{{ zoomInfoNote }}</div>
+
+        </ng-container>
+
+        <ng-template #notAltar>
+
+            <!-- rendu spécial FORGE -->
+            <ng-container *ngIf="zoomInfoKey === 'forge'; else normalInfo">
+
+                <!-- lignes existantes -->
+                <ul class="zoom-info-list" *ngIf="hasZoomInfoLines">
+                    <li *ngFor="let line of zoomInfoLines" [hidden]="!(line ?? '').trim()">
+                        {{ line }}
+                    </li>
+                </ul>
+
+                <div class="zoom-info-section">Coûts de fabrication</div>
+
+                <!-- ===== PALIER 1 ===== -->
+                <div class="forge-cost-title">Vampire — palier 1</div>
+                <div class="forge-costs-grid">
+                    <div class="forge-cost-row" *ngFor="let it of forgeCostGroups.V[1]">
+                        <div class="forge-cost-name">{{ it.label }}</div>
+
+                        <div class="forge-cost-line">
+                            <span class="forge-cost-piece" *ngIf="it.cost?.wood">
+                                <span class="forge-cost-val">{{ it.cost.wood }}</span>
+                                <img class="forge-cost-ico" src="/assets/icons/wood.png" alt="Bois">
+                            </span>
+
+                            <span class="forge-cost-piece" *ngIf="it.cost?.iron">
+                                <span class="forge-cost-val">{{ it.cost.iron }}</span>
+                                <img class="forge-cost-ico" src="/assets/icons/iron.png" alt="Fer">
+                            </span>
+
+                            <span class="forge-cost-piece" *ngIf="it.cost?.silver">
+                                <span class="forge-cost-val">{{ it.cost.silver }}</span>
+                                <img class="forge-cost-ico" src="/assets/icons/silver.png" alt="Argent">
+                            </span>
+
+                            <span class="forge-cost-piece" *ngIf="it.cost?.souls">
+                                <span class="forge-cost-val">{{ it.cost.souls }}</span>
+                                <img class="forge-cost-ico" src="/assets/icons/souls.png" alt="Âmes">
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="forge-cost-title">Chasseur — palier 1</div>
+                <div class="forge-costs-grid">
+                    <div class="forge-cost-row" *ngFor="let it of forgeCostGroups.H[1]">
+                        <div class="forge-cost-name">{{ it.label }}</div>
+
+                        <div class="forge-cost-line">
+                            <span class="forge-cost-piece" *ngIf="it.cost?.wood">
+                                <span class="forge-cost-val">{{ it.cost.wood }}</span>
+                                <img class="forge-cost-ico" src="/assets/icons/wood.png" alt="Bois">
+                            </span>
+
+                            <span class="forge-cost-piece" *ngIf="it.cost?.iron">
+                                <span class="forge-cost-val">{{ it.cost.iron }}</span>
+                                <img class="forge-cost-ico" src="/assets/icons/iron.png" alt="Fer">
+                            </span>
+
+                            <span class="forge-cost-piece" *ngIf="it.cost?.silver">
+                                <span class="forge-cost-val">{{ it.cost.silver }}</span>
+                                <img class="forge-cost-ico" src="/assets/icons/silver.png" alt="Argent">
+                            </span>
+
+                            <span class="forge-cost-piece" *ngIf="it.cost?.souls">
+                                <span class="forge-cost-val">{{ it.cost.souls }}</span>
+                                <img class="forge-cost-ico" src="/assets/icons/souls.png" alt="Âmes">
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== PALIER 2 ===== -->
+                <div class="forge-cost-title">Vampire — palier 2</div>
+                <div class="forge-costs-grid">
+                    <div class="forge-cost-row" *ngFor="let it of forgeCostGroups.V[2]">
+                        <div class="forge-cost-name">{{ it.label }}</div>
+
+                        <div class="forge-cost-line">
+                            <span class="forge-cost-piece" *ngIf="it.cost?.wood">
+                                <span class="forge-cost-val">{{ it.cost.wood }}</span>
+                                <img class="forge-cost-ico" src="/assets/icons/wood.png" alt="Bois">
+                            </span>
+
+                            <span class="forge-cost-piece" *ngIf="it.cost?.iron">
+                                <span class="forge-cost-val">{{ it.cost.iron }}</span>
+                                <img class="forge-cost-ico" src="/assets/icons/iron.png" alt="Fer">
+                            </span>
+
+                            <span class="forge-cost-piece" *ngIf="it.cost?.silver">
+                                <span class="forge-cost-val">{{ it.cost.silver }}</span>
+                                <img class="forge-cost-ico" src="/assets/icons/silver.png" alt="Argent">
+                            </span>
+
+                            <span class="forge-cost-piece" *ngIf="it.cost?.souls">
+                                <span class="forge-cost-val">{{ it.cost.souls }}</span>
+                                <img class="forge-cost-ico" src="/assets/icons/souls.png" alt="Âmes">
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="forge-cost-title">Chasseur — palier 2</div>
+                <div class="forge-costs-grid">
+                    <div class="forge-cost-row" *ngFor="let it of forgeCostGroups.H[2]">
+                        <div class="forge-cost-name">{{ it.label }}</div>
+
+                        <div class="forge-cost-line">
+                            <span class="forge-cost-piece" *ngIf="it.cost?.wood">
+                                <span class="forge-cost-val">{{ it.cost.wood }}</span>
+                                <img class="forge-cost-ico" src="/assets/icons/wood.png" alt="Bois">
+                            </span>
+
+                            <span class="forge-cost-piece" *ngIf="it.cost?.iron">
+                                <span class="forge-cost-val">{{ it.cost.iron }}</span>
+                                <img class="forge-cost-ico" src="/assets/icons/iron.png" alt="Fer">
+                            </span>
+
+                            <span class="forge-cost-piece" *ngIf="it.cost?.silver">
+                                <span class="forge-cost-val">{{ it.cost.silver }}</span>
+                                <img class="forge-cost-ico" src="/assets/icons/silver.png" alt="Argent">
+                            </span>
+
+                            <span class="forge-cost-piece" *ngIf="it.cost?.souls">
+                                <span class="forge-cost-val">{{ it.cost.souls }}</span>
+                                <img class="forge-cost-ico" src="/assets/icons/souls.png" alt="Âmes">
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== PALIER 3 ===== -->
+                <div class="forge-cost-title">Vampire — palier 3</div>
+                <div class="forge-costs-grid">
+                    <div class="forge-cost-row" *ngFor="let it of forgeCostGroups.V[3]">
+                        <div class="forge-cost-name">{{ it.label }}</div>
+
+                        <div class="forge-cost-line">
+                            <span class="forge-cost-piece" *ngIf="it.cost?.wood">
+                                <span class="forge-cost-val">{{ it.cost.wood }}</span>
+                                <img class="forge-cost-ico" src="/assets/icons/wood.png" alt="Bois">
+                            </span>
+
+                            <span class="forge-cost-piece" *ngIf="it.cost?.iron">
+                                <span class="forge-cost-val">{{ it.cost.iron }}</span>
+                                <img class="forge-cost-ico" src="/assets/icons/iron.png" alt="Fer">
+                            </span>
+
+                            <span class="forge-cost-piece" *ngIf="it.cost?.silver">
+                                <span class="forge-cost-val">{{ it.cost.silver }}</span>
+                                <img class="forge-cost-ico" src="/assets/icons/silver.png" alt="Argent">
+                            </span>
+
+                            <span class="forge-cost-piece" *ngIf="it.cost?.souls">
+                                <span class="forge-cost-val">{{ it.cost.souls }}</span>
+                                <img class="forge-cost-ico" src="/assets/icons/souls.png" alt="Âmes">
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="forge-cost-title">Chasseur — palier 3</div>
+                <div class="forge-costs-grid">
+                    <div class="forge-cost-row" *ngFor="let it of forgeCostGroups.H[3]">
+                        <div class="forge-cost-name">{{ it.label }}</div>
+
+                        <div class="forge-cost-line">
+                            <span class="forge-cost-piece" *ngIf="it.cost?.wood">
+                                <span class="forge-cost-val">{{ it.cost.wood }}</span>
+                                <img class="forge-cost-ico" src="/assets/icons/wood.png" alt="Bois">
+                            </span>
+
+                            <span class="forge-cost-piece" *ngIf="it.cost?.iron">
+                                <span class="forge-cost-val">{{ it.cost.iron }}</span>
+                                <img class="forge-cost-ico" src="/assets/icons/iron.png" alt="Fer">
+                            </span>
+
+                            <span class="forge-cost-piece" *ngIf="it.cost?.silver">
+                                <span class="forge-cost-val">{{ it.cost.silver }}</span>
+                                <img class="forge-cost-ico" src="/assets/icons/silver.png" alt="Argent">
+                            </span>
+
+                            <span class="forge-cost-piece" *ngIf="it.cost?.souls">
+                                <span class="forge-cost-val">{{ it.cost.souls }}</span>
+                                <img class="forge-cost-ico" src="/assets/icons/souls.png" alt="Âmes">
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+            </ng-container>
+
+            <!-- rendu normal -->
+            <ng-template #normalInfo>
+                <ul class="zoom-info-list">
+                    <li *ngFor="let line of zoomInfoLines">{{ line }}</li>
+                </ul>
+            </ng-template>
+
+        </ng-template>
+
+    </div>
+</div>
