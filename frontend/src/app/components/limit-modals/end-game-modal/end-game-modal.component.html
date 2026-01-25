@@ -1,0 +1,10 @@
+<div class="modal-overlay" *ngIf="show">
+    <div class="modal end-game-modal">
+        <h2>{{ title }}</h2>
+        <p>{{ subtitle }}</p>
+
+        <div class="end-game-actions">
+            <button (click)="leave.emit()">Retour au lobby</button>
+        </div>
+    </div>
+</div>

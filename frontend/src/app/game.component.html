@@ -3426,16 +3426,8 @@
 <!-- Modale de mort (game pas finie) -->
 <app-death-modal [show]="showDeathModal" (observe)="observeAfterDeath()" (leave)="leaveAfterDeath()"></app-death-modal>
 <!-- Modale de fin de partie -->
-<div class="modal-overlay" *ngIf="isGameEnded">
-  <div class="modal end-game-modal">
-    <h2>{{ winnerTitle() }}</h2>
-    <p>{{ winnerSubtitle() }}</p>
-
-    <div class="end-game-actions">
-      <button (click)="leaveAfterEnd()">Retour au lobby</button>
-    </div>
-  </div>
-</div>
+<app-end-game-modal [show]="isGameEnded" [title]="winnerTitle()" [subtitle]="winnerSubtitle()"
+  (leave)="leaveAfterEnd()"></app-end-game-modal>
 <div *ngIf="zoomOn" class="equip-zoom" [class.with-info]="zoomInfoOn" [ngStyle]="zoomStyle">
   <div class="equip-zoom-media" [style.width.px]="zoomMediaW" [style.height.px]="zoomMediaH">
     <img class="equip-zoom-img" [src]="zoomSrc" alt="zoom" />
