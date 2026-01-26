@@ -1676,16 +1676,19 @@
     align-items: center;
   }
 
+
   /* =========================
     Trade modale - Base
     ========================= */
+
+  /*
 
   .modal.trade-modal,
   .modal.trade-modal * {
     box-sizing: border-box;
   }
 
-  /* Boutons génériques */
+  // Boutons génériques
   .modal.trade-modal .shop-btn {
     padding: .5rem 1rem;
     border: 1px solid #ccc;
@@ -1701,7 +1704,7 @@
     pointer-events: auto;
   }
 
-  /* Container modale */
+  // Container modale
   .modal.trade-modal {
     max-width: 1500px;
     width: 95vw;
@@ -1717,7 +1720,7 @@
     flex-direction: column;
   }
 
-  /* Background image hunters/vampires */
+  // Background image hunters/vampires
   .modal.trade-modal::before {
     content: "";
     position: absolute;
@@ -1736,13 +1739,13 @@
     background-image: url('/assets/locations/bg-trade-vampires.png');
   }
 
-  /* mettre le contenu au-dessus du fond */
+  // mettre le contenu au-dessus du fond
   .modal.trade-modal>* {
     position: relative;
     z-index: 1;
   }
 
-  /* Head */
+  // Head
   .modal.trade-modal .modal-head {
     flex: 0 0 auto;
     display: flex;
@@ -1766,7 +1769,7 @@
     width: auto;
   }
 
-  /* Body */
+  // Body
   .modal.trade-modal .modal-body {
     flex: 1 1 auto;
     min-height: 0;
@@ -1783,17 +1786,17 @@
     gap: .5rem;
   }
 
-  /* Vampire/servant: 2 colonnes (shop + échanges) */
+  // Vampire/servant: 2 colonnes (shop + échanges)
   .modal.trade-modal .modal-body {
     grid-template-columns: 1fr 1.2fr;
   }
 
-  /* Hunter: 3 colonnes */
+  // Hunter: 3 colonnes
   .modal.trade-modal .modal-body.has-mid {
     grid-template-columns: 1fr 1fr 1.2fr;
   }
 
-  /* Colonnes scrollables (grand écran) */
+  // Colonnes scrollables (grand écran)
   .modal.trade-modal .modal-body>.col {
     min-height: 0;
     overflow: auto;
@@ -1801,7 +1804,7 @@
     padding-right: .25rem;
   }
 
-  /* Cards */
+  // Cards
   .modal.trade-modal .card {
     border: 1px solid rgba(255, 255, 255, .25);
     border-radius: 8px;
@@ -1818,13 +1821,13 @@
     max-width: 100%;
   }
 
-  /* marges internes existantes */
+  // marges internes existantes
   .modal.trade-modal .card h4,
   .modal.trade-modal .shop-btn {
     margin: 10px 5px;
   }
 
-  /* Helpers */
+  // Helpers
   .modal.trade-modal .row {
     display: flex;
     gap: .5rem;
@@ -1842,7 +1845,7 @@
     grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
-  /* ====== SELL GRID (icônes seulement) ====== */
+  // ====== SELL GRID (icônes seulement) ======
   .modal.trade-modal .card .grid.sell-grid.sell-grid-icons {
     grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
     gap: .6rem;
@@ -1932,6 +1935,8 @@
   /* =========================
     INVENTAIRE (inv-item)
     ========================= */
+
+  /*
   .modal.trade-modal .modal-head .inventory {
     margin: 0 auto;
     display: flex;
@@ -1994,6 +1999,8 @@
   /* =========================
     PRIX / COÛTS en icônes
     ========================= */
+
+  /*
   .modal.trade-modal .price.price-icons {
     display: inline-flex;
     align-items: center;
@@ -2065,6 +2072,8 @@
   /* =========================
     LIGNES 2-CARDS (toujours sur 2 colonnes)
     ========================= */
+
+  /*
   .modal.trade-modal .card-row.row-2 {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -2074,13 +2083,14 @@
 
   .modal.trade-modal .card-row.row-2>.card {
     margin-bottom: 0;
-    /* pas de double margin */
     min-width: 0;
   }
 
   /* =========================
     Boutons Acheter = image + badge
     ========================= */
+
+  /*
   .modal.trade-modal .buy-card-btn {
     width: 60px;
     height: 82px;
@@ -2130,7 +2140,7 @@
     background: rgba(185, 28, 28, .65);
   }
 
-  /* Card achat avec bouton collé en bas */
+  // Card achat avec bouton collé en bas
   .modal.trade-modal .card.card-buy-bottom {
     display: flex;
     flex-direction: column;
@@ -2145,6 +2155,8 @@
   /* =========================
     Actions de maintenance
     ========================= */
+
+  /*
   .modal.trade-modal .shop-actions-grid {
     display: flex;
     flex-wrap: wrap;
@@ -2193,6 +2205,7 @@
   /* =========================
     Échanges
     ========================= */
+  /*
   .modal.trade-modal .trade-list {
     padding-right: 0;
     margin-top: .35rem;
@@ -2246,16 +2259,17 @@
   /* =========================
     UN SEUL BREAKPOINT : 1 colonne + scroll unique (contenu reste dans la modale)
     ========================= */
+  /*
   @media (max-width: 1200px) {
 
-    /* on garde la modale "fermée", et on scroll l'intérieur */
+    // on garde la modale "fermée", et on scroll l'intérieur
     .modal.trade-modal {
       width: 96vw;
       height: 92vh;
       overflow: hidden;
     }
 
-    /* 1 colonne, et scroll unique sur le body */
+    // 1 colonne, et scroll unique sur le body
     .modal.trade-modal .modal-body {
       grid-template-columns: 1fr !important;
       overflow: auto !important;
@@ -2263,7 +2277,7 @@
       padding-right: 0;
     }
 
-    /* plus aucun scroll interne */
+    // plus aucun scroll interne
     .modal.trade-modal .modal-body>.col {
       overflow: visible !important;
       min-height: auto;
@@ -2275,7 +2289,7 @@
       max-height: none !important;
     }
 
-    /* grilles adaptatives pour éviter le dépassement horizontal */
+    // grilles adaptatives pour éviter le dépassement horizontal
     .modal.trade-modal .grid {
       grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     }
@@ -2284,13 +2298,13 @@
       grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     }
 
-    /* sell grid icônes : garde des cases plus petites */
+    // sell grid icônes : garde des cases plus petites
     .modal.trade-modal .card .grid.sell-grid.sell-grid-icons {
       grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
     }
   }
 
-  /* force la row banque en 1/4 - 3/4 */
+  // force la row banque en 1/4 - 3/4
   .card-row.row-2.bank-row {
     display: grid !important;
     grid-template-columns: minmax(0, 1fr) minmax(0, 2.2fr) !important;
@@ -2339,6 +2353,7 @@
     font-size: 13px;
     margin-top: 6px;
   }
+  */
 
   /* === MODALE CONSTRUCTION === */
   /* Conteneur de la modale construction */

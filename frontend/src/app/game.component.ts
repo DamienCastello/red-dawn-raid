@@ -19,6 +19,8 @@ import { RollModalVm, RollModalActions } from './components/modals/roll-modal/ro
 import { RollModalComponent } from './components/modals/roll-modal/roll-modal.component';
 import { SpectateModalVm } from './components/modals/spectate-modal/spectate-modal.vm';
 import { SpectateModalComponent } from './components/modals/spectate-modal/spectate-modal.component';
+import { ShopModalVm, ShopModalActions, ShopModalHelpers } from './components/modals/shop-modal/shop-modal.vm';
+import { ShopModalComponent } from './components/modals/shop-modal/shop-modal.component';
 
 type ForgeRes = 'wood' | 'iron' | 'silver' | 'souls';
 type ForgeCost = Partial<Record<ForgeRes, number>>;
@@ -81,7 +83,10 @@ interface ForgeOption {
 @Component({
   standalone: true,
   selector: 'app-game',
-  imports: [CommonModule, PhaseBubbleComponent, ToastComponent, DeathModalComponent, EndGameModalComponent, ZoomOverlayComponent, WeatherModalComponent, BiteModalComponent, CorruptionModalComponent, RollModalComponent, SpectateModalComponent],
+  imports: [CommonModule, PhaseBubbleComponent, ToastComponent, DeathModalComponent, EndGameModalComponent, ZoomOverlayComponent, WeatherModalComponent,
+    BiteModalComponent, CorruptionModalComponent, RollModalComponent,
+    SpectateModalComponent, ShopModalComponent
+  ],
   templateUrl: './game.component.html',
   styleUrls: ['./game.component.scss']
 })
@@ -176,6 +181,101 @@ export class GameComponent {
       }
     };
   }
+
+  get shopVm(): ShopModalVm {
+    return {
+      show: this.shopOpen && !this.isGameEnded,
+      isHunter: this.isHunter,
+      isVampireSide: this.isVampireSide,
+      isMeVampire: this.isMeVampire,
+      isMeDead: this.isMeDead,
+      waitingDone: this.waitingDone,
+      meId: this.meId,
+      me: this.me,
+      phase4LeftSec: this.phase4LeftSec,
+      actionPrice: this.actionPrice,
+      silverPrice: this.silverPrice,
+      holyWaterGoldPrice: this.holyWaterGoldPrice,
+      trackingGoldPrice: this.trackingGoldPrice,
+      salesAmount: this.salesAmount,
+      canBuyPotion: this.canBuyPotion,
+      canBuyHunterAction: this.canBuyHunterAction,
+      canBuyVampAction: this.canBuyVampAction,
+      canBuyTrackingAction: this.canBuyTrackingAction,
+      canBuyHolyWaterAction: this.canBuyHolyWaterAction,
+      canBuySilver: this.canBuySilver,
+      selectedTradeTargetId: this.selectedTradeTargetId,
+      eligibleTradeTargets: this.eligibleTradeTargets,
+      myOffer: this.myOffer,
+      game: this.game,
+      sellableResources: this.sellableResources,
+      bonusKind: this.me?.shopBonusKind ?? null,
+      bonusTitle: this.bonusTitle(),
+      bonusResCost: this.bonusResCost(),
+      bonusGoldCost: this.bonusGoldCost(),
+      canBuyBonus: this.canBuyBonus(),
+      bonusBuyDisabledTitle: this.bonusBuyDisabledTitle(),
+      bonusBuyImgSrc: this.bonusBuyImgSrc(),
+      helpers: this.shopHelpers
+    };
+  }
+
+  readonly shopActions: ShopModalActions = {
+    onFinishPhase4: () => this.onFinishPhase4(),
+    onBuyAction: (ev) => this.onBuyAction(ev),
+    onBuyPotion: (ev) => this.onBuyPotion(ev),
+    onBuySilver: (qty) => this.onBuySilver(qty),
+    onBuyHolyWaterAction: (ev) => this.onBuyHolyWaterAction(ev),
+    onBuyTrackingAction: (ev) => this.onBuyTrackingAction(ev),
+    onSell: (res, qty) => this.onSell(res, qty),
+    onTransmute: (recipe) => this.onTransmute(recipe),
+    selectTradeTarget: (id) => this.selectTradeTarget(id),
+    bumpOffer: (res, delta) => this.bumpOffer(res, delta),
+    onTradeActionFor: (action, targetId) => this.onTradeActionFor(action, targetId),
+    onContributeBankStone: () => this.onContributeBankStone(),
+    onBuyUpgradeWeapon: (ev) => this.onBuyUpgradeWeapon(ev),
+    onBuyUpgradeArmor: (ev) => this.onBuyUpgradeArmor(ev),
+    onBuyBonus: (ev) => this.onBuyBonus(ev),
+    useAction: (action) => this.useAction(action),
+    zoomEnter: (ev, card, isHunter, side) => this.zoomEnter(ev, card, isHunter, side),
+    zoomMove: (ev) => this.zoomMove(ev),
+    zoomLeave: () => this.zoomLeave()
+  };
+
+  readonly shopHelpers: ShopModalHelpers = {
+    actionImg: this.actionImg.bind(this),
+    actionLabelFr: this.actionLabelFr.bind(this),
+    deckBackFor: this.deckBackFor.bind(this),
+    deckCount: this.deckCount.bind(this),
+    usernameOf: this.usernameOf.bind(this),
+    resOf: this.resOf.bind(this),
+    bankLevel: this.bankLevel.bind(this),
+    canContributeBankStone: this.canContributeBankStone.bind(this),
+    bankNextCost: this.bankNextCost.bind(this),
+    bankStoneProgress: this.bankStoneProgress.bind(this),
+    bankBonusText: this.bankBonusText.bind(this),
+    weaponUpgradeCost: this.weaponUpgradeCost.bind(this),
+    weaponUpgradeImgSrc: this.weaponUpgradeImgSrc.bind(this),
+    canBuyUpgradeWeapon: this.canBuyUpgradeWeapon.bind(this),
+    armorUpgradeCost: this.armorUpgradeCost.bind(this),
+    armorUpgradeImgSrc: this.armorUpgradeImgSrc.bind(this),
+    canBuyUpgradeArmor: this.canBuyUpgradeArmor.bind(this),
+    canBuySilverQty: this.canBuySilverQty.bind(this),
+    myMaintenanceActions: this.myMaintenanceActions.bind(this),
+    canUseActionNow: this.canUseActionNow.bind(this),
+    tradeResources: this.tradeResources.bind(this),
+    offerQty: (res) => this.myOffer[res] ?? 0,
+    activeFlashes: this.activeFlashes.bind(this),
+    myTradesSorted: this.myTradesSorted.bind(this),
+    otherIdFromTrade: this.otherIdFromTrade.bind(this),
+    iAmA: this.iAmA.bind(this),
+    otherStatus: this.otherStatus.bind(this),
+    myStatus: this.myStatus.bind(this),
+    statusClassFrom: this.statusClassFrom.bind(this),
+    isClosing: this.isClosing.bind(this),
+    isClosingOk: this.isClosingOk.bind(this),
+    isClosingKo: this.isClosingKo.bind(this)
+  };
 
   readonly rollActions: RollModalActions = {
     rollNow: () => this.rollNow()

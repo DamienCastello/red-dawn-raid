@@ -1,0 +1,663 @@
+<div class="modal trade-modal" [class.hunters]="vm.isHunter" [class.vampires]="vm.isVampireSide">
+    <header class="modal-head">
+        <h3 *ngIf="vm.isHunter">Boutique</h3>
+        <h3 *ngIf="vm.isVampireSide">Transmutation</h3>
+
+        <div class="inventory" *ngIf="vm.me as p">
+            <span class="inv-item" title="Bois">
+                <span class="inv-ico-box"><img class="inv-ico inv-ico-l" src="/assets/icons/wood.png" alt="Bois"></span>
+                <span class="inv-val">{{ p.wood }}</span>
+            </span>
+
+            <span class="inv-item" title="Herbe médicinale">
+                <span class="inv-ico-box"><img class="inv-ico inv-ico-s" src="/assets/icons/medical_grass.png"
+                        alt="Herbe médicinale"></span>
+                <span class="inv-val">{{ p.herbs }}</span>
+            </span>
+
+            <span class="inv-item" title="Pierre">
+                <span class="inv-ico-box"><img class="inv-ico inv-ico-s" src="/assets/icons/stone.png"
+                        alt="Pierre"></span>
+                <span class="inv-val">{{ p.stone }}</span>
+            </span>
+
+            <span class="inv-item" title="Fer">
+                <span class="inv-ico-box"><img class="inv-ico inv-ico-m" src="/assets/icons/iron.png" alt="Fer"></span>
+                <span class="inv-val">{{ p.iron }}</span>
+            </span>
+
+            <span class="inv-item" title="Eau pure">
+                <span class="inv-ico-box"><img class="inv-ico inv-ico-s" src="/assets/icons/water.png"
+                        alt="Eau pure"></span>
+                <span class="inv-val">{{ p.water }}</span>
+            </span>
+
+            <span *ngIf="p.role==='HUNTER'" class="inv-item" title="Or">
+                <span class="inv-ico-box"><img class="inv-ico inv-ico-s" src="/assets/icons/gold.png" alt="Or"></span>
+                <span class="inv-val">{{ p.gold }}</span>
+            </span>
+
+            <span *ngIf="p.role==='HUNTER'" class="inv-item" title="Argent">
+                <span class="inv-ico-box"><img class="inv-ico inv-ico-s" src="/assets/icons/silver.png"
+                        alt="Argent"></span>
+                <span class="inv-val">{{ p.silver }}</span>
+            </span>
+
+            <span *ngIf="p.role==='VAMPIRE' || p.role==='SERVANT'" class="inv-item" title="Âmes déchues">
+                <span class="inv-ico-box"><img class="inv-ico inv-ico-s" src="/assets/icons/souls.png"
+                        alt="Âmes déchues"></span>
+                <span class="inv-val">{{ p.souls }}</span>
+            </span>
+        </div>
+
+        <div class="head-actions">
+            <div *ngIf="!vm.isMeDead && !vm.waitingDone; else waitingTpl">
+                <button class="finish" (click)="actions.onFinishPhase4()">Ne rien faire</button>
+            </div>
+            <ng-template #waitingTpl>
+                <div class="muted">En attente des autres joueurs…</div>
+            </ng-template>
+        </div>
+
+        <div class="timer" *ngIf="vm.phase4LeftSec>0">⏱ {{ vm.phase4LeftSec }}s</div>
+    </header>
+
+    <section class="modal-body" [class.has-mid]="vm.isHunter">
+
+        <!-- =========================
+          COLONNE 1 : SHOP (sans vendre/argent, sans bonus -> Pisteur)
+          ========================= -->
+        <div class="col col-shop-a">
+
+            <div class="card" *ngIf="helpers.myMaintenanceActions().length">
+                <h4>Actions de maintenance</h4>
+                <small>utiliser depuis la main</small>
+                <div class="shop-actions-grid">
+                    <button *ngFor="let action of helpers.myMaintenanceActions(); let i = index"
+                        class="shop-card-action-btn" [class.is-disabled]="!helpers.canUseActionNow(action)"
+                        [attr.aria-disabled]="!helpers.canUseActionNow(action) ? true : null"
+                        (click)="actions.useAction(action)"
+                        (mouseenter)="actions.zoomEnter($event, undefined, undefined, 'L')"
+                        (mousemove)="actions.zoomMove($event)" (mouseleave)="actions.zoomLeave()">
+                        <img class="shop-card-img" [src]="helpers.actionImg(action)"
+                            [alt]="helpers.actionLabelFr(action)" />
+                    </button>
+                </div>
+            </div>
+
+            <!-- ACTIONS + POTIONS sur la même ligne (2 cards) -->
+            <div class="card-row row-2">
+                <!-- Actions vampire -->
+                <div class="card" *ngIf="vm.isMeVampire">
+                    <div class="card-header-line">
+                        <h4>Actions</h4>
+                        <span class="price price-icons">
+                            <span class="cost-item">
+                                <span class="cost-val">50</span>
+                                <span class="cost-ico-box"><img class="cost-ico cost-ico-s"
+                                        src="/assets/icons/souls.png" alt="Âmes"></span>
+                            </span>
+                        </span>
+                    </div>
+
+                    <button class="shop-btn buy-card-btn" (click)="actions.onBuyAction($event)"
+                        [disabled]="!vm.canBuyVampAction" aria-label="Acheter une carte action vampire"
+                        (mouseenter)="actions.zoomEnter($event, helpers.deckCount(vm.game?.decks?.actionsVamp), false, 'L')"
+                        (mousemove)="actions.zoomMove($event)" (mouseleave)="actions.zoomLeave()">
+                        <img class="buy-img" [src]="helpers.deckBackFor('VAMP_ACTIONS')" alt="Deck actions vampire">
+                        <span class="buy-badge badge-vamp">{{ helpers.deckCount(vm.game?.decks?.actionsVamp) }}</span>
+                    </button>
+                </div>
+
+                <!-- Actions chasseur -->
+                <div class="card" *ngIf="vm.isHunter">
+                    <div class="card-header-line">
+                        <h4>Actions</h4>
+                        <span class="price price-icons">
+                            <span class="cost-item">
+                                <span class="cost-val">{{ vm.actionPrice }}</span>
+                                <span class="cost-ico-box"><img class="cost-ico cost-ico-s" src="/assets/icons/gold.png"
+                                        alt="Or"></span>
+                            </span>
+                        </span>
+                    </div>
+
+                    <button class="shop-btn buy-card-btn" (click)="actions.onBuyAction($event)"
+                        [disabled]="!vm.canBuyHunterAction" aria-label="Acheter une carte action chasseur"
+                        (mouseenter)="actions.zoomEnter($event, helpers.deckCount(vm.game?.decks?.actionsHunters), true, 'L')"
+                        (mousemove)="actions.zoomMove($event)" (mouseleave)="actions.zoomLeave()">
+                        <img class="buy-img" [src]="helpers.deckBackFor('HUNTER_ACTIONS')" alt="Deck actions chasseur">
+                        <span class="buy-badge badge-hunter">{{ helpers.deckCount(vm.game?.decks?.actionsHunters)
+                            }}</span>
+                    </button>
+                </div>
+
+                <!-- Potions -->
+                <div class="card">
+                    <div class="card-header-line">
+                        <h4>Potions</h4>
+                        <span class="price price-icons">
+                            <span class="cost-item">
+                                <span class="cost-val">4</span>
+                                <span class="cost-ico-box"><img class="cost-ico cost-ico-s"
+                                        src="/assets/icons/water.png" alt="Eau"></span>
+                                <span class="cost-val">3</span>
+                                <span class="cost-ico-box"><img class="cost-ico cost-ico-s"
+                                        src="/assets/icons/medical_grass.png" alt="Herbes"></span>
+                            </span>
+                        </span>
+                    </div>
+
+                    <button class="shop-btn buy-card-btn" (click)="actions.onBuyPotion($event)"
+                        [disabled]="!vm.canBuyPotion" aria-label="Acheter une potion"
+                        (mouseenter)="actions.zoomEnter($event, helpers.deckCount(vm.game?.decks?.potions), undefined, 'L')"
+                        (mousemove)="actions.zoomMove($event)" (mouseleave)="actions.zoomLeave()">
+                        <img class="buy-img" [src]="helpers.deckBackFor('POTIONS')" alt="Deck potions">
+                        <span class="buy-badge">{{ helpers.deckCount(vm.game?.decks?.potions) }}</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- PISTEUR + EAU BÉNITE sur la même ligne (2 cards) -->
+            <div class="card-row row-2" *ngIf="vm.isHunter">
+
+                <!-- Pisteur -->
+                <div class="card card-buy-bottom">
+                    <div class="card-header-line">
+                        <h4>Espion</h4>
+                        <span class="price price-icons">
+                            <span class="cost-item">
+                                <span class="cost-val">{{ vm.trackingGoldPrice }}</span>
+                                <span class="cost-ico-box"><img class="cost-ico cost-ico-s" src="/assets/icons/gold.png"
+                                        alt="Or"></span>
+                            </span>
+                        </span>
+                    </div>
+
+                    <button class="shop-btn buy-card-btn shop-card-action-btn"
+                        (click)="actions.onBuyTrackingAction($event)" [disabled]="!vm.canBuyTrackingAction"
+                        aria-label="Acheter Pisteur" (mouseenter)="actions.zoomEnter($event, undefined, undefined, 'L')"
+                        (mousemove)="actions.zoomMove($event)" (mouseleave)="actions.zoomLeave()">
+                        <img class="buy-img" [src]="helpers.actionImg('PISTEUR')" alt="Pisteur">
+                    </button>
+                </div>
+
+                <!-- Eau bénite -->
+                <div class="card card-buy-bottom">
+                    <div class="card-header-line">
+                        <h4>Eau bénite</h4>
+                        <span class="price price-icons">
+                            <span class="cost-item">
+                                <span class="cost-val">6</span>
+                                <span class="cost-ico-box"><img class="cost-ico cost-ico-s"
+                                        src="/assets/icons/water.png" alt="Eau"></span>
+                                <span class="cost-val">{{ vm.holyWaterGoldPrice }}</span>
+                                <span class="cost-ico-box"><img class="cost-ico cost-ico-s" src="/assets/icons/gold.png"
+                                        alt="Or"></span>
+                            </span>
+                        </span>
+                    </div>
+
+                    <button class="shop-btn buy-card-btn shop-card-action-btn"
+                        (click)="actions.onBuyHolyWaterAction($event)" [disabled]="!vm.canBuyHolyWaterAction"
+                        aria-label="Acheter Eau bénite"
+                        (mouseenter)="actions.zoomEnter($event, undefined, undefined, 'L')"
+                        (mousemove)="actions.zoomMove($event)" (mouseleave)="actions.zoomLeave()">
+                        <img class="buy-img" [src]="helpers.actionImg('EAU_BENITE')" alt="Eau bénite">
+                    </button>
+                </div>
+            </div>
+            <!-- BANQUE : 2 cards sur 1 ligne -->
+            <div class="card-row row-2 bank-row" *ngIf="vm.isHunter">
+                <!-- Améliorer la banque -->
+                <div class="card card-buy-bottom">
+                    <div class="card-header-line">
+                        <h4>Améliorer la banque</h4>
+                    </div>
+
+                    <button class="shop-btn bank-upgrade-btn" (click)="actions.onContributeBankStone()"
+                        [disabled]="!helpers.canContributeBankStone()">
+                        <div class="bank-ico">🏛️</div>
+                        <div class="bank-cta">Améliorer</div>
+                        <div class="bank-sub">Fournir 1 pierre</div>
+                    </button>
+
+                    <small class="muted" *ngIf="helpers.bankLevel() >= 3">Niveau maximum atteint.</small>
+
+                    <span class="price price-icons" *ngIf="helpers.bankNextCost() as need">
+                        <span class="cost-item">
+                            <span class="cost-val">{{ helpers.bankStoneProgress() }}</span>
+                            <span class="cost-plus">/</span>
+                            <span class="cost-val">{{ need }}</span>
+                            <span class="cost-ico-box">
+                                <img class="cost-ico cost-ico-s" src="/assets/icons/stone.png" alt="Pierre">
+                            </span>
+                        </span>
+                    </span>
+                </div>
+
+                <!-- Niveau de banque -->
+                <div class="card card-buy-bottom">
+                    <div class="card-header-line">
+                        <h4>Niveau de banque</h4>
+                    </div>
+
+                    <div class="bank-level">{{ helpers.bankLevel() }}</div>
+
+                    <div class="bank-bonus">
+                        <b>Bonus actuel :</b> {{ helpers.bankBonusText(helpers.bankLevel()) }}
+                    </div>
+
+                    <div class="bank-bonus" *ngIf="helpers.bankLevel() < 3; else maxBonus">
+                        <b>Prochain bonus :</b> {{ helpers.bankBonusText(helpers.bankLevel() + 1) }}
+                    </div>
+                    <ng-template #maxBonus>
+                        <div class="bank-bonus"><b>Prochain bonus :</b> Aucun (max).</div>
+                    </ng-template>
+                </div>
+            </div>
+
+            <!-- Transmutation vampire -->
+            <div class="card" *ngIf="vm.isVampireSide">
+                <h4>Recettes de transmutation</h4>
+
+                <ul class="recipes">
+
+                    <!-- 2 wood + 1 water -> +2 iron -->
+                    <li>
+                        <span class="price price-icons">
+                            <span class="cost-item">
+                                <span class="cost-val">2</span>
+                                <span class="cost-ico-box">
+                                    <img class="cost-ico cost-ico-s" src="/assets/icons/wood.png" alt="Bois">
+                                </span>
+
+                                <span class="cost-plus">+</span>
+
+                                <span class="cost-val">1</span>
+                                <span class="cost-ico-box">
+                                    <img class="cost-ico cost-ico-s" src="/assets/icons/water.png" alt="Eau">
+                                </span>
+
+                                <span class="cost-or">→</span>
+
+                                <span class="cost-plus">+</span>
+                                <span class="cost-val">2</span>
+                                <span class="cost-ico-box">
+                                    <img class="cost-ico cost-ico-s" src="/assets/icons/iron.png" alt="Fer">
+                                </span>
+                            </span>
+                        </span>
+
+                        <button (click)="actions.onTransmute('WOOD_TO_IRON')"
+                            [disabled]="vm.me?.wood! < 2 || vm.me?.water! < 1 || vm.isMeDead">
+                            Transmuter
+                        </button>
+                    </li>
+
+                    <!-- 2 iron + 1 water -> +2 wood -->
+                    <li>
+                        <span class="price price-icons">
+                            <span class="cost-item">
+                                <span class="cost-val">2</span>
+                                <span class="cost-ico-box">
+                                    <img class="cost-ico cost-ico-s" src="/assets/icons/iron.png" alt="Fer">
+                                </span>
+
+                                <span class="cost-plus">+</span>
+
+                                <span class="cost-val">1</span>
+                                <span class="cost-ico-box">
+                                    <img class="cost-ico cost-ico-s" src="/assets/icons/water.png" alt="Eau">
+                                </span>
+
+                                <span class="cost-or">→</span>
+
+                                <span class="cost-plus">+</span>
+                                <span class="cost-val">2</span>
+                                <span class="cost-ico-box">
+                                    <img class="cost-ico cost-ico-s" src="/assets/icons/wood.png" alt="Bois">
+                                </span>
+                            </span>
+                        </span>
+
+                        <button (click)="actions.onTransmute('IRON_TO_WOOD')"
+                            [disabled]="vm.me?.iron! < 2 || vm.me?.water! < 1 || vm.isMeDead">
+                            Transmuter
+                        </button>
+                    </li>
+
+                    <!-- 1 wood + 1 iron + 1 water -> +30 souls -->
+                    <li>
+                        <span class="price price-icons">
+                            <span class="cost-item">
+                                <span class="cost-val">1</span>
+                                <span class="cost-ico-box">
+                                    <img class="cost-ico cost-ico-s" src="/assets/icons/wood.png" alt="Bois">
+                                </span>
+
+                                <span class="cost-plus">+</span>
+
+                                <span class="cost-val">1</span>
+                                <span class="cost-ico-box">
+                                    <img class="cost-ico cost-ico-s" src="/assets/icons/iron.png" alt="Fer">
+                                </span>
+
+                                <span class="cost-plus">+</span>
+
+                                <span class="cost-val">1</span>
+                                <span class="cost-ico-box">
+                                    <img class="cost-ico cost-ico-s" src="/assets/icons/water.png" alt="Eau">
+                                </span>
+
+                                <span class="cost-or">→</span>
+
+                                <span class="cost-plus">+</span>
+                                <span class="cost-val">30</span>
+                                <span class="cost-ico-box">
+                                    <img class="cost-ico cost-ico-s" src="/assets/icons/souls.png" alt="Âmes">
+                                </span>
+                            </span>
+                        </span>
+
+                        <button (click)="actions.onTransmute('TRINITY_TO_SOULS')"
+                            [disabled]="vm.me?.wood! < 1 || vm.me?.iron! < 1 || vm.me?.water! < 1 || vm.isMeDead">
+                            Transmuter
+                        </button>
+                    </li>
+
+                </ul>
+            </div>
+        </div>
+
+        <!-- =========================
+          COLONNE 2 : Vendre + Acheter argent + Bonus (hunter)
+          ========================= -->
+        <div class="col col-shop-b" *ngIf="vm.isHunter">
+
+            <div class="card">
+                <div class="card-header-line">
+                    <h4>Vendre des ressources</h4>
+
+                    <!-- +10 + icône gold (comme achat silver) -->
+                    <span class="price price-icons">
+                        <span class="cost-item" title="Or gagné">
+                            <span class="cost-plus">+</span>
+                            <span class="cost-val">{{ vm.salesAmount }}</span>
+                            <span class="cost-ico-box">
+                                <img class="cost-ico cost-ico-s" src="/assets/icons/gold.png" alt="Or">
+                            </span>
+                        </span>
+                    </span>
+                </div>
+
+                <!-- Grille icônes -->
+                <div class="grid sell-grid sell-grid-icons">
+                    <div class="sell" *ngFor="let r of vm.sellableResources"
+                        [title]="r + ' (x' + helpers.resOf(vm.me, r) + ')'">
+                        <div class="sell-ico">
+                            <img class="sell-res-ico" [src]="'/assets/icons/' + (
+                    r === 'wood'  ? 'wood.png' :
+                    r === 'herbs' ? 'medical_grass.png' :
+                    r === 'stone' ? 'stone.png' :
+                    r === 'iron'  ? 'iron.png' :
+                    r === 'water' ? 'water.png' :
+                    r
+                  )" [alt]="r" />
+                        </div>
+
+                        <div class="actions">
+                            <button (click)="actions.onSell(r, 1)"
+                                [disabled]="helpers.resOf(vm.me, r) < 1 || vm.isMeDead">-1</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- UPGRADE ÉQUIPEMENT (par joueur) : 2 cards sur 1 ligne (comme eau bénite & espion) -->
+            <h4>Forger de l'équipement</h4>
+            <div class="card-row row-2" *ngIf="vm.isHunter">
+                <!-- Arme -->
+                <div class="card card-buy-bottom">
+                    <div class="card-header-line">
+                        <h4>Arme</h4>
+
+                        <span class="price price-icons"
+                            *ngIf="helpers.weaponUpgradeCost() as c; else noWeaponOfferCost">
+                            <span class="cost-item">
+                                <span class="cost-val">{{ c.wood }}</span>
+                                <span class="cost-ico-box"><img class="cost-ico cost-ico-s" src="/assets/icons/wood.png"
+                                        alt="Bois"></span>
+                                <span class="cost-val">{{ c.iron }}</span>
+                                <span class="cost-ico-box"><img class="cost-ico cost-ico-s" src="/assets/icons/iron.png"
+                                        alt="Fer"></span>
+                            </span>
+                        </span>
+
+                        <ng-template #noWeaponOfferCost>
+                            <span class="price price-icons">
+                                <span class="cost-item">
+                                    <span class="cost-val">MAX</span>
+                                </span>
+                            </span>
+                        </ng-template>
+                    </div>
+
+                    <button *ngIf="helpers.weaponUpgradeCost() as c; else noWeaponOfferText"
+                        class="shop-btn buy-card-btn shop-card-action-btn" (click)="actions.onBuyUpgradeWeapon($event)"
+                        [disabled]="!helpers.canBuyUpgradeWeapon()" aria-label="Acheter une arme"
+                        (mouseenter)="actions.zoomEnter($event, undefined, undefined, 'L')"
+                        (mousemove)="actions.zoomMove($event)" (mouseleave)="actions.zoomLeave()">
+                        <img class="buy-img" [src]="helpers.weaponUpgradeImgSrc()" alt="forge_arme">
+                    </button>
+                    <ng-template #noWeaponOfferText>
+                        <span>Aller à la forge pour upgrade arme tier 3</span>
+                    </ng-template>
+                </div>
+
+                <!-- Armure -->
+                <div class="card card-buy-bottom">
+                    <div class="card-header-line">
+                        <h4>Armure</h4>
+
+                        <span class="price price-icons" *ngIf="helpers.armorUpgradeCost() as c; else noArmorOfferCost">
+                            <span class="cost-item">
+                                <span class="cost-val">{{ c.wood }}</span>
+                                <span class="cost-ico-box"><img class="cost-ico cost-ico-s" src="/assets/icons/wood.png"
+                                        alt="Bois"></span>
+                                <span class="cost-val">{{ c.iron }}</span>
+                                <span class="cost-ico-box"><img class="cost-ico cost-ico-s" src="/assets/icons/iron.png"
+                                        alt="Fer"></span>
+                            </span>
+                        </span>
+
+                        <ng-template #noArmorOfferCost>
+                            <span class="price price-icons">
+                                <span class="cost-item">
+                                    <span class="cost-val">MAX</span>
+                                </span>
+                            </span>
+                        </ng-template>
+                    </div>
+
+                    <button *ngIf="helpers.armorUpgradeCost() as c; else noArmorOfferText"
+                        class="shop-btn buy-card-btn shop-card-action-btn" (click)="actions.onBuyUpgradeArmor($event)"
+                        [disabled]="!helpers.canBuyUpgradeArmor()" aria-label="Acheter une armure"
+                        (mouseenter)="actions.zoomEnter($event, undefined, undefined, 'L')"
+                        (mousemove)="actions.zoomMove($event)" (mouseleave)="actions.zoomLeave()">
+                        <img class="buy-img" [src]="helpers.armorUpgradeImgSrc()" alt="forge_armure">
+                    </button>
+                    <ng-template #noArmorOfferText>
+                        <span>Aller à la forge pour upgrade armure tier 3</span>
+                    </ng-template>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header-line">
+                    <h4>Acheter de l’argent</h4>
+                    <span class="price price-icons">
+                        <span class="cost-item" title="Or">
+                            <span class="cost-ico-box">
+                                <img class="cost-ico cost-ico-s" src="/assets/icons/gold.png" alt="Or">
+                            </span>
+                            <span class="cost-val">{{ vm.silverPrice }}</span>
+                        </span>
+                    </span>
+                </div>
+
+                <div class="row" style="justify-content:center; align-items:center;">
+                    <button (click)="actions.onBuySilver(1)" [disabled]="!vm.canBuySilver">+1</button>
+                    <button (click)="actions.onBuySilver(5)" [disabled]="!helpers.canBuySilverQty(5)">+5</button>
+                </div>
+            </div>
+
+
+            <div class="card card-buy-bottom" *ngIf="vm.bonusKind">
+                <div class="card-header-line">
+                    <h4>{{ vm.bonusTitle }}</h4>
+
+                    <span class="price price-icons">
+                        <ng-container *ngIf="vm.bonusResCost as rc">
+                            <span class="cost-item">
+                                <span *ngIf="rc.water" class="cost-val">{{ rc.water }}</span>
+                                <span *ngIf="rc.water" class="cost-ico-box"><img class="cost-ico cost-ico-s"
+                                        src="/assets/icons/water.png" alt="Eau"></span>
+                                <span *ngIf="rc.herbs" class="cost-val">{{ rc.herbs }}</span>
+                                <span *ngIf="rc.herbs" class="cost-ico-box"><img class="cost-ico cost-ico-s"
+                                        src="/assets/icons/medical_grass.png" alt="Herbes"></span>
+                                <span *ngIf="rc.wood" class="cost-val">{{ rc.wood }}</span>
+                                <span *ngIf="rc.wood" class="cost-ico-box"><img class="cost-ico cost-ico-s"
+                                        src="/assets/icons/wood.png" alt="Bois"></span>
+                                <span *ngIf="rc.iron" class="cost-val">{{ rc.iron }}</span>
+                                <span *ngIf="rc.iron" class="cost-ico-box"><img class="cost-ico cost-ico-s"
+                                        src="/assets/icons/iron.png" alt="Fer"></span>
+                                <span *ngIf="rc.silver" class="cost-val">{{ rc.silver }}</span>
+                                <span *ngIf="rc.silver" class="cost-ico-box"><img class="cost-ico cost-ico-s"
+                                        src="/assets/icons/silver.png" alt="Argent"></span>
+                            </span>
+                        </ng-container>
+
+                        <span class="cost-or">ou</span>
+
+                        <span class="cost-item" title="Or" *ngIf="vm.bonusGoldCost as gc">
+                            <span class="cost-val">{{ gc }}</span>
+                            <span class="cost-ico-box"><img class="cost-ico cost-ico-s" src="/assets/icons/gold.png"
+                                    alt="Or"></span>
+                        </span>
+                    </span>
+                </div>
+
+                <button class="shop-btn buy-card-btn shop-card-action-btn" (click)="actions.onBuyBonus($event)"
+                    [disabled]="!vm.canBuyBonus" [attr.title]="!vm.canBuyBonus ? vm.bonusBuyDisabledTitle : null"
+                    aria-label="Acheter objet bonus" (mouseenter)="actions.zoomEnter($event, vm.bonusTitle, true, 'L')"
+                    (mousemove)="actions.zoomMove($event)" (mouseleave)="actions.zoomLeave()">
+                    <img class="buy-img" [src]="vm.bonusBuyImgSrc" [alt]="vm.bonusTitle">
+                </button>
+            </div>
+        </div>
+
+        <!-- =========================
+          COLONNE 3 : ÉCHANGES
+          ========================= -->
+        <div class="col col-trades">
+            <div class="card">
+                <h4>Proposer un échange</h4>
+
+                <div class="targets" *ngIf="!vm.isMeDead">
+                    <button *ngFor="let p of vm.eligibleTradeTargets" (click)="actions.selectTradeTarget(p.id)"
+                        [class.active]="p.id===vm.selectedTradeTargetId" class="shop-btn">
+                        {{ p.username }}
+                    </button>
+                </div>
+
+                <div *ngIf="vm.selectedTradeTargetId as tgtId" class="trade-area">
+                    <div class="card">
+                        <h4>Mes ressources</h4>
+                        <div class="grid">
+                            <div class="res" *ngFor="let r of helpers.tradeResources()">
+                                <div class="label">{{ r }} <small>(x{{ helpers.resOf(vm.me, r) }})</small></div>
+
+                                <div class="actions" *ngIf="r !== 'gold'; else goldActions">
+                                    <button (click)="actions.bumpOffer(r, +1)"
+                                        [disabled]="helpers.resOf(vm.me, r) < (helpers.offerQty(r)+1)">+1</button>
+                                    <button (click)="actions.bumpOffer(r, -1)"
+                                        [disabled]="helpers.offerQty(r) <= 0">-1</button>
+                                </div>
+
+                                <ng-template #goldActions>
+                                    <div class="actions">
+                                        <button (click)="actions.bumpOffer(r, +10)"
+                                            [disabled]="helpers.resOf(vm.me, r) < (helpers.offerQty(r)+10)">+10</button>
+                                        <button (click)="actions.bumpOffer(r, -10)"
+                                            [disabled]="helpers.offerQty(r) < 10">-10</button>
+                                    </div>
+                                </ng-template>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h4>Échanges en cours</h4>
+
+                    <div class="trade-toast" *ngFor="let f of helpers.activeFlashes()" [class.ok]="f.kind==='ok'"
+                        [class.ko]="f.kind==='ko'">
+                        {{ f.text }}
+                    </div>
+
+                    <div class="trade-list">
+                        <div class="trade-block" *ngFor="let T of helpers.myTradesSorted()"
+                            [class.active]="helpers.otherIdFromTrade(T)===vm.selectedTradeTargetId"
+                            [class.closing]="helpers.isClosing(T.id)" [class.closing-ok]="helpers.isClosingOk(T.id)"
+                            [class.closing-ko]="helpers.isClosingKo(T.id)">
+
+                            <div class="row" style="justify-content:space-between;">
+                                <strong>{{ helpers.usernameOf(helpers.otherIdFromTrade(T)) }}</strong>
+                                <small class="muted">maj {{ T.updatedAt | date:'shortTime' }}</small>
+                            </div>
+
+                            <div class="card sub" [class.ok]="helpers.statusClassFrom(helpers.otherStatus(T))==='ok'"
+                                [class.ko]="helpers.statusClassFrom(helpers.otherStatus(T))==='ko'">
+                                <h5>Proposition d’échange de {{ helpers.usernameOf(T.aId===vm.me?.id ? T.bId : T.aId) }}
+                                </h5>
+                                <div class="pill" *ngFor="let k of ((helpers.iAmA(T)?T.offerB:T.offerA) | keyvalue)">
+                                    {{k.key}} x{{k.value}}
+                                </div>
+                                <div *ngIf="!((helpers.iAmA(T)?T.offerB:T.offerA) | keyvalue).length" class="muted">En
+                                    attente…
+                                </div>
+                            </div>
+
+                            <div class="card sub" [class.ok]="helpers.statusClassFrom(helpers.myStatus(T))==='ok'"
+                                [class.ko]="helpers.statusClassFrom(helpers.myStatus(T))==='ko'">
+                                <h5>Proposition d’échange pour {{ helpers.usernameOf(helpers.otherIdFromTrade(T)) }}
+                                </h5>
+                                <div class="pill" *ngFor="let k of ((helpers.iAmA(T)?T.offerA:T.offerB) | keyvalue)">
+                                    {{k.key}} x{{k.value}}
+                                </div>
+                                <div *ngIf="!((helpers.iAmA(T)?T.offerA:T.offerB) | keyvalue).length" class="muted">
+                                    Rien.
+                                </div>
+                            </div>
+
+                            <div class="row buttons">
+                                <button class="confirm"
+                                    (click)="actions.onTradeActionFor('confirm', helpers.otherIdFromTrade(T))"
+                                    [disabled]="helpers.isClosing(T.id)">Confirmer</button>
+                                <button class="refuse"
+                                    (click)="actions.onTradeActionFor('refuse',  helpers.otherIdFromTrade(T))"
+                                    [disabled]="helpers.isClosing(T.id)">Refuser</button>
+                                <button class="cancel"
+                                    (click)="actions.onTradeActionFor('cancel',  helpers.otherIdFromTrade(T))"
+                                    [disabled]="helpers.isClosing(T.id)">Annuler</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </section>
+</div>
