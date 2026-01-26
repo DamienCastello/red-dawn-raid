@@ -1,0 +1,34 @@
+/* Shared styles for all modals based on location-modal or fight-modal */
+.modal.location-modal,
+.modal.fight-modal {
+
+    .mod-chip {
+        display: inline-flex;
+        align-items: center;
+        max-width: 100%;
+        overflow: hidden;
+        white-space: nowrap;
+
+        .chip-val {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+            /* Allow label to grow/shrink and use ellipsis */
+        }
+    }
+
+    /* Prevent mods wrappers from expanding the modal or overflowing */
+    .mods-row,
+    .mods-col,
+    .mods-column,
+    .mods-grid {
+        max-width: 100%;
+        overflow: hidden;
+        display: flex;
+        flex-wrap: wrap;
+        /* allow wrapping if many chips, but contained */
+        justify-content: center;
+        gap: 0.35rem;
+    }
+}

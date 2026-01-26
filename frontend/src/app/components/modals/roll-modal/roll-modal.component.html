@@ -1,0 +1,277 @@
+<div class="modal location-modal roll-modal" [style.backgroundImage]="vm.backgroundImage"
+    *ngIf="vm.combat.currentCombat as r">
+    <h3 style="margin-top:0" class="bg-badge">
+        {{ vm.title }}
+        <ng-container *ngIf="vm.combat.monsterHp as hp">
+            &nbsp;— <span>{{ hp }} PV</span>
+        </ng-container>
+    </h3>
+    <div class="roll-side" *ngIf="vm.waitingForMyRoll as side">
+        <ng-container *ngIf="side === 'ATTACK'; else defenseSide">
+            <h2 class="bg-badge">Vous attaquez !</h2>
+        </ng-container>
+        <ng-template #defenseSide>
+            <h2 class="bg-badge">Vous défendez !</h2>
+        </ng-template>
+    </div>
+    <div class="bg-badge" *ngIf="vm.isMyFocusFirstStep">
+        Potion de focalisation : vous pouvez relancer ce dé et garder le meilleur.
+    </div>
+    <div class="content action" style="margin-top: 30px;">
+        <!-- On affiche le dé du joueur courant, avec icône -->
+
+        <ng-container *ngIf="vm.waitingForMyRoll as side">
+            <ng-container *ngIf="side === 'ATTACK'; else defenseSide">
+                <!-- ===================== -->
+                <!--        ATTAQUANT      -->
+                <!-- ===================== -->
+                <div class="roll-row" style="margin-top: 30px;">
+                    <!-- Icône (à gauche) -->
+                    <div class="icon-bubble oval">
+                        <div class="icon-halo" [ngClass]="vm.helpers.entityHaloIcon(r.attackerId, 'attack')">
+                            <img class="icon-side" [src]="vm.helpers.entityRoleIcon(r.attackerId,'sword')"
+                                alt="attaque" />
+                        </div>
+                    </div>
+
+                    <!-- CAS 1 : Valse + Foca -->
+                    <ng-container
+                        *ngIf="vm.helpers.isBallroomWaltzFight(r) && vm.helpers.hasFocus(r.attackerId); else noWaltzFocusCombo">
+
+                        <div class="dice-column">
+                            <!-- Valse -->
+                            <div class="dice-section">
+                                <div class="dice-label global bg-badge">Dés de valse sanguinaire</div>
+                                <div class="waltz-dice-grid">
+                                    <div class="dice-with-label valse-die"
+                                        *ngFor="let _ of vm.helpers.waltzPlaceholderDice(); let i = index">
+                                        <div class="dice-wrap waltz-verysmall">
+                                            <img class="dice-verysmall" [src]="vm.helpers.diceAsset(vm.helpers.getPlayer(r.attackerId)?.attackDice,
+                                              vm.helpers.roleColorOf(vm.helpers.getPlayer(r.attackerId)))"
+                                                alt="dé valse" />
+                                            <div class="dice-overlay-small" *ngIf="vm.helpers.waltzRolls.length">
+                                                {{ vm.helpers.waltzRolls[i] }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Focalisation -->
+                            <div class="dice-section focus-single">
+                                <div class="dice-label bg-badge">Dé de focalisation</div>
+                                <div class="dice-wrap waltz-small">
+                                    <img class="dice" [src]="vm.helpers.diceAsset(vm.helpers.getPlayer(r.attackerId)?.attackDice,
+                                          vm.helpers.roleColorOf(vm.helpers.getPlayer(r.attackerId)))"
+                                        alt="dé de focalisation" />
+                                    <div class="dice-overlay-small" *ngIf="r.attackerReroll != null">
+                                        {{ r.attackerReroll }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </ng-container>
+
+                    <!-- Pas combo Valse+Foca -->
+                    <ng-template #noWaltzFocusCombo>
+
+                        <!-- CAS 2 : Valse seule -->
+                        <ng-container *ngIf="vm.helpers.isBallroomWaltzFight(r); else noWaltz">
+
+                            <div class="dice-column">
+                                <div class="dice-section">
+                                    <div class="dice-label global">Dés de valse sanguinaire</div>
+                                    <div class="waltz-dice-grid">
+                                        <div class="dice-with-label valse-die"
+                                            *ngFor="let _ of vm.helpers.waltzPlaceholderDice(); let i = index">
+                                            <div class="dice-wrap waltz-verysmall">
+                                                <img class="dice-verysmall" [src]="vm.helpers.diceAsset(vm.helpers.getPlayer(r.attackerId)?.attackDice,
+                                                vm.helpers.roleColorOf(vm.helpers.getPlayer(r.attackerId)))"
+                                                    alt="dé valse" />
+                                                <div class="dice-overlay-small" *ngIf="vm.helpers.waltzRolls.length">
+                                                    {{ vm.helpers.waltzRolls[i] }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </ng-container>
+
+                        <!-- CAS 3 : pas de Valse -->
+                        <ng-template #noWaltz>
+
+                            <!-- Focalisation seule : 2 petits dés -->
+                            <ng-container *ngIf="vm.helpers.hasFocus(r.attackerId); else singleBigDice">
+                                <div class="dice-pair">
+                                    <!-- Dé de base -->
+                                    <div class="dice-with-label">
+                                        <div class="dice-label bg-badge">Dé de base</div>
+                                        <div class="dice-wrap">
+                                            <img class="dice" [src]="vm.helpers.diceAsset(vm.helpers.getPlayer(r.attackerId)?.attackDice,
+                                              vm.helpers.roleColorOf(vm.helpers.getPlayer(r.attackerId)))"
+                                                alt="dé de base" />
+                                            <div class="dice-overlay" *ngIf="r.attackerFirstRoll != null">
+                                                {{ r.attackerFirstRoll }}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Dé de Focalisation -->
+                                    <div class="dice-with-label">
+                                        <div class="dice-label bg-badge">Dé de focalisation</div>
+                                        <div class="dice-wrap">
+                                            <img class="dice" [src]="vm.helpers.diceAsset(vm.helpers.getPlayer(r.attackerId)?.attackDice,
+                                              vm.helpers.roleColorOf(vm.helpers.getPlayer(r.attackerId)))"
+                                                alt="dé de focalisation" />
+                                            <div class="dice-overlay" *ngIf="r.attackerReroll != null">
+                                                {{ r.attackerReroll }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </ng-container>
+
+                            <!-- CAS 4 : ni Valse ni Foca → gros dé classique -->
+                            <ng-template #singleBigDice>
+                                <div class="dice-wrap" *ngIf="vm.dice?.main as d">
+                                    <img class="dice-big" [src]="d.src" alt="dice" />
+                                    <div class="dice-overlay" *ngIf="d.value != null">
+                                        {{ d.value }}
+                                    </div>
+                                </div>
+                            </ng-template>
+
+                        </ng-template>
+                    </ng-template>
+                </div>
+                <ng-container *ngIf="vm.mods as mods">
+                    <div class="mods-row" *ngIf="mods.length">
+                        <span class="mod-chip" *ngFor="let m of mods" [title]="m.title">
+                            <div class="mods-badge-weather" *ngIf="m.kind === 'WEATHER'">
+                                <img class="weather-ico" [src]="m.iconSrc" alt="icône météo" />
+                            </div>
+
+                            <div class="mods-badge-potion" *ngIf="m.kind === 'POTION'">
+                                <img class="mod-ico" [src]="m.iconSrc" alt="potion_or_elixir" />
+                            </div>
+
+                            <div class="mods-badge-action" *ngIf="m.kind === 'ACTION'">
+                                <img class="mod-ico" [src]="m.iconSrc" alt="action" />
+                            </div>
+
+                            <div class="mods-badge-corruption" *ngIf="m.kind === 'CORRUPTION'">
+                                <img class="mod-ico" [src]="m.iconSrc" alt="corruption" />
+                            </div>
+
+                            <div class="mods-badge-equip" *ngIf="m.kind === 'EQUIP'">
+                                <img class="mod-ico" [src]="m.iconSrc" alt="équipement" />
+                            </div>
+
+                            <div class="mods-badge-hit" *ngIf="m.kind === 'HIT'">
+                                <img class="mod-ico" [src]="m.iconSrc" alt="effet de coup" />
+                            </div>
+                            <span class="chip-val">{{ m.label }}</span>
+                        </span>
+                    </div>
+                </ng-container>
+            </ng-container>
+            <ng-template #defenseSide>
+                <!-- ===================== -->
+                <!--       DEFENSEUR       -->
+                <!-- ===================== -->
+                <div class="roll-row">
+                    <!-- Icône à gauche -->
+                    <div class="icon-bubble oval">
+                        <div class="icon-halo oval" [ngClass]="vm.helpers.entityHaloIcon(r.defenderId, 'defense')">
+                            <img class="icon-side"
+                                [src]="vm.helpers.roleIcon(vm.helpers.getRole(vm.helpers.getPlayer(r.defenderId)),'armor')"
+                                alt="défense" />
+                        </div>
+                    </div>
+
+                    <!-- Focalisation seule (défenseur) -->
+                    <ng-container *ngIf="vm.helpers.hasFocus(r.defenderId); else defSingleBig">
+                        <div class="dice-pair">
+                            <!-- Dé de base -->
+                            <div class="dice-with-label">
+                                <div class="dice-label bg-badge">Dé de base</div>
+                                <div class="dice-wrap">
+                                    <img class="dice" [src]="vm.helpers.diceAsset(vm.helpers.getPlayer(r.defenderId)?.defenseDice,
+                                          vm.helpers.roleColorOf(vm.helpers.getPlayer(r.defenderId)))"
+                                        alt="dé de base" />
+                                    <div class="dice-overlay" *ngIf="r.defenderFirstRoll != null">
+                                        {{ r.defenderFirstRoll }}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Dé de focalisation -->
+                            <div class="dice-with-label">
+                                <div class="dice-label bg-badge">Dé de focalisation</div>
+                                <div class="dice-wrap">
+                                    <img class="dice" [src]="vm.helpers.diceAsset(vm.helpers.getPlayer(r.defenderId)?.defenseDice,
+                                          vm.helpers.roleColorOf(vm.helpers.getPlayer(r.defenderId)))"
+                                        alt="dé de focalisation" />
+                                    <div class="dice-overlay" *ngIf="r.defenderReroll != null">
+                                        {{ r.defenderReroll }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </ng-container>
+
+                    <!-- Pas de Foca : gros dé comme avant -->
+                    <ng-template #defSingleBig>
+                        <div class="dice-wrap" *ngIf="vm.dice?.main as d">
+                            <img class="dice-big" [src]="d.src" alt="dice" />
+                            <div class="dice-overlay" *ngIf="d.value != null">
+                                {{ d.value }}
+                            </div>
+                        </div>
+                    </ng-template>
+                </div>
+
+                <ng-container *ngIf="vm.mods as mods">
+                    <div class="mods-row" *ngIf="mods.length">
+                        <span class="mod-chip" *ngFor="let m of mods" [title]="m.title">
+                            <div class="mods-badge-weather" *ngIf="m.kind === 'WEATHER'">
+                                <img class="weather-ico" [src]="m.iconSrc" alt="icône météo" />
+                            </div>
+
+                            <div class="mods-badge-potion" *ngIf="m.kind === 'POTION'">
+                                <img class="mod-ico" [src]="m.iconSrc" alt="potion_or_elixir" />
+                            </div>
+
+                            <div class="mods-badge-action" *ngIf="m.kind === 'ACTION'">
+                                <img class="mod-ico" [src]="m.iconSrc" alt="action" />
+                            </div>
+
+                            <div class="mods-badge-corruption" *ngIf="m.kind === 'CORRUPTION'">
+                                <img class="mod-ico" [src]="m.iconSrc" alt="corruption" />
+                            </div>
+
+                            <div class="mods-badge-equip" *ngIf="m.kind === 'EQUIP'">
+                                <img class="mod-ico" [src]="m.iconSrc" alt="équipement" />
+                            </div>
+
+                            <div class="mods-badge-hit" *ngIf="m.kind === 'HIT'">
+                                <img class="mod-ico" [src]="m.iconSrc" alt="effet de coup" />
+                            </div>
+                            <span class="chip-val">{{ m.label }}</span>
+                        </span>
+                    </div>
+                </ng-container>
+            </ng-template>
+
+        </ng-container>
+    </div>
+
+    <div class="footer">
+        <button (click)="actions.rollNow()" [disabled]="!vm.canRoll">
+            {{ vm.rollButtonLabel }}
+        </button>
+    </div>
+</div>

@@ -11,9 +11,12 @@ import { ToastComponent } from './toast.component';
 import { DeathModalComponent } from './components/limit-modals/death-modal/death-modal.component';
 import { EndGameModalComponent } from './components/limit-modals/end-game-modal/end-game-modal.component';
 import { ZoomOverlayComponent } from './components/ui/zoom-overlay/zoom-overlay.component';
-import { WeatherModalComponent } from './components/weather-modal/weather-modal.component';
+import { WeatherModalComponent } from './components/modals/weather-modal/weather-modal.component';
 import { BiteModalComponent } from './components/modals/bite-modal/bite-modal.component';
 import { CorruptionModalComponent } from './components/modals/corruption-modal/corruption-modal.component';
+
+import { RollModalVm, RollModalActions } from './components/modals/roll-modal/roll-modal.vm';
+import { RollModalComponent } from './components/modals/roll-modal/roll-modal.component';
 
 type ForgeRes = 'wood' | 'iron' | 'silver' | 'souls';
 type ForgeCost = Partial<Record<ForgeRes, number>>;
@@ -75,7 +78,7 @@ interface ForgeOption {
 @Component({
   standalone: true,
   selector: 'app-game',
-  imports: [CommonModule, PhaseBubbleComponent, ToastComponent, DeathModalComponent, EndGameModalComponent, ZoomOverlayComponent, WeatherModalComponent, BiteModalComponent, CorruptionModalComponent],
+  imports: [CommonModule, PhaseBubbleComponent, ToastComponent, DeathModalComponent, EndGameModalComponent, ZoomOverlayComponent, WeatherModalComponent, BiteModalComponent, CorruptionModalComponent, RollModalComponent],
   templateUrl: './game.component.html',
   styleUrls: ['./game.component.scss']
 })
@@ -84,6 +87,61 @@ export class GameComponent {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private live = inject(LiveService);
+
+  get rollVm(): RollModalVm {
+    const r = this.currentCombat;
+    const mySide = this.waitingForMyRoll;
+    const myEntityId = r ? (mySide === 'ATTACK' ? r.attackerId : r.defenderId) : null;
+    const myPlayer = myEntityId ? this.getPlayer(myEntityId) : null;
+
+    return {
+      show: this.showRollModal && !this.isGameEnded && !!r,
+      title: r ? this.modalTitle(r) : '',
+      backgroundImage: this.setImageBackground('location'),
+      waitingForMyRoll: mySide,
+      isRolling: this.isRolling,
+      canRoll: !!mySide && !this.isRolling,
+      rollButtonLabel: this.rollButtonLabel,
+      isMyFocusFirstStep: this.isMyFocusFirstStep,
+      combat: {
+        monsterHp: r ? (this.monsterHpInCombat(r) ?? null) : null,
+        currentCombat: r,
+      },
+      dice: {
+        main: r && myPlayer ? {
+          value: mySide === 'ATTACK' ? r.attackerRoll : r.defenderRoll,
+          src: this.diceAsset(mySide === 'ATTACK' ? myPlayer.attackDice : myPlayer.defenseDice, this.roleColorOf(myPlayer))
+        } : {}
+      },
+      mods: r && myPlayer && mySide ? this.modsForStat(myPlayer, mySide).map(m => ({
+        label: this.labelOrChip(m),
+        title: this.titleFor(m),
+        iconSrc: m.source?.startsWith('WEATHER:') ? this.weatherIconSrcForMod(m) :
+          m.source?.startsWith('POTION:') ? (this.isElixirMod(m) ? 'assets/icons/elixir-icon.png' : 'assets/icons/potion-icon.png') :
+            m.source?.startsWith('CORRUPTION') ? '/assets/corruption/corruption-icon.png' :
+              this.modIconSrc(m.source),
+        kind: m.source?.split(':')[0]
+      })) : [],
+
+      helpers: {
+        entityHaloIcon: this.entityHaloIcon.bind(this),
+        entityRoleIcon: this.entityRoleIcon.bind(this),
+        isBallroomWaltzFight: this.isBallroomWaltzFight.bind(this),
+        hasFocus: this.hasFocus.bind(this),
+        waltzPlaceholderDice: this.waltzPlaceholderDice.bind(this),
+        diceAsset: this.diceAsset.bind(this),
+        getPlayer: this.getPlayer.bind(this),
+        roleColorOf: this.roleColorOf.bind(this),
+        getRole: this.getRole.bind(this),
+        roleIcon: this.roleIcon.bind(this),
+        waltzRolls: this.waltzRolls,
+      }
+    };
+  }
+
+  readonly rollActions: RollModalActions = {
+    rollNow: () => this.rollNow()
+  };
   private unsubscribeGameTopic?: () => void; // coupe l’abonnement WS au destroy
   private notify = inject(NotifyService);
   private cdr = inject(ChangeDetectorRef);

@@ -865,8 +865,10 @@
     position: relative;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    align-items: center;
+    align-items: start;
+    /* Anchor columns to the top to keep icons level */
     justify-items: center;
+    padding-top: 1rem;
   }
 
   .content.action {
@@ -1219,7 +1221,7 @@
 
   /* L'image passe au-dessus du halo */
   .modal.location-modal .icon-halo .icon-side,
-  modal.bite-modal .icon-halo .icon-side {
+  .modal.bite-modal .icon-halo .icon-side {
     position: relative;
     z-index: 1;
     width: 120px;
@@ -1249,6 +1251,9 @@
     --halo-dx: 5px;
     --halo-dy: 5px;
   }
+
+  /* DUPLICATION TEMPORAIRE POUR SCOPING INDÉPENDANT */
+
 
   .modal.location-modal.spectate {
     width: min(780px, 95vw);
@@ -1305,11 +1310,13 @@
     background: rgba(255, 255, 255, .85);
   }
 
-  /* 3) Spectateur : forcer l’alignement des DÉS sur la même ligne */
+  /* 3) Spectateur : forcer l’alignement des icones sur la même ligne horizontale */
   .modal.location-modal.spectate .side {
-    grid-template-rows: 160px auto;
-    justify-items: center;
-    align-items: start;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    gap: .25rem;
   }
 
   /* centre le halo */
@@ -1332,9 +1339,21 @@
     width: 180px;
   }
 
-  /* 1) centre l'élément icône+halo dans la 1ère ligne (160px) */
+  /* 1) centre l'icône dans un bloc de hauteur fixe pour l'alignement horizontal */
   .modal.location-modal.spectate .side>.icon-halo {
-    align-self: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 160px;
+    width: 160px;
+    /* ensure width is also stable */
+  }
+
+  .modal.location-modal.spectate .dice-row {
+    min-height: 180px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   /* 2) annule le petit décalage vertical du halo round UNIQUEMENT en spectate */

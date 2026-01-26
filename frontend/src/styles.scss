@@ -1,5 +1,12 @@
 /* You can add global styles to this file, and also import other style files */
-body.modal-open{
+@use "./app/components/modals/modals-shared";
+
+body.modal-open {
   overflow: hidden;
 }
-html, body { height: 100%; margin: 0; }
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}

@@ -1,0 +1,285 @@
+:host {
+    display: block;
+}
+
+.roll-modal {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    width: min(600px, 95vw);
+    min-height: 560px;
+    max-height: 90vh;
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-position: center 50%;
+
+    .bg-badge {
+        display: inline-block;
+        margin: 0 auto .4rem;
+        text-align: center;
+        line-height: 1.15;
+        padding: .35rem .75rem;
+        border-radius: 999px;
+        background: rgba(0, 0, 0, .45);
+        color: #fff;
+    }
+
+    .roll-side {
+        text-align: center;
+    }
+
+    .content.action {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+        transform: translateY(-50px);
+    }
+
+    .mods-row {
+        width: auto;
+        flex-basis: 100%;
+        display: flex;
+        justify-content: center;
+        gap: .35rem;
+        margin-top: .5rem;
+        order: 3;
+    }
+
+    .mod-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: .25rem;
+        font: 700 11px/1 system-ui, sans-serif;
+        padding: .40rem .50rem;
+        background: #222;
+        color: #fff;
+        border-radius: 999px;
+        opacity: .92;
+
+        .chip-ico {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, .85);
+        }
+
+        .mods-badge-weather,
+        .mods-badge-potion,
+        .mods-badge-action,
+        .mods-badge-corruption,
+        .mods-badge-equip,
+        .mods-badge-hit {
+            width: 28px;
+            height: 28px;
+            background: #ddddddff;
+            border-radius: 999px;
+            opacity: .92;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .weather-ico {
+            width: 28px;
+            height: 28px;
+            display: block;
+            object-fit: contain;
+            filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .5));
+        }
+
+        .mod-ico {
+            width: 28px;
+            height: 28px;
+            display: block;
+            object-fit: contain;
+        }
+    }
+
+    .icon-halo {
+        position: relative;
+        display: grid;
+        place-items: center;
+        padding: 0;
+        background: transparent;
+        box-shadow: none;
+        backdrop-filter: none;
+
+        &::before {
+            content: "";
+            position: absolute;
+            z-index: 0;
+            width: var(--halo-w, 110px);
+            height: var(--halo-h, 160px);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) translate(var(--halo-dx, 0px), var(--halo-dy, 0px));
+            background: rgba(20, 22, 24, .45);
+            -webkit-backdrop-filter: blur(2px);
+            backdrop-filter: blur(2px);
+            box-shadow: inset 0 8px 24px rgba(0, 0, 0, .35), 0 6px 16px rgba(0, 0, 0, .25);
+        }
+
+        .icon-side {
+            position: relative;
+            z-index: 1;
+            width: 120px;
+            height: auto;
+            opacity: .95;
+        }
+
+        &.oval::before {
+            border-radius: 50% / 35%;
+        }
+
+        &.round::before {
+            border-radius: 50%;
+        }
+
+        &.oval {
+            --halo-w: 120px;
+            --halo-h: 160px;
+            --halo-dx: 0px;
+            --halo-dy: 0px;
+        }
+
+        &.round {
+            --halo-w: 140px;
+            --halo-h: 140px;
+            --halo-dx: 5px;
+            --halo-dy: 5px;
+        }
+    }
+
+    .icon-bubble {
+        display: grid;
+        place-items: center;
+    }
+
+    .roll-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+    }
+
+    .dice {
+        width: 180px;
+        height: auto;
+    }
+
+    .dice-big {
+        width: 240px;
+        height: auto;
+    }
+
+    .dice-column {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .dice-pair {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .dice-with-label {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.25rem;
+    }
+
+    .dice-label {
+        font-size: 11px;
+        text-transform: none;
+        opacity: 0.9;
+        color: white;
+
+        &.global {
+            font-weight: 600;
+        }
+    }
+
+    .dice-section {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.25rem;
+
+        &.focus-single {
+            margin-top: 0.25rem;
+        }
+    }
+
+    .waltz-dice-grid {
+        display: grid;
+        grid-template-columns: repeat(2, auto);
+        gap: 0.25rem;
+    }
+
+    .dice-wrap {
+        position: relative;
+        display: inline-block;
+
+        &.waltz-small .dice,
+        &.waltz-small .dice-small {
+            width: 100px;
+            height: 100px;
+        }
+
+        &.waltz-verysmall .dice-verysmall {
+            width: 60px;
+            height: 60px;
+        }
+
+        .dice-overlay {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            font: 700 42px/1 system-ui, sans-serif;
+            color: #cc9c00;
+            pointer-events: none;
+            font-variant-numeric: tabular-nums;
+            transform: translate(var(--dx, 0px), var(--dy, 0px));
+        }
+
+        &[data-digits="1"] .dice-overlay {
+            --dx: -2px;
+            --dy: 7px;
+        }
+
+        &[data-digits="2"] .dice-overlay {
+            --dx: -5px;
+            --dy: 7px;
+            letter-spacing: -0.5px;
+        }
+
+        .dice-overlay-small {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            font: 700 42px/1 system-ui, sans-serif;
+            color: #cc9c00;
+            pointer-events: none;
+            font-variant-numeric: tabular-nums;
+            font-size: 25px;
+            transform: translate(var(--dx, 0px), var(--dy, 0px));
+        }
+
+        &[data-digits="1"] .dice-overlay-small {
+            --dx: 0px;
+            --dy: 5px;
+        }
+    }
+
+    .footer {
+        margin-top: .75rem;
+        text-align: center;
+        color: #eeeeeeff;
+    }
+}
