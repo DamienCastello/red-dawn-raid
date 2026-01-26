@@ -17,6 +17,8 @@ import { CorruptionModalComponent } from './components/modals/corruption-modal/c
 
 import { RollModalVm, RollModalActions } from './components/modals/roll-modal/roll-modal.vm';
 import { RollModalComponent } from './components/modals/roll-modal/roll-modal.component';
+import { SpectateModalVm } from './components/modals/spectate-modal/spectate-modal.vm';
+import { SpectateModalComponent } from './components/modals/spectate-modal/spectate-modal.component';
 
 type ForgeRes = 'wood' | 'iron' | 'silver' | 'souls';
 type ForgeCost = Partial<Record<ForgeRes, number>>;
@@ -75,10 +77,11 @@ interface ForgeOption {
   cost: any;
 }
 
+
 @Component({
   standalone: true,
   selector: 'app-game',
-  imports: [CommonModule, PhaseBubbleComponent, ToastComponent, DeathModalComponent, EndGameModalComponent, ZoomOverlayComponent, WeatherModalComponent, BiteModalComponent, CorruptionModalComponent, RollModalComponent],
+  imports: [CommonModule, PhaseBubbleComponent, ToastComponent, DeathModalComponent, EndGameModalComponent, ZoomOverlayComponent, WeatherModalComponent, BiteModalComponent, CorruptionModalComponent, RollModalComponent, SpectateModalComponent],
   templateUrl: './game.component.html',
   styleUrls: ['./game.component.scss']
 })
@@ -135,6 +138,41 @@ export class GameComponent {
         getRole: this.getRole.bind(this),
         roleIcon: this.roleIcon.bind(this),
         waltzRolls: this.waltzRolls,
+      }
+    };
+  }
+
+  get spectateVm(): SpectateModalVm {
+    const r = this.currentCombat;
+    return {
+      show: this.showSpectatorModal && !this.isGameEnded && !!r,
+      title: r ? this.modalTitle(r) : '',
+      hp: r ? (this.monsterHpInCombat(r) ?? null) : null,
+      backgroundImage: this.setImageBackground('location'),
+      hasFocus: !!r && (this.hasFocus(r.attackerId) || this.hasFocus(r.defenderId)),
+      biteActive: !!this.game?.currentBite && !this.isBeforeBiteModal,
+      combat: r,
+      waltzRolls: this.waltzRolls,
+      helpers: {
+        nameOrId: this.nameOrId.bind(this),
+        modsForEntityStat: this.modsForEntityStat.bind(this),
+        titleFor: this.titleFor.bind(this),
+        labelOrChip: this.labelOrChip.bind(this),
+        weatherIconSrcForMod: this.weatherIconSrcForMod.bind(this),
+        isElixirMod: this.isElixirMod.bind(this),
+        modIconSrc: this.modIconSrc.bind(this),
+        entityHaloIcon: this.entityHaloIcon.bind(this),
+        entityRoleIcon: this.entityRoleIcon.bind(this),
+        diceAsset: this.diceAsset.bind(this),
+        entityAttackDice: this.entityAttackDice.bind(this),
+        entityDefenseDice: this.entityDefenseDice.bind(this),
+        entityColor: this.entityColor.bind(this),
+        isBallroomWaltzFight: this.isBallroomWaltzFight.bind(this),
+        hasFocus: this.hasFocus.bind(this),
+        showFocusSpectate: this.showFocusSpectate.bind(this),
+        waltzPlaceholderDice: this.waltzPlaceholderDice.bind(this),
+        getPlayer: this.getPlayer.bind(this),
+        roleColorOf: this.roleColorOf.bind(this),
       }
     };
   }

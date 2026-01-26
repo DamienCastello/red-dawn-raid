@@ -853,6 +853,7 @@
     z-index: 1000;
   }
 
+  /*
   .modal {
     background: #fff;
     padding: 1rem;
@@ -866,7 +867,6 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     align-items: start;
-    /* Anchor columns to the top to keep icons level */
     justify-items: center;
     padding-top: 1rem;
   }
@@ -919,13 +919,13 @@
     transform: translate(var(--dx, 0px), var(--dy, 0px));
   }
 
-  /* 1 chiffre */
+  // 1 chiffre
   .dice-wrap[data-digits="1"] .dice-overlay {
     --dx: -2px;
     --dy: 7px;
   }
 
-  /* 2 chiffres */
+  // 2 chiffres 
   .dice-wrap[data-digits="2"] .dice-overlay {
     --dx: -5px;
     --dy: 7px;
@@ -945,7 +945,7 @@
     transform: translate(var(--dx, 0px), var(--dy, 0px));
   }
 
-  /* 1 chiffre */
+  // 1 chiffre
   .dice-wrap[data-digits="1"] .dice-overlay-small {
     --dx: 0px;
     --dy: 5px;
@@ -963,7 +963,7 @@
     pointer-events: none;
   }
 
-  /* Ancrages gauche/droite */
+  // Ancrages gauche/droite
   .mods-col.left {
     left: -72px;
     align-items: flex-start;
@@ -990,7 +990,7 @@
     right: -72px;
   }
 
-  /* Les chips en colonne */
+  // Les chips en colonne
   .mods-col .mod-chip {
     display: inline-block;
     white-space: nowrap;
@@ -1012,7 +1012,7 @@
     color: #eeeeeeff;
   }
 
-  /* MODALE ROLL */
+  // MODALE ROLL
   .modal.location-modal {
     display: flex;
     flex-direction: column;
@@ -1023,7 +1023,7 @@
     min-height: 500px;
   }
 
-  /* Badge de titre compact et centré */
+  // Badge de titre compact et centré
   .modal.location-modal .bg-badge,
   .modal.bite-modal .bg-badge {
     display: inline-block;
@@ -1046,7 +1046,7 @@
     text-align: center;
   }
 
-  /* Contenu centré même quand des chips existent */
+  // Contenu centré même quand des chips existent
   .modal.location-modal .content.action,
   .modal.bite-modal .content.action {
     display: flex;
@@ -1057,7 +1057,7 @@
     transform: translateY(-50px);
   }
 
-  /* Les chips de la modale roll passent sur une nouvelle ligne et ne perturbent pas l’alignement */
+  // Les chips de la modale roll passent sur une nouvelle ligne et ne perturbent pas l’alignement
   .modal.location-modal .mods-row {
     width: auto;
     flex-basis: 100%;
@@ -1068,7 +1068,7 @@
     order: 3;
   }
 
-  /* Uniformiser exactement le style des chips comme sur les boards */
+  // Uniformiser exactement le style des chips comme sur les boards
   .modal.location-modal .mod-chip {
     font: 700 11px/1 system-ui, sans-serif;
     padding: .40rem .50rem;
@@ -1098,7 +1098,7 @@
     backdrop-filter: none;
   }
 
-  /* dessiner Le HALO  */
+  // dessiner Le HALO
   .icon-bubble {
     display: grid;
     place-items: center;
@@ -1110,7 +1110,7 @@
     position: absolute;
     z-index: 0;
 
-    /* tailles par défaut (overridées ci-dessous) */
+    // tailles par défaut (overridées ci-dessous)
     width: var(--halo-w, 110px);
     height: var(--halo-h, 160px);
     top: 50%;
@@ -1125,7 +1125,7 @@
       0 6px 16px rgba(0, 0, 0, .25);
   }
 
-  /* Ligne principale de la modale roll : icône + gros dé + colonne premier jet */
+  // Ligne principale de la modale roll : icône + gros dé + colonne premier jet
   .roll-row {
     display: flex;
     align-items: center;
@@ -1133,7 +1133,7 @@
     gap: 1rem;
   }
 
-  /* Colonne à droite qui contient "Premier jet" + petit dé */
+  // Colonne à droite qui contient "Premier jet" + petit dé
   .focus-column {
     display: flex;
     flex-direction: column;
@@ -1141,7 +1141,7 @@
     gap: .25rem;
   }
 
-  /* Petit label dans la colonne */
+  // Petit label dans la colonne
   .focus-column .focus-label {
     font-weight: 600;
     font-size: 13px;
@@ -1149,7 +1149,7 @@
     padding-inline: .6rem;
   }
 
-  /* Le petit dé de premier jet (plus petit que le gros) */
+  // Le petit dé de premier jet (plus petit que le gros)
   .focus-small .dice {
     width: 90px;
     height: auto;
@@ -1161,13 +1161,13 @@
     gap: 0.5rem;
   }
 
-  /* 2 dés côte à côte (Foca seule) */
+  // 2 dés côte à côte (Foca seule)
   .dice-pair {
     display: flex;
     gap: 0.5rem;
   }
 
-  /* Un dé + son label au-dessus */
+  // Un dé + son label au-dessus
   .dice-with-label {
     display: flex;
     flex-direction: column;
@@ -1182,12 +1182,12 @@
     color: white;
   }
 
-  /* Label "global" pour un groupe (Valse) */
+  // Label "global" pour un groupe (Valse)
   .dice-label.global {
     font-weight: 600;
   }
 
-  /* Section logique (Valse, Foca, etc.) */
+  // Section logique (Valse, Foca, etc.)
   .dice-section {
     display: flex;
     flex-direction: column;
@@ -1199,14 +1199,14 @@
     margin-top: 0.25rem;
   }
 
-  /* Grille Valse 2 par 2 max */
+  // Grille Valse 2 par 2 max
   .waltz-dice-grid {
     display: grid;
     grid-template-columns: repeat(2, auto);
     gap: 0.25rem;
   }
 
-  /* Tailles */
+  // Tailles
   .dice-wrap.waltz-small .dice,
   .dice-wrap.waltz-small .dice-small {
     width: 100px;
@@ -1219,7 +1219,7 @@
   }
 
 
-  /* L'image passe au-dessus du halo */
+  // L'image passe au-dessus du halo
   .modal.location-modal .icon-halo .icon-side,
   .modal.bite-modal .icon-halo .icon-side {
     position: relative;
@@ -1252,7 +1252,7 @@
     --halo-dy: 5px;
   }
 
-  /* DUPLICATION TEMPORAIRE POUR SCOPING INDÉPENDANT */
+  // DUPLICATION TEMPORAIRE POUR SCOPING INDÉPENDANT
 
 
   .modal.location-modal.spectate {
@@ -1275,7 +1275,7 @@
     min-height: 540px;
   }
 
-  /* Spectateur : chips identiques aux boards */
+  // Spectateur : chips identiques aux boards
   .modal.location-modal.spectate .mods-col .mod-chip {
     display: inline-flex;
     align-items: center;
@@ -1295,14 +1295,14 @@
     background: rgba(255, 255, 255, .85);
   }
 
-  /* Spectateur : centrer verticalement les colonnes de mods */
+  // Spectateur : centrer verticalement les colonnes de mods
   .modal.location-modal.spectate .mods-col {
     top: 50%;
     bottom: auto;
     transform: translateY(-50%);
   }
 
-  /* Spectateur : afficher l’icône placeholder dans les chips */
+  // Spectateur : afficher l’icône placeholder dans les chips
   .modal.location-modal.spectate .mods-col .mod-chip .chip-ico {
     width: 14px;
     height: 14px;
@@ -1310,7 +1310,7 @@
     background: rgba(255, 255, 255, .85);
   }
 
-  /* 3) Spectateur : forcer l’alignement des icones sur la même ligne horizontale */
+  // Spectateur : forcer l’alignement des icones sur la même ligne horizontale
   .modal.location-modal.spectate .side {
     display: flex;
     flex-direction: column;
@@ -1319,7 +1319,7 @@
     gap: .25rem;
   }
 
-  /* centre le halo */
+  // centre le halo
   .modal.location-modal.spectate .icon-halo.round,
   .modal.location-modal.spectate .icon-halo.oval {
     --halo-dx: 0px;
@@ -1339,14 +1339,13 @@
     width: 180px;
   }
 
-  /* 1) centre l'icône dans un bloc de hauteur fixe pour l'alignement horizontal */
+  // centre l'icône dans un bloc de hauteur fixe pour l'alignement horizontal
   .modal.location-modal.spectate .side>.icon-halo {
     display: flex;
     align-items: center;
     justify-content: center;
     height: 160px;
     width: 160px;
-    /* ensure width is also stable */
   }
 
   .modal.location-modal.spectate .dice-row {
@@ -1356,12 +1355,18 @@
     justify-content: center;
   }
 
-  /* 2) annule le petit décalage vertical du halo round UNIQUEMENT en spectate */
+  // annule le petit décalage vertical du halo round UNIQUEMENT en spectate
   .modal.location-modal.spectate .icon-halo.round {
     --halo-dy: 0px;
   }
 
-
+  .modal.location-modal.spectate .mods-col .mods-row {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  */
 
   .mods-badge-weather,
   .mods-badge-potion,
@@ -1376,12 +1381,6 @@
     opacity: .92;
   }
 
-  .modal.location-modal.spectate .mods-col .mods-row {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
-  }
 
   /* ==== MODALE MOSRURE ==== */
   .modal.bite-modal {
