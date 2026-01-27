@@ -21,6 +21,8 @@ import { SpectateModalVm } from './components/modals/spectate-modal/spectate-mod
 import { SpectateModalComponent } from './components/modals/spectate-modal/spectate-modal.component';
 import { ShopModalVm, ShopModalActions, ShopModalHelpers } from './components/modals/shop-modal/shop-modal.vm';
 import { ShopModalComponent } from './components/modals/shop-modal/shop-modal.component';
+import { ActionModalVm, ActionModalActions, ActionModalHelpers } from './components/modals/action-modal/action-modal.vm';
+import { ActionModalComponent } from './components/modals/action-modal/action-modal.component';
 
 type ForgeRes = 'wood' | 'iron' | 'silver' | 'souls';
 type ForgeCost = Partial<Record<ForgeRes, number>>;
@@ -85,7 +87,7 @@ interface ForgeOption {
   selector: 'app-game',
   imports: [CommonModule, PhaseBubbleComponent, ToastComponent, DeathModalComponent, EndGameModalComponent, ZoomOverlayComponent, WeatherModalComponent,
     BiteModalComponent, CorruptionModalComponent, RollModalComponent,
-    SpectateModalComponent, ShopModalComponent
+    SpectateModalComponent, ShopModalComponent, ActionModalComponent
   ],
   templateUrl: './game.component.html',
   styleUrls: ['./game.component.scss']
@@ -181,6 +183,88 @@ export class GameComponent {
       }
     };
   }
+
+  get actionVm(): ActionModalVm {
+    return {
+      show: this.showActionModal && !this.isGameEnded,
+      mode: this.actionMode,
+      ownerId: this.actionOwnerId,
+      location: this.actionLocation,
+      trapEnemies: this.trapEnemies,
+      selectedTargetId: this.actionSelectedTargetId,
+      trapCurrentIndex: this.trapCurrentIndex,
+      roll: this.actionRoll,
+      breakdownLines: this.actionBreakdownLines,
+      resolving: this.actionResolving,
+      isActor: this.isActionActor,
+      targetName: this.ActionTargetName,
+      currentPitTarget: this.currentPitTarget,
+      incendiaireChoices: this.incendiaireChoices,
+      ambushEnemies: this.ambushEnemies,
+      clonesIndexes: this.clonesIndexes,
+      clonesLocationChoices: this.clonesLocationChoices,
+      clonesSelectedLocations: this.clonesSelectedLocations,
+      weatherSecondChoices: this.weatherSecondChoices,
+      weatherThirdChoices: this.weatherThirdChoices,
+      selectedWeather2: this.selectedWeather2,
+      selectedWeather3: this.selectedWeather3,
+      cataclysmeLabelPair: this.cataclysmeLabelPair,
+      mirrorLocationChoices: this.mirrorLocationChoices,
+      selectedMirrorLoc: this.selectedMirrorLoc,
+      mirrorChoices: this.mirrorChoices,
+      mirrorHuntersByLoc: this.mirrorHuntersByLoc,
+      hunterPlayers: this.hunterPlayers,
+      secretPassageChoices: this.secretPassageChoices,
+      selectedSecretPassageLoc: this.selectedSecretPassageLoc,
+      diceColor: this.actionDiceColor,
+      isGameEnded: this.isGameEnded,
+      game: this.game
+    };
+  }
+
+  readonly actionActions: ActionModalActions = {
+    onHolyWaterChoice: (choice) => this.onHolyWaterChoice(choice),
+    onNetRoll: () => this.onNetRoll(),
+    selectActionTarget: (id) => this.selectActionTarget(id),
+    onPitRoll: () => this.onPitRoll(),
+    onProvocationChoose: (id) => this.onProvocationChoose(id),
+    onIncendiaireRoll: () => this.onIncendiaireRoll(),
+    onAmbushChoose: (id) => this.onAmbushChoose(id),
+    onBlessedStakeRoll: () => this.onBlessedStakeRoll(),
+    onMerchantRoll: () => this.onMerchantRoll(),
+    onConfirmBonus: (mode) => this.onConfirmBonus(mode),
+    onCancelBonus: () => this.onCancelBonus(),
+    onSelectWeather2: (ws) => this.onSelectWeather2(ws),
+    onSelectWeather3: (ws) => this.onSelectWeather3(ws),
+    onCataclysmeConfirm: () => this.onCataclysmeConfirm(),
+    onClonesRoll: () => this.onClonesRoll(),
+    onCloneLocationChange: (idx, ev) => this.onCloneLocationChange(idx, ev),
+    onClonesConfirm: () => this.onClonesConfirm(),
+    onMirrorSetupConfirm: () => this.onMirrorSetupConfirm(),
+    onMirrorResolveChoose: (loc) => this.onMirrorResolveChoose(loc),
+    onDarkMarkChoose: (id) => this.onDarkMarkChoose(id),
+    onOccultWeakeningTarget: (id) => this.onOccultWeakeningTarget(id),
+    onSecretPassageConfirm: () => this.onSecretPassageConfirm(),
+    setSelectedActionTargetId: (id) => this.actionSelectedTargetId = id,
+    setSelectedMirrorLoc: (loc) => this.selectedMirrorLoc = loc,
+    setSelectedSecretPassageLoc: (loc) => this.selectedSecretPassageLoc = loc,
+  };
+
+  readonly actionHelpers: ActionModalHelpers = {
+    actionBackgroundSrc: this.actionBackgroundSrc.bind(this),
+    actionLabelFr: this.actionLabelFr.bind(this),
+    canHolyWaterReduce: this.canHolyWaterReduce.bind(this),
+    canHolyWaterAttack: this.canHolyWaterAttack.bind(this),
+    canHolyWaterCleanse: this.canHolyWaterCleanse.bind(this),
+    labelLocation: this.labelLocation.bind(this),
+    merchantResultText: this.merchantResultText.bind(this),
+    merchantBuyText: this.merchantBuyText.bind(this),
+    canPayBonusWithResource: this.canPayBonusWithResource.bind(this),
+    canPayBonusWithGold: this.canPayBonusWithGold.bind(this),
+    labelWeather: this.labelWeather.bind(this),
+    diceAsset: this.diceAsset.bind(this),
+    canConfirmClones: this.canConfirmClones.bind(this),
+  };
 
   get shopVm(): ShopModalVm {
     return {

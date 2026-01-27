@@ -1,0 +1,657 @@
+<div class="modal action-modal with-bg" [ngStyle]="{'background-image': helpers.actionBackgroundSrc(vm.mode)}">
+    <div class="content action">
+        <div class="action-box">
+            <h2>{{ helpers.actionLabelFr(vm.mode) }}</h2>
+
+            <p *ngIf="vm.location">
+                Lieu: {{ vm.location }}
+            </p>
+
+            <!-- ========== EAU BENITE (PREPHASE3 : choix d'effet) ========== -->
+            <ng-container *ngIf="vm.mode === 'EAU_BENITE'">
+                <ng-container *ngIf="vm.isActor; else holyWaterSpectate">
+                    <p class="breakdown">
+                        Votre eau bénite peut être utilisée de trois façons pour ce raid&nbsp;:
+                    </p>
+
+                    <ul class="breakdown">
+                        <li>Purifier une partie de votre corruption.</li>
+                        <li>Consacrer votre arme contre le vampire (+4 dégâts).</li>
+                        <li>Dissiper la Marque ténébreuse qui pèse sur vous.</li>
+                    </ul>
+
+                    <div class="holy-water-choices">
+                        <button type="button" (click)="actions.onHolyWaterChoice('REDUCE')"
+                            [disabled]="!helpers.canHolyWaterReduce() || vm.resolving">
+                            Réduire ma corruption
+                        </button>
+
+                        <button type="button" (click)="actions.onHolyWaterChoice('ATTACK')"
+                            [disabled]="!helpers.canHolyWaterAttack() || vm.resolving">
+                            Utiliser en attaque
+                        </button>
+
+                        <button type="button" (click)="actions.onHolyWaterChoice('CLEANSE')"
+                            [disabled]="!helpers.canHolyWaterCleanse() || vm.resolving">
+                            Purifier la marque
+                        </button>
+                    </div>
+                </ng-container>
+
+                <ng-template #holyWaterSpectate>
+                    <p class="breakdown">
+                        Le chasseur décide comment utiliser son eau bénite...
+                    </p>
+                </ng-template>
+            </ng-container>
+
+            <!-- ========== FILET ========== -->
+            <ng-container *ngIf="vm.mode === 'NET'">
+
+                <!-- Vue ACTEUR : choix de cible + bouton de dé -->
+                <ng-container *ngIf="vm.isActor; else netSpectate">
+
+                    <p>Choisis une cible:</p>
+
+                    <div class="action-targets">
+                        <button type="button" *ngFor="let p of vm.trapEnemies"
+                            (click)="actions.selectActionTarget(p.id)" [disabled]="vm.resolving || vm.roll !== null"
+                            [class.selected]="vm.selectedTargetId === p.id">
+                            {{ p.username }} ({{ p.role }})
+                        </button>
+                    </div>
+
+                    <button type="button" (click)="actions.onNetRoll()"
+                        [disabled]="!vm.selectedTargetId || vm.resolving || vm.roll !== null">
+                        Lancer le dé
+                    </button>
+                </ng-container>
+
+                <!-- Vue SPECTATEUR : on montre seulement la cible choisie / en attente -->
+                <ng-template #netSpectate>
+                    <ng-container *ngIf="vm.selectedTargetId; else netWaitTarget">
+                        <p>Cible: {{ vm.targetName }}</p>
+                    </ng-container>
+                    <ng-template #netWaitTarget>
+                        <p>En attente du choix de la cible...</p>
+                    </ng-template>
+                </ng-template>
+            </ng-container>
+
+            <!-- ========== FOSSE ========== -->
+            <ng-container *ngIf="vm.mode === 'PIT'">
+
+                <!-- Vue ACTEUR -->
+                <ng-container *ngIf="vm.isActor; else pitSpectate">
+
+                    <p *ngIf="vm.currentPitTarget">
+                        Cible: {{ vm.currentPitTarget.username }} ({{ vm.currentPitTarget.role }})
+                    </p>
+
+                    <button type="button" (click)="actions.onPitRoll()"
+                        [disabled]="vm.resolving || vm.roll !== null || !vm.currentPitTarget">
+                        Lancer le dé
+                    </button>
+                </ng-container>
+
+                <!-- Vue SPECTATEUR -->
+                <ng-template #pitSpectate>
+                    <ng-container *ngIf="vm.currentPitTarget; else pitWaitTarget">
+                        <p>Cible: {{ vm.currentPitTarget.username }} ({{ vm.currentPitTarget.role }})</p>
+                    </ng-container>
+                    <ng-template #pitWaitTarget>
+                        <p>En attente du jet pour la fosse...</p>
+                    </ng-template>
+                </ng-template>
+            </ng-container>
+
+            <!-- ========== PROVOCATION ========== -->
+            <ng-container *ngIf="vm.mode === 'PROVOCATION'">
+                <!-- Vue ACTEUR -->
+                <ng-container *ngIf="vm.isActor; else provocationSpectate">
+                    <p class="breakdown">
+                        Choisissez un ennemi (vampire ou serviteur) à provoquer: il devra vous cibler
+                        en priorité ce raid et ses autres attaques seront annulées.
+                    </p>
+
+                    <div class="action-targets">
+                        <button type="button" *ngFor="let p of vm.trapEnemies"
+                            (click)="actions.onProvocationChoose(p.id)" [disabled]="vm.resolving">
+                            {{ p.username }} ({{ p.role }})
+                        </button>
+                    </div>
+                </ng-container>
+
+                <!-- Vue SPECTATEUR -->
+                <ng-template #provocationSpectate>
+                    <p class="breakdown">
+                        Un chasseur utilise Provocation et choisit sa cible...
+                    </p>
+                </ng-template>
+            </ng-container>
+
+            <!-- ========== INCENDIAIRE ========== -->
+            <ng-container *ngIf="vm.mode === 'INCENDIAIRE'">
+                <!-- Vue ACTEUR -->
+                <ng-container *ngIf="vm.isActor; else incendiaireSpectate">
+
+                    <p *ngIf="!vm.incendiaireChoices.length">
+                        Aucune construction à incendier sur cette zone.
+                    </p>
+
+                    <!-- Cas classique (1 ou plusieurs choix) -->
+                    <ng-container *ngIf="vm.incendiaireChoices.length === 1">
+                        <p>
+                            Construction ciblée:
+                            {{ helpers.labelLocation(vm.incendiaireChoices[0].toLowerCase()) }}
+                        </p>
+
+                        <button type="button" (click)="actions.onIncendiaireRoll()"
+                            [disabled]="vm.resolving || vm.roll !== null">
+                            Lancer le dé
+                        </button>
+                    </ng-container>
+
+                    <ng-container *ngIf="vm.incendiaireChoices.length > 1">
+                        <p>Choisis une construction à incendier:</p>
+
+                        <div class="action-targets">
+                            <button type="button" *ngFor="let infra of vm.incendiaireChoices"
+                                (click)="actions.setSelectedActionTargetId(infra)"
+                                [disabled]="vm.resolving || vm.roll !== null"
+                                [class.selected]="vm.selectedTargetId === infra">
+                                {{ helpers.labelLocation(infra.toLowerCase()) }}
+                            </button>
+                        </div>
+
+                        <button type="button" (click)="actions.onIncendiaireRoll()"
+                            [disabled]="!vm.selectedTargetId || vm.resolving || vm.roll !== null">
+                            Lancer le dé
+                        </button>
+                    </ng-container>
+                </ng-container>
+
+                <!-- Vue SPECTATEUR -->
+                <ng-template #incendiaireSpectate>
+                    <ng-container *ngIf="vm.selectedTargetId; else incendiaireWait">
+                        <p>Cible: {{ vm.targetName }}</p>
+                    </ng-container>
+                    <ng-template #incendiaireWait>
+                        <p>En attente du choix de la construction...</p>
+                    </ng-template>
+                </ng-template>
+            </ng-container>
+
+            <!-- ========== EMBUSCADE ========== -->
+            <ng-container *ngIf="vm.mode === 'AMBUSH'">
+                <ng-container *ngIf="vm.isActor; else ambushSpectate">
+                    <p class="breakdown">
+                        Choisissez un ennemi (vampire ou serviteur): tous les chasseurs sur ce lieu
+                        gagnent +1 ATK par chasseur présent et cette cible ne pourra pas riposter
+                        contre eux ce raid.
+                    </p>
+
+                    <div class="target-list">
+                        <button *ngFor="let e of vm.ambushEnemies" type="button" (click)="actions.onAmbushChoose(e.id)"
+                            [disabled]="vm.resolving">
+                            {{ e.username }} (PV: {{ e.hp }})
+                        </button>
+                    </div>
+                </ng-container>
+
+                <ng-template #ambushSpectate>
+                    <p class="breakdown">
+                        Un chasseur prépare une embuscade et choisit sa cible...
+                    </p>
+                </ng-template>
+            </ng-container>
+
+            <!-- ========== LONELY ========== -->
+            <ng-container *ngIf="vm.mode === 'LONELY'">
+                <ng-container *ngIf="vm.isActor; else lonelySpectate">
+                    <p class="breakdown">
+                        Vous jouez <b>Solitaire</b>: vous gagnez
+                        <b>+{{ vm.roll || 0 }}</b> ATK et <b>+{{ vm.roll || 0 }}</b> DEF
+                        ({{ vm.roll || 0 }} chasseur(s) absent(s) sur ce lieu).
+                    </p>
+                </ng-container>
+
+                <ng-template #lonelySpectate>
+                    <p class="breakdown">
+                        Un chasseur joue <b>Solitaire</b>: bonus de
+                        <b>+{{ vm.roll || 0 }}</b> ATK / <b>+{{ vm.roll || 0 }}</b> DEF.
+                    </p>
+                </ng-template>
+            </ng-container>
+
+            <!-- ========== PIEU BÉNI ========== -->
+            <ng-container *ngIf="vm.mode === 'BLESSED_STAKE'">
+
+                <!-- Vue ACTEUR -->
+                <ng-container *ngIf="vm.isActor; else blessedStakeSpectate">
+
+                    <p>
+                        Épieu béni —
+                        <ng-container *ngIf="vm.targetName as tn">
+                            {{ tn }} subit un coup sacré supplémentaire.
+                        </ng-container>
+                    </p>
+
+                    <button type="button" (click)="actions.onBlessedStakeRoll()"
+                        [disabled]="vm.resolving || vm.roll !== null">
+                        Lancer le d4
+                    </button>
+
+                    <div *ngIf="vm.roll !== null" class="result-line">
+                        Résultat: {{ vm.roll }} dégâts sacrés supplémentaires.
+                    </div>
+                </ng-container>
+
+                <!-- Vue SPECTATEUR -->
+                <ng-template #blessedStakeSpectate>
+                    <p>
+                        Épieu béni —
+                        <ng-container *ngIf="vm.targetName as tn; else blessedStakeWait">
+                            {{ tn }} attend le verdict du d4...
+                        </ng-container>
+                        <ng-template #blessedStakeWait>
+                            Résolution en cours…
+                        </ng-template>
+                    </p>
+
+                    <div *ngIf="vm.roll !== null" class="result-line">
+                        Résultat: {{ vm.roll }} dégâts sacrés supplémentaires.
+                    </div>
+                </ng-template>
+            </ng-container>
+
+            <!-- ========== CHARISMATIQUE ========== -->
+            <ng-container *ngIf="vm.mode === 'CHARISMATIQUE'">
+                <p>
+                    <ng-container *ngIf="vm.isActor; else charismGeneric">
+                        Les marchands sont sous le charme: les achats coûtent 20 or de moins
+                        et les ventes rapportent 20 or de plus par ressource ce raid.
+                    </ng-container>
+                    <ng-template #charismGeneric>
+                        Un chasseur charme les marchands: ses prix à la boutique sont améliorés ce raid.
+                    </ng-template>
+                </p>
+            </ng-container>
+
+            <!-- ========== MARCHAND ITINERANT ========== -->
+            <ng-container *ngIf="vm.mode === 'MARCHAND_ITINERANT'">
+                <!-- Vue ACTEUR -->
+                <ng-container *ngIf="vm.isActor; else merchantSpectate">
+                    <ng-container *ngIf="vm.roll === null">
+                        <p class="breakdown">
+                            Marchand itinérant — lance un D6 pour déterminer l’offre spéciale de ce tour.
+                        </p>
+
+                        <button type="button" (click)="actions.onMerchantRoll()" [disabled]="vm.resolving">
+                            Lancer le dé
+                        </button>
+                    </ng-container>
+
+                    <ng-container *ngIf="vm.roll !== null">
+                        <p class="result">
+                            Marchand itinérant — {{ helpers.merchantResultText() }}
+                        </p>
+                    </ng-container>
+                </ng-container>
+
+                <!-- Vue SPECTATEUR -->
+                <ng-template #merchantSpectate>
+                    <ng-container *ngIf="vm.roll === null">
+                        <p class="breakdown">
+                            Marchand itinérant — en attente du jet de D6...
+                        </p>
+                    </ng-container>
+                    <ng-container *ngIf="vm.roll !== null">
+                        <p class="result">
+                            Marchand itinérant — {{ helpers.merchantResultText() }}
+                        </p>
+                    </ng-container>
+                </ng-template>
+            </ng-container>
+
+            <!-- ========== MARCHAND_BONUS_BUY ========== -->
+            <ng-container *ngIf="vm.mode === 'MARCHAND_BONUS_BUY'">
+                <!-- Vue ACTEUR -->
+                <ng-container *ngIf="vm.isActor; else merchantBuySpectate">
+                    <p class="breakdown">
+                        {{ helpers.merchantBuyText() }}
+                    </p>
+
+                    <div class="row" style="margin-top:.5rem; justify-content:center;">
+                        <button type="button" (click)="actions.onConfirmBonus('RESOURCE')"
+                            [disabled]="vm.resolving || !helpers.canPayBonusWithResource()">
+                            Payer en ressources
+                        </button>
+                        <button type="button" (click)="actions.onConfirmBonus('GOLD')"
+                            [disabled]="vm.resolving || !helpers.canPayBonusWithGold()">
+                            Payer en or
+                        </button>
+                    </div>
+
+                    <div class="row" style="margin-top:.5rem; justify-content:center;">
+                        <button type="button" (click)="actions.onCancelBonus()" [disabled]="vm.resolving">
+                            Annuler
+                        </button>
+                    </div>
+                </ng-container>
+
+                <!-- Vue SPECTATEUR -->
+                <ng-template #merchantBuySpectate>
+                    <p class="breakdown">
+                        {{ helpers.merchantBuyText() }}
+                    </p>
+                </ng-template>
+            </ng-container>
+
+            <!-- ========== CATACLYSME ========== -->
+            <ng-container *ngIf="vm.mode === 'CATACLYSME'">
+                <!-- Vue ACTEUR -->
+                <ng-container *ngIf="vm.isActor; else cataclysmeSpectate">
+
+                    <ng-container *ngIf="!vm.cataclysmeLabelPair; else cataclysmeDone">
+
+                        <p><b>Second statut</b>:</p>
+                        <div class="action-targets">
+                            <button type="button" *ngFor="let ws of vm.weatherSecondChoices"
+                                (click)="actions.onSelectWeather2(ws)" [class.selected]="vm.selectedWeather2 === ws"
+                                [disabled]="vm.resolving || vm.selectedWeather3 === ws">
+                                {{ helpers.labelWeather(ws) }}
+                            </button>
+                        </div>
+
+                        <p style="margin-top:.5rem"><b>Troisième statut</b>:</p>
+                        <div class="action-targets">
+                            <button type="button" *ngFor="let ws of vm.weatherThirdChoices"
+                                (click)="actions.onSelectWeather3(ws)" [class.selected]="vm.selectedWeather3 === ws"
+                                [disabled]="vm.resolving || vm.selectedWeather2 === ws">
+                                {{ helpers.labelWeather(ws) }}
+                            </button>
+                        </div>
+
+                        <button type="button" style="margin-top:.75rem" (click)="actions.onCataclysmeConfirm()"
+                            [disabled]="
+                  !vm.selectedWeather2 ||
+                  !vm.selectedWeather3 ||
+                  vm.selectedWeather2 === vm.selectedWeather3 ||
+                  vm.resolving
+                ">
+                            Valider cette combinaison
+                        </button>
+                    </ng-container>
+
+                    <ng-template #cataclysmeDone>
+                        <p class="breakdown">Vous avez choisi: {{ vm.cataclysmeLabelPair }}</p>
+                    </ng-template>
+                </ng-container>
+
+                <!-- Vue SPECTATEUR -->
+                <ng-template #cataclysmeSpectate>
+                    <ng-container *ngIf="vm.cataclysmeLabelPair; else catWait">
+                        <p class="result">Le vampire a choisi: {{ vm.cataclysmeLabelPair }}</p>
+                    </ng-container>
+                    <ng-template #catWait>
+                        <p class="breakdown">Le vampire choisit deux statuts météo pour ce raid...</p>
+                    </ng-template>
+                </ng-template>
+            </ng-container>
+
+            <!-- ========== CLONES DES OMBRES ========== -->
+            <ng-container *ngIf="vm.mode === 'CLONES_OMBRE'">
+                <!-- Vue ACTEUR -->
+                <ng-container *ngIf="vm.isActor; else clonesSpectate">
+
+                    <!-- Étape 1 : lancer le D4 -->
+                    <ng-container *ngIf="vm.roll === null">
+                        <p class="breakdown">Invoquez les clones des ombres et lancez un D4.</p>
+
+                        <button type="button" (click)="actions.onClonesRoll()" [disabled]="vm.resolving">
+                            Lancer le dé
+                        </button>
+                    </ng-container>
+
+                    <!-- Étape 2 : choix des lieux (un par clone) -->
+                    <ng-container *ngIf="vm.roll !== null">
+                        <p class="breakdown">
+                            Tu contrôles {{ vm.roll }} clone<span *ngIf="vm.roll > 1">s</span>.
+                            Choisis pour chacun le lieu qu’il va attaquer.
+                        </p>
+
+                        <div class="clones-assignment" *ngIf="vm.clonesLocationChoices.length > 0">
+                            <div class="clone-row" *ngFor="let idx of vm.clonesIndexes">
+                                <label>Clone {{ idx + 1 }}</label>
+                                <select [value]="vm.clonesSelectedLocations[idx] || ''"
+                                    (change)="actions.onCloneLocationChange(idx, $event)">
+                                    <option value="">-- Choisir un lieu --</option>
+                                    <option *ngFor="let loc of vm.clonesLocationChoices" [value]="loc">
+                                        {{ helpers.labelLocation(loc) }}
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <button type="button" style="margin-top:.75rem" (click)="actions.onClonesConfirm()"
+                            [disabled]="vm.resolving || !helpers.canConfirmClones()">
+                            Valider ces attaques
+                        </button>
+                    </ng-container>
+                </ng-container>
+
+                <!-- Vue SPECTATEUR -->
+                <ng-template #clonesSpectate>
+                    <ng-container *ngIf="vm.roll === null">
+                        <p class="breakdown">Le vampire invoque des clones des ombres...</p>
+                    </ng-container>
+                    <ng-container *ngIf="vm.roll !== null">
+                        <p class="result">
+                            Le vampire contrôle {{ vm.roll }} clone<span *ngIf="vm.roll > 1">s</span> des ombres.
+                        </p>
+                    </ng-container>
+                </ng-template>
+            </ng-container>
+
+            <!-- ========== IMAGE MIROIR (PHASE2 : choix du 2e lieu) ========== -->
+            <ng-container *ngIf="vm.mode === 'IMAGE_MIROIR_SETUP'">
+                <ng-container *ngIf="vm.isActor; else miroirSetupSpectate">
+
+                    <p class="breakdown">
+                        Choisissez un lieu supplémentaire où projeter votre reflet:
+                    </p>
+
+                    <div class="action-targets">
+                        <button type="button" *ngFor="let loc of vm.mirrorLocationChoices"
+                            (click)="actions.setSelectedMirrorLoc(loc)" [class.selected]="vm.selectedMirrorLoc === loc"
+                            [disabled]="vm.resolving">
+                            {{ helpers.labelLocation(loc) }}
+                        </button>
+                    </div>
+
+                    <button type="button" style="margin-top:.75rem" (click)="actions.onMirrorSetupConfirm()"
+                        [disabled]="!vm.selectedMirrorLoc || vm.resolving">
+                        Valider ce lieu
+                    </button>
+                </ng-container>
+
+                <ng-template #miroirSetupSpectate>
+                    <p class="breakdown">Le vampire prépare une Image miroir...</p>
+                </ng-template>
+            </ng-container>
+
+            <!-- ========== IMAGE MIROIR (PREPHASE3 : choix du lieu final) ========== -->
+            <ng-container *ngIf="vm.mode === 'IMAGE_MIROIR_RESOLVE'">
+                <ng-container *ngIf="vm.isActor; else miroirResolveSpectate">
+                    <p class="breakdown">
+                        Choisissez un lieu pour vous matérialiser:
+                    </p>
+
+                    <div class="mirror-locations-summary">
+                        <div class="mirror-option" *ngFor="let loc of vm.mirrorChoices">
+                            <h3>{{ helpers.labelLocation(loc) }}</h3>
+                            <p>
+                                Chasseurs présents:
+                                <span *ngIf="vm.mirrorHuntersByLoc[loc]?.length; else noHuntersHere">
+                                    <ng-container *ngFor="let h of vm.mirrorHuntersByLoc[loc]; let last = last">
+                                        {{ h.username }}<span *ngIf="!last">, </span>
+                                    </ng-container>
+                                </span>
+                                <ng-template #noHuntersHere>
+                                    <i>aucun</i>
+                                </ng-template>
+                            </p>
+                            <button type="button" (click)="actions.onMirrorResolveChoose(loc)"
+                                [disabled]="vm.resolving">
+                                Choisir ce lieu
+                            </button>
+                        </div>
+                    </div>
+                </ng-container>
+
+                <ng-template #miroirResolveSpectate>
+                    <p class="breakdown">
+                        Le vampire choisit où it se matérialise...
+                    </p>
+                </ng-template>
+            </ng-container>
+
+            <!-- ========== ECLIPSE (PRÉPHASE3 : météo forcée Pleine lune) ========== -->
+            <ng-container *ngIf="vm.mode === 'ECLIPSE'">
+                <!-- Vue ACTEUR -->
+                <ng-container *ngIf="vm.isActor; else eclipseSpectate">
+                    <p class="breakdown">
+                        Vous invoquez une éclipse: la météo devient <b>Pleine lune</b> pour ce raid.
+                    </p>
+                </ng-container>
+
+                <!-- Vue SPECTATEUR -->
+                <ng-template #eclipseSpectate>
+                    <p class="breakdown">
+                        Le vampire invoque une éclipse: les ténèbres recouvrent le domaine.
+                    </p>
+                </ng-template>
+            </ng-container>
+
+            <!-- ========== LUNE SANGLANTE (PRÉPHASE3 : buff de combat) ========== -->
+            <ng-container *ngIf="vm.mode === 'BLOOD_MOON'"></ng-container>
+
+            <!-- ========== MARQUE TÉNÉBREUSE ========== -->
+            <ng-container *ngIf="vm.mode === 'MARQUE_TENEBREUSE'">
+                <ng-container *ngIf="vm.isActor; else darkMarkSpectate">
+                    <p class="breakdown">
+                        Choisissez un chasseur à marquer: il gagnera +1 corruption à chaque raid où
+                        il croise le vampire, tant qu'il n'est pas purifié.
+                    </p>
+
+                    <div class="target-list">
+                        <button *ngFor="let h of vm.hunterPlayers" type="button"
+                            (click)="actions.onDarkMarkChoose(h.id)" [disabled]="vm.resolving">
+                            {{ h.username }} (corruption: {{ h.corruption }})
+                        </button>
+                    </div>
+                </ng-container>
+
+                <ng-template #darkMarkSpectate>
+                    <p class="breakdown">
+                        Le vampire choisit une cible pour sa Marque ténébreuse...
+                    </p>
+                </ng-template>
+            </ng-container>
+
+            <!-- ========== AFFAIBLISSEMENT OCCULTE ========== -->
+            <ng-container *ngIf="vm.mode === 'AFFAIBLISSEMENT_OCCULTE'">
+                <ng-container *ngIf="vm.isActor; else weakeningSpectate">
+                    <p class="breakdown">
+                        Choisissez un chasseur: il subira -2 à son jet d’attaque ce raid.
+                    </p>
+
+                    <div class="target-list">
+                        <button *ngFor="let h of vm.hunterPlayers" type="button"
+                            (click)="actions.onOccultWeakeningTarget(h.id)" [disabled]="vm.resolving">
+                            {{ h.username }}
+                        </button>
+                    </div>
+                </ng-container>
+
+                <ng-template #weakeningSpectate>
+                    <p class="breakdown">
+                        Le vampire choisit une cible pour Affaiblissement occulte...
+                    </p>
+                </ng-template>
+            </ng-container>
+
+            <!-- ========== PASSAGE SECRET ========== -->
+            <ng-container *ngIf="vm.mode === 'PASSAGE_SECRET'">
+                <ng-container *ngIf="vm.isActor; else passageSecretSpectate">
+                    <p class="breakdown">
+                        Choisissez un passage secret pour vous déplacer vers
+                    </p>
+
+                    <div class="target-list">
+                        <button *ngFor="let loc of vm.secretPassageChoices" type="button"
+                            [class.selected]="loc === vm.selectedSecretPassageLoc"
+                            (click)="actions.setSelectedSecretPassageLoc(loc)">
+                            {{ helpers.labelLocation(loc) }}
+                        </button>
+                    </div>
+
+                    <div style="margin-top:1rem">
+                        <button (click)="actions.onSecretPassageConfirm()"
+                            [disabled]="!vm.selectedSecretPassageLoc || vm.resolving">
+                            Valider
+                        </button>
+                    </div>
+                </ng-container>
+
+                <ng-template #passageSecretSpectate>
+                    <p class="breakdown">
+                        Le vampire choisit d'emprunter un passage secret...
+                    </p>
+                </ng-template>
+            </ng-container>
+
+            <!-- ========== AVIDITE_NOCTURNE ========== -->
+            <ng-container *ngIf="vm.mode === 'AVIDITE_NOCTURNE'">
+                <p>
+                    <ng-container *ngIf="vm.isActor; else greedGeneric">
+                        Vous attisez la cupidité des marchands:
+                        tous les prix en or à la boutique des chasseurs augmentent de 50 ce raid.
+                    </ng-container>
+                    <ng-template #greedGeneric>
+                        Le vampire renforce la cupidité des marchands:
+                        tous les prix en or à la boutique augmentent de 50 ce raid.
+                    </ng-template>
+                </p>
+            </ng-container>
+
+            <!-- ========== Résultat commun (acteurs + spectateurs) ========== -->
+            <div class="trap-result">
+
+                <!-- Dé visuel -->
+                <div class="dice-wrap" *ngIf="vm.mode === 'PIT' 
+                  || vm.mode === 'NET' 
+                  || vm.mode === 'CLONES_OMBRE'
+                  || vm.mode === 'BLESSED_STAKE'
+                  || vm.mode === 'MARCHAND_ITINERANT'" [attr.data-digits]="vm.roll?.toString()?.length || 1">
+                    <img class="dice" [src]="helpers.diceAsset(
+                  vm.mode === 'CLONES_OMBRE' || vm.mode === 'BLESSED_STAKE' ? 'D4'
+                  : vm.mode === 'MARCHAND_ITINERANT' ? 'D6'
+                  : 'D20',
+                  vm.diceColor
+                )" alt="dice" />
+
+                    <div class="dice-overlay" *ngIf="(vm.roll) != null">
+                        {{ vm.roll }}
+                    </div>
+                </div>
+
+                <!-- Texte existant -->
+                <p *ngFor="let line of vm.breakdownLines">
+                    {{ line }}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>

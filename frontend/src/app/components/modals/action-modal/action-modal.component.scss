@@ -1,0 +1,165 @@
+:host {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+}
+
+/* === MODALE ACTION (Filet / Fosse) === */
+.modal.action-modal {
+    position: relative;
+    width: min(780px, 95vw);
+    /* même largeur que spectate */
+    min-height: 640px;
+    /* même hauteur mini que spectate */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-position: center 40%;
+}
+
+.action-modal.with-bg {
+    background-color: rgba(0, 0, 0, .30);
+    background-size: cover;
+    background-position: center 10%;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .6);
+}
+
+.action-modal .content.action {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: .75rem;
+}
+
+/* Boîte lisible pour le texte et les boutons */
+.action-box {
+    background: rgba(0, 0, 0, .55);
+    color: #fff;
+    border-radius: 12px;
+    padding: .75rem 1rem;
+    box-shadow:
+        inset 0 8px 24px rgba(0, 0, 0, .25),
+        0 6px 16px rgba(0, 0, 0, .25);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    max-width: 560px;
+    width: min(560px, 90vw);
+}
+
+/* Titres et textes */
+.action-box h2 {
+    text-align: center;
+    margin: 0 0 .5rem;
+}
+
+.action-box p {
+    margin: .25rem 0;
+}
+
+/* Liste de cibles Filet */
+.action-box .action-targets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem;
+    margin: .5rem 0;
+}
+
+/* Boutons dans la boîte (cibles + "Lancer le dé") */
+.action-box .action-targets button,
+.action-box button {
+    padding: .4rem .75rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, .35);
+    background: rgba(255, 255, 255, .08);
+    color: #fff;
+    cursor: pointer;
+}
+
+.action-box .action-targets button.selected {
+    background: rgba(255, 255, 255, .25);
+}
+
+.action-box button[disabled] {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+/* Résultat du jet */
+.trap-result {
+    margin-top: .5rem;
+    padding-top: .5rem;
+    border-top: 1px solid rgba(255, 255, 255, .25);
+    text-align: center;
+}
+
+/* icône météo sur une pale (et sur les chips) */
+.weather-ico {
+    position: relative;
+    top: 0%;
+    left: 0%;
+    width: 28px;
+    height: 28px;
+    transform-origin: 50% 50%;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .5));
+    transition: transform .25s ease-out;
+}
+
+.trap-info {
+    font-size: .9rem;
+    opacity: .9;
+}
+
+.trap-dice-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .75rem;
+    margin-bottom: .5rem;
+}
+
+.dice-wrap {
+    position: relative;
+    display: inline-block;
+}
+
+.dice {
+    width: 180px;
+    height: auto;
+}
+
+.dice-overlay {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font: 700 42px/1 system-ui, sans-serif;
+    color: #cc9c00;
+    pointer-events: none;
+    font-variant-numeric: tabular-nums;
+    transform: translate(var(--dx, 0px), var(--dy, 0px));
+}
+
+/* 1 chiffre */
+.dice-wrap[data-digits="1"] .dice-overlay {
+    --dx: -2px;
+    --dy: 2px;
+}
+
+/* 2 chiffres */
+.dice-wrap[data-digits="2"] .dice-overlay {
+    --dx: -5px;
+    --dy: 2px;
+    letter-spacing: -0.5px;
+}
+
+.target-list {
+    display: flex;
+    justify-content: space between;
+    align-items: center;
+}

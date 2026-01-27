@@ -1381,6 +1381,18 @@
     opacity: .92;
   }
 
+  // icône météo sur une pale (et sur les chips)
+  .weather-ico {
+    position: relative;
+    top: 0%;
+    left: 0%;
+    width: 28px;
+    height: 28px;
+    transform-origin: 50% 50%;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .5));
+    transition: transform .25s ease-out;
+  }
+
 
   /* ==== MODALE MOSRURE ==== */
   .modal.bite-modal {
@@ -1529,12 +1541,13 @@
   }
 
   /* === MODALE ACTION (Filet / Fosse) === */
+  /*
   .modal.action-modal {
     position: relative;
     width: min(780px, 95vw);
-    /* même largeur que spectate */
+    // même largeur que spectate
     min-height: 640px;
-    /* même hauteur mini que spectate */
+    // même hauteur mini que spectate
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1559,7 +1572,7 @@
     padding: .75rem;
   }
 
-  /* Boîte lisible pour le texte et les boutons */
+  // Boîte lisible pour le texte et les boutons
   .action-box {
     background: rgba(0, 0, 0, .55);
     color: #fff;
@@ -1574,7 +1587,7 @@
     width: min(560px, 90vw);
   }
 
-  /* Titres et textes */
+  // Titres et textes
   .action-box h2 {
     text-align: center;
     margin: 0 0 .5rem;
@@ -1584,7 +1597,7 @@
     margin: .25rem 0;
   }
 
-  /* Liste de cibles Filet */
+  // Liste de cibles Filet
   .action-box .action-targets {
     display: flex;
     flex-wrap: wrap;
@@ -1592,7 +1605,7 @@
     margin: .5rem 0;
   }
 
-  /* Boutons dans la boîte (cibles + "Lancer le dé") */
+  // Boutons dans la boîte (cibles + "Lancer le dé")
   .action-box .action-targets button,
   .action-box button {
     padding: .4rem .75rem;
@@ -1612,7 +1625,7 @@
     cursor: not-allowed;
   }
 
-  /* Résultat du jet */
+  // Résultat du jet
   .trap-result {
     margin-top: .5rem;
     padding-top: .5rem;
@@ -1620,7 +1633,7 @@
     text-align: center;
   }
 
-  /* icône météo sur une pale (et sur les chips) */
+  // icône météo sur une pale (et sur les chips)
   .weather-ico {
     position: relative;
     top: 0%;
@@ -1657,13 +1670,13 @@
     transform: translate(var(--dx, 0px), var(--dy, 0px));
   }
 
-  /* 1 chiffre */
+  // 1 chiffre
   .dice-wrap[data-digits="1"] .dice20-overlay {
     --dx: -2px;
     --dy: 2px;
   }
 
-  /* 2 chiffres */
+  // 2 chiffres
   .dice-wrap[data-digits="2"] .dice20-overlay {
     --dx: -5px;
     --dy: 2px;
@@ -1676,6 +1689,7 @@
     align-items: center;
   }
 
+  */
 
   /* =========================
     Trade modale - Base
