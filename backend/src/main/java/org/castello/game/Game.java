@@ -16,8 +16,8 @@ public class Game {
     private String winnerSide;
 
     // état "tour/raid"
-    private int raid;            // n° de raid (1 au start)
-    private Phase phase;         // PHASE0 / PHASE1 / PHASE2 / PHASE3 / PHASE4
+    private int raid; // n° de raid (1 au start)
+    private Phase phase; // PHASE0 / PHASE1 / PHASE2 / PHASE3 / PHASE4
 
     private Long startingAtTs;
     private Set<String> readyForStart = new HashSet<>();
@@ -29,13 +29,13 @@ public class Game {
     private List<CenterBoard> center = new ArrayList<>();
 
     // --- Step 3: messages & fenêtre d’actions ---
-    private List<String> messages = new ArrayList<>();   // messages à afficher (préphase3 / phase3)
+    private List<String> messages = new ArrayList<>(); // messages à afficher (préphase3 / phase3)
     private Set<String> readyForPhase3 = new HashSet<>(); // joueurs ayant cliqué “j’ai fini”
 
     // --- PHASE3 : file de combats + combat courant ---
     private List<RoundFight> combatsQueue = new ArrayList<>();
-    private Integer currentCombatIndex;           // null si aucun combat
-    private RoundFight currentCombat;            // miroir pour le client
+    private Integer currentCombatIndex; // null si aucun combat
+    private RoundFight currentCombat; // miroir pour le client
 
     // --- METEO ---
     private Integer weatherRoll;
@@ -59,7 +59,8 @@ public class Game {
         private long ts;
         private String text;
 
-        public HistoryItem() {}
+        public HistoryItem() {
+        }
 
         public HistoryItem(int raid, Phase phase, long ts, String text) {
             this.raid = raid;
@@ -68,17 +69,37 @@ public class Game {
             this.text = text;
         }
 
-        public int getRaid() { return raid; }
-        public void setRaid(int raid) { this.raid = raid; }
+        public int getRaid() {
+            return raid;
+        }
 
-        public Phase getPhase() { return phase; }
-        public void setPhase(Phase phase) { this.phase = phase; }
+        public void setRaid(int raid) {
+            this.raid = raid;
+        }
 
-        public long getTs() { return ts; }
-        public void setTs(long ts) { this.ts = ts; }
+        public Phase getPhase() {
+            return phase;
+        }
 
-        public String getText() { return text; }
-        public void setText(String text) { this.text = text; }
+        public void setPhase(Phase phase) {
+            this.phase = phase;
+        }
+
+        public long getTs() {
+            return ts;
+        }
+
+        public void setTs(long ts) {
+            this.ts = ts;
+        }
+
+        public String getText() {
+            return text;
+        }
+
+        public void setText(String text) {
+            this.text = text;
+        }
     }
 
     // --- Récolte ---
@@ -105,7 +126,8 @@ public class Game {
     // Provocation chasseur
     private Map<String, String> provokedTargetByEnemy = new HashMap<>();
 
-    // Chasseurs ayant préparé un Incendiaire pour ce raid : hunterId -> lieu ("forest", "manor", etc.)
+    // Chasseurs ayant préparé un Incendiaire pour ce raid : hunterId -> lieu
+    // ("forest", "manor", etc.)
     private Map<String, String> incendiaireLocationByHunter = new HashMap<>();
 
     // Ennemi ciblé par Embuscade -> liste des chasseurs embusqués
@@ -161,31 +183,65 @@ public class Game {
         // timestamp quand le jet a été résolu
         private Long resolvedAtMillis;
 
-        public String getMode() { return mode; }
-        public void setMode(String mode) { this.mode = mode; }
+        public String getMode() {
+            return mode;
+        }
 
-        public String getOwnerId() { return ownerId; }
-        public void setOwnerId(String ownerId) { this.ownerId = ownerId; }
+        public void setMode(String mode) {
+            this.mode = mode;
+        }
 
-        public String getLocation() { return location; }
-        public void setLocation(String location) { this.location = location; }
+        public String getOwnerId() {
+            return ownerId;
+        }
 
-        public String getTargetId() { return targetId; }
-        public void setTargetId(String targetId) { this.targetId = targetId; }
+        public void setOwnerId(String ownerId) {
+            this.ownerId = ownerId;
+        }
 
-        public Integer getRoll() { return roll; }
-        public void setRoll(Integer roll) { this.roll = roll; }
+        public String getLocation() {
+            return location;
+        }
 
-        public List<String> getBreakdownLines() { return breakdownLines; }
+        public void setLocation(String location) {
+            this.location = location;
+        }
+
+        public String getTargetId() {
+            return targetId;
+        }
+
+        public void setTargetId(String targetId) {
+            this.targetId = targetId;
+        }
+
+        public Integer getRoll() {
+            return roll;
+        }
+
+        public void setRoll(Integer roll) {
+            this.roll = roll;
+        }
+
+        public List<String> getBreakdownLines() {
+            return breakdownLines;
+        }
+
         public void setBreakdownLines(List<String> breakdownLines) {
             this.breakdownLines = (breakdownLines != null ? breakdownLines : new ArrayList<>());
         }
 
-        public Long getResolvedAtMillis() { return resolvedAtMillis; }
-        public void setResolvedAtMillis(Long resolvedAtMillis) { this.resolvedAtMillis = resolvedAtMillis; }
+        public Long getResolvedAtMillis() {
+            return resolvedAtMillis;
+        }
+
+        public void setResolvedAtMillis(Long resolvedAtMillis) {
+            this.resolvedAtMillis = resolvedAtMillis;
+        }
     }
 
-    // hunterId -> liste des victimes potentielles de sa Fosse (ids de joueurs vamp/serviteurs sur son lieu)
+    // hunterId -> liste des victimes potentielles de sa Fosse (ids de joueurs
+    // vamp/serviteurs sur son lieu)
     private Map<String, List<String>> pitTargetsByHunter;
 
     // hunterId -> index courant dans la liste ci-dessus
@@ -203,26 +259,71 @@ public class Game {
         private Integer armorRoll;
         private Long resolvedAtMillis;
 
-        public String getId() { return id; }
-        public void setId(String id) { this.id = id; }
+        public String getId() {
+            return id;
+        }
 
-        public String getAttackerId() { return attackerId; }
-        public void setAttackerId(String s) { this.attackerId = s; }
+        public void setId(String id) {
+            this.id = id;
+        }
 
-        public String getTargetId() { return targetId; }
-        public void setTargetId(String s) { this.targetId = s; }
+        public String getAttackerId() {
+            return attackerId;
+        }
 
-        public String getLocation() { return location; }
-        public void setLocation(String s) { this.location = s; }
+        public void setAttackerId(String s) {
+            this.attackerId = s;
+        }
 
-        public Integer getRoll() { return roll; }
-        public void setRoll(Integer r) { this.roll = r; }
+        public String getTargetId() {
+            return targetId;
+        }
 
-        public Integer getArmorRoll() { return armorRoll; }
-        public void setArmorRoll(Integer armorRoll) { this.armorRoll = armorRoll; }
+        public void setTargetId(String s) {
+            this.targetId = s;
+        }
 
-        public Long getResolvedAtMillis() { return resolvedAtMillis; }
-        public void setResolvedAtMillis(Long r) { this.resolvedAtMillis = r; }
+        public String getLocation() {
+            return location;
+        }
+
+        public void setLocation(String s) {
+            this.location = s;
+        }
+
+        public Integer getRoll() {
+            return roll;
+        }
+
+        public void setRoll(Integer r) {
+            this.roll = r;
+        }
+
+        public Integer getArmorRoll() {
+            return armorRoll;
+        }
+
+        public void setArmorRoll(Integer armorRoll) {
+            this.armorRoll = armorRoll;
+        }
+
+        public Long getResolvedAtMillis() {
+            return resolvedAtMillis;
+        }
+
+        public void setResolvedAtMillis(Long r) {
+            this.resolvedAtMillis = r;
+        }
+
+        private Boolean becameServant;
+
+        public Boolean getBecameServant() {
+            return becameServant;
+        }
+
+        public void setBecameServant(Boolean becameServant) {
+            this.becameServant = becameServant;
+        }
     }
 
     private BiteAttempt currentBite;
@@ -246,7 +347,6 @@ public class Game {
     private List<String> elixirDeck = new ArrayList<>();
     private List<String> elixirDiscard = new ArrayList<>();
 
-
     // Actions chasseurs
     private List<String> hunterActionsDeck = new ArrayList<>();
     private List<String> hunterActionsDiscard = new ArrayList<>();
@@ -254,7 +354,6 @@ public class Game {
     // Actions vampire
     private List<String> vampActionsDeck = new ArrayList<>();
     private List<String> vampActionsDiscard = new ArrayList<>();
-
 
     // --- Phase4: "j'ai fini" (finishTrade) ---
     private final Set<String> readyForNextRaid = new HashSet<>();
@@ -268,38 +367,83 @@ public class Game {
         private String side; // "HUNTERS" | "VAMP_SIDE"
         private String aId;
         private String bId;
-        private Map<String,Integer> offerA = new HashMap<>();
-        private Map<String,Integer> offerB = new HashMap<>();
+        private Map<String, Integer> offerA = new HashMap<>();
+        private Map<String, Integer> offerB = new HashMap<>();
         private String statusA = "PENDING"; // PENDING/CONFIRMED/REFUSED/CANCELLED
         private String statusB = "PENDING";
         private long updatedAt;
 
-        public String getId() { return id; }
-        public void setId(String id) { this.id = id; }
+        public String getId() {
+            return id;
+        }
 
-        public String getSide() { return side; }
-        public void setSide(String side) { this.side = side; }
+        public void setId(String id) {
+            this.id = id;
+        }
 
-        public String getAId() { return aId; }
-        public void setAId(String aId) { this.aId = aId; }
+        public String getSide() {
+            return side;
+        }
 
-        public String getBId() { return bId; }
-        public void setBId(String bId) { this.bId = bId; }
+        public void setSide(String side) {
+            this.side = side;
+        }
 
-        public Map<String,Integer> getOfferA() { return offerA; }
-        public void setOfferA(Map<String,Integer> offerA) { this.offerA = (offerA!=null?offerA:new HashMap<>()); }
+        public String getAId() {
+            return aId;
+        }
 
-        public Map<String,Integer> getOfferB() { return offerB; }
-        public void setOfferB(Map<String,Integer> offerB) { this.offerB = (offerB!=null?offerB:new HashMap<>()); }
+        public void setAId(String aId) {
+            this.aId = aId;
+        }
 
-        public String getStatusA() { return statusA; }
-        public void setStatusA(String statusA) { this.statusA = statusA; }
+        public String getBId() {
+            return bId;
+        }
 
-        public String getStatusB() { return statusB; }
-        public void setStatusB(String statusB) { this.statusB = statusB; }
+        public void setBId(String bId) {
+            this.bId = bId;
+        }
 
-        public long getUpdatedAt() { return updatedAt; }
-        public void setUpdatedAt(long updatedAt) { this.updatedAt = updatedAt; }
+        public Map<String, Integer> getOfferA() {
+            return offerA;
+        }
+
+        public void setOfferA(Map<String, Integer> offerA) {
+            this.offerA = (offerA != null ? offerA : new HashMap<>());
+        }
+
+        public Map<String, Integer> getOfferB() {
+            return offerB;
+        }
+
+        public void setOfferB(Map<String, Integer> offerB) {
+            this.offerB = (offerB != null ? offerB : new HashMap<>());
+        }
+
+        public String getStatusA() {
+            return statusA;
+        }
+
+        public void setStatusA(String statusA) {
+            this.statusA = statusA;
+        }
+
+        public String getStatusB() {
+            return statusB;
+        }
+
+        public void setStatusB(String statusB) {
+            this.statusB = statusB;
+        }
+
+        public long getUpdatedAt() {
+            return updatedAt;
+        }
+
+        public void setUpdatedAt(long updatedAt) {
+            this.updatedAt = updatedAt;
+        }
     }
 
     private java.util.Map<String, String> shopWeaponOfferTypeByHunter;
@@ -321,20 +465,20 @@ public class Game {
     private boolean vampireTookDamageThisRaid;
 
     public static class LocationEffectInstance {
-        public String ownerId;                 // joueur qui a joué le lieu
-        public Infra infra;                    // LIBRARY, etc.
-        public LocationEffectChoice choice;    // null tant qu'il n'a pas choisi
+        public String ownerId; // joueur qui a joué le lieu
+        public Infra infra; // LIBRARY, etc.
+        public LocationEffectChoice choice; // null tant qu'il n'a pas choisi
     }
 
     private java.util.List<LocationEffectInstance> locationEffectsQueue;
     private Integer currentLocationEffectIndex;
 
-    private boolean locationEffectPending;          // au moins un effet de lieu en cours sur ce raid
+    private boolean locationEffectPending; // au moins un effet de lieu en cours sur ce raid
     private LocationEffectChoice locationEffectChoice; // choix actuel (pour l'effet en cours)
 
     public static class LibraryOmenState {
-        public String ownerId;              // joueur qui résout l'effet
-        public String targetSide;           // "HUNTERS" ou "VAMPIRE"
+        public String ownerId; // joueur qui résout l'effet
+        public String targetSide; // "HUNTERS" ou "VAMPIRE"
         public java.util.List<String> cards = new java.util.ArrayList<>();
     }
 
@@ -343,10 +487,10 @@ public class Game {
     public static class Monster {
         public String id;
         public MonsterType type;
-        public String location;    // "forest","quarry","manor","lab",...
+        public String location; // "forest","quarry","manor","lab",...
         public int hp;
-        public String attackDice;   // "D6","D8","D12"
-        public String defenseDice;  // peut être null ou "NONE" pour Revenant
+        public String attackDice; // "D6","D8","D12"
+        public String defenseDice; // peut être null ou "NONE" pour Revenant
     }
 
     public enum MonsterType {
@@ -354,14 +498,14 @@ public class Game {
     }
 
     private MonsterType laboratoryDraftMonsterType; // nullable
-    private String laboratoryDraftLocation;         // nullable
+    private String laboratoryDraftLocation; // nullable
 
     private Integer laboratoryExplosionRoll;
     private boolean laboratoryToDestroy;
     private boolean ballroomDeathDance;
     private boolean ballroomSneakAttack;
-    private boolean ballroomBloodWaltz;        // effet activé ce raid
-    private Integer ballroomBloodWaltzBestRoll;            // meilleur dé retenu
+    private boolean ballroomBloodWaltz; // effet activé ce raid
+    private Integer ballroomBloodWaltzBestRoll; // meilleur dé retenu
     private java.util.List<Integer> ballroomBloodWaltzRolls = new java.util.ArrayList<>();
 
     // État persistant du lieu : null ou FALSE = pure, TRUE = corrompu.
@@ -369,16 +513,17 @@ public class Game {
     private Boolean altarCorrupted;
 
     // Flags "par raid" (reset entre 2 raids)
-    private boolean altarBiteOccurredThisRaid;           // au moins une morsure sur ce lieu
-    private boolean altarVampTookDamageThisRaid;         // le vampire a pris des dégâts sur ce lieu ce raid
+    private boolean altarBiteOccurredThisRaid; // au moins une morsure sur ce lieu
+    private boolean altarVampTookDamageThisRaid; // le vampire a pris des dégâts sur ce lieu ce raid
 
     private Map<String, Integer> bleedDamageByTarget = new HashMap<>();
 
     // ---- Banque (global) ----
-    private Integer bankLevel = 0;          // 0..3
-    private Integer bankStoneProgress = 0;  // pierres déposées vers le prochain niveau
+    private Integer bankLevel = 0; // 0..3
+    private Integer bankStoneProgress = 0; // pierres déposées vers le prochain niveau
 
-    public Game() {}
+    public Game() {
+    }
 
     public Game(String id, GameStatus status, int raid) {
         this.id = id;
@@ -388,120 +533,300 @@ public class Game {
     }
 
     // getters de base
-    public String getId() { return id; }
-    public GameStatus getStatus() { return status; }
-    public int getRound() { return raid; }
+    public String getId() {
+        return id;
+    }
 
-    public Long getStartingAtTs() { return startingAtTs; }
-    public void setStartingAtTs(Long startingAtTs) { this.startingAtTs = startingAtTs; }
+    public GameStatus getStatus() {
+        return status;
+    }
 
-    public Set<String> getReadyForStart() { return readyForStart; }
-    public void setReadyForStart(Set<String> s) { this.readyForStart = (s != null ? s : new HashSet<>()); }
+    public int getRound() {
+        return raid;
+    }
 
-    public void setStatus(GameStatus status) { this.status = status; }
+    public Long getStartingAtTs() {
+        return startingAtTs;
+    }
 
-    public String getWinnerSide() { return winnerSide; }
-    public void setWinnerSide(String winnerSide) { this.winnerSide = winnerSide; }
+    public void setStartingAtTs(Long startingAtTs) {
+        this.startingAtTs = startingAtTs;
+    }
+
+    public Set<String> getReadyForStart() {
+        return readyForStart;
+    }
+
+    public void setReadyForStart(Set<String> s) {
+        this.readyForStart = (s != null ? s : new HashSet<>());
+    }
+
+    public void setStatus(GameStatus status) {
+        this.status = status;
+    }
+
+    public String getWinnerSide() {
+        return winnerSide;
+    }
+
+    public void setWinnerSide(String winnerSide) {
+        this.winnerSide = winnerSide;
+    }
 
     // état de partie
-    public int getRaid() { return raid; }
-    public void setRaid(int raid) { this.raid = raid; }
+    public int getRaid() {
+        return raid;
+    }
 
-    public Phase getPhase() { return phase; }
-    public void setPhase(Phase phase) { this.phase = phase; }
+    public void setRaid(int raid) {
+        this.raid = raid;
+    }
+
+    public Phase getPhase() {
+        return phase;
+    }
+
+    public void setPhase(Phase phase) {
+        this.phase = phase;
+    }
 
     // joueurs
-    public List<Player> getPlayers() { return players; }
+    public List<Player> getPlayers() {
+        return players;
+    }
 
     // centre
-    public List<CenterBoard> getCenter() { return center; }
-    public void setCenter(List<CenterBoard> center) { this.center = center; }
+    public List<CenterBoard> getCenter() {
+        return center;
+    }
+
+    public void setCenter(List<CenterBoard> center) {
+        this.center = center;
+    }
 
     // messages
-    public List<String> getMessages() { return messages; }
-    public void setMessages(List<String> messages) { this.messages = messages; }
+    public List<String> getMessages() {
+        return messages;
+    }
+
+    public void setMessages(List<String> messages) {
+        this.messages = messages;
+    }
 
     // skip/ready
-    public Set<String> getReadyForPhase3() { return readyForPhase3; }
-    public void setReadyForPhase3(Set<String> s) { this.readyForPhase3 = s; }
+    public Set<String> getReadyForPhase3() {
+        return readyForPhase3;
+    }
+
+    public void setReadyForPhase3(Set<String> s) {
+        this.readyForPhase3 = s;
+    }
 
     // fight
-    public List<RoundFight> getCombatsQueue() { return combatsQueue; }
-    public void setCombatsQueue(List<RoundFight> combatsQueue) { this.combatsQueue = combatsQueue; }
+    public List<RoundFight> getCombatsQueue() {
+        return combatsQueue;
+    }
 
-    public Integer getCurrentCombatIndex() { return currentCombatIndex; }
-    public void setCurrentCombatIndex(Integer currentCombatIndex) { this.currentCombatIndex = currentCombatIndex; }
+    public void setCombatsQueue(List<RoundFight> combatsQueue) {
+        this.combatsQueue = combatsQueue;
+    }
 
-    public RoundFight getCurrentCombat() { return currentCombat; }
-    public void setCurrentCombat(RoundFight currentCombat) { this.currentCombat = currentCombat; }
+    public Integer getCurrentCombatIndex() {
+        return currentCombatIndex;
+    }
+
+    public void setCurrentCombatIndex(Integer currentCombatIndex) {
+        this.currentCombatIndex = currentCombatIndex;
+    }
+
+    public RoundFight getCurrentCombat() {
+        return currentCombat;
+    }
+
+    public void setCurrentCombat(RoundFight currentCombat) {
+        this.currentCombat = currentCombat;
+    }
 
     // meteo
-    public Integer getWeatherRoll() { return weatherRoll; }
-    public void setWeatherRoll(Integer weatherRoll) { this.weatherRoll = weatherRoll; }
-    public WeatherStatus getWeatherStatus() { return weatherStatus; }
-    public void setWeatherStatus(WeatherStatus weatherStatus) { this.weatherStatus = weatherStatus; }
-    public WeatherStatus getSecondaryWeatherStatus() { return secondaryWeatherStatus; }
-    public void setSecondaryWeatherStatus(WeatherStatus secondaryWeatherStatus) { this.secondaryWeatherStatus = secondaryWeatherStatus; }
-    public WeatherStatus getThirdWeatherStatus() { return thirdWeatherStatus; }
-    public void setThirdWeatherStatus(WeatherStatus thirdWeatherStatus) { this.thirdWeatherStatus = thirdWeatherStatus; }
-    public String getWeatherStatusNameFr() { return weatherStatusNameFr; }
-    public void setWeatherStatusNameFr(String weatherStatusNameFr) { this.weatherStatusNameFr = weatherStatusNameFr; }
-    public String getWeatherDescriptionFr() { return weatherDescriptionFr; }
-    public void setWeatherDescriptionFr(String weatherDescriptionFr) { this.weatherDescriptionFr = weatherDescriptionFr; }
-    public String getSecondaryWeatherStatusNameFr() { return secondaryWeatherStatusNameFr; }
-    public void setSecondaryWeatherStatusNameFr(String v) { this.secondaryWeatherStatusNameFr = v; }
-    public String getSecondaryWeatherDescriptionFr() { return secondaryWeatherDescriptionFr; }
-    public void setSecondaryWeatherDescriptionFr(String v) { this.secondaryWeatherDescriptionFr = v; }
-    public String getThirdWeatherStatusNameFr() { return thirdWeatherStatusNameFr; }
-    public void setThirdWeatherStatusNameFr(String v) { this.thirdWeatherStatusNameFr = v; }
-    public String getThirdWeatherDescriptionFr() { return thirdWeatherDescriptionFr; }
-    public void setThirdWeatherDescriptionFr(String v) { this.thirdWeatherDescriptionFr = v; }
+    public Integer getWeatherRoll() {
+        return weatherRoll;
+    }
+
+    public void setWeatherRoll(Integer weatherRoll) {
+        this.weatherRoll = weatherRoll;
+    }
+
+    public WeatherStatus getWeatherStatus() {
+        return weatherStatus;
+    }
+
+    public void setWeatherStatus(WeatherStatus weatherStatus) {
+        this.weatherStatus = weatherStatus;
+    }
+
+    public WeatherStatus getSecondaryWeatherStatus() {
+        return secondaryWeatherStatus;
+    }
+
+    public void setSecondaryWeatherStatus(WeatherStatus secondaryWeatherStatus) {
+        this.secondaryWeatherStatus = secondaryWeatherStatus;
+    }
+
+    public WeatherStatus getThirdWeatherStatus() {
+        return thirdWeatherStatus;
+    }
+
+    public void setThirdWeatherStatus(WeatherStatus thirdWeatherStatus) {
+        this.thirdWeatherStatus = thirdWeatherStatus;
+    }
+
+    public String getWeatherStatusNameFr() {
+        return weatherStatusNameFr;
+    }
+
+    public void setWeatherStatusNameFr(String weatherStatusNameFr) {
+        this.weatherStatusNameFr = weatherStatusNameFr;
+    }
+
+    public String getWeatherDescriptionFr() {
+        return weatherDescriptionFr;
+    }
+
+    public void setWeatherDescriptionFr(String weatherDescriptionFr) {
+        this.weatherDescriptionFr = weatherDescriptionFr;
+    }
+
+    public String getSecondaryWeatherStatusNameFr() {
+        return secondaryWeatherStatusNameFr;
+    }
+
+    public void setSecondaryWeatherStatusNameFr(String v) {
+        this.secondaryWeatherStatusNameFr = v;
+    }
+
+    public String getSecondaryWeatherDescriptionFr() {
+        return secondaryWeatherDescriptionFr;
+    }
+
+    public void setSecondaryWeatherDescriptionFr(String v) {
+        this.secondaryWeatherDescriptionFr = v;
+    }
+
+    public String getThirdWeatherStatusNameFr() {
+        return thirdWeatherStatusNameFr;
+    }
+
+    public void setThirdWeatherStatusNameFr(String v) {
+        this.thirdWeatherStatusNameFr = v;
+    }
+
+    public String getThirdWeatherDescriptionFr() {
+        return thirdWeatherDescriptionFr;
+    }
+
+    public void setThirdWeatherDescriptionFr(String v) {
+        this.thirdWeatherDescriptionFr = v;
+    }
 
     // buffs/debuffs
-    public Map<String, List<StatMod>> getRaidMods() { return raidMods; }
-    public void setRaidMods(Map<String, List<StatMod>> raidMods) { this.raidMods = raidMods; }
+    public Map<String, List<StatMod>> getRaidMods() {
+        return raidMods;
+    }
 
-    //historique
+    public void setRaidMods(Map<String, List<StatMod>> raidMods) {
+        this.raidMods = raidMods;
+    }
+
+    // historique
     private boolean hasUpcomingCombat;
     private List<HistoryItem> history = new ArrayList<>();
 
-    public boolean isHasUpcomingCombat() { return hasUpcomingCombat; }
-    public void setHasUpcomingCombat(boolean v) { this.hasUpcomingCombat = v; }
+    public boolean isHasUpcomingCombat() {
+        return hasUpcomingCombat;
+    }
 
-    public List<HistoryItem> getHistory() { return history; }
-    public void setHistory(List<HistoryItem> h) { this.history = h; }
+    public void setHasUpcomingCombat(boolean v) {
+        this.hasUpcomingCombat = v;
+    }
+
+    public List<HistoryItem> getHistory() {
+        return history;
+    }
+
+    public void setHistory(List<HistoryItem> h) {
+        this.history = h;
+    }
 
     // récolte
-    public Integer getHarvestedRaid() { return harvestedRaid; }
-    public void setHarvestedRaid(Integer v) { this.harvestedRaid = v; }
+    public Integer getHarvestedRaid() {
+        return harvestedRaid;
+    }
 
-    public Map<String, RaidEffects> getRaidEffects() { return raidEffects; }
-    public void setRaidEffects(Map<String, RaidEffects> m) { this.raidEffects = m; }
+    public void setHarvestedRaid(Integer v) {
+        this.harvestedRaid = v;
+    }
 
-    //ACTIONS
-    public Set<String> getGarlicBlockedLocations() { return garlicBlockedLocations; }
-    public void setGarlicBlockedLocations(Set<String> s) { this.garlicBlockedLocations = s; }
+    public Map<String, RaidEffects> getRaidEffects() {
+        return raidEffects;
+    }
 
-    public Set<String> getPendingGarlicPlayers() { return pendingGarlicPlayers; }
-    public void setPendingGarlicPlayers(Set<String> s) { this.pendingGarlicPlayers = s; }
+    public void setRaidEffects(Map<String, RaidEffects> m) {
+        this.raidEffects = m;
+    }
 
-    public Set<String> getTrackerHunters() { return trackerHunters; }
-    public void setTrackerHunters(Set<String> s) { this.trackerHunters = s; }
+    // ACTIONS
+    public Set<String> getGarlicBlockedLocations() {
+        return garlicBlockedLocations;
+    }
+
+    public void setGarlicBlockedLocations(Set<String> s) {
+        this.garlicBlockedLocations = s;
+    }
+
+    public Set<String> getPendingGarlicPlayers() {
+        return pendingGarlicPlayers;
+    }
+
+    public void setPendingGarlicPlayers(Set<String> s) {
+        this.pendingGarlicPlayers = s;
+    }
+
+    public Set<String> getTrackerHunters() {
+        return trackerHunters;
+    }
+
+    public void setTrackerHunters(Set<String> s) {
+        this.trackerHunters = s;
+    }
 
     public Set<String> getCampfireLocations() {
         return campfireLocations;
     }
+
     public void setCampfireLocations(Set<String> campfireLocations) {
         this.campfireLocations = campfireLocations;
     }
 
-    public Set<String> getNetHunters() { return netHunters; }
-    public void setNetHunters(Set<String> s) { this.netHunters = s; }
+    public Set<String> getNetHunters() {
+        return netHunters;
+    }
 
-    public Set<String> getPitHunters() { return pitHunters; }
-    public void setPitHunters(Set<String> s) { this.pitHunters = s; }
+    public void setNetHunters(Set<String> s) {
+        this.netHunters = s;
+    }
 
-    public Map<String, String> getProvokedTargetByEnemy() { return provokedTargetByEnemy; }
+    public Set<String> getPitHunters() {
+        return pitHunters;
+    }
+
+    public void setPitHunters(Set<String> s) {
+        this.pitHunters = s;
+    }
+
+    public Map<String, String> getProvokedTargetByEnemy() {
+        return provokedTargetByEnemy;
+    }
+
     public void setProvokedTargetByEnemy(Map<String, String> m) {
         this.provokedTargetByEnemy = (m != null ? m : new HashMap<>());
     }
@@ -512,6 +837,7 @@ public class Game {
         }
         return incendiaireLocationByHunter;
     }
+
     public void setIncendiaireLocationByHunter(Map<String, String> m) {
         this.incendiaireLocationByHunter = (m != null ? m : new HashMap<>());
     }
@@ -522,18 +848,34 @@ public class Game {
         }
         return ambushHuntersByEnemy;
     }
+
     public void setAmbushHuntersByEnemy(Map<String, List<String>> m) {
         this.ambushHuntersByEnemy = (m != null ? m : new HashMap<>());
     }
 
-    public java.util.EnumSet<Infra> getInfrasToDestroyEndOfRaid() { return infrasToDestroyEndOfRaid; }
-    public void setInfrasToDestroyEndOfRaid(java.util.EnumSet<Infra> v) { this.infrasToDestroyEndOfRaid = v; }
+    public java.util.EnumSet<Infra> getInfrasToDestroyEndOfRaid() {
+        return infrasToDestroyEndOfRaid;
+    }
 
-    public boolean isHunterActionsBlockedThisRaid() { return hunterActionsBlockedThisRaid; }
-    public void setHunterActionsBlockedThisRaid(boolean hunterActionsBlockedThisRaid) { this.hunterActionsBlockedThisRaid = hunterActionsBlockedThisRaid; }
+    public void setInfrasToDestroyEndOfRaid(java.util.EnumSet<Infra> v) {
+        this.infrasToDestroyEndOfRaid = v;
+    }
 
-    public Action getCurrentAction() { return currentAction; }
-    public void setCurrentAction(Action currentAction) { this.currentAction = currentAction; }
+    public boolean isHunterActionsBlockedThisRaid() {
+        return hunterActionsBlockedThisRaid;
+    }
+
+    public void setHunterActionsBlockedThisRaid(boolean hunterActionsBlockedThisRaid) {
+        this.hunterActionsBlockedThisRaid = hunterActionsBlockedThisRaid;
+    }
+
+    public Action getCurrentAction() {
+        return currentAction;
+    }
+
+    public void setCurrentAction(Action currentAction) {
+        this.currentAction = currentAction;
+    }
 
     public java.util.List<String> getClonesLocations() {
         if (clonesLocations == null) {
@@ -541,131 +883,318 @@ public class Game {
         }
         return clonesLocations;
     }
+
     public void setClonesLocations(java.util.List<String> locs) {
         this.clonesLocations = (locs != null ? locs : new java.util.ArrayList<>());
     }
 
-    public boolean isClonesFaceUp() { return clonesFaceUp; }
-    public void setClonesFaceUp(boolean v) { this.clonesFaceUp = v; }
+    public boolean isClonesFaceUp() {
+        return clonesFaceUp;
+    }
 
-    public String getMirrorOwnerId() { return mirrorOwnerId; }
-    public void setMirrorOwnerId(String mirrorOwnerId) { this.mirrorOwnerId = mirrorOwnerId; }
+    public void setClonesFaceUp(boolean v) {
+        this.clonesFaceUp = v;
+    }
 
-    public List<String> getMirrorAltLocations() { return mirrorAltLocations; }
-    public void setMirrorAltLocations(List<String> mirrorAltLocations) { this.mirrorAltLocations = mirrorAltLocations; }
+    public String getMirrorOwnerId() {
+        return mirrorOwnerId;
+    }
 
-    public String getMirrorChosenLocation() { return mirrorChosenLocation; }
-    public void setMirrorChosenLocation(String mirrorChosenLocation) { this.mirrorChosenLocation = mirrorChosenLocation; }
+    public void setMirrorOwnerId(String mirrorOwnerId) {
+        this.mirrorOwnerId = mirrorOwnerId;
+    }
 
-    public boolean isFogBlocksHunterHarvestThisRaid() { return fogBlocksHunterHarvestThisRaid; }
-    public void setFogBlocksHunterHarvestThisRaid(boolean fogBlocksHunterHarvestThisRaid) { this.fogBlocksHunterHarvestThisRaid = fogBlocksHunterHarvestThisRaid; }
+    public List<String> getMirrorAltLocations() {
+        return mirrorAltLocations;
+    }
 
-    public boolean isHungerAllowsBiteThisRaid() { return hungerAllowsBiteThisRaid; }
-    public void setHungerAllowsBiteThisRaid(boolean hungerAllowsBiteThisRaid) { this.hungerAllowsBiteThisRaid = hungerAllowsBiteThisRaid; }
+    public void setMirrorAltLocations(List<String> mirrorAltLocations) {
+        this.mirrorAltLocations = mirrorAltLocations;
+    }
 
-    public java.util.Set<String> getDarkMarkedHunters() { return darkMarkedHunters; }
-    public void setDarkMarkedHunters(java.util.Set<String> darkMarkedHunters) { this.darkMarkedHunters = darkMarkedHunters; }
+    public String getMirrorChosenLocation() {
+        return mirrorChosenLocation;
+    }
 
-    public java.util.Set<String> getDarkMarkCorruptedThisRaid() { return darkMarkCorruptedThisRaid; }
-    public void setDarkMarkCorruptedThisRaid(java.util.Set<String> darkMarkCorruptedThisRaid) { this.darkMarkCorruptedThisRaid = darkMarkCorruptedThisRaid; }
+    public void setMirrorChosenLocation(String mirrorChosenLocation) {
+        this.mirrorChosenLocation = mirrorChosenLocation;
+    }
 
-    public boolean isShopPricesIncreasedThisRaid() { return shopPricesIncreasedThisRaid; }
-    public void setShopPricesIncreasedThisRaid(boolean shopPricesIncreasedThisRaid) { this.shopPricesIncreasedThisRaid = shopPricesIncreasedThisRaid; }
+    public boolean isFogBlocksHunterHarvestThisRaid() {
+        return fogBlocksHunterHarvestThisRaid;
+    }
 
-    public Map<String, List<String>> getPitTargetsByHunter() { return pitTargetsByHunter; }
-    public void setPitTargetsByHunter(Map<String, List<String>> pitTargetsByHunter) { this.pitTargetsByHunter = pitTargetsByHunter; }
+    public void setFogBlocksHunterHarvestThisRaid(boolean fogBlocksHunterHarvestThisRaid) {
+        this.fogBlocksHunterHarvestThisRaid = fogBlocksHunterHarvestThisRaid;
+    }
 
-    public Map<String, Integer> getPitIndexByHunter() { return pitIndexByHunter; }
-    public void setPitIndexByHunter(Map<String, Integer> pitIndexByHunter) { this.pitIndexByHunter = pitIndexByHunter;}
+    public boolean isHungerAllowsBiteThisRaid() {
+        return hungerAllowsBiteThisRaid;
+    }
+
+    public void setHungerAllowsBiteThisRaid(boolean hungerAllowsBiteThisRaid) {
+        this.hungerAllowsBiteThisRaid = hungerAllowsBiteThisRaid;
+    }
+
+    public java.util.Set<String> getDarkMarkedHunters() {
+        return darkMarkedHunters;
+    }
+
+    public void setDarkMarkedHunters(java.util.Set<String> darkMarkedHunters) {
+        this.darkMarkedHunters = darkMarkedHunters;
+    }
+
+    public java.util.Set<String> getDarkMarkCorruptedThisRaid() {
+        return darkMarkCorruptedThisRaid;
+    }
+
+    public void setDarkMarkCorruptedThisRaid(java.util.Set<String> darkMarkCorruptedThisRaid) {
+        this.darkMarkCorruptedThisRaid = darkMarkCorruptedThisRaid;
+    }
+
+    public boolean isShopPricesIncreasedThisRaid() {
+        return shopPricesIncreasedThisRaid;
+    }
+
+    public void setShopPricesIncreasedThisRaid(boolean shopPricesIncreasedThisRaid) {
+        this.shopPricesIncreasedThisRaid = shopPricesIncreasedThisRaid;
+    }
+
+    public Map<String, List<String>> getPitTargetsByHunter() {
+        return pitTargetsByHunter;
+    }
+
+    public void setPitTargetsByHunter(Map<String, List<String>> pitTargetsByHunter) {
+        this.pitTargetsByHunter = pitTargetsByHunter;
+    }
+
+    public Map<String, Integer> getPitIndexByHunter() {
+        return pitIndexByHunter;
+    }
+
+    public void setPitIndexByHunter(Map<String, Integer> pitIndexByHunter) {
+        this.pitIndexByHunter = pitIndexByHunter;
+    }
 
     // corruption
-    public Map<String, List<String>> getUnstableEligibleTargets() { return unstableEligibleTargets; }
-    public void setUnstableEligibleTargets(Map<String, List<String>> m) { this.unstableEligibleTargets = m; }
+    public Map<String, List<String>> getUnstableEligibleTargets() {
+        return unstableEligibleTargets;
+    }
 
-    public Map<String, String> getUnstableTargetByPlayer() { return unstableTargetByPlayer; }
-    public void setUnstableTargetByPlayer(Map<String, String> m) { this.unstableTargetByPlayer = m; }
+    public void setUnstableEligibleTargets(Map<String, List<String>> m) {
+        this.unstableEligibleTargets = m;
+    }
 
-    public BiteAttempt getCurrentBite() { return currentBite; }
-    public void setCurrentBite(BiteAttempt b) { this.currentBite = b; }
+    public Map<String, String> getUnstableTargetByPlayer() {
+        return unstableTargetByPlayer;
+    }
 
-    public Map<String, List<String>> getUnstableEligibleLocations() { return unstableEligibleLocations; }
-    public void setUnstableEligibleLocations(Map<String, List<String>> m) { this.unstableEligibleLocations = m; }
+    public void setUnstableTargetByPlayer(Map<String, String> m) {
+        this.unstableTargetByPlayer = m;
+    }
 
-    public Map<String, String> getUnstableHarvestLocByPlayer() { return unstableHarvestLocByPlayer; }
-    public void setUnstableHarvestLocByPlayer(Map<String, String> m) { this.unstableHarvestLocByPlayer = m; }
+    public BiteAttempt getCurrentBite() {
+        return currentBite;
+    }
 
-    //Maintenance
+    public void setCurrentBite(BiteAttempt b) {
+        this.currentBite = b;
+    }
+
+    public Map<String, List<String>> getUnstableEligibleLocations() {
+        return unstableEligibleLocations;
+    }
+
+    public void setUnstableEligibleLocations(Map<String, List<String>> m) {
+        this.unstableEligibleLocations = m;
+    }
+
+    public Map<String, String> getUnstableHarvestLocByPlayer() {
+        return unstableHarvestLocByPlayer;
+    }
+
+    public void setUnstableHarvestLocByPlayer(Map<String, String> m) {
+        this.unstableHarvestLocByPlayer = m;
+    }
+
+    // Maintenance
     // Potions
-    public List<String> getPotionDeck() { return potionDeck; }
-    public void setPotionDeck(List<String> deck) { this.potionDeck = deck; }
+    public List<String> getPotionDeck() {
+        return potionDeck;
+    }
 
-    public List<String> getPotionDiscard() { return potionDiscard; }
-    public void setPotionDiscard(List<String> discard) { this.potionDiscard = discard; }
+    public void setPotionDeck(List<String> deck) {
+        this.potionDeck = deck;
+    }
+
+    public List<String> getPotionDiscard() {
+        return potionDiscard;
+    }
+
+    public void setPotionDiscard(List<String> discard) {
+        this.potionDiscard = discard;
+    }
 
     // Potions rares
-    public List<String> getElixirDeck() { return elixirDeck; }
-    public void setElixirDeck(List<String> deck) { this.elixirDeck = deck; }
+    public List<String> getElixirDeck() {
+        return elixirDeck;
+    }
 
-    public List<String> getElixirDiscard() { return elixirDiscard; }
-    public void setElixirDiscard(List<String> discard) { this.elixirDiscard = discard; }
+    public void setElixirDeck(List<String> deck) {
+        this.elixirDeck = deck;
+    }
+
+    public List<String> getElixirDiscard() {
+        return elixirDiscard;
+    }
+
+    public void setElixirDiscard(List<String> discard) {
+        this.elixirDiscard = discard;
+    }
 
     // Actions chasseurs
-    public List<String> getHunterActionsDeck() { return hunterActionsDeck; }
-    public void setHunterActionsDeck(List<String> deck) { this.hunterActionsDeck = deck; }
+    public List<String> getHunterActionsDeck() {
+        return hunterActionsDeck;
+    }
 
-    public List<String> getHunterActionsDiscard() { return hunterActionsDiscard; }
-    public void setHunterActionsDiscard(List<String> discard) { this.hunterActionsDiscard = discard; }
+    public void setHunterActionsDeck(List<String> deck) {
+        this.hunterActionsDeck = deck;
+    }
+
+    public List<String> getHunterActionsDiscard() {
+        return hunterActionsDiscard;
+    }
+
+    public void setHunterActionsDiscard(List<String> discard) {
+        this.hunterActionsDiscard = discard;
+    }
 
     // Actions vampire
-    public List<String> getVampActionsDeck() { return vampActionsDeck; }
-    public void setVampActionsDeck(List<String> deck) { this.vampActionsDeck = deck; }
+    public List<String> getVampActionsDeck() {
+        return vampActionsDeck;
+    }
 
-    public List<String> getVampActionsDiscard() { return vampActionsDiscard; }
-    public void setVampActionsDiscard(List<String> discard) { this.vampActionsDiscard = discard; }
+    public void setVampActionsDeck(List<String> deck) {
+        this.vampActionsDeck = deck;
+    }
 
+    public List<String> getVampActionsDiscard() {
+        return vampActionsDiscard;
+    }
 
-    public Set<String> getReadyForNextRaid() { return readyForNextRaid; }
+    public void setVampActionsDiscard(List<String> discard) {
+        this.vampActionsDiscard = discard;
+    }
 
-    public int getPrephaseTimerVersion() { return prephaseTimerVersion; }
-    public void setPrephaseTimerVersion(int v) { this.prephaseTimerVersion = v; }
+    public Set<String> getReadyForNextRaid() {
+        return readyForNextRaid;
+    }
 
-    public Long getPhase4DeadlineMillis() { return phase4DeadlineMillis; }
-    public void setPhase4DeadlineMillis(Long v) { this.phase4DeadlineMillis = v; }
+    public int getPrephaseTimerVersion() {
+        return prephaseTimerVersion;
+    }
 
-    public java.util.Map<String, String> getShopWeaponOfferTypeByHunter() { return shopWeaponOfferTypeByHunter; }
-    public void setShopWeaponOfferTypeByHunter(java.util.Map<String, String> v) { this.shopWeaponOfferTypeByHunter = v; }
+    public void setPrephaseTimerVersion(int v) {
+        this.prephaseTimerVersion = v;
+    }
 
-    public java.util.Map<String, Integer> getShopWeaponOfferTierByHunter() { return shopWeaponOfferTierByHunter; }
-    public void setShopWeaponOfferTierByHunter(java.util.Map<String, Integer> v) { this.shopWeaponOfferTierByHunter = v; }
+    public Long getPhase4DeadlineMillis() {
+        return phase4DeadlineMillis;
+    }
 
-    public List<Trade> getTrades(){ return trades; }
-    public void setTrades(List<Trade> t){ this.trades = t; }
+    public void setPhase4DeadlineMillis(Long v) {
+        this.phase4DeadlineMillis = v;
+    }
 
-    public java.util.EnumSet<Infra> getBuiltInfras() { return builtInfras; }
-    public void setBuiltInfras(java.util.EnumSet<Infra> builtInfras) { this.builtInfras = builtInfras; }
+    public java.util.Map<String, String> getShopWeaponOfferTypeByHunter() {
+        return shopWeaponOfferTypeByHunter;
+    }
 
-    public PendingConstruction getPendingConstruction() { return pendingConstruction; }
-    public void setPendingConstruction(PendingConstruction pendingConstruction) { this.pendingConstruction = pendingConstruction; }
+    public void setShopWeaponOfferTypeByHunter(java.util.Map<String, String> v) {
+        this.shopWeaponOfferTypeByHunter = v;
+    }
 
-    public boolean isVampireTookDamageThisRaid() { return vampireTookDamageThisRaid; }
-    public void setVampireTookDamageThisRaid(boolean vampireTookDamageThisRaid) { this.vampireTookDamageThisRaid = vampireTookDamageThisRaid; }
+    public java.util.Map<String, Integer> getShopWeaponOfferTierByHunter() {
+        return shopWeaponOfferTierByHunter;
+    }
+
+    public void setShopWeaponOfferTierByHunter(java.util.Map<String, Integer> v) {
+        this.shopWeaponOfferTierByHunter = v;
+    }
+
+    public List<Trade> getTrades() {
+        return trades;
+    }
+
+    public void setTrades(List<Trade> t) {
+        this.trades = t;
+    }
+
+    public java.util.EnumSet<Infra> getBuiltInfras() {
+        return builtInfras;
+    }
+
+    public void setBuiltInfras(java.util.EnumSet<Infra> builtInfras) {
+        this.builtInfras = builtInfras;
+    }
+
+    public PendingConstruction getPendingConstruction() {
+        return pendingConstruction;
+    }
+
+    public void setPendingConstruction(PendingConstruction pendingConstruction) {
+        this.pendingConstruction = pendingConstruction;
+    }
+
+    public boolean isVampireTookDamageThisRaid() {
+        return vampireTookDamageThisRaid;
+    }
+
+    public void setVampireTookDamageThisRaid(boolean vampireTookDamageThisRaid) {
+        this.vampireTookDamageThisRaid = vampireTookDamageThisRaid;
+    }
 
     // ---- Effets de lieu ----
-    public java.util.List<LocationEffectInstance> getLocationEffectsQueue() { return locationEffectsQueue; }
-    public void setLocationEffectsQueue(java.util.List<LocationEffectInstance> locationEffectsQueue) { this.locationEffectsQueue = locationEffectsQueue; }
+    public java.util.List<LocationEffectInstance> getLocationEffectsQueue() {
+        return locationEffectsQueue;
+    }
 
-    public Integer getCurrentLocationEffectIndex() { return currentLocationEffectIndex; }
-    public void setCurrentLocationEffectIndex(Integer currentLocationEffectIndex) { this.currentLocationEffectIndex = currentLocationEffectIndex; }
+    public void setLocationEffectsQueue(java.util.List<LocationEffectInstance> locationEffectsQueue) {
+        this.locationEffectsQueue = locationEffectsQueue;
+    }
 
-    public boolean getLocationEffectPending() { return locationEffectPending; }
-    public void setLocationEffectPending(boolean locationEffectPending) { this.locationEffectPending = locationEffectPending; }
+    public Integer getCurrentLocationEffectIndex() {
+        return currentLocationEffectIndex;
+    }
 
-    public LocationEffectChoice getLocationEffectChoice() { return locationEffectChoice; }
-    public void setLocationEffectChoice(LocationEffectChoice locationEffectChoice) { this.locationEffectChoice = locationEffectChoice; }
+    public void setCurrentLocationEffectIndex(Integer currentLocationEffectIndex) {
+        this.currentLocationEffectIndex = currentLocationEffectIndex;
+    }
+
+    public boolean getLocationEffectPending() {
+        return locationEffectPending;
+    }
+
+    public void setLocationEffectPending(boolean locationEffectPending) {
+        this.locationEffectPending = locationEffectPending;
+    }
+
+    public LocationEffectChoice getLocationEffectChoice() {
+        return locationEffectChoice;
+    }
+
+    public void setLocationEffectChoice(LocationEffectChoice locationEffectChoice) {
+        this.locationEffectChoice = locationEffectChoice;
+    }
 
     // LIBRARY
-    public LibraryOmenState getLibraryOmenState() { return libraryOmenState; }
-    public void setLibraryOmenState(LibraryOmenState s) { this.libraryOmenState = s; }
+    public LibraryOmenState getLibraryOmenState() {
+        return libraryOmenState;
+    }
+
+    public void setLibraryOmenState(LibraryOmenState s) {
+        this.libraryOmenState = s;
+    }
 
     // LABORATORY
     // --- Monstres invoqués par le Laboratoire occulte ---
@@ -683,34 +1212,70 @@ public class Game {
         this.monsters = (monsters != null ? monsters : new ArrayList<>());
     }
 
-    public MonsterType getLaboratoryDraftMonsterType() { return laboratoryDraftMonsterType; }
-    public void setLaboratoryDraftMonsterType(MonsterType v) { this.laboratoryDraftMonsterType = v; }
+    public MonsterType getLaboratoryDraftMonsterType() {
+        return laboratoryDraftMonsterType;
+    }
 
-    public String getLaboratoryDraftLocation() { return laboratoryDraftLocation; }
-    public void setLaboratoryDraftLocation(String v) { this.laboratoryDraftLocation = v; }
+    public void setLaboratoryDraftMonsterType(MonsterType v) {
+        this.laboratoryDraftMonsterType = v;
+    }
 
-    public Integer getLaboratoryExplosionRoll() { return laboratoryExplosionRoll; }
-    public void setLaboratoryExplosionRoll(Integer v) { this.laboratoryExplosionRoll = v; }
+    public String getLaboratoryDraftLocation() {
+        return laboratoryDraftLocation;
+    }
 
-    public boolean isLaboratoryToDestroy() { return laboratoryToDestroy; }
-    public void setLaboratoryToDestroy(boolean v) { this.laboratoryToDestroy = v; }
+    public void setLaboratoryDraftLocation(String v) {
+        this.laboratoryDraftLocation = v;
+    }
+
+    public Integer getLaboratoryExplosionRoll() {
+        return laboratoryExplosionRoll;
+    }
+
+    public void setLaboratoryExplosionRoll(Integer v) {
+        this.laboratoryExplosionRoll = v;
+    }
+
+    public boolean isLaboratoryToDestroy() {
+        return laboratoryToDestroy;
+    }
+
+    public void setLaboratoryToDestroy(boolean v) {
+        this.laboratoryToDestroy = v;
+    }
 
     // BALLROOM
-    public boolean isBallroomDeathDance() { return ballroomDeathDance; }
-    public void setBallroomDeathDance(boolean v) { this.ballroomDeathDance = v; }
+    public boolean isBallroomDeathDance() {
+        return ballroomDeathDance;
+    }
+
+    public void setBallroomDeathDance(boolean v) {
+        this.ballroomDeathDance = v;
+    }
 
     public boolean isBallroomSneakAttack() {
         return ballroomSneakAttack;
     }
+
     public void setBallroomSneakAttack(boolean v) {
         this.ballroomSneakAttack = v;
     }
 
-    public boolean isBallroomBloodWaltz() { return ballroomBloodWaltz; }
-    public void setBallroomBloodWaltz(boolean v) { this.ballroomBloodWaltz = v; }
+    public boolean isBallroomBloodWaltz() {
+        return ballroomBloodWaltz;
+    }
 
-    public Integer getBallroomBloodWaltzBestRoll() { return ballroomBloodWaltzBestRoll; }
-    public void setBallroomBloodWaltzBestRoll(Integer v) { this.ballroomBloodWaltzBestRoll = v; }
+    public void setBallroomBloodWaltz(boolean v) {
+        this.ballroomBloodWaltz = v;
+    }
+
+    public Integer getBallroomBloodWaltzBestRoll() {
+        return ballroomBloodWaltzBestRoll;
+    }
+
+    public void setBallroomBloodWaltzBestRoll(Integer v) {
+        this.ballroomBloodWaltzBestRoll = v;
+    }
 
     public java.util.List<Integer> getBallroomBloodWaltzRolls() {
         if (ballroomBloodWaltzRolls == null) {
@@ -718,26 +1283,57 @@ public class Game {
         }
         return ballroomBloodWaltzRolls;
     }
+
     public void setBallroomBloodWaltzRolls(java.util.List<Integer> rolls) {
         this.ballroomBloodWaltzRolls = (rolls != null ? rolls : new java.util.ArrayList<>());
     }
 
     // ALTAR
-    public Boolean getAltarCorrupted() { return altarCorrupted; }
-    public void setAltarCorrupted(Boolean altarCorrupted) { this.altarCorrupted = altarCorrupted; }
+    public Boolean getAltarCorrupted() {
+        return altarCorrupted;
+    }
 
-    public boolean isAltarBiteOccurredThisRaid() { return altarBiteOccurredThisRaid; }
-    public void setAltarBiteOccurredThisRaid(boolean v) { this.altarBiteOccurredThisRaid = v; }
+    public void setAltarCorrupted(Boolean altarCorrupted) {
+        this.altarCorrupted = altarCorrupted;
+    }
 
-    public boolean isAltarVampTookDamageThisRaid() { return altarVampTookDamageThisRaid; }
-    public void setAltarVampTookDamageThisRaid(boolean v) { this.altarVampTookDamageThisRaid = v; }
+    public boolean isAltarBiteOccurredThisRaid() {
+        return altarBiteOccurredThisRaid;
+    }
 
-    public Map<String, Integer> getBleedDamageByTarget() { return bleedDamageByTarget; }
-    public void setBleedDamageByTarget(Map<String,Integer> m) { this.bleedDamageByTarget = m; }
+    public void setAltarBiteOccurredThisRaid(boolean v) {
+        this.altarBiteOccurredThisRaid = v;
+    }
 
-    public Integer getBankLevel() { return bankLevel; }
-    public void setBankLevel(Integer bankLevel) { this.bankLevel = bankLevel; }
+    public boolean isAltarVampTookDamageThisRaid() {
+        return altarVampTookDamageThisRaid;
+    }
 
-    public Integer getBankStoneProgress() { return bankStoneProgress; }
-    public void setBankStoneProgress(Integer bankStoneProgress) { this.bankStoneProgress = bankStoneProgress; }
+    public void setAltarVampTookDamageThisRaid(boolean v) {
+        this.altarVampTookDamageThisRaid = v;
+    }
+
+    public Map<String, Integer> getBleedDamageByTarget() {
+        return bleedDamageByTarget;
+    }
+
+    public void setBleedDamageByTarget(Map<String, Integer> m) {
+        this.bleedDamageByTarget = m;
+    }
+
+    public Integer getBankLevel() {
+        return bankLevel;
+    }
+
+    public void setBankLevel(Integer bankLevel) {
+        this.bankLevel = bankLevel;
+    }
+
+    public Integer getBankStoneProgress() {
+        return bankStoneProgress;
+    }
+
+    public void setBankStoneProgress(Integer bankStoneProgress) {
+        this.bankStoneProgress = bankStoneProgress;
+    }
 }

@@ -1673,7 +1673,7 @@ export class GameComponent {
         case 'RANGED_WEAPON': return 'arme à distance';
         case 'HUNTER_ARMOR': return 'armure sacrée';
         case 'VAMPIRE_WEAPON': return 'arme vampirique';
-        case 'VAMPIRE_ARMOR_T3': return 'armure vampirique';
+        case 'VAMPIRE_ARMOR_T3': return 'armure nocturne';
       }
     }
 
@@ -1968,7 +1968,7 @@ export class GameComponent {
 
   private servantEquipSide(p: SPlayer, name: 'sword' | 'armor'): 'HUNTER' | 'VAMPIRE' {
     const code = (name === 'sword') ? p.weapon : p.armor;
-    if (!code) return 'HUNTER'; // pas d'équipement -> ancien chasseur
+    if (!code) return 'VAMPIRE'; // pas d'équipement -> servant utilise équipement de base vampire
 
     const c = code.toUpperCase();
 
@@ -1976,15 +1976,17 @@ export class GameComponent {
     if (c.startsWith('V_') || c.includes('V_WEAPON') || c.includes('V_ARMOR')) return 'VAMPIRE';
     if (c.startsWith('H_') || c.includes('H_WEAPON') || c.includes('H_ARMOR')) return 'HUNTER';
 
-    // fallback (au pire)
-    return 'HUNTER';
+    // fallback : servant = côté vampire
+    return 'VAMPIRE';
   }
 
   entityRoleIcon(id: string, name: 'sword' | 'armor'): string {
     const p = this.getPlayer(id);
     if (p) {
+      console.log("player", p);
       if (p.role === 'SERVANT') {
         const side = this.servantEquipSide(p, name);
+        console.log("servantEquipSide", side);
         return `/assets/icons/${side}-${name}.png`;
       }
       return `/assets/icons/${p.role}-${name}.png`;
@@ -2005,7 +2007,8 @@ export class GameComponent {
       if (type === 'defense') return 'oval';
     }
     if (p?.role === 'SERVANT') {
-      if (p.weapon.startsWith('V_') && type === 'attack') return 'round';
+      // Servants use round halo for attack (like vampires)
+      if (type === 'attack') return 'round';
       return 'oval'
     }
     if (p?.role === 'HUNTER') return 'oval';
@@ -2182,7 +2185,7 @@ export class GameComponent {
         return '/assets/icons/VAMPIRE-sword.png';
       }
 
-      if (type === 'VAMPIRE_ARMOR') {
+      if (type === 'VAMPIRE_ARMOR' || type === 'VAMPIRE_ARMOR_T3') {
         return '/assets/icons/VAMPIRE-armor.png';
       }
 
@@ -2729,6 +2732,19 @@ export class GameComponent {
 
       case 'BITE_ROLLED': {
         this.isSacredRosaryUsed = event?.payload?.isSacredRosaryUsed;
+
+        // Patch local immédiat du roll pour que le modal puisse l'afficher
+        // même si le snapshot arrive avec currentBite=null
+        if (this.game && event?.payload?.roll != null) {
+          const gAny = this.game as any;
+          const currentBite = gAny.currentBite ? { ...gAny.currentBite } : {};
+          currentBite.roll = event.payload.roll;
+
+          this.game = {
+            ...gAny,
+            currentBite
+          } as GameSnapshot;
+        }
 
         this.api.getGame(this.gameId).subscribe({
           next: g => {
@@ -4782,7 +4798,8 @@ export class GameComponent {
 
     const list = g.raidMods[me.id] || [];
 
-    if (this.isDarkMarkedMe()) return false
+
+
 
     return list.some(m => {
       const src = (m as any).source as string | undefined;
@@ -5370,7 +5387,7 @@ export class GameComponent {
     const target = this.getPlayer?.(b.targetId);
     const hasArmor = this.hasSilverPlate(target);
 
-    if (b.roll > 20 && hasArmor && b.armorRoll == null) {
+    if (b.roll > 8 && hasArmor && b.armorRoll == null) {
       return 'ARMOR';
     }
 
@@ -5447,12 +5464,20 @@ export class GameComponent {
       return `${attacker} est repoussé par un chapelet sacré.`;
     }
 
-    // Pas d’armure spéciale → morsure réussie
+    // Pas d'armure spéciale → morsure réussie
     if (!hasArmor || b.armorRoll == null) {
+      // Check if player became servant
+      if (b.becameServant) {
+        return `${target} est mordu et succombe à la corruption. ${target} devient un serviteur du vampire !`;
+      }
       return `${target} est mordu. Le sang versé nourrit le vampire: +50 âmes déchues.`;
     }
 
     if (b.armorRoll <= 3) {
+      // Check if player became servant
+      if (b.becameServant) {
+        return `${target} est mordu malgré son armure d'argent et succombe à la corruption. ${target} devient un serviteur du vampire !`;
+      }
       return `${target} est mordu malgré son armure d'argent.`;
     } else {
       return `L'armure d'argent de ${target} le protège de la morsure.`;

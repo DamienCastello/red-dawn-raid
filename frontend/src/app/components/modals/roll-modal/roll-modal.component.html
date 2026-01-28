@@ -186,8 +186,7 @@
                     <!-- Icône à gauche -->
                     <div class="icon-bubble oval">
                         <div class="icon-halo oval" [ngClass]="vm.helpers.entityHaloIcon(r.defenderId, 'defense')">
-                            <img class="icon-side"
-                                [src]="vm.helpers.roleIcon(vm.helpers.getRole(vm.helpers.getPlayer(r.defenderId)),'armor')"
+                            <img class="icon-side" [src]="vm.helpers.entityRoleIcon(r.defenderId,'armor')"
                                 alt="défense" />
                         </div>
                     </div>

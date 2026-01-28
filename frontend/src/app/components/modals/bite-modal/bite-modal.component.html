@@ -17,18 +17,18 @@
                         {{ biteRoll }}
                     </div>
                 </div>
-
-                <!-- D4 d'armure (si armure d'argent concernée) -->
-                <div class="dice-wrap" *ngIf="showArmorDice" [attr.data-digits]="1">
-                    <!-- adapte le visuel si tu n'as pas de d4 -->
-                    <img class="dice-big" src="/assets/dices/d4-blue.png" alt="d4" />
-                    <div class="dice-overlay" *ngIf="armorRoll != null">
-                        {{ armorRoll }}
-                    </div>
+            </div>
+        </div>
+        <!-- D4 d'armure (si armure d'argent concernée) -->
+        <div class="dice-row" *ngIf="showArmorDice">
+            <div class="dice-wrap" [attr.data-digits]="1">
+                <!-- adapte le visuel si tu n'as pas de d4 -->
+                <img class="dice-big" src="/assets/dices/d4-blue.png" alt="d4" />
+                <div class="dice-overlay" *ngIf="armorRoll != null">
+                    {{ armorRoll }}
                 </div>
             </div>
         </div>
-
         <div class="footer">
             <!-- Étape 1 : jet de morsure (D20) -->
             <ng-container *ngIf="biteStage === 'BITE'; else afterFirstRoll">

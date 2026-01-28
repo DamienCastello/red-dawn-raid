@@ -38,8 +38,10 @@ public class GameService {
     private final org.castello.live.LiveEvents live;
     private final PlayerService playerService;
 
-    public GameService(GameRepository gameRepo, PlayerRepository playerRepo, @Qualifier("raidTaskScheduler") TaskScheduler raidScheduler, PlatformTransactionManager tm, ObjectMapper mapper,
-                       org.castello.live.LiveEvents live, PlayerService playerService) {
+    public GameService(GameRepository gameRepo, PlayerRepository playerRepo,
+            @Qualifier("raidTaskScheduler") TaskScheduler raidScheduler, PlatformTransactionManager tm,
+            ObjectMapper mapper,
+            org.castello.live.LiveEvents live, PlayerService playerService) {
         this.gameRepo = gameRepo;
         this.playerRepo = playerRepo;
         this.raidScheduler = raidScheduler;
@@ -48,17 +50,23 @@ public class GameService {
         this.live = live;
         this.playerService = playerService;
     }
+
     private static final Logger log = LoggerFactory.getLogger(GameService.class);
 
-
     private String toJson(Game g) {
-        try { return mapper.writeValueAsString(g); }
-        catch (JsonProcessingException e) { throw new IllegalStateException(e); }
+        try {
+            return mapper.writeValueAsString(g);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private Game fromJson(String json) {
-        try { return mapper.readValue(json, Game.class); }
-        catch (Exception e) { throw new IllegalStateException(e); }
+        try {
+            return mapper.readValue(json, Game.class);
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private Game findOr404(String id) {
@@ -77,7 +85,10 @@ public class GameService {
         if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
             org.springframework.transaction.support.TransactionSynchronizationManager
                     .registerSynchronization(new org.springframework.transaction.support.TransactionSynchronization() {
-                        @Override public void afterCommit() { r.run(); }
+                        @Override
+                        public void afterCommit() {
+                            r.run();
+                        }
                     });
         } else {
             // au cas où on l’appelle hors transaction (no-op de tx) : on exécute quand même
@@ -85,14 +96,13 @@ public class GameService {
         }
     }
 
-    private static Map<String,Integer> copyMap(Map<String,Integer> m){
+    private static Map<String, Integer> copyMap(Map<String, Integer> m) {
         return (m == null) ? new java.util.HashMap<>() : new java.util.HashMap<>(m);
     }
 
     private java.util.List<String> safeList(java.util.List<String> xs) {
         return (xs != null) ? new java.util.ArrayList<>(xs) : java.util.List.of();
     }
-
 
     private int deckSize(List<String> deck) {
         return (deck != null ? deck.size() : 0);
@@ -107,7 +117,8 @@ public class GameService {
      */
     private int deckAvailableSize(List<String> deck, List<String> discard) {
         int deckSize = (deck != null ? deck.size() : 0);
-        if (deckSize > 0) return deckSize;
+        if (deckSize > 0)
+            return deckSize;
 
         return (discard != null ? discard.size() : 0);
     }
@@ -123,34 +134,34 @@ public class GameService {
                 .anyMatch(p -> userId.equals(p.getId()) && "VAMPIRE".equals(p.getRole()));
 
         // Wrappers null-safe (raccourcis locaux)
-        List<Player> playersSrc                      = (g.getPlayers()               != null) ? g.getPlayers()               : java.util.Collections.emptyList();
-        List<CenterBoard> centerSrc                  = (g.getCenter()                != null) ? g.getCenter()                : java.util.Collections.emptyList();
-        Map<String, List<StatMod>> raidModsSrc       = (g.getRaidMods()              != null) ? g.getRaidMods()              : java.util.Collections.emptyMap();
-        java.util.Set<String> readySet               = (g.getReadyForPhase3()        != null) ? g.getReadyForPhase3()        : java.util.Collections.emptySet();
-        List<String> readyForNextRaid                = new java.util.ArrayList<>(g.getReadyForNextRaid());
-        List<Game.HistoryItem> historySrc            = (g.getHistory()               != null) ? g.getHistory()               : java.util.Collections.emptyList();
-        List<RoundFight> combatsQueueSrc             = (g.getCombatsQueue()          != null) ? g.getCombatsQueue()          : java.util.Collections.emptyList();
-        List<String> messagesSrc                     = (g.getMessages()              != null) ? g.getMessages()              : java.util.Collections.emptyList();
+        List<Player> playersSrc = (g.getPlayers() != null) ? g.getPlayers() : java.util.Collections.emptyList();
+        List<CenterBoard> centerSrc = (g.getCenter() != null) ? g.getCenter() : java.util.Collections.emptyList();
+        Map<String, List<StatMod>> raidModsSrc = (g.getRaidMods() != null) ? g.getRaidMods()
+                : java.util.Collections.emptyMap();
+        java.util.Set<String> readySet = (g.getReadyForPhase3() != null) ? g.getReadyForPhase3()
+                : java.util.Collections.emptySet();
+        List<String> readyForNextRaid = new java.util.ArrayList<>(g.getReadyForNextRaid());
+        List<Game.HistoryItem> historySrc = (g.getHistory() != null) ? g.getHistory()
+                : java.util.Collections.emptyList();
+        List<RoundFight> combatsQueueSrc = (g.getCombatsQueue() != null) ? g.getCombatsQueue()
+                : java.util.Collections.emptyList();
+        List<String> messagesSrc = (g.getMessages() != null) ? g.getMessages() : java.util.Collections.emptyList();
 
-        Map<String, List<String>> uTargets =
-                g.getUnstableEligibleTargets()!=null
-                        ? new java.util.HashMap<>(g.getUnstableEligibleTargets())
-                        : java.util.Collections.emptyMap();
+        Map<String, List<String>> uTargets = g.getUnstableEligibleTargets() != null
+                ? new java.util.HashMap<>(g.getUnstableEligibleTargets())
+                : java.util.Collections.emptyMap();
 
-        Map<String, List<String>> uLocs =
-                g.getUnstableEligibleLocations()!=null
-                        ? new java.util.HashMap<>(g.getUnstableEligibleLocations())
-                        : java.util.Collections.emptyMap();
+        Map<String, List<String>> uLocs = g.getUnstableEligibleLocations() != null
+                ? new java.util.HashMap<>(g.getUnstableEligibleLocations())
+                : java.util.Collections.emptyMap();
 
-        Map<String, String> uChosenTargets =
-                g.getUnstableTargetByPlayer()!=null
-                        ? new java.util.HashMap<>(g.getUnstableTargetByPlayer())
-                        : java.util.Collections.emptyMap();
+        Map<String, String> uChosenTargets = g.getUnstableTargetByPlayer() != null
+                ? new java.util.HashMap<>(g.getUnstableTargetByPlayer())
+                : java.util.Collections.emptyMap();
 
-        Map<String, String> uChosenHarvests =
-                g.getUnstableHarvestLocByPlayer()!=null
-                        ? new java.util.HashMap<>(g.getUnstableHarvestLocByPlayer())
-                        : java.util.Collections.emptyMap();
+        Map<String, String> uChosenHarvests = g.getUnstableHarvestLocByPlayer() != null
+                ? new java.util.HashMap<>(g.getUnstableHarvestLocByPlayer())
+                : java.util.Collections.emptyMap();
 
         // Weather
         var weather = new GameSnapshot.WeatherView(
@@ -163,12 +174,11 @@ public class GameService {
                 g.getSecondaryWeatherDescriptionFr(),
                 (g.getThirdWeatherStatus() != null ? g.getThirdWeatherStatus().name() : null),
                 g.getThirdWeatherStatusNameFr(),
-                g.getThirdWeatherDescriptionFr()
-        );
+                g.getThirdWeatherDescriptionFr());
 
         // Players
         List<GameSnapshot.PlayerView> players = g.getPlayers().stream().map(p -> {
-            List<String> hand    = (p.getHand()    != null ? p.getHand()    : List.of());
+            List<String> hand = (p.getHand() != null ? p.getHand() : List.of());
             List<String> potions = (p.getPotions() != null ? p.getPotions() : List.of());
             List<String> elixirs = (p.getElixirs() != null ? p.getElixirs() : List.of());
             List<String> actions = (p.getActions() != null ? p.getActions() : List.of());
@@ -182,7 +192,7 @@ public class GameService {
 
             if (isSelf) {
                 // Moi : je vois tout normalement
-                handView    = hand;
+                handView = hand;
                 potionsView = potions;
                 elixirsView = elixirs;
                 actionsView = actions;
@@ -191,7 +201,7 @@ public class GameService {
                 // - main de lieux cachée
                 // - potions cachées
                 // - actions : on cache l’ID mais on garde la taille de la main
-                handView    = Collections.nCopies(hand.size(), "HIDDEN");
+                handView = Collections.nCopies(hand.size(), "HIDDEN");
                 potionsView = Collections.nCopies(potions.size(), "HIDDEN");
                 elixirsView = Collections.nCopies(elixirs.size(), "HIDDEN");
                 actionsView = Collections.nCopies(actions.size(), "HIDDEN");
@@ -222,8 +232,7 @@ public class GameService {
                     p.getShopBonusKind(),
                     p.getShopBonusEquipId(),
                     p.getShopBonusEquipTier(),
-                    p.isShopBonusBuyPending()
-            );
+                    p.isShopBonusBuyPending());
         }).toList();
 
         // Center
@@ -246,8 +255,9 @@ public class GameService {
         if (g.getRaidEffects() != null) {
             for (var e : g.getRaidEffects().entrySet()) {
                 String playerId = e.getKey();
-                RaidEffects fx  = e.getValue();
-                if (fx == null) continue;
+                RaidEffects fx = e.getValue();
+                if (fx == null)
+                    continue;
 
                 raidEffects.put(playerId,
                         new GameSnapshot.RaidEffectsView(
@@ -257,37 +267,28 @@ public class GameService {
                                 fx.isDoubleAttack(),
                                 fx.isDoubleDefense(),
                                 fx.isInvisible(),
-                                fx.isRapid()
-                        )
-                );
+                                fx.isRapid()));
             }
         }
-
-
 
         // Decks
         var decks = new GameSnapshot.DecksView(
                 new GameSnapshot.DecksView.Pile(
                         deckSize(g.getVampActionsDeck()),
                         discardSize(g.getVampActionsDiscard()),
-                        safeList(g.getVampActionsDiscard())
-                ),
+                        safeList(g.getVampActionsDiscard())),
                 new GameSnapshot.DecksView.Pile(
                         deckSize(g.getHunterActionsDeck()),
                         discardSize(g.getHunterActionsDiscard()),
-                        safeList(g.getHunterActionsDiscard())
-                ),
+                        safeList(g.getHunterActionsDiscard())),
                 new GameSnapshot.DecksView.Pile(
                         deckSize(g.getPotionDeck()),
                         discardSize(g.getPotionDiscard()),
-                        safeList(g.getPotionDiscard())
-                ),
+                        safeList(g.getPotionDiscard())),
                 new GameSnapshot.DecksView.Pile(
                         deckSize(g.getElixirDeck()),
                         discardSize(g.getElixirDiscard()),
-                        safeList(g.getElixirDiscard())
-                )
-        );
+                        safeList(g.getElixirDiscard())));
 
         // Bite
         GameSnapshot.BiteView bite = null;
@@ -295,13 +296,13 @@ public class GameService {
             var b = g.getCurrentBite();
             bite = new GameSnapshot.BiteView(
                     b.getAttackerId(), b.getTargetId(), b.getLocation(),
-                    b.getRoll(), b.getArmorRoll(), b.getResolvedAtMillis()
-            );
+                    b.getRoll(), b.getArmorRoll(), b.getResolvedAtMillis(),
+                    b.getBecameServant());
         }
 
         // Combats queue + current
-        List<GameSnapshot.RoundFightView> combatsQueue = combatsQueueSrc.stream().map(r ->
-                new GameSnapshot.RoundFightView(
+        List<GameSnapshot.RoundFightView> combatsQueue = combatsQueueSrc.stream()
+                .map(r -> new GameSnapshot.RoundFightView(
                         r.getId(), r.getLocation(),
                         r.getAttackerId(), r.getDefenderId(),
                         r.getAttackerRoll(), r.getDefenderRoll(),
@@ -309,9 +310,8 @@ public class GameService {
                         r.getAttackerReroll(), r.getDefenderReroll(),
                         r.getResolvedAtMillis(),
                         (r.getBreakdownLines() != null ? r.getBreakdownLines() : java.util.List.of()),
-                        r.isCloneAttack()
-                )
-        ).toList();
+                        r.isCloneAttack()))
+                .toList();
 
         GameSnapshot.RoundFightView currentCombat = null;
         if (g.getCurrentCombat() != null) {
@@ -324,38 +324,34 @@ public class GameService {
                     r.getAttackerReroll(), r.getDefenderReroll(),
                     r.getResolvedAtMillis(),
                     (r.getBreakdownLines() != null ? r.getBreakdownLines() : java.util.List.of()),
-                    r.isCloneAttack()
-            );
+                    r.isCloneAttack());
         }
 
-        List<GameSnapshot.TradeView> trades =
-                (g.getTrades() == null ? java.util.List.<Game.Trade>of() : g.getTrades())
-                        .stream()
-                        .filter(t -> java.util.Objects.equals(t.getAId(), userId) || java.util.Objects.equals(t.getBId(), userId))
-                        .map(t -> new GameSnapshot.TradeView(
-                                t.getId(),
-                                t.getSide(),
-                                t.getAId(),
-                                t.getBId(),
-                                copyMap(t.getOfferA()),
-                                copyMap(t.getOfferB()),
-                                t.getStatusA(),
-                                t.getStatusB(),
-                                t.getUpdatedAt()         // <- primitive long
-                        ))
-                        // tri du plus récent au plus ancien (pas de null-check sur un long)
-                        .sorted((x, y) -> Long.compare(y.updatedAt(), x.updatedAt()))
-                        .toList();
+        List<GameSnapshot.TradeView> trades = (g.getTrades() == null ? java.util.List.<Game.Trade>of() : g.getTrades())
+                .stream()
+                .filter(t -> java.util.Objects.equals(t.getAId(), userId)
+                        || java.util.Objects.equals(t.getBId(), userId))
+                .map(t -> new GameSnapshot.TradeView(
+                        t.getId(),
+                        t.getSide(),
+                        t.getAId(),
+                        t.getBId(),
+                        copyMap(t.getOfferA()),
+                        copyMap(t.getOfferB()),
+                        t.getStatusA(),
+                        t.getStatusB(),
+                        t.getUpdatedAt() // <- primitive long
+                ))
+                // tri du plus récent au plus ancien (pas de null-check sur un long)
+                .sorted((x, y) -> Long.compare(y.updatedAt(), x.updatedAt()))
+                .toList();
 
         // History
-        List<GameSnapshot.HistoryItemView> history = historySrc.stream().map(h ->
-                new GameSnapshot.HistoryItemView(
-                        h.getTs(),
-                        h.getRaid(),
-                        (h.getPhase() != null ? h.getPhase().name() : null),
-                        h.getText()
-                )
-        ).toList();
+        List<GameSnapshot.HistoryItemView> history = historySrc.stream().map(h -> new GameSnapshot.HistoryItemView(
+                h.getTs(),
+                h.getRaid(),
+                (h.getPhase() != null ? h.getPhase().name() : null),
+                h.getText())).toList();
 
         // Ready → liste (copie) pour ne pas exposer la Set interne
         java.util.List<String> readyList = new java.util.ArrayList<>(readySet);
@@ -395,8 +391,7 @@ public class GameService {
                     a.getTargetId(),
                     a.getRoll(),
                     a.getBreakdownLines(),
-                    a.getResolvedAtMillis()
-            );
+                    a.getResolvedAtMillis());
         }
 
         // Lieux fumigés
@@ -465,8 +460,8 @@ public class GameService {
         }
 
         String locationEffectOwnerId = (currentLocEffect != null) ? currentLocEffect.ownerId : null;
-        String locationEffectInfra   = (currentLocEffect != null) ? currentLocEffect.infra.name() : null;
-        String locationEffectChoice  = (g.getLocationEffectChoice() != null)
+        String locationEffectInfra = (currentLocEffect != null) ? currentLocEffect.infra.name() : null;
+        String locationEffectChoice = (g.getLocationEffectChoice() != null)
                 ? g.getLocationEffectChoice().name()
                 : null;
         boolean locationEffectPending = g.getLocationEffectPending();
@@ -486,18 +481,18 @@ public class GameService {
         if (g.getMonsters() != null && !g.getMonsters().isEmpty()) {
             monsters = g.getMonsters().stream()
                     .map(m -> new GameSnapshot.MonsterView(
-                            m.id,                              // champs publics de Game.Monster
+                            m.id, // champs publics de Game.Monster
                             (m.type != null ? m.type.name() : null),
                             m.location,
                             m.hp,
                             m.attackDice,
-                            m.defenseDice
-                    ))
+                            m.defenseDice))
                     .toList();
         }
 
-        String draftType = (g.getLaboratoryDraftMonsterType() != null ? g.getLaboratoryDraftMonsterType().name() : null);
-        String draftLoc  = g.getLaboratoryDraftLocation();
+        String draftType = (g.getLaboratoryDraftMonsterType() != null ? g.getLaboratoryDraftMonsterType().name()
+                : null);
+        String draftLoc = g.getLaboratoryDraftLocation();
 
         Integer laboratoryExplosionRoll = g.getLaboratoryExplosionRoll();
 
@@ -516,23 +511,20 @@ public class GameService {
         Integer bankStoneProgress = g.getBankStoneProgress();
 
         // Offres boutique (armes hunters) - copie safe
-        java.util.Map<String, String> shopWeaponOfferTypeByHunter =
-                (g.getShopWeaponOfferTypeByHunter() != null)
-                        ? new java.util.HashMap<>(g.getShopWeaponOfferTypeByHunter())
-                        : java.util.Map.of();
+        java.util.Map<String, String> shopWeaponOfferTypeByHunter = (g.getShopWeaponOfferTypeByHunter() != null)
+                ? new java.util.HashMap<>(g.getShopWeaponOfferTypeByHunter())
+                : java.util.Map.of();
 
-        java.util.Map<String, Integer> shopWeaponOfferTierByHunter =
-                (g.getShopWeaponOfferTierByHunter() != null)
-                        ? new java.util.HashMap<>(g.getShopWeaponOfferTierByHunter())
-                        : java.util.Map.of();
-
+        java.util.Map<String, Integer> shopWeaponOfferTierByHunter = (g.getShopWeaponOfferTierByHunter() != null)
+                ? new java.util.HashMap<>(g.getShopWeaponOfferTierByHunter())
+                : java.util.Map.of();
 
         return new GameSnapshot(
                 g.getId(),
                 (g.getStatus() != null ? g.getStatus().name() : "CREATED"),
                 g.getWinnerSide(),
                 g.getRaid(),
-                (g.getPhase()  != null ? g.getPhase().name()  : "PHASE0"),
+                (g.getPhase() != null ? g.getPhase().name() : "PHASE0"),
                 weather,
                 players,
                 center,
@@ -587,69 +579,101 @@ public class GameService {
                 history,
                 messagesSrc,
                 System.currentTimeMillis(),
-                userId
-        );
+                userId);
     }
 
     private void initPhase0Structures(Game g) {
-        if (g.getRaidMods() == null)             g.setRaidMods(new java.util.HashMap<>());
-        if (g.getRaidEffects() == null)          g.setRaidEffects(new java.util.HashMap<>());
-        if (g.getMessages() == null)             g.setMessages(new java.util.ArrayList<>());
-        if (g.getHistory() == null)              g.setHistory(new java.util.ArrayList<>());
+        if (g.getRaidMods() == null)
+            g.setRaidMods(new java.util.HashMap<>());
+        if (g.getRaidEffects() == null)
+            g.setRaidEffects(new java.util.HashMap<>());
+        if (g.getMessages() == null)
+            g.setMessages(new java.util.ArrayList<>());
+        if (g.getHistory() == null)
+            g.setHistory(new java.util.ArrayList<>());
         g.getReadyForPhase3().clear();
         g.getReadyForNextRaid().clear();
-        if (g.getTrades()!=null) g.getTrades().clear();
+        if (g.getTrades() != null)
+            g.getTrades().clear();
         g.setPhase4DeadlineMillis(null);
-        if (g.getUnstableEligibleTargets() == null)   g.setUnstableEligibleTargets(new java.util.HashMap<>());
-        if (g.getUnstableTargetByPlayer() == null)    g.setUnstableTargetByPlayer(new java.util.HashMap<>());
-        if (g.getUnstableEligibleLocations() == null) g.setUnstableEligibleLocations(new java.util.HashMap<>());
-        if (g.getUnstableHarvestLocByPlayer() == null)g.setUnstableHarvestLocByPlayer(new java.util.HashMap<>());
-        if (g.getCombatsQueue() == null)         g.setCombatsQueue(new java.util.ArrayList<>());
-        if (g.getCenter() == null)               g.setCenter(new java.util.ArrayList<>());
-        if (g.getGarlicBlockedLocations() == null)g.setGarlicBlockedLocations(new java.util.HashSet<>());
+        if (g.getUnstableEligibleTargets() == null)
+            g.setUnstableEligibleTargets(new java.util.HashMap<>());
+        if (g.getUnstableTargetByPlayer() == null)
+            g.setUnstableTargetByPlayer(new java.util.HashMap<>());
+        if (g.getUnstableEligibleLocations() == null)
+            g.setUnstableEligibleLocations(new java.util.HashMap<>());
+        if (g.getUnstableHarvestLocByPlayer() == null)
+            g.setUnstableHarvestLocByPlayer(new java.util.HashMap<>());
+        if (g.getCombatsQueue() == null)
+            g.setCombatsQueue(new java.util.ArrayList<>());
+        if (g.getCenter() == null)
+            g.setCenter(new java.util.ArrayList<>());
+        if (g.getGarlicBlockedLocations() == null)
+            g.setGarlicBlockedLocations(new java.util.HashSet<>());
         g.getGarlicBlockedLocations().clear();
-        if (g.getPendingGarlicPlayers() == null) g.setPendingGarlicPlayers(new java.util.HashSet<>());
+        if (g.getPendingGarlicPlayers() == null)
+            g.setPendingGarlicPlayers(new java.util.HashSet<>());
         g.getPendingGarlicPlayers().clear();
-        if (g.getTrackerHunters() == null) g.setTrackerHunters(new java.util.HashSet<>());
+        if (g.getTrackerHunters() == null)
+            g.setTrackerHunters(new java.util.HashSet<>());
         g.getTrackerHunters().clear();
-        if (g.getCampfireLocations() == null) g.setCampfireLocations(new java.util.HashSet<>());
+        if (g.getCampfireLocations() == null)
+            g.setCampfireLocations(new java.util.HashSet<>());
         g.getCampfireLocations().clear();
-        if (g.getNetHunters() == null) g.setNetHunters(new java.util.HashSet<>());
-        if (g.getPitHunters() == null) g.setPitHunters(new java.util.HashSet<>());
+        if (g.getNetHunters() == null)
+            g.setNetHunters(new java.util.HashSet<>());
+        if (g.getPitHunters() == null)
+            g.setPitHunters(new java.util.HashSet<>());
         if (g.getIncendiaireLocationByHunter() == null) {
             g.setIncendiaireLocationByHunter(new java.util.HashMap<>());
         } else {
             g.getIncendiaireLocationByHunter().clear();
         }
-        if (g.getPitTargetsByHunter() == null) g.setPitTargetsByHunter(new java.util.HashMap<>());
-        else g.getPitTargetsByHunter().clear();
-        if (g.getPotionDeck() == null)        g.setPotionDeck(new java.util.ArrayList<>());
-        if (g.getPotionDiscard() == null)     g.setPotionDiscard(new java.util.ArrayList<>());
+        if (g.getPitTargetsByHunter() == null)
+            g.setPitTargetsByHunter(new java.util.HashMap<>());
+        else
+            g.getPitTargetsByHunter().clear();
+        if (g.getPotionDeck() == null)
+            g.setPotionDeck(new java.util.ArrayList<>());
+        if (g.getPotionDiscard() == null)
+            g.setPotionDiscard(new java.util.ArrayList<>());
 
-        if (g.getElixirDeck() == null)        g.setElixirDeck(new java.util.ArrayList<>());
-        if (g.getElixirDiscard() == null)     g.setElixirDiscard(new java.util.ArrayList<>());
+        if (g.getElixirDeck() == null)
+            g.setElixirDeck(new java.util.ArrayList<>());
+        if (g.getElixirDiscard() == null)
+            g.setElixirDiscard(new java.util.ArrayList<>());
 
-        if (g.getHunterActionsDeck() == null)     g.setHunterActionsDeck(new java.util.ArrayList<>());
-        if (g.getHunterActionsDiscard() == null)  g.setHunterActionsDiscard(new java.util.ArrayList<>());
+        if (g.getHunterActionsDeck() == null)
+            g.setHunterActionsDeck(new java.util.ArrayList<>());
+        if (g.getHunterActionsDiscard() == null)
+            g.setHunterActionsDiscard(new java.util.ArrayList<>());
 
-        if (g.getVampActionsDeck() == null)       g.setVampActionsDeck(new java.util.ArrayList<>());
-        if (g.getVampActionsDiscard() == null)    g.setVampActionsDiscard(new java.util.ArrayList<>());
+        if (g.getVampActionsDeck() == null)
+            g.setVampActionsDeck(new java.util.ArrayList<>());
+        if (g.getVampActionsDiscard() == null)
+            g.setVampActionsDiscard(new java.util.ArrayList<>());
 
-        if (g.getPitIndexByHunter() == null) g.setPitIndexByHunter(new java.util.HashMap<>());
-        else g.getPitIndexByHunter().clear();
+        if (g.getPitIndexByHunter() == null)
+            g.setPitIndexByHunter(new java.util.HashMap<>());
+        else
+            g.getPitIndexByHunter().clear();
 
-        if (g.getLocationEffectsQueue() == null) g.setLocationEffectsQueue(new java.util.ArrayList<>());
-        else g.getLocationEffectsQueue().clear();
+        if (g.getLocationEffectsQueue() == null)
+            g.setLocationEffectsQueue(new java.util.ArrayList<>());
+        else
+            g.getLocationEffectsQueue().clear();
         g.setCurrentLocationEffectIndex(null);
         g.setLocationEffectPending(false);
         g.setLocationEffectChoice(null);
         g.setLibraryOmenState(null);
-        if (g.getMonsters() == null) g.setMonsters(new java.util.ArrayList<>());
+        if (g.getMonsters() == null)
+            g.setMonsters(new java.util.ArrayList<>());
 
         // Reset Valse sanguinaire (état global du raid)
         g.setBallroomBloodWaltzRolls(null);
         g.setBallroomBloodWaltzBestRoll(null);
-        // (on laisse g.setBallroomBloodWaltz(...) géré par la carte/infra au moment où on active l'effet pour ce raid.)
+        // (on laisse g.setBallroomBloodWaltz(...) géré par la carte/infra au moment où
+        // on active l'effet pour ce raid.)
 
         // Bite/combat reset explicite
         g.setCurrentBite(null);
@@ -658,9 +682,12 @@ public class GameService {
         g.setHasUpcomingCombat(false);
         // Pour chaque joueur, on s'assure que la main est non nulle
         for (var p : g.getPlayers()) {
-            if (p.getHand() == null) p.setHand(new java.util.ArrayList<>());
-            if (p.getAttackDice() == null)  p.setAttackDice("D4");
-            if (p.getDefenseDice() == null) p.setDefenseDice("D4");
+            if (p.getHand() == null)
+                p.setHand(new java.util.ArrayList<>());
+            if (p.getAttackDice() == null)
+                p.setAttackDice("D4");
+            if (p.getDefenseDice() == null)
+                p.setDefenseDice("D4");
         }
     }
 
@@ -677,7 +704,6 @@ public class GameService {
         });
     }
 
-
     // ---------- utilitaires ----------
     private static final Random RND = new Random();
 
@@ -687,7 +713,8 @@ public class GameService {
                 .stream()
                 .filter(CenterBoard::isFaceUp)
                 .toList();
-        if (faceUp.isEmpty()) return false;
+        if (faceUp.isEmpty())
+            return false;
 
         // Instables affectés à la récolte => NE COMBATTENT PAS ce raid
         java.util.Set<String> harvesters = (g.getUnstableHarvestLocByPlayer() != null)
@@ -696,7 +723,8 @@ public class GameService {
 
         // --- 1) Combats "classiques" (vampire / serviteurs / monstres) ---
         java.util.Set<String> locs = new java.util.HashSet<>();
-        for (var cb : faceUp) locs.add(cb.getCard());
+        for (var cb : faceUp)
+            locs.add(cb.getCard());
 
         for (String loc : locs) {
             var idsOnLoc = faceUp.stream()
@@ -714,10 +742,8 @@ public class GameService {
 
             // Ennemis "joueurs" (vivants)
             boolean hasEnemyPlayer = playersOnLoc.stream()
-                    .anyMatch(p ->
-                            ("VAMPIRE".equals(p.getRole()) || "SERVANT".equals(p.getRole()))
-                                    && isAlive(p)
-                    );
+                    .anyMatch(p -> ("VAMPIRE".equals(p.getRole()) || "SERVANT".equals(p.getRole()))
+                            && isAlive(p));
 
             // Monstres présents sur ce lieu (vivants)
             var monstersHere = monstersOnLocation(g, loc).stream()
@@ -742,14 +768,16 @@ public class GameService {
             return true;
         }
 
-        // --- 3) Clones des ombres : s'il y a des chasseurs vivants sur un lieu ciblé ---
+        // --- 3) Clones des ombres : s'il y a des chasseurs vivants sur un lieu ciblé
+        // ---
         if (g.getClonesLocations() != null && !g.getClonesLocations().isEmpty()) {
 
             var groups = groupPlayersByLocation(g); // loc -> List<Player>
 
             for (String loc : g.getClonesLocations()) {
                 var onLoc = groups.get(loc);
-                if (onLoc == null || onLoc.isEmpty()) continue;
+                if (onLoc == null || onLoc.isEmpty())
+                    continue;
 
                 boolean hasEligibleHunter = onLoc.stream()
                         .anyMatch(p -> "HUNTER".equals(p.getRole())
@@ -772,7 +800,8 @@ public class GameService {
     }
 
     private void addHistory(@NonNull Game g, @NonNull String text) {
-        if (g.getHistory() == null) g.setHistory(new ArrayList<>());
+        if (g.getHistory() == null)
+            g.setHistory(new ArrayList<>());
         var hi = new Game.HistoryItem();
         hi.setRaid(g.getRaid());
         hi.setPhase(g.getPhase());
@@ -806,7 +835,8 @@ public class GameService {
     }
 
     private int diceSides(String d) {
-        if (d == null) return 6;
+        if (d == null)
+            return 6;
         return switch (d.toUpperCase()) {
             case "D4" -> 4;
             case "D6" -> 6;
@@ -821,21 +851,21 @@ public class GameService {
     private String nameOf(Game g, String playerId) {
         return g.getPlayers().stream()
                 .filter(p -> p.getId().equals(playerId))
-                .map(p -> (p.getUsername()!=null && !p.getUsername().isBlank()) ? p.getUsername() : p.getId())
+                .map(p -> (p.getUsername() != null && !p.getUsername().isBlank()) ? p.getUsername() : p.getId())
                 .findFirst().orElse(playerId);
     }
 
-    private WeatherStatus mapRollToWeather(int roll){
+    private WeatherStatus mapRollToWeather(int roll) {
         return switch (roll) {
-            case 1  -> WeatherStatus.SUNNY;
-            case 2  -> WeatherStatus.FOG;
-            case 3  -> WeatherStatus.AURORA;
-            case 4  -> WeatherStatus.CLOUDY;
-            case 5  -> WeatherStatus.WIND;
-            case 6  -> WeatherStatus.STORM;
-            case 7  -> WeatherStatus.RAIN;
-            case 8  -> WeatherStatus.BLIZZARD;
-            case 9  -> WeatherStatus.DUSK;
+            case 1 -> WeatherStatus.SUNNY;
+            case 2 -> WeatherStatus.FOG;
+            case 3 -> WeatherStatus.AURORA;
+            case 4 -> WeatherStatus.CLOUDY;
+            case 5 -> WeatherStatus.WIND;
+            case 6 -> WeatherStatus.STORM;
+            case 7 -> WeatherStatus.RAIN;
+            case 8 -> WeatherStatus.BLIZZARD;
+            case 9 -> WeatherStatus.DUSK;
             case 10 -> WeatherStatus.NIGHT_DARK;
             case 11 -> WeatherStatus.NIGHT_CLEAR;
             case 12 -> WeatherStatus.FULL_MOON;
@@ -843,51 +873,55 @@ public class GameService {
         };
     }
 
-    private String weatherNameFr(WeatherStatus ws){
+    private String weatherNameFr(WeatherStatus ws) {
         return switch (ws) {
-            case SUNNY      -> "Jour ensoleillé";
-            case FOG        -> "Brouillard protecteur";
-            case AURORA     -> "Aurore";
-            case WIND       -> "Cyclone";
-            case CLOUDY     -> "Ciel couvert";
-            case STORM      -> "Orage";
-            case RAIN       -> "Pluie diluvienne";
-            case BLIZZARD   -> "Blizzard";
-            case DUSK       -> "Crépuscule";
+            case SUNNY -> "Jour ensoleillé";
+            case FOG -> "Brouillard protecteur";
+            case AURORA -> "Aurore";
+            case WIND -> "Cyclone";
+            case CLOUDY -> "Ciel couvert";
+            case STORM -> "Orage";
+            case RAIN -> "Pluie diluvienne";
+            case BLIZZARD -> "Blizzard";
+            case DUSK -> "Crépuscule";
             case NIGHT_DARK -> "Nuit obscure";
-            case NIGHT_CLEAR-> "Nuit claire";
-            case FULL_MOON  -> "Pleine lune";
+            case NIGHT_CLEAR -> "Nuit claire";
+            case FULL_MOON -> "Pleine lune";
             case BLOOD_MOON -> "Lune sanglante";
         };
     }
 
-    private String weatherDescFr(WeatherStatus ws){
+    private String weatherDescFr(WeatherStatus ws) {
         return switch (ws) {
-            case SUNNY      -> "La lumière domine.\n+1 attaque pour les chasseurs et –1 défense pour le vampire.";
-            case FOG        -> "La brume étouffe les sons et couvre l'approche.\n+1 attaque des chasseurs.";
-            case AURORA     -> "La lumière progresse.\n-1 défense pour le vampire.";
-            case WIND       -> "Un cyclone dévaste la région.\n" +
+            case SUNNY -> "La lumière domine.\n+1 attaque pour les chasseurs et –1 défense pour le vampire.";
+            case FOG -> "La brume étouffe les sons et couvre l'approche.\n+1 attaque des chasseurs.";
+            case AURORA -> "La lumière progresse.\n-1 défense pour le vampire.";
+            case WIND -> "Un cyclone dévaste la région.\n" +
                     "Le vampire ne peut construire ce raid.\n" +
                     "Chaque chasseur perd 1 ressource de construction aléatoire.\n" +
                     "Le domaine perd ensuite 1 ressource de construction aléatoire par construction.";
-            case CLOUDY     -> "Lumière terne.\n-1 attaque pour le vampire.";
-            case STORM      -> "La foudre déstabilise au combat.\n-2 défense pour tous.";
-            case RAIN       -> "La pluie torrentielle alourdit chaque geste.\n-2 attaque pour tous.";
-            case BLIZZARD   -> "Froid mordant.\nPotions gelées et -1 attaque pour tous.";
-            case DUSK       -> "Les ombres progressent.\n+1 défense du vampire.";
-            case NIGHT_DARK -> "Les ombres dominent.\n+1 attaque du vampire. Les chasseurs ne peuvent utiliser de pièges.";
-            case NIGHT_CLEAR-> "La lune éclaire légèrement et le vampire gagne en puissance.\n+1 attaque du vampire et –1 défense pour les chasseurs.";
-            case FULL_MOON  -> "La pleine lune exalte le sang ancien.\n+2 attaque du vampire.";
-            case BLOOD_MOON  -> "La Pleine lune devient Lune sanglante.\n+4 Attaque du vampire.";
+            case CLOUDY -> "Lumière terne.\n-1 attaque pour le vampire.";
+            case STORM -> "La foudre déstabilise au combat.\n-2 défense pour tous.";
+            case RAIN -> "La pluie torrentielle alourdit chaque geste.\n-2 attaque pour tous.";
+            case BLIZZARD -> "Froid mordant.\nPotions gelées et -1 attaque pour tous.";
+            case DUSK -> "Les ombres progressent.\n+1 défense du vampire.";
+            case NIGHT_DARK ->
+                "Les ombres dominent.\n+1 attaque du vampire. Les chasseurs ne peuvent utiliser de pièges.";
+            case NIGHT_CLEAR ->
+                "La lune éclaire légèrement et le vampire gagne en puissance.\n+1 attaque du vampire et –1 défense pour les chasseurs.";
+            case FULL_MOON -> "La pleine lune exalte le sang ancien.\n+2 attaque du vampire.";
+            case BLOOD_MOON -> "La Pleine lune devient Lune sanglante.\n+4 Attaque du vampire.";
         };
     }
 
     /**
      * Ajoute (ou remplace par source) un mod de raid pour un joueur.
-     * Idempotent par 'source' : si un mod avec la même source existe, il est retiré avant ajout.
+     * Idempotent par 'source' : si un mod avec la même source existe, il est retiré
+     * avant ajout.
      */
     private void addRaidMod(Game g, String playerId, String stat, int amount, String source) {
-        if (g.getRaidMods() == null) g.setRaidMods(new HashMap<>());
+        if (g.getRaidMods() == null)
+            g.setRaidMods(new HashMap<>());
         var list = g.getRaidMods().computeIfAbsent(playerId, __ -> new ArrayList<>());
 
         // On remplace toute entrée existante portant la même source (idempotent)
@@ -900,20 +934,24 @@ public class GameService {
     }
 
     /**
-     * Construit la liste des modificateurs “moteur” d’un joueur pour le raid courant.
-     * On renvoie uniquement les mods chiffrés (ATTACK / DEFENSE) utiles pour le calcul,
+     * Construit la liste des modificateurs “moteur” d’un joueur pour le raid
+     * courant.
+     * On renvoie uniquement les mods chiffrés (ATTACK / DEFENSE) utiles pour le
+     * calcul,
      * en appliquant éventuellement l’annulation météo par Feu de camp.
      *
      * Pour les monstres :
-     *    - on NE garde que les mods d'actions (source "ACTION:...")
-     *    - pas de météo / corruption / potions.
+     * - on NE garde que les mods d'actions (source "ACTION:...")
+     * - pas de météo / corruption / potions.
      */
     private List<StatMod> modsAppliedFor(Game g, String playerId, String stat, String location) {
         // 0) pas de mods → liste vide
-        if (g.getRaidMods() == null || stat == null) return java.util.List.of();
+        if (g.getRaidMods() == null || stat == null)
+            return java.util.List.of();
 
         var list = g.getRaidMods().get(playerId);
-        if (list == null) return java.util.List.of();
+        if (list == null)
+            return java.util.List.of();
 
         // Est-ce un monstre ?
         boolean isMonster = (findMonster(g, playerId) != null);
@@ -956,24 +994,27 @@ public class GameService {
      * Additionne les modificateurs d’un joueur pour une statistique donnée.
      *
      * Typiquement appelé au moment de résoudre un combat :
-     *   score = dX + totalModFor(g, playerId, ATTACK|DEFENSE)
+     * score = dX + totalModFor(g, playerId, ATTACK|DEFENSE)
      *
      * NB : ne crée rien, ne modifie rien — ne fait qu’agréger ce qui a été
-     *      préalablement construit (ex: par rebuildRaidModsForAll / modsAppliedFor).
+     * préalablement construit (ex: par rebuildRaidModsForAll / modsAppliedFor).
      *
      */
 
-    private int totalModFor(Game g, String playerId, String stat, String location){
+    private int totalModFor(Game g, String playerId, String stat, String location) {
         return totalModForAt(g, playerId, stat, location);
     }
 
-    private int totalModForAt(Game g, String playerId, String stat, String location){
+    private int totalModForAt(Game g, String playerId, String stat, String location) {
         return modsAppliedFor(g, playerId, stat, location)
                 .stream().mapToInt(StatMod::getAmount).sum();
     }
 
-    /** Construit les logs liés aux mods (affichés dans la modale spectateur ET poussés dans l'historique). */
-    private List<String> buildModBreakdownLines(Game g, String playerId, String stat, int baseRoll, String location){
+    /**
+     * Construit les logs liés aux mods (affichés dans la modale spectateur ET
+     * poussés dans l'historique).
+     */
+    private List<String> buildModBreakdownLines(Game g, String playerId, String stat, int baseRoll, String location) {
         List<String> out = new ArrayList<>();
         int cur = baseRoll;
         String sideLabel = "ATTACK".equalsIgnoreCase(stat) ? "L’attaque" : "La défense";
@@ -981,42 +1022,46 @@ public class GameService {
 
         for (var m : modsAppliedFor(g, playerId, stat, location)) {
             int delta = m.getAmount();
-            if (delta == 0) continue;
+            if (delta == 0)
+                continue;
 
             String verb = (delta >= 0) ? "augmente" : "diminue";
             int abs = Math.abs(delta);
 
             String src = "";
             String s = (m.getSource() == null) ? "" : m.getSource();
-            if (m.getSource() != null && m.getSource().startsWith("WEATHER:") && !isCampfireCancellingWeather(g, location)) {
+            if (m.getSource() != null && m.getSource().startsWith("WEATHER:")
+                    && !isCampfireCancellingWeather(g, location)) {
                 try {
                     var wsStr = m.getSource().substring("WEATHER:".length());
                     var ws = WeatherStatus.valueOf(wsStr);
                     src = "par l’effet " + weatherNameFr(ws).toLowerCase();
-                } catch (Exception ignored) { /* fallback simple */ }
+                } catch (Exception ignored) {
+                    /* fallback simple */ }
             } else if (s.startsWith("POTION:")) {
                 String type = s.substring("POTION:".length());
                 src = switch (type) {
-                    case "FORCE"     -> "par l'effet potion de force";
+                    case "FORCE" -> "par l'effet potion de force";
                     case "ENDURANCE" -> "par l'effet potion d’endurance";
-                    case "VIE"       -> "par l'effet potion de vie";
-                    default          -> "par l'effet potion";
+                    case "VIE" -> "par l'effet potion de vie";
+                    default -> "par l'effet potion";
                 };
             } else if (s.startsWith("ACTION:")) {
                 String type = s.substring("ACTION:".length());
                 src = switch (type) {
-                    case "NET"     -> "par l'effet du filet";
+                    case "NET" -> "par l'effet du filet";
                     case "PIT" -> "par l'effet de la fosse";
                     case "LONELY" -> "par l'effet de solitaire";
                     case "AFFAIBLISSEMENT_OCCULTE" -> "par l'effet d'affaiblissement occulte";
-                    default          -> "par l'effet action";
+                    default -> "par l'effet action";
                 };
             } else if (s.startsWith("CORRUPTION:")) {
                 // L1 moteur (−1 ATK/DEF) => libellé clair
                 if (s.contains(":L1:")) {
                     src = "par l’effet Affaibli (corruption)";
                 }
-                // L2 ("Instable") n’a pas de mod chiffré => pas de ligne ici (géré en chip côté front)
+                // L2 ("Instable") n’a pas de mod chiffré => pas de ligne ici (géré en chip côté
+                // front)
             } else if (s.startsWith("EQUIP:")) {
                 if ("EQUIP:VAMP_ARMOR_DEF".equals(s)) {
                     src = "grâce à son armure vampirique";
@@ -1034,18 +1079,17 @@ public class GameService {
     }
 
     private void appendModBreakdownForSide(Game g,
-                                           RoundFight r,
-                                           String playerId,
-                                           String stat,      // "ATTACK" ou "DEFENSE"
-                                           int baseRoll) {   // valeur brute du dé (ou de la Valse/Foca)
+            RoundFight r,
+            String playerId,
+            String stat, // "ATTACK" ou "DEFENSE"
+            int baseRoll) { // valeur brute du dé (ou de la Valse/Foca)
         // On construit les lignes de breakdown pour ce côté
         List<String> lines = buildModBreakdownLines(
                 g,
                 playerId,
                 stat,
                 baseRoll,
-                r.getLocation()
-        );
+                r.getLocation());
 
         if (lines == null || lines.isEmpty()) {
             return;
@@ -1064,7 +1108,6 @@ public class GameService {
             addHistory(g, ln);
         }
     }
-
 
     // ---------- CRUD ----------
     @Transactional
@@ -1105,7 +1148,8 @@ public class GameService {
             if (now - g.getStartingAtTs() > STARTING_MAX_MS) {
                 g.setStatus(GameStatus.CREATED);
                 g.setStartingAtTs(null);
-                if (g.getReadyForStart() != null) g.getReadyForStart().clear();
+                if (g.getReadyForStart() != null)
+                    g.getReadyForStart().clear();
                 return true;
             }
         }
@@ -1123,14 +1167,16 @@ public class GameService {
         long now = System.currentTimeMillis();
         boolean changed = false;
 
-        if (ensureStartingTimeout(g, now)) changed = true;
+        if (ensureStartingTimeout(g, now))
+            changed = true;
 
         if (g.getStatus() != GameStatus.CREATED)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "game already started/ended");
 
         // cleanup ghosts (met leftGame=true)
         Set<String> stale = cleanupStaleLobbyPlayers(g, now);
-        if (!stale.isEmpty()) changed = true;
+        if (!stale.isEmpty())
+            changed = true;
 
         // ---- LIMITE MAX JOUEURS (après cleanup) ----
         var existingOpt = g.getPlayers().stream()
@@ -1165,7 +1211,8 @@ public class GameService {
         changed = true;
 
         save(g);
-        if (changed) afterCommit(() -> live.lobbyUpdated(g));
+        if (changed)
+            afterCommit(() -> live.lobbyUpdated(g));
         return g;
     }
 
@@ -1189,15 +1236,20 @@ public class GameService {
 
         if (!removedIds.isEmpty()) {
             g.getPlayers().removeIf(Player::isLeftGame);
-            if (g.getReadyForStart() != null) g.getReadyForStart().removeAll(removedIds);
+            if (g.getReadyForStart() != null)
+                g.getReadyForStart().removeAll(removedIds);
 
             // mapping SQL : on libère ces users (ils ne font plus partie du roster)
             for (String uid : removedIds) {
-                try { playerService.leaveGame(uid, id); } catch (Exception ignored) {}
+                try {
+                    playerService.leaveGame(uid, id);
+                } catch (Exception ignored) {
+                }
             }
         }
 
-        // 3) check players count (plus besoin de filter leftGame, ils sont déjà retirés)
+        // 3) check players count (plus besoin de filter leftGame, ils sont déjà
+        // retirés)
         if (g.getPlayers().size() < 2)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "need at least 2 players");
 
@@ -1208,8 +1260,10 @@ public class GameService {
         g.setStatus(GameStatus.STARTING);
         g.setStartingAtTs(now);
 
-        if (g.getReadyForStart() == null) g.setReadyForStart(new HashSet<>());
-        else g.getReadyForStart().clear();
+        if (g.getReadyForStart() == null)
+            g.setReadyForStart(new HashSet<>());
+        else
+            g.getReadyForStart().clear();
 
         save(g);
         afterCommit(() -> live.lobbyUpdated(g));
@@ -1222,25 +1276,31 @@ public class GameService {
 
         boolean changed = false;
 
-        if (ensureStartingTimeout(g, now)) changed = true;
+        if (ensureStartingTimeout(g, now))
+            changed = true;
 
-        if (g.getStatus() != GameStatus.CREATED && g.getStatus() != GameStatus.STARTING) return;
+        if (g.getStatus() != GameStatus.CREATED && g.getStatus() != GameStatus.STARTING)
+            return;
 
         // lastSeen du caller
         g.getPlayers().stream()
                 .filter(p -> p.getId().equals(userId) && !p.isLeftGame())
                 .findFirst()
-                .ifPresent(p -> { p.setLastSeenTs(now); });
+                .ifPresent(p -> {
+                    p.setLastSeenTs(now);
+                });
 
         // cleanup ghosts
         Set<String> stale = cleanupStaleLobbyPlayers(g, now);
-        if (!stale.isEmpty()) changed = true;
+        if (!stale.isEmpty())
+            changed = true;
 
         // si on était STARTING et qu'on a kick quelqu’un => retour CREATED
         if (!stale.isEmpty() && g.getStatus() == GameStatus.STARTING) {
             g.setStatus(GameStatus.CREATED);
             g.setStartingAtTs(null);
-            if (g.getReadyForStart() != null) g.getReadyForStart().clear();
+            if (g.getReadyForStart() != null)
+                g.getReadyForStart().clear();
             changed = true;
         }
 
@@ -1263,7 +1323,8 @@ public class GameService {
         Long startingAt = g.getStartingAtTs();
 
         for (Player p : g.getPlayers()) {
-            if (p.isLeftGame()) continue;
+            if (p.isLeftGame())
+                continue;
 
             Long ts = p.getLastSeenTs();
 
@@ -1272,11 +1333,10 @@ public class GameService {
 
             // règle STARTING : si le joueur n’a jamais ping depuis le début de STARTING,
             // et qu’on a dépassé la fenêtre de grâce, c’est un ghost.
-            boolean startingStale =
-                    g.getStatus() == GameStatus.STARTING
-                            && startingAt != null
-                            && (now - startingAt > STARTING_GRACE_MS)
-                            && (ts == null || ts < startingAt);
+            boolean startingStale = g.getStatus() == GameStatus.STARTING
+                    && startingAt != null
+                    && (now - startingAt > STARTING_GRACE_MS)
+                    && (ts == null || ts < startingAt);
 
             if (ttlStale || startingStale) {
                 p.setLeftGame(true);
@@ -1298,16 +1358,20 @@ public class GameService {
 
         boolean changed = false;
 
-        if (ensureStartingTimeout(g, now)) changed = true;
+        if (ensureStartingTimeout(g, now))
+            changed = true;
 
         // caller actif
         g.getPlayers().stream()
                 .filter(p -> p.getId().equals(userId) && !p.isLeftGame())
                 .findFirst()
-                .ifPresent(p -> { p.setLastSeenTs(now); });
+                .ifPresent(p -> {
+                    p.setLastSeenTs(now);
+                });
 
         // si déjà ACTIVE -> nothing
-        if (g.getStatus() == GameStatus.ACTIVE) return;
+        if (g.getStatus() == GameStatus.ACTIVE)
+            return;
 
         // si plus STARTING (ex: repassée CREATED par timeout), on sort sans erreur
         if (g.getStatus() != GameStatus.STARTING) {
@@ -1324,16 +1388,19 @@ public class GameService {
             // si on kick en STARTING => retour CREATED
             g.setStatus(GameStatus.CREATED);
             g.setStartingAtTs(null);
-            if (g.getReadyForStart() != null) g.getReadyForStart().clear();
+            if (g.getReadyForStart() != null)
+                g.getReadyForStart().clear();
 
             save(g);
             afterCommit(() -> live.lobbyUpdated(g));
             return;
         }
 
-        if (g.getReadyForStart() == null) g.setReadyForStart(new HashSet<>());
+        if (g.getReadyForStart() == null)
+            g.setReadyForStart(new HashSet<>());
         boolean added = g.getReadyForStart().add(userId);
-        if (added) changed = true;
+        if (added)
+            changed = true;
 
         var activeIds = g.getPlayers().stream()
                 .filter(p -> !p.isLeftGame())
@@ -1353,7 +1420,8 @@ public class GameService {
 
     @Transactional
     public Game startReal(Game g) {
-        if (g.getStatus() == GameStatus.ACTIVE) return g;
+        if (g.getStatus() == GameStatus.ACTIVE)
+            return g;
         if (g.getStatus() != GameStatus.STARTING)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "not in STARTING");
 
@@ -1364,7 +1432,6 @@ public class GameService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "need at least 2 players");
         if (g.getPlayers().size() > MAX_PLAYERS)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "too many players (max " + MAX_PLAYERS + ")");
-
 
         // === Etat global ===
         g.setStatus(GameStatus.ACTIVE);
@@ -1400,113 +1467,129 @@ public class GameService {
         }
 
         /*
-        // ============================
-        //   MODE TEST : 1v1 + 2 morts
-        // ============================
-        // À utiliser en dev uniquement pour tester la gestion de joueurs morts.
-        if (g.getPlayers().size() >= 4) {
-            // On récupère les chasseurs après assignation aléatoire du vampire
-            java.util.List<Player> hunters = g.getPlayers().stream()
-                    .filter(p -> "HUNTER".equals(p.getRole()))
-                    .toList();
-
-            // On veut au moins 3 chasseurs pour faire :
-            // - 1 serviteur mort (ex-chasseur)
-            // - 1 chasseur mort
-            // - 1 chasseur vivant
-            if (hunters.size() >= 3) {
-                Player servantDead = hunters.get(0);
-                Player hunterDead  = hunters.get(1);
-                Player hunterAlive = hunters.get(2);
-
-                // Le premier chasseur devient SERVANT mort
-                servantDead.setRole("SERVANT");
-                servantDead.setHp(0);
-
-                // Le deuxième reste HUNTER mais mort
-                hunterDead.setHp(0);
-
-                // On laisse le vampire et hunterAlive avec leurs PV init.
-                // Pas besoin de plus pour ce test : les méthodes isAlive() utiliseront hp>0
-            }
-        }
-        // ============================
-        */
+         * // ============================
+         * // MODE TEST : 1v1 + 2 morts
+         * // ============================
+         * // À utiliser en dev uniquement pour tester la gestion de joueurs morts.
+         * if (g.getPlayers().size() >= 4) {
+         * // On récupère les chasseurs après assignation aléatoire du vampire
+         * java.util.List<Player> hunters = g.getPlayers().stream()
+         * .filter(p -> "HUNTER".equals(p.getRole()))
+         * .toList();
+         * 
+         * // On veut au moins 3 chasseurs pour faire :
+         * // - 1 serviteur mort (ex-chasseur)
+         * // - 1 chasseur mort
+         * // - 1 chasseur vivant
+         * if (hunters.size() >= 3) {
+         * Player servantDead = hunters.get(0);
+         * Player hunterDead = hunters.get(1);
+         * Player hunterAlive = hunters.get(2);
+         * 
+         * // Le premier chasseur devient SERVANT mort
+         * servantDead.setRole("SERVANT");
+         * servantDead.setHp(0);
+         * 
+         * // Le deuxième reste HUNTER mais mort
+         * hunterDead.setHp(0);
+         * 
+         * // On laisse le vampire et hunterAlive avec leurs PV init.
+         * // Pas besoin de plus pour ce test : les méthodes isAlive() utiliseront hp>0
+         * }
+         * }
+         * // ============================
+         */
 
         // --- Inventaire ressources (dev/test) ---
         for (var p : g.getPlayers()) {
             if ("VAMPIRE".equals(p.getRole())) {
                 p.setSouls(100 * huntersCount);
-                p.setWood(10);
-                if(huntersCount < 3){
+                if (huntersCount < 3) {
                     p.setHerbs(10);
                     p.setWater(10);
-                } else if ( huntersCount > 4){
+                } else if (huntersCount > 4) {
                     p.setHerbs(20);
                     p.setWater(20);
                 } else {
                     p.setHerbs(15);
                     p.setWater(15);
                 }
-                p.setStone(10);
-                p.setIron(10);
+                p.setStone(20);
+                p.setWood(20);
+                p.setIron(20);
             }
             if ("HUNTER".equals(p.getRole())) {
                 p.setGold(150);
-                p.setWood(0);
+                p.setWood(20);
                 p.setHerbs(10);
                 p.setWater(10);
                 p.setStone(0);
-                p.setIron(0);
+                p.setIron(20);
             }
         }
 
         /*
-        // --- Inventaire potions (dev/test) ---
+         * // --- Inventaire potions (dev/test) ---
+         * for (var p : g.getPlayers()) {
+         * if ("HUNTER".equals(p.getRole())) {
+         * p.getPotions().addAll(List.of("VIE"));
+         * }
+         * 
+         * if ("VAMPIRE".equals(p.getRole())) {
+         * p.getPotions().addAll(List.of("FOCALISATION", "FOCALISATION"));
+         * }
+         * 
+         * }
+         */
         for (var p : g.getPlayers()) {
             if ("HUNTER".equals(p.getRole())) {
-                p.getPotions().addAll(List.of("VIE"));
+                p.getActions().addAll(List.of());
             }
-
             if ("VAMPIRE".equals(p.getRole())) {
-                p.getPotions().addAll(List.of("FOCALISATION", "FOCALISATION"));
+                p.getActions().addAll(List.of(
+                        "FAIM_IRREPRESSIBLE", "FAIM_IRREPRESSIBLE", "BLOOD_MOON",
+                        "FAIM_IRREPRESSIBLE", "CATACLYSME", "CATACLYSME",
+                        "CLONES_OMBRE", "CLONES_OMBRE", "MARQUE_TENEBREUSE"));
             }
-
         }
-        */
-
         /*
-        // --- Inventaire actions (dev/test) ---
-        for (var p : g.getPlayers()) {
-            if ("HUNTER".equals(p.getRole())) {
-                p.getActions().addAll(List.of(
-                        "MARCHAND_ITINERANT", "MARCHAND_ITINERANT", "MARCHAND_ITINERANT",
-                        "CHARISMATIQUE", "SACRED_ROSARY", "SACRED_ROSARY", "BLESSED_STAKE", "BLESSED_STAKE",
-                        "AMBUSH", "AMBUSH", "EAU_BENITE", "EAU_BENITE", "PROVOCATION", "PROVOCATION",
-                        "EAU_BENITE", "INCENDIAIRE", "INCENDIAIRE", "NET", "PIT", "FUMIGATION_AIL",
-                        "FUMIGATION_AIL", "PISTEUR", "PISTEUR"
-                ));
-            }
-            if ("VAMPIRE".equals(p.getRole())) {
-                p.getActions().addAll(List.of(
-                        "AVIDITE_NOCTURNE", "AVIDITE_NOCTURNE", "VOILE_DE_BRUME", "BLOOD_MOON",
-                        "AFFAIBLISSEMENT_OCCULTE", "IMAGE_MIROIR", "IMAGE_MIROIR", "PASSAGE_SECRET",
-                        "PASSAGE_SECRET", "PASSAGE_SECRET", "FAIM_IRREPRESSIBLE",  "CATACLYSME", "CATACLYSME",
-                        "CLONES_OMBRE", "CLONES_OMBRE", "MARQUE_TENEBREUSE", "PRESENCE_ECRASANTE", "PRESENCE_ECRASANTE"
-                ));
-            }
-         }
-        */
+         * // --- Inventaire actions (dev/test) ---
+         * for (var p : g.getPlayers()) {
+         * if ("HUNTER".equals(p.getRole())) {
+         * p.getActions().addAll(List.of(
+         * "MARCHAND_ITINERANT", "MARCHAND_ITINERANT", "MARCHAND_ITINERANT",
+         * "CHARISMATIQUE", "SACRED_ROSARY", "SACRED_ROSARY", "BLESSED_STAKE",
+         * "BLESSED_STAKE",
+         * "AMBUSH", "AMBUSH", "EAU_BENITE", "EAU_BENITE", "PROVOCATION", "PROVOCATION",
+         * "EAU_BENITE", "INCENDIAIRE", "INCENDIAIRE", "NET", "PIT", "FUMIGATION_AIL",
+         * "FUMIGATION_AIL", "PISTEUR", "PISTEUR"
+         * ));
+         * }
+         * if ("VAMPIRE".equals(p.getRole())) {
+         * p.getActions().addAll(List.of(
+         * "AVIDITE_NOCTURNE", "AVIDITE_NOCTURNE", "VOILE_DE_BRUME", "BLOOD_MOON",
+         * "AFFAIBLISSEMENT_OCCULTE", "IMAGE_MIROIR", "IMAGE_MIROIR", "PASSAGE_SECRET",
+         * "PASSAGE_SECRET", "PASSAGE_SECRET", "FAIM_IRREPRESSIBLE", "CATACLYSME",
+         * "CATACLYSME",
+         * "CLONES_OMBRE", "CLONES_OMBRE", "MARQUE_TENEBREUSE", "PRESENCE_ECRASANTE",
+         * "PRESENCE_ECRASANTE"
+         * ));
+         * }
+         * }
+         */
 
         initDecks(g);
 
         g.setCenter(new ArrayList<>());
 
         // --- Structures de raid (vides, prêtes) ---
-        if (g.getRaidMods() == null) g.setRaidMods(new HashMap<>());
-        else g.getRaidMods().clear();
+        if (g.getRaidMods() == null)
+            g.setRaidMods(new HashMap<>());
+        else
+            g.getRaidMods().clear();
 
-        if (g.getRaidEffects() == null) g.setRaidEffects(new HashMap<>());
+        if (g.getRaidEffects() == null)
+            g.setRaidEffects(new HashMap<>());
         g.getRaidEffects().clear();
         for (var p : g.getPlayers()) {
             g.getRaidEffects().put(p.getId(), new RaidEffects());
@@ -1527,7 +1610,8 @@ public class GameService {
             // (2) Petite ligne de feed (indépendante des messages persistés)
             pushLive(g, "Préparation du tirage météo…");
 
-            // (3) Optionnel mais propre: informer le front que les mods sont (ré)initialisés
+            // (3) Optionnel mais propre: informer le front que les mods sont
+            // (ré)initialisés
             live.raidModsUpdated(g);
 
             // (4) Phase visible côté clients → ils feront un GET propre après cet event
@@ -1566,7 +1650,6 @@ public class GameService {
         });
     }
 
-
     public void leave(String gameId, String userId) {
         tx.execute(status -> {
             Game g = findOr404ForUpdate(gameId);
@@ -1585,9 +1668,8 @@ public class GameService {
             p.setLeftGame(true);
 
             // Si CREATED et 0 joueurs actifs => delete complet
-            boolean shouldDelete =
-                    g.getStatus() == GameStatus.CREATED &&
-                            g.getPlayers().stream().noneMatch(pl -> !pl.isLeftGame());
+            boolean shouldDelete = g.getStatus() == GameStatus.CREATED &&
+                    g.getPlayers().stream().noneMatch(pl -> !pl.isLeftGame());
 
             if (shouldDelete) {
                 // Supprime l'entity en base (JSONB)
@@ -1598,7 +1680,8 @@ public class GameService {
                 if (g.getStatus() != GameStatus.ACTIVE) {
                     playerService.leaveGame(userId, gameId); // supprime PlayerEntity
                 }
-                if (g.getStatus() == GameStatus.ACTIVE) handleDeathsAndVictory(g);
+                if (g.getStatus() == GameStatus.ACTIVE)
+                    handleDeathsAndVictory(g);
                 save(g);
             }
 
@@ -1641,12 +1724,14 @@ public class GameService {
 
     private void checkEndGame(Game g) {
         // Si la partie n’est plus active, on ne touche à rien
-        if (g.getStatus() != GameStatus.ACTIVE) return;
+        if (g.getStatus() != GameStatus.ACTIVE)
+            return;
 
         boolean vampAlive = g.getPlayers().stream()
                 .anyMatch(p -> "VAMPIRE".equals(p.getRole()) && isAlive(p));
 
-        // IMPORTANT : tu passes déjà les chasseurs à role "SERVANT" quand corruption == 3
+        // IMPORTANT : tu passes déjà les chasseurs à role "SERVANT" quand corruption ==
+        // 3
         // donc ici on veut uniquement les chasseurs encore "libres" (role HUNTER)
         boolean hunterAlive = g.getPlayers().stream()
                 .anyMatch(p -> "HUNTER".equals(p.getRole()) && isAlive(p));
@@ -1680,19 +1765,17 @@ public class GameService {
                         p.getUsername(),
                         p.getRole(),
                         p.getHp(),
-                        p.isLeftGame()
-                ))
+                        p.isLeftGame()))
                 .toList();
 
         return new EndedGameSummary(
                 g.getId(),
                 g.getStatus().name(),
                 g.getWinnerSide(),
-                players
-        );
+                players);
     }
 
-    private List<String> buildDeckFromComposition(Map<String,Integer> composition) {
+    private List<String> buildDeckFromComposition(Map<String, Integer> composition) {
         List<String> deck = new ArrayList<>();
         for (var e : composition.entrySet()) {
             String cardId = e.getKey();
@@ -1708,64 +1791,63 @@ public class GameService {
 
     private void initDecks(Game g) {
         // --- Potions ---
-        Map<String,Integer> potionsComp = new HashMap<>();
-        potionsComp.put("FORCE",           6);
-        potionsComp.put("ENDURANCE",       6);
-        potionsComp.put("VIE",             7);
-        potionsComp.put("FOCALISATION",    4);
-        potionsComp.put("SANGSUE",         4);
+        Map<String, Integer> potionsComp = new HashMap<>();
+        potionsComp.put("FORCE", 6);
+        potionsComp.put("ENDURANCE", 6);
+        potionsComp.put("VIE", 7);
+        potionsComp.put("FOCALISATION", 4);
+        potionsComp.put("SANGSUE", 4);
 
         g.setPotionDeck(buildDeckFromComposition(potionsComp));
         g.setPotionDiscard(new ArrayList<>());
 
         // --- Rare Potions ---
-        Map<String,Integer> elixirsComp = new HashMap<>();
-        elixirsComp.put("RESILIENCE",      3);
-        elixirsComp.put("RAGE",            3);
-        elixirsComp.put("RAPIDITE",        2);
-        elixirsComp.put("INVISIBILITE",    2);
+        Map<String, Integer> elixirsComp = new HashMap<>();
+        elixirsComp.put("RESILIENCE", 3);
+        elixirsComp.put("RAGE", 3);
+        elixirsComp.put("RAPIDITE", 2);
+        elixirsComp.put("INVISIBILITE", 2);
         elixirsComp.put("INVULNERABILITE", 1);
 
         g.setElixirDeck(buildDeckFromComposition(elixirsComp));
         g.setElixirDiscard(new ArrayList<>());
 
         // --- Actions chasseurs ---
-        Map<String,Integer> hunterComp = new HashMap<>();
-        hunterComp.put("FUMIGATION_AIL",     4);
-        hunterComp.put("FEU_DE_CAMP",        4);
-        hunterComp.put("NET",                8);
-        hunterComp.put("PIT",                6);
-        hunterComp.put("INCENDIAIRE",        2);
-        hunterComp.put("PROVOCATION",        4);
-        hunterComp.put("AMBUSH",             2);
-        hunterComp.put("LONELY",             2);
-        hunterComp.put("BLESSED_STAKE",      6);
-        hunterComp.put("SACRED_ROSARY",      1);
-        hunterComp.put("CHARISMATIQUE",      4);
+        Map<String, Integer> hunterComp = new HashMap<>();
+        hunterComp.put("FUMIGATION_AIL", 4);
+        hunterComp.put("FEU_DE_CAMP", 4);
+        hunterComp.put("NET", 8);
+        hunterComp.put("PIT", 6);
+        hunterComp.put("INCENDIAIRE", 2);
+        hunterComp.put("PROVOCATION", 4);
+        hunterComp.put("AMBUSH", 2);
+        hunterComp.put("LONELY", 2);
+        hunterComp.put("BLESSED_STAKE", 6);
+        hunterComp.put("SACRED_ROSARY", 1);
+        hunterComp.put("CHARISMATIQUE", 4);
         hunterComp.put("MARCHAND_ITINERANT", 8);
 
         g.setHunterActionsDeck(buildDeckFromComposition(hunterComp));
         g.setHunterActionsDiscard(new ArrayList<>());
 
         // --- Actions vampire ---
-        Map<String,Integer> vampComp = new HashMap<>();
-        vampComp.put("PRESENCE_ECRASANTE",     2);
-        vampComp.put("CATACLYSME",             2);
-        vampComp.put("CLONES_OMBRE",           5);
-        vampComp.put("IMAGE_MIROIR",           4);
-        vampComp.put("ECLIPSE",                4);
-        vampComp.put("BLOOD_MOON",             2);
-        vampComp.put("VOILE_DE_BRUME",         3);
-        vampComp.put("FAIM_IRREPRESSIBLE",     4);
-        vampComp.put("MARQUE_TENEBREUSE",      2);
-        vampComp.put("AFFAIBLISSEMENT_OCCULTE",3);
-        vampComp.put("PASSAGE_SECRET",         4);
-        vampComp.put("AVIDITE_NOCTURNE",       4);
+        Map<String, Integer> vampComp = new HashMap<>();
+        vampComp.put("PRESENCE_ECRASANTE", 2);
+        vampComp.put("CATACLYSME", 2);
+        vampComp.put("CLONES_OMBRE", 5);
+        vampComp.put("IMAGE_MIROIR", 4);
+        vampComp.put("ECLIPSE", 4);
+        vampComp.put("BLOOD_MOON", 2);
+        vampComp.put("VOILE_DE_BRUME", 3);
+        vampComp.put("FAIM_IRREPRESSIBLE", 4);
+        vampComp.put("MARQUE_TENEBREUSE", 2);
+        vampComp.put("AFFAIBLISSEMENT_OCCULTE", 3);
+        vampComp.put("PASSAGE_SECRET", 4);
+        vampComp.put("AVIDITE_NOCTURNE", 4);
 
         g.setVampActionsDeck(buildDeckFromComposition(vampComp));
         g.setVampActionsDiscard(new ArrayList<>());
     }
-
 
     private boolean allHuntersSelected(@NonNull Game g) {
         // On ne regarde QUE les chasseurs vivants
@@ -1774,14 +1856,15 @@ public class GameService {
                 .toList();
 
         // S'il n’y a plus aucun chasseur vivant, ils ne doivent pas bloquer
-        if (aliveHunters.isEmpty()) return true;
+        if (aliveHunters.isEmpty())
+            return true;
 
         for (var h : aliveHunters) {
-            if (!hasPlayed(g, h.getId())) return false;
+            if (!hasPlayed(g, h.getId()))
+                return false;
         }
         return true;
     }
-
 
     private boolean allVampSideSelected(Game g) {
         var vamp = getVamp(g).orElseThrow();
@@ -1796,7 +1879,6 @@ public class GameService {
 
         return vampireOk && allServantsOk;
     }
-
 
     private void applyPhaseEntry(@NonNull Game g, @NonNull Phase to) {
         g.setPhase(to);
@@ -1851,7 +1933,8 @@ public class GameService {
 
                 // Sécurité : si une currentAction marchand traîne encore
                 var a = g.getCurrentAction();
-                if (a != null && ("MARCHAND_ITINERANT".equals(a.getMode()) || "MARCHAND_BONUS_BUY".equals(a.getMode()))) {
+                if (a != null
+                        && ("MARCHAND_ITINERANT".equals(a.getMode()) || "MARCHAND_BONUS_BUY".equals(a.getMode()))) {
                     g.setCurrentAction(null);
                 }
 
@@ -1889,14 +1972,19 @@ public class GameService {
 
                 resetAltarRaidFlags(g);
 
-                if (g.getNetHunters() == null) g.setNetHunters(new java.util.HashSet<>());
-                else g.getNetHunters().clear();
+                if (g.getNetHunters() == null)
+                    g.setNetHunters(new java.util.HashSet<>());
+                else
+                    g.getNetHunters().clear();
 
-                if (g.getPitHunters() == null) g.setPitHunters(new java.util.HashSet<>());
-                else g.getPitHunters().clear();
+                if (g.getPitHunters() == null)
+                    g.setPitHunters(new java.util.HashSet<>());
+                else
+                    g.getPitHunters().clear();
 
                 // Purges/rafs “début de raid”
-                if (g.getRaidMods() == null) g.setRaidMods(new HashMap<>());
+                if (g.getRaidMods() == null)
+                    g.setRaidMods(new HashMap<>());
                 for (var list : g.getRaidMods().values()) {
                     if (list != null) {
                         list.removeIf(m -> {
@@ -1922,7 +2010,8 @@ public class GameService {
                 rebuildWeatherMods(g);
                 rebuildEquipmentMods(g);
 
-                if (g.getRaidEffects() == null) g.setRaidEffects(new HashMap<>());
+                if (g.getRaidEffects() == null)
+                    g.setRaidEffects(new HashMap<>());
                 g.getRaidEffects().clear();
                 for (var p : g.getPlayers()) {
                     g.getRaidEffects().put(p.getId(), new RaidEffects());
@@ -1941,7 +2030,8 @@ public class GameService {
 
             case PREPHASE3 -> {
                 // 1) Révéler
-                for (var cb : g.getCenter()) cb.setFaceUp(true);
+                for (var cb : g.getCenter())
+                    cb.setFaceUp(true);
                 g.setClonesFaceUp(true);
 
                 // Si une Image miroir a été préparée et pas encore résolue
@@ -1983,7 +2073,7 @@ public class GameService {
                                 g.getUnstableEligibleTargets().put(p.getId(), new ArrayList<>(eligibleHunters));
                             }
                             g.getUnstableEligibleLocations().put(p.getId(),
-                                    new ArrayList<>(List.of("forest","quarry","lake","manor")));
+                                    new ArrayList<>(List.of("forest", "quarry", "lake", "manor")));
 
                             history.add(nameOf(g, p.getId()) + " succombe à la corruption.");
                             history.add(nameOf(g, p.getId()) + " est sous contrôle du vampire ...");
@@ -1998,14 +2088,15 @@ public class GameService {
 
                 // On pose d’abord les messages de corruption...
                 g.setMessages(center);
-                for (var m : history) addHistory(g, m);
+                for (var m : history)
+                    addHistory(g, m);
 
                 refreshPrephaseRevealMessages(g);
 
                 // 4) Comportement "classique" de préphase :
-                //    - calcule hasUpcomingCombat
-                //    - readyForPhase3 auto pour les non-participants
-                //    - timer 30s ou avance rapide
+                // - calcule hasUpcomingCombat
+                // - readyForPhase3 auto pour les non-participants
+                // - timer 30s ou avance rapide
                 setupUnstableAndPrephaseTimeout(g);
             }
 
@@ -2033,7 +2124,8 @@ public class GameService {
                 }
 
                 for (var cb : g.getCenter()) {
-                    var p = g.getPlayers().stream().filter(pp -> pp.getId().equals(cb.getPlayerId())).findFirst().orElse(null);
+                    var p = g.getPlayers().stream().filter(pp -> pp.getId().equals(cb.getPlayerId())).findFirst()
+                            .orElse(null);
                     if (p != null) {
                         p.getHand().add(cb.getCard());
                     }
@@ -2076,24 +2168,25 @@ public class GameService {
                 schedulePhase4Timeout(g.getId(), 600_000_000L, raidForTimeout);
             }
 
-            default -> { /* rien */ }
+            default -> {
+                /* rien */ }
         }
     }
 
     /**
      * Prépare la PREPHASE3 :
-     * - calcule s'il y a combat à venir et/ou des actions de préphase intéressantes,
+     * - calcule s'il y a combat à venir et/ou des actions de préphase
+     * intéressantes,
      * - initialise readyForPhase3 en marquant "auto-prêt" ceux qui n'ont
-     *   ni combat ni action jouable,
+     * ni combat ni action jouable,
      * - lance soit le timer long de préphase, soit l'avance rapide vers PHASE3.
      */
     private void setupUnstableAndPrephaseTimeout(Game g) {
         // 0) Image miroir en attente → on NE lance PAS la préphase
-        boolean mirrorPending =
-                g.getMirrorOwnerId() != null
-                        && g.getMirrorAltLocations() != null
-                        && !g.getMirrorAltLocations().isEmpty()
-                        && g.getMirrorChosenLocation() == null;
+        boolean mirrorPending = g.getMirrorOwnerId() != null
+                && g.getMirrorAltLocations() != null
+                && !g.getMirrorAltLocations().isEmpty()
+                && g.getMirrorChosenLocation() == null;
 
         if (mirrorPending) {
             if (g.getReadyForPhase3() != null) {
@@ -2107,21 +2200,23 @@ public class GameService {
             g.setReadyForPhase3(new java.util.HashSet<>());
         }
 
-        boolean hasPendingUnstable =
-                !(g.getUnstableEligibleTargets().isEmpty()
-                        && g.getUnstableEligibleLocations().isEmpty());
+        boolean hasPendingUnstable = !(g.getUnstableEligibleTargets().isEmpty()
+                && g.getUnstableEligibleLocations().isEmpty());
 
         boolean upcoming = computeHasUpcomingCombat(g);
 
         // 2) Incendiaire (chasseurs)
         boolean hasIncendiaire = false;
         for (Player p : g.getPlayers()) {
-            if (!"HUNTER".equals(p.getRole())) continue;
+            if (!"HUNTER".equals(p.getRole()))
+                continue;
             List<String> actions = p.getActions();
-            if (actions == null || !actions.contains(Action.INCENDIAIRE.name())) continue;
+            if (actions == null || !actions.contains(Action.INCENDIAIRE.name()))
+                continue;
 
             String loc = locationOf(g, p.getId());
-            if (loc == null) continue;
+            if (loc == null)
+                continue;
 
             if (hasIncendiaireTargetsOnLocation(g, loc)) {
                 hasIncendiaire = true;
@@ -2132,7 +2227,8 @@ public class GameService {
         // 3) Voile de brume (vampire)
         boolean hasFogOption = false;
         for (Player p : g.getPlayers()) {
-            if (!"VAMPIRE".equals(p.getRole())) continue;
+            if (!"VAMPIRE".equals(p.getRole()))
+                continue;
             List<String> actions = p.getActions();
             if (actions != null && actions.contains(Action.VOILE_DE_BRUME.name())) {
                 hasFogOption = true;
@@ -2143,7 +2239,8 @@ public class GameService {
         // 4) Marque ténébreuse (vampire)
         boolean hasDarkMarkOption = false;
         for (Player p : g.getPlayers()) {
-            if (!"VAMPIRE".equals(p.getRole())) continue;
+            if (!"VAMPIRE".equals(p.getRole()))
+                continue;
             List<String> actions = p.getActions();
             if (actions != null && actions.contains(Action.MARQUE_TENEBREUSE.name())) {
                 hasDarkMarkOption = true;
@@ -2163,9 +2260,11 @@ public class GameService {
         // 6) Pieu béni (chasseurs)
         boolean hasBlessedStake = false;
         for (Player p : g.getPlayers()) {
-            if (!"HUNTER".equals(p.getRole())) continue;
+            if (!"HUNTER".equals(p.getRole()))
+                continue;
             List<String> actions = p.getActions();
-            if (actions == null) continue;
+            if (actions == null)
+                continue;
             if (actions.contains(Action.BLESSED_STAKE.name()) && !p.isBlessedStake()) {
                 hasBlessedStake = true;
                 break;
@@ -2175,9 +2274,11 @@ public class GameService {
         // 7) Chapelet sacré (chasseurs)
         boolean hasSacredRosary = false;
         for (Player p : g.getPlayers()) {
-            if (!"HUNTER".equals(p.getRole())) continue;
+            if (!"HUNTER".equals(p.getRole()))
+                continue;
             List<String> actions = p.getActions();
-            if (actions == null) continue;
+            if (actions == null)
+                continue;
             if (actions.contains(Action.SACRED_ROSARY.name()) && !p.isSacredRosary()) {
                 hasSacredRosary = true;
                 break;
@@ -2188,18 +2289,18 @@ public class GameService {
         boolean hasSecretPassageOption = hasUsableSecretPassageOption(g);
 
         // "quelque chose à faire en préphase" ?
-        boolean hasPrephaseActivity =
-                hasPendingUnstable
-                        || upcoming
-                        || hasIncendiaire
-                        || hasFogOption
-                        || hasDarkMarkOption
-                        || hasHolyWaterOption
-                        || hasBlessedStake
-                        || hasSacredRosary
-                        || hasSecretPassageOption;
+        boolean hasPrephaseActivity = hasPendingUnstable
+                || upcoming
+                || hasIncendiaire
+                || hasFogOption
+                || hasDarkMarkOption
+                || hasHolyWaterOption
+                || hasBlessedStake
+                || hasSacredRosary
+                || hasSecretPassageOption;
 
-        // Sémantique étendue : vrai combat OU au moins une carte de préphase intéressante
+        // Sémantique étendue : vrai combat OU au moins une carte de préphase
+        // intéressante
         g.setHasUpcomingCombat(
                 upcoming
                         || hasIncendiaire
@@ -2208,14 +2309,12 @@ public class GameService {
                         || hasHolyWaterOption
                         || hasBlessedStake
                         || hasSacredRosary
-                        || hasSecretPassageOption
-        );
+                        || hasSecretPassageOption);
 
         // --- Initialisation de readyForPhase3 ---
         g.getReadyForPhase3().clear();
 
-        java.util.Set<String> participants =
-                upcoming ? participantsOfUpcomingCombat(g) : java.util.Set.of();
+        java.util.Set<String> participants = upcoming ? participantsOfUpcomingCombat(g) : java.util.Set.of();
 
         for (Player p : g.getPlayers()) {
             String pid = p.getId();
@@ -2322,7 +2421,8 @@ public class GameService {
             Game g = findOr404(gameId);
 
             Phase cur = g.getPhase();
-            if (cur == null) throw new ResponseStatusException(HttpStatus.CONFLICT, "no current phase");
+            if (cur == null)
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "no current phase");
 
             if (cur == to) {
                 // no-op idempotent: on est déjà à la phase demandée
@@ -2332,20 +2432,26 @@ public class GameService {
 
             switch (cur) {
                 case PHASE0 -> {
-                    if (to != Phase.PHASE1) throw new ResponseStatusException(HttpStatus.CONFLICT, "illegal advance");
-                    if (g.getWeatherRoll() == null) throw new ResponseStatusException(HttpStatus.CONFLICT, "weather not rolled");
+                    if (to != Phase.PHASE1)
+                        throw new ResponseStatusException(HttpStatus.CONFLICT, "illegal advance");
+                    if (g.getWeatherRoll() == null)
+                        throw new ResponseStatusException(HttpStatus.CONFLICT, "weather not rolled");
                     applyPhaseEntry(g, Phase.PHASE1);
                     g.setCurrentAction(null);
                 }
                 case PHASE1 -> {
-                    if (to != Phase.PHASE2) throw new ResponseStatusException(HttpStatus.CONFLICT, "illegal advance");
-                    if (!allHuntersSelected(g)) throw new ResponseStatusException(HttpStatus.CONFLICT, "hunters not all selected");
+                    if (to != Phase.PHASE2)
+                        throw new ResponseStatusException(HttpStatus.CONFLICT, "illegal advance");
+                    if (!allHuntersSelected(g))
+                        throw new ResponseStatusException(HttpStatus.CONFLICT, "hunters not all selected");
                     applyPhaseEntry(g, Phase.PHASE2);
                     g.setCurrentAction(null);
                 }
                 case PHASE2 -> {
-                    if (to != Phase.PREPHASE3) throw new ResponseStatusException(HttpStatus.CONFLICT, "illegal advance");
-                    if (!allVampSideSelected(g)) throw new ResponseStatusException(HttpStatus.CONFLICT, "vamp/servants not all selected");
+                    if (to != Phase.PREPHASE3)
+                        throw new ResponseStatusException(HttpStatus.CONFLICT, "illegal advance");
+                    if (!allVampSideSelected(g))
+                        throw new ResponseStatusException(HttpStatus.CONFLICT, "vamp/servants not all selected");
                     g.setHasUpcomingCombat(computeHasUpcomingCombat(g));
                     applyPhaseEntry(g, Phase.PREPHASE3);
                     g.setCurrentAction(null);
@@ -2354,8 +2460,8 @@ public class GameService {
                     if (to != Phase.PHASE3)
                         throw new ResponseStatusException(HttpStatus.CONFLICT, "illegal advance");
 
-                    boolean hasPendingUnstable =
-                            !(g.getUnstableEligibleTargets().isEmpty() && g.getUnstableEligibleLocations().isEmpty());
+                    boolean hasPendingUnstable = !(g.getUnstableEligibleTargets().isEmpty()
+                            && g.getUnstableEligibleLocations().isEmpty());
                     if (hasPendingUnstable)
                         throw new ResponseStatusException(HttpStatus.CONFLICT, "unstable choices pending");
 
@@ -2369,7 +2475,8 @@ public class GameService {
                     return null;
                 }
                 case PHASE3 -> {
-                    if (to != Phase.PHASE4) throw new ResponseStatusException(HttpStatus.CONFLICT, "illegal advance");
+                    if (to != Phase.PHASE4)
+                        throw new ResponseStatusException(HttpStatus.CONFLICT, "illegal advance");
                     resolveInfraConstruction(g);
                     applyPhaseEntry(g, Phase.PHASE4);
                     applyBankBonusOnPhase4Entry(g);
@@ -2377,7 +2484,8 @@ public class GameService {
                     purgeTransientRaidMods(g);
                 }
                 case PHASE4 -> {
-                    if (to != Phase.PHASE0) throw new ResponseStatusException(HttpStatus.CONFLICT, "illegal advance");
+                    if (to != Phase.PHASE0)
+                        throw new ResponseStatusException(HttpStatus.CONFLICT, "illegal advance");
                     applyPhaseEntry(g, Phase.PHASE0);
                     g.setCurrentAction(null);
                 }
@@ -2407,172 +2515,172 @@ public class GameService {
     }
 
     private void scheduleAdvance(String gameId, Phase expected, Phase target, long delayMs) {
-        raidScheduler.schedule(() ->
-                        tx.execute(status -> {
-                            Game g = findOr404(gameId);
+        raidScheduler.schedule(() -> tx.execute(status -> {
+            Game g = findOr404(gameId);
 
-                            // Garde-fous
-                            if (g.getStatus() != GameStatus.ACTIVE) return null;
-                            if (g.getPhase() != expected)           return null;
+            // Garde-fous
+            if (g.getStatus() != GameStatus.ACTIVE)
+                return null;
+            if (g.getPhase() != expected)
+                return null;
 
-                            // Cas particulier : avance rapide PREPHASE3 -> PHASE3
-                            if (expected == Phase.PREPHASE3 && target == Phase.PHASE3) {
-                                // Ici on ne regarde PAS readyForPhase3 :
-                                // c'est le chemin "auto" quand pas de combats/instables.
-                                finishPrephaseAndMaybeStartLocationEffects(g, gameId);
-                                return null;
-                            }
+            // Cas particulier : avance rapide PREPHASE3 -> PHASE3
+            if (expected == Phase.PREPHASE3 && target == Phase.PHASE3) {
+                // Ici on ne regarde PAS readyForPhase3 :
+                // c'est le chemin "auto" quand pas de combats/instables.
+                finishPrephaseAndMaybeStartLocationEffects(g, gameId);
+                return null;
+            }
 
-                            // Mutations normales
-                            applyPhaseEntry(g, target);
-                            save(g);
+            // Mutations normales
+            applyPhaseEntry(g, target);
+            save(g);
 
-                            // Tous les events APRÈS COMMIT
-                            afterCommit(() -> {
-                                Game fresh = findOr404(gameId);
+            // Tous les events APRÈS COMMIT
+            afterCommit(() -> {
+                Game fresh = findOr404(gameId);
 
-                                if (target == Phase.PREPHASE3) {
-                                    // d'abord le flip
-                                    live.centerRevealed(fresh);
-                                }
-                                if (target == Phase.PHASE0) {
-                                    // on vient de purger les mods météo (weather=null)
-                                    live.raidModsUpdated(fresh);
-                                }
+                if (target == Phase.PREPHASE3) {
+                    // d'abord le flip
+                    live.centerRevealed(fresh);
+                }
+                if (target == Phase.PHASE0) {
+                    // on vient de purger les mods météo (weather=null)
+                    live.raidModsUpdated(fresh);
+                }
 
-                                // heartbeat pour déclencher le GET coté front
-                                live.phaseChanged(fresh);
-                            });
+                // heartbeat pour déclencher le GET coté front
+                live.phaseChanged(fresh);
+            });
 
-                            return null;
-                        })
-                , java.time.Instant.now().plusMillis(delayMs));
+            return null;
+        }), java.time.Instant.now().plusMillis(delayMs));
     }
 
     private void schedulePrephaseTimeout(String gameId, long millis, int expectedVersion) {
-        raidScheduler.schedule(() ->
-                        tx.execute(status -> {
-                            Game g2 = findOr404(gameId);
+        raidScheduler.schedule(() -> tx.execute(status -> {
+            Game g2 = findOr404(gameId);
 
-                            // Garde-fous : partie active + toujours en PREPHASE3 ?
-                            if (g2.getStatus() != GameStatus.ACTIVE || g2.getPhase() != Phase.PREPHASE3) {
-                                return null; // rien à faire
-                            }
+            // Garde-fous : partie active + toujours en PREPHASE3 ?
+            if (g2.getStatus() != GameStatus.ACTIVE || g2.getPhase() != Phase.PREPHASE3) {
+                return null; // rien à faire
+            }
 
-                            // Timer périmé ?
-                            if (g2.getPrephaseTimerVersion() != expectedVersion) {
-                                return null;
-                            }
+            // Timer périmé ?
+            if (g2.getPrephaseTimerVersion() != expectedVersion) {
+                return null;
+            }
 
-                            // Si des choix "instable" restent en attente, on NE force pas
-                            boolean hasPendingUnstable =
-                                    !(g2.getUnstableEligibleTargets().isEmpty()
-                                            && g2.getUnstableEligibleLocations().isEmpty());
-                            if (hasPendingUnstable) {
-                                return null;
-                            }
+            // Si des choix "instable" restent en attente, on NE force pas
+            boolean hasPendingUnstable = !(g2.getUnstableEligibleTargets().isEmpty()
+                    && g2.getUnstableEligibleLocations().isEmpty());
+            if (hasPendingUnstable) {
+                return null;
+            }
 
-                            // Si un effet de lieu est déjà en cours, on ne touche à rien :
-                            // scheduleNextLocationEffect finira le travail.
-                            if (g2.getLocationEffectPending()
-                                    && g2.getLocationEffectsQueue() != null
-                                    && g2.getCurrentLocationEffectIndex() != null) {
+            // Si un effet de lieu est déjà en cours, on ne touche à rien :
+            // scheduleNextLocationEffect finira le travail.
+            if (g2.getLocationEffectPending()
+                    && g2.getLocationEffectsQueue() != null
+                    && g2.getCurrentLocationEffectIndex() != null) {
 
-                                int idx = g2.getCurrentLocationEffectIndex();
-                                if (idx >= 0 && idx < g2.getLocationEffectsQueue().size()) {
-                                    return null;
-                                }
-                            }
+                int idx = g2.getCurrentLocationEffectIndex();
+                if (idx >= 0 && idx < g2.getLocationEffectsQueue().size()) {
+                    return null;
+                }
+            }
 
-                            // À partir d'ici :
-                            // - plus d'instables en attente
-                            // - aucun effet de lieu en cours
-                            // → on applique la même logique que pour un clic manuel :
-                            //    effets de lieu s'il y en a, sinon PHASE3 directe.
-                            finishPrephaseAndMaybeStartLocationEffects(g2, gameId);
+            // À partir d'ici :
+            // - plus d'instables en attente
+            // - aucun effet de lieu en cours
+            // → on applique la même logique que pour un clic manuel :
+            // effets de lieu s'il y en a, sinon PHASE3 directe.
+            finishPrephaseAndMaybeStartLocationEffects(g2, gameId);
 
-                            return null;
-                        })
-                , java.time.Instant.now().plusMillis(millis));
+            return null;
+        }), java.time.Instant.now().plusMillis(millis));
     }
 
     private void schedulePhase4Timeout(String gameId, long millis, int expectedRaid) {
-        raidScheduler.schedule(() ->
-                        tx.execute(status -> {
-                            Game g2 = findOr404(gameId);
+        raidScheduler.schedule(() -> tx.execute(status -> {
+            Game g2 = findOr404(gameId);
 
-                            // 1) Partie toujours active ?
-                            if (g2.getStatus() != GameStatus.ACTIVE) return null;
+            // 1) Partie toujours active ?
+            if (g2.getStatus() != GameStatus.ACTIVE)
+                return null;
 
-                            // 2) Toujours en PHASE4 ?
-                            if (g2.getPhase() != Phase.PHASE4) return null;
+            // 2) Toujours en PHASE4 ?
+            if (g2.getPhase() != Phase.PHASE4)
+                return null;
 
-                            // 3) Toujours le même raid que celui pour lequel ce timer a été posé ?
-                            if (g2.getRaid() != expectedRaid) return null;
+            // 3) Toujours le même raid que celui pour lequel ce timer a été posé ?
+            if (g2.getRaid() != expectedRaid)
+                return null;
 
-                            // là seulement on clôt la maintenance de CE raid
-                            g2.setRaid(g2.getRaid() + 1);
-                            applyPhaseEntry(g2, Phase.PHASE0);
-                            save(g2);
+            // là seulement on clôt la maintenance de CE raid
+            g2.setRaid(g2.getRaid() + 1);
+            applyPhaseEntry(g2, Phase.PHASE0);
+            save(g2);
 
-                            afterCommit(() -> {
-                                Game fresh = findOr404(gameId);
-                                live.phaseChanged(fresh);
-                            });
+            afterCommit(() -> {
+                Game fresh = findOr404(gameId);
+                live.phaseChanged(fresh);
+            });
 
-                            return null;
-                        }),
-                java.time.Instant.now().plusMillis(millis)
-        );
+            return null;
+        }),
+                java.time.Instant.now().plusMillis(millis));
     }
 
     private void scheduleNextLocationEffect(String gameId) {
-        raidScheduler.schedule(() ->
-                        tx.execute(status -> {
-                            Game g = findOr404(gameId);
-                            if (g.getStatus() != GameStatus.ACTIVE) return null;
-                            if (g.getPhase() != Phase.PREPHASE3) return null;
-                            if (g.getLocationEffectsQueue() == null) return null;
+        raidScheduler.schedule(() -> tx.execute(status -> {
+            Game g = findOr404(gameId);
+            if (g.getStatus() != GameStatus.ACTIVE)
+                return null;
+            if (g.getPhase() != Phase.PREPHASE3)
+                return null;
+            if (g.getLocationEffectsQueue() == null)
+                return null;
 
-                            Integer idxObj = g.getCurrentLocationEffectIndex();
-                            int idx = (idxObj == null ? -1 : idxObj);
-                            int nextIndex = idx + 1;
+            Integer idxObj = g.getCurrentLocationEffectIndex();
+            int idx = (idxObj == null ? -1 : idxObj);
+            int nextIndex = idx + 1;
 
-                            if (nextIndex >= g.getLocationEffectsQueue().size()) {
-                                // Fini : plus aucun effet de lieu à traiter
-                                g.setCurrentLocationEffectIndex(null);
-                                g.setLocationEffectPending(false);
-                                g.setLocationEffectChoice(null);
+            if (nextIndex >= g.getLocationEffectsQueue().size()) {
+                // Fini : plus aucun effet de lieu à traiter
+                g.setCurrentLocationEffectIndex(null);
+                g.setLocationEffectPending(false);
+                g.setLocationEffectChoice(null);
 
-                                // Maintenant seulement, on passe en PHASE3
-                                applyPhaseEntry(g, Phase.PHASE3);
+                // Maintenant seulement, on passe en PHASE3
+                applyPhaseEntry(g, Phase.PHASE3);
 
-                                save(g);
+                save(g);
 
-                                afterCommit(() -> {
-                                    Game fresh = findOr404(gameId);
-                                    live.phaseChanged(fresh);
-                                });
+                afterCommit(() -> {
+                    Game fresh = findOr404(gameId);
+                    live.phaseChanged(fresh);
+                });
 
-                                return null;
-                            }
+                return null;
+            }
 
-                            // Sinon : on passe à l'effet suivant
-                            g.setCurrentLocationEffectIndex(nextIndex);
-                            g.setLocationEffectPending(true);
-                            g.setLocationEffectChoice(null);
+            // Sinon : on passe à l'effet suivant
+            g.setCurrentLocationEffectIndex(nextIndex);
+            g.setLocationEffectPending(true);
+            g.setLocationEffectChoice(null);
 
-                            Game.LocationEffectInstance inst = g.getLocationEffectsQueue().get(nextIndex);
-                            save(g);
+            Game.LocationEffectInstance inst = g.getLocationEffectsQueue().get(nextIndex);
+            save(g);
 
-                            afterCommit(() -> {
-                                Game fresh = findOr404(gameId);
-                                live.locationEffectStarted(fresh, inst);
-                                live.phaseChanged(fresh);
-                            });
+            afterCommit(() -> {
+                Game fresh = findOr404(gameId);
+                live.locationEffectStarted(fresh, inst);
+                live.phaseChanged(fresh);
+            });
 
-                            return null;
-                        }),
+            return null;
+        }),
                 java.time.Instant.now().plusMillis(5000L) // 5 secondes d’affichage du choix précédent
         );
     }
@@ -2623,7 +2731,6 @@ public class GameService {
         boolean fumigate = g.getPendingGarlicPlayers() != null
                 && g.getPendingGarlicPlayers().remove(playerId);
 
-
         // Pose au centre : faceUp = fumigation OU corruption 1/2 (sinon cachée)
         boolean faceUp = fumigate;
 
@@ -2647,7 +2754,7 @@ public class GameService {
         }
 
         // Flags d’auto-advance (calculés AVANT le commit)
-        boolean advanceToP2   = (g.getPhase() == Phase.PHASE1) && allHuntersSelected(g);
+        boolean advanceToP2 = (g.getPhase() == Phase.PHASE1) && allHuntersSelected(g);
         boolean advanceToPre3 = (g.getPhase() == Phase.PHASE2) && allVampSideSelected(g);
 
         if (advanceToPre3) {
@@ -2672,21 +2779,24 @@ public class GameService {
         return g;
     }
 
-    // Regroupe les joueurs par lieu posé au centre (faceUp n’a pas d’importance ici)
+    // Regroupe les joueurs par lieu posé au centre (faceUp n’a pas d’importance
+    // ici)
     @NonNull
     private Map<String, List<Player>> groupPlayersByLocation(@NonNull Game g) {
         Map<String, List<Player>> map = new HashMap<>();
         for (var cb : g.getCenter()) {
             String loc = cb.getCard();
             var p = g.getPlayers().stream().filter(pp -> pp.getId().equals(cb.getPlayerId())).findFirst().orElse(null);
-            if (p == null) continue;
+            if (p == null)
+                continue;
             map.computeIfAbsent(loc, __ -> new ArrayList<>()).add(p);
         }
         return map;
     }
 
     private String locationOf(Game g, String playerId) {
-        if (g.getCenter() == null) return null;
+        if (g.getCenter() == null)
+            return null;
         return g.getCenter().stream()
                 .filter(cb -> playerId.equals(cb.getPlayerId()))
                 .map(CenterBoard::getCard)
@@ -2695,7 +2805,8 @@ public class GameService {
     }
 
     private java.util.List<Player> playersOnLocation(Game g, String location) {
-        if (location == null) return java.util.List.of();
+        if (location == null)
+            return java.util.List.of();
         return g.getPlayers().stream()
                 .filter(p -> location.equals(locationOf(g, p.getId())))
                 .toList();
@@ -2749,10 +2860,8 @@ public class GameService {
 
             boolean clonesHere = clonesSet.contains(loc);
 
-
-            boolean combatHere =
-                    (!enemiesHere.isEmpty() || !monstersHere.isEmpty() || clonesHere)
-                            && !huntersHere.isEmpty();
+            boolean combatHere = (!enemiesHere.isEmpty() || !monstersHere.isEmpty() || clonesHere)
+                    && !huntersHere.isEmpty();
 
             // Récoltes
             for (var p : onLoc) {
@@ -2773,13 +2882,12 @@ public class GameService {
                 }
                 out.add("Récolte de " + labelLieuFr(loc) + " par " + who);
             }
-            if(combatHere){
+            if (combatHere) {
                 String huntersNames = String.join(", ",
                         huntersHere.stream().map(h -> {
                             String n = h.getUsername();
                             return (n != null && !n.isBlank()) ? n : h.getId();
-                        }).toList()
-                );
+                        }).toList());
 
                 // Combats contre vampires / serviteurs
                 for (var enemy : enemiesHere) {
@@ -2803,21 +2911,22 @@ public class GameService {
 
             for (String loc : clonesLocs) {
                 var onLoc = groups.get(loc);
-                if (onLoc == null || onLoc.isEmpty()) continue;
+                if (onLoc == null || onLoc.isEmpty())
+                    continue;
 
                 var huntersHere = onLoc.stream()
                         .filter(p -> "HUNTER".equals(p.getRole()))
                         .filter(p -> p.getHp() > 0)
                         .toList();
 
-                if (huntersHere.isEmpty()) continue;
+                if (huntersHere.isEmpty())
+                    continue;
 
                 String huntersNames = String.join(", ",
                         huntersHere.stream().map(h -> {
                             String n = h.getUsername();
                             return (n != null && !n.isBlank()) ? n : h.getId();
-                        }).toList()
-                );
+                        }).toList());
 
                 out.add("Combat — clones d'ombre VS "
                         + huntersNames + " à " + labelLieuFr(loc));
@@ -2825,10 +2934,10 @@ public class GameService {
             }
         }
 
-        if (out.isEmpty()) out.add("Aucune carte jouée.");
+        if (out.isEmpty())
+            out.add("Aucune carte jouée.");
         return out;
     }
-
 
     private void refreshPrephaseRevealMessages(Game g) {
         if (g.getPhase() != Phase.PREPHASE3) {
@@ -2839,7 +2948,8 @@ public class GameService {
 
         if (g.getMessages() != null) {
             for (String m : g.getMessages()) {
-                if (m == null) continue;
+                if (m == null)
+                    continue;
                 if (m.startsWith("Combat — ") || m.startsWith("Récolte de ")) {
                     // ancienne preview -> on la remplace
                     continue;
@@ -2853,10 +2963,8 @@ public class GameService {
         g.setMessages(base);
     }
 
-
-
     // Mini label FR pour l’affichage des lieux
-    private String labelLieuFr(@NonNull String c){
+    private String labelLieuFr(@NonNull String c) {
         Location loc = Location.fromCode(c);
         return (loc != null) ? loc.labelFr() : c;
     }
@@ -2890,7 +2998,6 @@ public class GameService {
         return true;
     }
 
-
     @Transactional
     public Game skipAction(String gameId, String playerId) {
         Game g = findOr404(gameId);
@@ -2911,14 +3018,12 @@ public class GameService {
         int total = g.getPlayers().size();
 
         // 2) Décide si on avance maintenant
-        boolean hasPendingUnstable =
-                !(g.getUnstableEligibleTargets().isEmpty()
-                        && g.getUnstableEligibleLocations().isEmpty());
+        boolean hasPendingUnstable = !(g.getUnstableEligibleTargets().isEmpty()
+                && g.getUnstableEligibleLocations().isEmpty());
 
-        boolean advanceNow =
-                (g.getPhase() == Phase.PREPHASE3)
-                        && !hasPendingUnstable
-                        && allReadyForPhase3(g);
+        boolean advanceNow = (g.getPhase() == Phase.PREPHASE3)
+                && !hasPendingUnstable
+                && allReadyForPhase3(g);
 
         if (advanceNow) {
             // NE PLUS appeler applyPhaseEntry(PHASE3) ici
@@ -2955,15 +3060,20 @@ public class GameService {
 
         // 2) Annuler TOUTES les propositions où je suis impliqué
         var toDelete = new java.util.ArrayList<Game.Trade>();
-        record DeletedTrade(String id, String aId, String bId) {}
+        record DeletedTrade(String id, String aId, String bId) {
+        }
         var deleted = new java.util.ArrayList<DeletedTrade>();
 
         for (var t : new java.util.ArrayList<>(g.getTrades())) {
             boolean iAmA = userId.equals(t.getAId());
             boolean iAmB = userId.equals(t.getBId());
-            if (!iAmA && !iAmB) continue;
+            if (!iAmA && !iAmB)
+                continue;
 
-            if (iAmA) t.setStatusA("CANCELLED"); else t.setStatusB("CANCELLED");
+            if (iAmA)
+                t.setStatusA("CANCELLED");
+            else
+                t.setStatusB("CANCELLED");
             t.setUpdatedAt(System.currentTimeMillis());
 
             boolean aFinal = isFinal(t.getStatusA());
@@ -3007,23 +3117,24 @@ public class GameService {
                         g, dt.id(), dt.aId(), dt.bId(),
                         "FINISH_PHASE4",
                         "CLOSED",
-                        Map.of()
-                );
+                        Map.of());
             }
             // notifier “prêt” pour PHASE4 (évènement distinct de la préphase)
             live.phase4ReadyUpdated(g, userId, g.getReadyForNextRaid().size(), g.getPlayers().size());
 
-            if (fEveryone) live.phaseChanged(g);
+            if (fEveryone)
+                live.phaseChanged(g);
         });
 
         return g;
     }
 
-// Fight
+    // Fight
     /**
      * Construit la file de duels (PHASE3) :
-     *  - pour chaque lieu où vampire + ≥1 chasseur: push Hunter->Vamp puis Vamp->Hunter.
-     *  - ajoute ensuite les duels "instable -> cible" enregistrés en PREPHASE3.
+     * - pour chaque lieu où vampire + ≥1 chasseur: push Hunter->Vamp puis
+     * Vamp->Hunter.
+     * - ajoute ensuite les duels "instable -> cible" enregistrés en PREPHASE3.
      * Initialise currentCombat et currentCombatIndex si la file n’est pas vide.
      */
     private void buildCombatsQueue(Game g) {
@@ -3040,7 +3151,8 @@ public class GameService {
 
         var groups = groupPlayersByLocation(g);
 
-        // 1) Combats par défaut : (ennemi ∈ {VAMPIRE, SERVANT, MONSTRE}) × (HUNTER non réaffecté)
+        // 1) Combats par défaut : (ennemi ∈ {VAMPIRE, SERVANT, MONSTRE}) × (HUNTER non
+        // réaffecté)
         for (var e : groups.entrySet()) {
             String loc = e.getKey();
             java.util.List<Player> onLoc = e.getValue();
@@ -3066,37 +3178,33 @@ public class GameService {
                 for (var h : huntersForDefault) {
 
                     boolean hunterInvisible = hasInvisibility(g, h.getId());
-                    boolean enemyInvisible  = hasInvisibility(g, enemy.getId());
+                    boolean enemyInvisible = hasInvisibility(g, enemy.getId());
 
                     if (hunterInvisible && !enemyInvisible) {
                         // Le chasseur invisible attaque une fois, défenseur sans dé
                         RoundFight r1 = new RoundFight(
-                                java.util.UUID.randomUUID().toString(), loc, h.getId(), enemy.getId()
-                        );
+                                java.util.UUID.randomUUID().toString(), loc, h.getId(), enemy.getId());
                         r1.setDefenderRoll(0); // l’ennemi ne lance pas de dé de défense
                         g.getCombatsQueue().add(r1);
 
                     } else if (enemyInvisible && !hunterInvisible) {
                         // L'ennemi invisible attaque une fois, chasseur sans dé
                         RoundFight r2 = new RoundFight(
-                                java.util.UUID.randomUUID().toString(), loc, enemy.getId(), h.getId()
-                        );
+                                java.util.UUID.randomUUID().toString(), loc, enemy.getId(), h.getId());
                         r2.setDefenderRoll(0);
                         g.getCombatsQueue().add(r2);
 
                     } else {
                         // Deux rounds aller/retour
                         RoundFight r1 = new RoundFight(
-                                java.util.UUID.randomUUID().toString(), loc, h.getId(), enemy.getId()
-                        );
+                                java.util.UUID.randomUUID().toString(), loc, h.getId(), enemy.getId());
                         if (hunterInvisible) {
                             r1.setDefenderRoll(0);
                         }
                         g.getCombatsQueue().add(r1);
 
                         RoundFight r2 = new RoundFight(
-                                java.util.UUID.randomUUID().toString(), loc, enemy.getId(), h.getId()
-                        );
+                                java.util.UUID.randomUUID().toString(), loc, enemy.getId(), h.getId());
                         if (enemyInvisible) {
                             r2.setDefenderRoll(0);
                         }
@@ -3116,21 +3224,18 @@ public class GameService {
                         // Le chasseur est invisible :
                         // il attaque une fois, le monstre ne lance PAS de dé de défense.
                         RoundFight r1 = new RoundFight(
-                                java.util.UUID.randomUUID().toString(), loc, h.getId(), m.id
-                        );
+                                java.util.UUID.randomUUID().toString(), loc, h.getId(), m.id);
                         r1.setDefenderRoll(0);
                         g.getCombatsQueue().add(r1);
 
                     } else {
                         // Cas classique : 2 rounds aller/retour
                         RoundFight r1 = new RoundFight(
-                                java.util.UUID.randomUUID().toString(), loc, h.getId(), m.id
-                        );
+                                java.util.UUID.randomUUID().toString(), loc, h.getId(), m.id);
                         g.getCombatsQueue().add(r1);
 
                         RoundFight r2 = new RoundFight(
-                                java.util.UUID.randomUUID().toString(), loc, m.id, h.getId()
-                        );
+                                java.util.UUID.randomUUID().toString(), loc, m.id, h.getId());
                         g.getCombatsQueue().add(r2);
                     }
                 }
@@ -3141,7 +3246,7 @@ public class GameService {
         if (g.getUnstableTargetByPlayer() != null) {
             for (var entry : g.getUnstableTargetByPlayer().entrySet()) {
                 String unstableId = entry.getKey();
-                String targetId   = entry.getValue();
+                String targetId = entry.getValue();
 
                 String loc = g.getCenter().stream()
                         .filter(cb -> cb.getPlayerId().equals(targetId))
@@ -3150,8 +3255,7 @@ public class GameService {
                         .orElse("forest");
 
                 RoundFight duel = new RoundFight(
-                        java.util.UUID.randomUUID().toString(), loc, unstableId, targetId
-                );
+                        java.util.UUID.randomUUID().toString(), loc, unstableId, targetId);
                 // Si l’instable a bu Invisibilité, sa cible ne lancera pas de dé
                 if (hasInvisibility(g, unstableId)) {
                     duel.setDefenderRoll(0);
@@ -3161,7 +3265,8 @@ public class GameService {
                 // Message lisible
                 String info = "Combat — " + nameOf(g, unstableId) + " VS "
                         + nameOf(g, targetId) + " à " + labelLieuFr(loc);
-                if (g.getMessages() == null) g.setMessages(new java.util.ArrayList<>());
+                if (g.getMessages() == null)
+                    g.setMessages(new java.util.ArrayList<>());
                 g.getMessages().add(info);
                 addHistory(g, info);
             }
@@ -3179,7 +3284,8 @@ public class GameService {
 
                 for (String loc : clonesLocs) {
                     var onLoc = groups.get(loc);
-                    if (onLoc == null || onLoc.isEmpty()) continue;
+                    if (onLoc == null || onLoc.isEmpty())
+                        continue;
 
                     var huntersHere = onLoc.stream()
                             .filter(p -> "HUNTER".equals(p.getRole()))
@@ -3195,8 +3301,7 @@ public class GameService {
                                 java.util.UUID.randomUUID().toString(),
                                 loc,
                                 vampId,
-                                h.getId()
-                        );
+                                h.getId());
                         cloneFight.setCloneAttack(true); // on marque le round comme “clone”
 
                         // si vampire invisible && pas le chasseur → pas de dé de défense
@@ -3220,7 +3325,8 @@ public class GameService {
                     // attaquant non provoqué : round intact
                     filtered.add(rf);
                 } else {
-                    // attaquant provoqué : ne conserver que les attaques vers le chasseur provoquant
+                    // attaquant provoqué : ne conserver que les attaques vers le chasseur
+                    // provoquant
                     if (forcedDef.equals(rf.getDefenderId())) {
                         filtered.add(rf);
                     } else {
@@ -3269,8 +3375,7 @@ public class GameService {
                             java.util.UUID.randomUUID().toString(),
                             rf.getLocation(),
                             rf.getAttackerId(),
-                            rf.getDefenderId()
-                    );
+                            rf.getDefenderId());
                     // Marquer que c’est la 2ᵉ attaque (Potion de rapidité)
                     extra.setRapidExtra(true);
 
@@ -3285,8 +3390,8 @@ public class GameService {
             g.setCombatsQueue(expanded);
         }
 
-
-        // 7) Pointeur sur le combat courant (plus aucun nextAdvanceAt/timer côté serveur)
+        // 7) Pointeur sur le combat courant (plus aucun nextAdvanceAt/timer côté
+        // serveur)
         if (!g.getCombatsQueue().isEmpty()) {
             g.setCurrentCombatIndex(0);
             g.setCurrentCombat(g.getCombatsQueue().get(0));
@@ -3297,7 +3402,8 @@ public class GameService {
     }
 
     private void appendBreakdown(RoundFight r, String line) {
-        if (line == null || line.isBlank()) return;
+        if (line == null || line.isBlank())
+            return;
         if (r.getBreakdownLines() == null) {
             r.setBreakdownLines(new java.util.ArrayList<>());
         }
@@ -3321,11 +3427,10 @@ public class GameService {
 
         // --- Init du breakdown : on ne reset que si le duel démarre vraiment ---
         // (aucun jet encore posé pour ce RoundFight)
-        boolean duelJustStarted =
-                r.getAttackerRoll() == null
-                        && r.getDefenderRoll() == null
-                        && r.getAttackerFirstRoll() == null
-                        && r.getDefenderFirstRoll() == null;
+        boolean duelJustStarted = r.getAttackerRoll() == null
+                && r.getDefenderRoll() == null
+                && r.getAttackerFirstRoll() == null
+                && r.getDefenderFirstRoll() == null;
 
         if (duelJustStarted) {
             if (r.getBreakdownLines() == null) {
@@ -3349,8 +3454,8 @@ public class GameService {
         Game.Monster attackerMonster = findMonster(g, r.getAttackerId());
         Game.Monster defenderMonster = findMonster(g, r.getDefenderId());
 
-        boolean attackerIsPlayer  = (attackerPlayer0 != null);
-        boolean defenderIsPlayer  = (defenderPlayer0 != null);
+        boolean attackerIsPlayer = (attackerPlayer0 != null);
+        boolean defenderIsPlayer = (defenderPlayer0 != null);
         boolean attackerIsMonster = (attackerMonster != null);
         boolean defenderIsMonster = (defenderMonster != null);
 
@@ -3381,13 +3486,13 @@ public class GameService {
 
             if (isAltarFight
                     && isAltarBuilt(g)
-                    && isAltarCorrupted(g)                         // on ne purifie que si l'autel est corrompu
+                    && isAltarCorrupted(g) // on ne purifie que si l'autel est corrompu
                     && defenderPlayer0 != null
                     && "HUNTER".equals(attackerPlayer0.getRole()) // attaquant = chasseur
                     && "VAMPIRE".equals(defenderPlayer0.getRole())// défenseur = vampire
-                    && !g.isAltarVampTookDamageThisRaid()         // encore aucun dégât pris par le vampire sur l'autel
-                    && !g.isAltarBiteOccurredThisRaid()           // aucune morsure réussie sur l'autel
-                    && r.getAttackerRoll() == null                // premier jet pour ce duel
+                    && !g.isAltarVampTookDamageThisRaid() // encore aucun dégât pris par le vampire sur l'autel
+                    && !g.isAltarBiteOccurredThisRaid() // aucune morsure réussie sur l'autel
+                    && r.getAttackerRoll() == null // premier jet pour ce duel
                     && r.getAttackerFirstRoll() == null) {
 
                 String line = "Autel — "
@@ -3423,7 +3528,8 @@ public class GameService {
             // ==========================
             if (effectiveWaltz && hasFocus) {
 
-                // Étape 1 : on tire tous les dés de Valse, on garde le meilleur comme "premier résultat"
+                // Étape 1 : on tire tous les dés de Valse, on garde le meilleur comme "premier
+                // résultat"
                 if (r.getAttackerFirstRoll() == null && r.getAttackerRoll() == null) {
 
                     java.util.List<Integer> rolls = g.getBallroomBloodWaltzRolls();
@@ -3435,7 +3541,8 @@ public class GameService {
                         for (int i = 0; i < huntersCountOnBallroom; i++) {
                             int v = 1 + RND.nextInt(sides);
                             rolls.add(v);
-                            if (v > best) best = v;
+                            if (v > best)
+                                best = v;
                         }
                         g.setBallroomBloodWaltzRolls(rolls);
                         g.setBallroomBloodWaltzBestRoll(best); // meilleur dé de Valse pour tout le raid (base)
@@ -3504,7 +3611,8 @@ public class GameService {
                     for (int i = 0; i < huntersCountOnBallroom; i++) {
                         int v = 1 + RND.nextInt(sides);
                         rolls.add(v);
-                        if (v > best) best = v;
+                        if (v > best)
+                            best = v;
                     }
                     g.setBallroomBloodWaltzRolls(rolls);
                     g.setBallroomBloodWaltzBestRoll(best);
@@ -3541,7 +3649,6 @@ public class GameService {
                         addHistory(g, nameOf(g, r.getAttackerId())
                                 + " — jet d'attaque (Potion de focalisation, premier dé) = " + roll1 + ".");
 
-
                         ev.sendAtk = true;
                         ev.atkId = r.getAttackerId();
                         ev.atkRoll = roll1;
@@ -3549,7 +3656,7 @@ public class GameService {
                     } else if (r.getAttackerFirstRoll() != null && r.getAttackerRoll() == null) {
                         int roll2 = 1 + RND.nextInt(sides);
                         int first = r.getAttackerFirstRoll();
-                        int best  = Math.max(first, roll2);
+                        int best = Math.max(first, roll2);
 
                         r.setAttackerReroll(roll2);
                         r.setAttackerRoll(best);
@@ -3619,7 +3726,7 @@ public class GameService {
                     // 2e appel : on fixe le jet final (meilleur des deux)
                     int roll2 = 1 + RND.nextInt(sides);
                     int first = r.getDefenderFirstRoll();
-                    int best  = Math.max(first, roll2);
+                    int best = Math.max(first, roll2);
 
                     r.setDefenderReroll(roll2);
                     r.setDefenderRoll(best);
@@ -3704,19 +3811,19 @@ public class GameService {
         // --- Résolution si les 2 jets sont posés (et pas encore résolu)
         if (r.getAttackerRoll() != null && r.getDefenderRoll() != null && combatNotResolved(r)) {
             int rawAtk = r.getAttackerRoll();
-            int rawDef = r.getDefenderRoll();   // 0 d’emblée si Invisibilité a joué lors de la création du duel
+            int rawDef = r.getDefenderRoll(); // 0 d’emblée si Invisibilité a joué lors de la création du duel
 
             String loc = r.getLocation();
 
             // Modificateurs pour joueurs ET monstres
             // - Pour un joueur : météo, corruption, potions, actions, etc.
             // - Pour un monstre : uniquement les ACTION:* (Filet, Fosse, etc.)
-            //   grâce au filtrage dans modsAppliedFor(...)
+            // grâce au filtrage dans modsAppliedFor(...)
             int atkMod = totalModFor(g, r.getAttackerId(), "ATTACK", loc);
             int defMod = totalModFor(g, r.getDefenderId(), "DEFENSE", loc);
 
-
-            // Effets de raid (potions) pour attaquant et défenseur (uniquement joueurs, de fait)
+            // Effets de raid (potions) pour attaquant et défenseur (uniquement joueurs, de
+            // fait)
             RaidEffects atkFx = (g.getRaidEffects() != null)
                     ? g.getRaidEffects().get(r.getAttackerId())
                     : null;
@@ -3744,7 +3851,7 @@ public class GameService {
                     && "HUNTER".equals(atkPlayer.getRole())
                     && "VAMPIRE".equals(defPlayer.getRole())
                     && vampArmorHasEvasion(defPlayer.getArmor())
-                    && rawAtk == 12) {   //12 sur le D12 du chasseur
+                    && rawAtk == 12) { // 12 sur le D12 du chasseur
                 ecorceEvade = true;
             }
 
@@ -3823,13 +3930,12 @@ public class GameService {
                 atkFx.setHolyWaterAttack(false);
             }
 
-
             // Étourdissement par arme de chasseur (cible = vampire ou serviteur)
             if (atkPlayer != null
                     && defPlayer != null
                     && ("VAMPIRE".equals(defPlayer.getRole())
-                    || "SERVANT".equals(defPlayer.getRole())
-                    || "HUNTER".equals(defPlayer.getRole()))
+                            || "SERVANT".equals(defPlayer.getRole())
+                            || "HUNTER".equals(defPlayer.getRole()))
                     && dmg > 0) {
 
                 int penality = stunPenalityForWeapon(atkPlayer.getWeapon());
@@ -3849,8 +3955,8 @@ public class GameService {
             if (atkPlayer != null
                     && defPlayer != null
                     && ("VAMPIRE".equals(defPlayer.getRole())
-                    || "SERVANT".equals(defPlayer.getRole())
-                    || "HUNTER".equals(defPlayer.getRole()))
+                            || "SERVANT".equals(defPlayer.getRole())
+                            || "HUNTER".equals(defPlayer.getRole()))
                     && dmg > 0
                     && hunterWeaponIsRanged(atkPlayer.getWeapon())
                     && rangedKeepAwayTriggered(atkPlayer.getWeapon(), rawAtk)) {
@@ -3868,12 +3974,11 @@ public class GameService {
                 cancelReverseFight(g, r.getAttackerId(), r.getDefenderId());
             }
 
-
             // Sangsue : se soigne des dégâts infligés (après invulnérabilité)
             int healedByLeech = 0;
             if (atkPlayer != null && atkFx != null && atkFx.isLeech() && dmg > 0) {
                 int beforeHp = atkPlayer.getHp();
-                int maxHp    = maxHpFor(g, atkPlayer);
+                int maxHp = maxHpFor(g, atkPlayer);
                 atkPlayer.setHp(Math.min(maxHp, atkPlayer.getHp() + dmg));
                 healedByLeech = atkPlayer.getHp() - beforeHp;
             }
@@ -3888,35 +3993,32 @@ public class GameService {
                 int regen = vampRegenAmount(atkPlayer.getWeapon(), r.getAttackerRoll());
                 if (regen > 0) {
                     int beforeHp = atkPlayer.getHp();
-                    int maxHp    = maxHpFor(g, atkPlayer);
+                    int maxHp = maxHpFor(g, atkPlayer);
                     atkPlayer.setHp(Math.min(maxHp, atkPlayer.getHp() + regen));
                     healedByEquip = atkPlayer.getHp() - beforeHp;
                 }
             }
 
-
             // -------------------
             // Vols d’objet par le vampire
-            //   - Vol de base : si dégâts > 0 sur un chasseur
-            //   - Salle de bal : Attaque sournoise = 1 vol supplémentaire
-            //                    sur la cible, même si l’attaque échoue.
+            // - Vol de base : si dégâts > 0 sur un chasseur
+            // - Salle de bal : Attaque sournoise = 1 vol supplémentaire
+            // sur la cible, même si l’attaque échoue.
             // -------------------
             java.util.List<String> theftLines = new java.util.ArrayList<>();
 
-            boolean vampVsHunter =
-                    atkPlayer != null && "VAMPIRE".equals(atkPlayer.getRole()) &&
-                            defPlayer != null && "HUNTER".equals(defPlayer.getRole());
+            boolean vampVsHunter = atkPlayer != null && "VAMPIRE".equals(atkPlayer.getRole()) &&
+                    defPlayer != null && "HUNTER".equals(defPlayer.getRole());
 
             String ballroomCode = Infra.BALLROOM.locationCode();
-            boolean ballroomSneakActive =
-                    g.isBallroomSneakAttack()
-                            && g.getBuiltInfras() != null
-                            && g.getBuiltInfras().contains(Infra.BALLROOM)
-                            && ballroomCode != null
-                            && ballroomCode.equals(loc);
+            boolean ballroomSneakActive = g.isBallroomSneakAttack()
+                    && g.getBuiltInfras() != null
+                    && g.getBuiltInfras().contains(Infra.BALLROOM)
+                    && ballroomCode != null
+                    && ballroomCode.equals(loc);
 
             // 1) Effet Salle de bal : Attaque sournoise
-            //    → 1 vol garanti sur le défenseur, même si dmg == 0
+            // → 1 vol garanti sur le défenseur, même si dmg == 0
             if (vampVsHunter && ballroomSneakActive) {
                 String line = vampStealOne(g, atkPlayer, defPlayer);
                 if (line != null) {
@@ -3927,7 +4029,8 @@ public class GameService {
             // 2) Vol de base : uniquement si l’attaque inflige des dégâts et dé max
             if (vampVsHunter && dmg > 0 && rawAtk == diceSides(atkPlayer.getAttackDice())) {
                 String line = vampStealOne(g, atkPlayer, defPlayer);
-                if (line != null) theftLines.add(line);
+                if (line != null)
+                    theftLines.add(line);
             }
 
             List<String> atkBk = new ArrayList<>();
@@ -3962,15 +4065,16 @@ public class GameService {
                     && !g.isAltarVampTookDamageThisRaid()
                     && !g.isAltarBiteOccurredThisRaid()) {
 
-                // Si l'attaque inflige des dégâts au vampire, on ajoute la ligne "fait vaciller..."
+                // Si l'attaque inflige des dégâts au vampire, on ajoute la ligne "fait
+                // vaciller..."
                 if (dmg > 0) {
                     String line = "Autel — "
                             + nameOf(g, atkPlayer.getId())
                             + " fait vaciller le vampire:"
                             + " si aucun rituel de morsure ne réussit d'ici la fin du raid,"
                             + " l'autel sera lavé de sa corruption.";
-                    addHistory(g, line);   // reste dans l'historique global
-                    atkBk.add(line);       // ET dans le breakdown
+                    addHistory(g, line); // reste dans l'historique global
+                    atkBk.add(line); // ET dans le breakdown
                 }
             }
 
@@ -4002,8 +4106,7 @@ public class GameService {
             if (atkFx != null && atkFx.isRapid() && r.isRapidExtra()) {
                 atkBk.add(
                         nameOf(g, r.getAttackerId())
-                                + " attaque une deuxième fois par l'effet de la Potion de rapidité."
-                );
+                                + " attaque une deuxième fois par l'effet de la Potion de rapidité.");
             }
 
             if (healedByEquip > 0 && atkPlayer != null) {
@@ -4013,10 +4116,13 @@ public class GameService {
             }
 
             // Historique détaillé
-            for (String ln : atkBk) addHistory(g, ln);
-            for (String ln : defBk) addHistory(g, ln);
+            for (String ln : atkBk)
+                addHistory(g, ln);
+            for (String ln : defBk)
+                addHistory(g, ln);
 
-            if (r.getBreakdownLines() == null) r.setBreakdownLines(new java.util.ArrayList<>());
+            if (r.getBreakdownLines() == null)
+                r.setBreakdownLines(new java.util.ArrayList<>());
             r.getBreakdownLines().addAll(atkBk);
             r.getBreakdownLines().addAll(defBk);
             r.getBreakdownLines().addAll(theftLines);
@@ -4025,13 +4131,16 @@ public class GameService {
             String dn = entityName(g, r.getDefenderId());
 
             String resultLine;
-            if (dmg > 0) resultLine = an + " inflige " + dmg + " dégâts à " + dn;
-            else         resultLine = dn + " pare l'attaque de " + an;
+            if (dmg > 0)
+                resultLine = an + " inflige " + dmg + " dégâts à " + dn;
+            else
+                resultLine = dn + " pare l'attaque de " + an;
 
             // Historique (comme avant)
             addHistory(g, resultLine);
 
-            // Breakdown (NOUVEAU) => la modale spectate affichera toujours la vérité serveur
+            // Breakdown (NOUVEAU) => la modale spectate affichera toujours la vérité
+            // serveur
             appendBreakdown(r, resultLine);
 
             int bleed = 0;
@@ -4062,7 +4171,8 @@ public class GameService {
             }
 
             if (g.getUnstableTargetByPlayer().containsKey(r.getAttackerId())
-                    && java.util.Objects.equals(g.getUnstableTargetByPlayer().get(r.getAttackerId()), r.getDefenderId())) {
+                    && java.util.Objects.equals(g.getUnstableTargetByPlayer().get(r.getAttackerId()),
+                            r.getDefenderId())) {
                 addHistory(g, nameOf(g, r.getAttackerId()) + " revient à lui ...");
             }
 
@@ -4102,11 +4212,10 @@ public class GameService {
             }
 
             // 2) Tentative de morsure : dégâts OU Faim irrépressible
-            boolean vampCanBiteHunter =
-                    vampVsHunter
-                            && defPlayer != null
-                            && defPlayer.getCorruption() < 3
-                            && (dmg > 0 || g.isHungerAllowsBiteThisRaid());
+            boolean vampCanBiteHunter = vampVsHunter
+                    && defPlayer != null
+                    && defPlayer.getCorruption() < 3
+                    && (dmg > 0 || g.isHungerAllowsBiteThisRaid());
 
             if (vampCanBiteHunter) {
                 Game.BiteAttempt b = new Game.BiteAttempt();
@@ -4122,7 +4231,8 @@ public class GameService {
                 ev.biteLoc = r.getLocation();
             }
 
-            // 3) Marque ténébreuse : +1 corruption si le chasseur marqué croise le vampire ce raid
+            // 3) Marque ténébreuse : +1 corruption si le chasseur marqué croise le vampire
+            // ce raid
             if (vampVsHunter
                     && defPlayer != null
                     && isDarkMarked(g, defPlayer.getId())) {
@@ -4131,11 +4241,10 @@ public class GameService {
             }
 
             // 4) Pieu béni : marquer le duel comme devant déclencher l'action
-            boolean canFlagBlessedStake =
-                    atkPlayer != null
-                            && "HUNTER".equals(atkPlayer.getRole())
-                            && atkPlayer.isBlessedStake()
-                            && dmg > 0;
+            boolean canFlagBlessedStake = atkPlayer != null
+                    && "HUNTER".equals(atkPlayer.getRole())
+                    && atkPlayer.isBlessedStake()
+                    && dmg > 0;
 
             if (canFlagBlessedStake) {
                 r.setBlessedStakePending(true);
@@ -4166,10 +4275,14 @@ public class GameService {
 
         // --- Events APRÈS COMMIT (ordre garanti)
         afterCommit(() -> {
-            if (ev.sendAtk)      live.diceRolled(g, ev.roundId, ev.atkId, "ATTACK",  ev.atkRoll, ev.breakdown);
-            if (ev.sendDef)      live.diceRolled(g, ev.roundId, ev.defId, "DEFENSE", ev.defRoll, ev.breakdown);
-            if (ev.sendResolved) live.combatResolved(g, ev.roundId, ev.dmg, ev.defId, ev.defenderHp, ev.breakdown);
-            if (ev.startBite)    live.biteStarted(g, ev.biteAtt, ev.biteTgt, ev.biteLoc);
+            if (ev.sendAtk)
+                live.diceRolled(g, ev.roundId, ev.atkId, "ATTACK", ev.atkRoll, ev.breakdown);
+            if (ev.sendDef)
+                live.diceRolled(g, ev.roundId, ev.defId, "DEFENSE", ev.defRoll, ev.breakdown);
+            if (ev.sendResolved)
+                live.combatResolved(g, ev.roundId, ev.dmg, ev.defId, ev.defenderHp, ev.breakdown);
+            if (ev.startBite)
+                live.biteStarted(g, ev.biteAtt, ev.biteTgt, ev.biteLoc);
 
             live.phaseChanged(g);
         });
@@ -4194,7 +4307,7 @@ public class GameService {
             boolean advanced;
             boolean trapResolved;
 
-            String att, tgt, loc;                 // pour la morsure
+            String att, tgt, loc; // pour la morsure
             String trapMode, trapOwnerId, trapTargetId; // pour Filet/Fosse/Incendiaire/Épieu béni
         }
 
@@ -4205,14 +4318,15 @@ public class GameService {
 
             Ev out = new Ev();
 
-            // 0) GESTION DES ACTIONS DE RAID (NET / PIT / INCENDIAIRE / BLESSED_STAKE) AVANT TOUT
+            // 0) GESTION DES ACTIONS DE RAID (NET / PIT / INCENDIAIRE / BLESSED_STAKE)
+            // AVANT TOUT
             Game.Action ca = g.getCurrentAction();
             if (ca != null
                     && ca.getMode() != null
                     && ("NET".equals(ca.getMode())
-                    || "PIT".equals(ca.getMode())
-                    || "INCENDIAIRE".equals(ca.getMode())
-                    || "BLESSED_STAKE".equals(ca.getMode()))) {
+                            || "PIT".equals(ca.getMode())
+                            || "INCENDIAIRE".equals(ca.getMode())
+                            || "BLESSED_STAKE".equals(ca.getMode()))) {
 
                 // Tant que le jet n'est pas fait, on laisse la modale ouverte
                 if (ca.getRoll() == null) {
@@ -4222,8 +4336,8 @@ public class GameService {
 
                 // L'action vient d'être résolue (roll != null) → on clôture cette action
                 out.trapResolved = true;
-                out.trapMode     = ca.getMode();
-                out.trapOwnerId  = ca.getOwnerId();
+                out.trapMode = ca.getMode();
+                out.trapOwnerId = ca.getOwnerId();
                 out.trapTargetId = ca.getTargetId(); // pour INCENDIAIRE = infra.name()
 
                 // On "oublie" l'action courante
@@ -4233,14 +4347,15 @@ public class GameService {
                 prepareNextRaidAction(g);
 
                 // S'il reste une autre action, on s'arrête là :
-                //  - le front affichera la nouvelle modale via currentAction
-                //  - on NE touche PAS encore aux morsures / combats
+                // - le front affichera la nouvelle modale via currentAction
+                // - on NE touche PAS encore aux morsures / combats
                 if (g.getCurrentAction() != null) {
                     save(g);
                     return out;
                 }
 
-                // Sinon : plus d'action de raid -> on laisse continuer la logique (morsure / combats)
+                // Sinon : plus d'action de raid -> on laisse continuer la logique (morsure /
+                // combats)
             }
 
             // 1) S'il y a une morsure en cours :
@@ -4260,7 +4375,8 @@ public class GameService {
                 // 2) Sinon on est sur un duel : s’il n’est pas encore résolu
                 var r = g.getCurrentCombat();
 
-                // on laisse filer jusqu'à la partie "hasAnyRemainingFight" + auto-PHASE4 plus bas.
+                // on laisse filer jusqu'à la partie "hasAnyRemainingFight" + auto-PHASE4 plus
+                // bas.
                 if (r != null) {
                     if (combatNotResolved(r)) {
                         save(g);
@@ -4269,21 +4385,22 @@ public class GameService {
 
                     boolean modsChanged = consumeHitModsAfterFight(g, r);
                     // pour forcer live.phaseChanged => snapshot frais côté front
-                    if (modsChanged) out.advanced = true;
+                    if (modsChanged)
+                        out.advanced = true;
 
                     // déclencheur Pieu béni
                     if (r.isBlessedStakePending() && g.getCurrentAction() == null) {
                         Game.Action a = new Game.Action();
                         a.setMode("BLESSED_STAKE");
-                        a.setOwnerId(r.getAttackerId());  // le chasseur qui avait l’effet
+                        a.setOwnerId(r.getAttackerId()); // le chasseur qui avait l’effet
                         a.setLocation(r.getLocation());
                         a.setTargetId(r.getDefenderId()); // même cible que le duel
-                        a.setRoll(null);                  // d4 pas encore lancé
+                        a.setRoll(null); // d4 pas encore lancé
                         a.setBreakdownLines(new java.util.ArrayList<>());
                         a.setResolvedAtMillis(null);
 
                         g.setCurrentAction(a);
-                        r.setBlessedStakePending(false);  // flag consommé
+                        r.setBlessedStakePending(false); // flag consommé
 
                         save(g);
                         return out;
@@ -4351,19 +4468,17 @@ public class GameService {
                                     .orElse(null);
 
                             String ballroomCode = Infra.BALLROOM.locationCode();
-                            boolean isVampAttackOnBallroom =
-                                    attPlayer != null && "VAMPIRE".equals(attPlayer.getRole())
-                                            && defPlayer != null && "HUNTER".equals(defPlayer.getRole())
-                                            && ballroomCode != null
-                                            && ballroomCode.equals(nf.getLocation());
+                            boolean isVampAttackOnBallroom = attPlayer != null && "VAMPIRE".equals(attPlayer.getRole())
+                                    && defPlayer != null && "HUNTER".equals(defPlayer.getRole())
+                                    && ballroomCode != null
+                                    && ballroomCode.equals(nf.getLocation());
 
                             if (isVampAttackOnBallroom && nf.getAttackerRoll() == null) {
 
                                 // Est-ce que la Valse a déjà été tirée pour ce raid ?
-                                boolean waltzAlreadyRolled =
-                                        g.getBallroomBloodWaltzRolls() != null
-                                                && !g.getBallroomBloodWaltzRolls().isEmpty()
-                                                && g.getBallroomBloodWaltzBestRoll() != null;
+                                boolean waltzAlreadyRolled = g.getBallroomBloodWaltzRolls() != null
+                                        && !g.getBallroomBloodWaltzRolls().isEmpty()
+                                        && g.getBallroomBloodWaltzBestRoll() != null;
 
                                 if (waltzAlreadyRolled) {
                                     // Toujours copier les dés de Valse pour l'affichage UI
@@ -4408,12 +4523,14 @@ public class GameService {
                 for (RoundFight candidate : g.getCombatsQueue()) {
 
                     // 1) ignorer les combats déjà résolus
-                    if (!combatNotResolved(candidate)) continue;
+                    if (!combatNotResolved(candidate))
+                        continue;
 
                     // 2) ignorer ceux dont un des deux est mort (skip logique)
                     boolean atkAlive = isEntityAlive(g, candidate.getAttackerId());
                     boolean defAlive = isEntityAlive(g, candidate.getDefenderId());
-                    if (!atkAlive || !defAlive) continue;
+                    if (!atkAlive || !defAlive)
+                        continue;
 
                     // 3) il reste vraiment un combat à jouer
                     hasAnyRemainingFight = true;
@@ -4445,7 +4562,8 @@ public class GameService {
             live.actionResolved(gAfter, ev.trapMode, ev.trapOwnerId, ev.trapTargetId);
         }
         if (ev.advanced) {
-            // heartbeat pour faire faire un GET propre côté front (combats qui avancent / fin de combats / passage phase4)
+            // heartbeat pour faire faire un GET propre côté front (combats qui avancent /
+            // fin de combats / passage phase4)
             live.phaseChanged(gAfter);
         }
 
@@ -4453,7 +4571,8 @@ public class GameService {
     }
 
     private boolean isEntityAlive(Game g, String entityId) {
-        if (entityId == null) return false;
+        if (entityId == null)
+            return false;
 
         Player p = findPlayer(g, entityId);
         if (p != null) {
@@ -4470,23 +4589,26 @@ public class GameService {
 
     // Météo
     // alimente raidMods
-    private void rebuildWeatherMods(Game g){
+    private void rebuildWeatherMods(Game g) {
         // Sécurité : map toujours présente
-        if (g.getRaidMods() == null) g.setRaidMods(new java.util.HashMap<>());
+        if (g.getRaidMods() == null)
+            g.setRaidMods(new java.util.HashMap<>());
 
         // 1) retirer tous les effets météo précédents
         for (var entry : g.getRaidMods().entrySet()) {
             var list = entry.getValue();
-            if (list == null) continue;
+            if (list == null)
+                continue;
             list.removeIf(m -> m.getSource() != null && m.getSource().startsWith("WEATHER:"));
         }
 
-        WeatherStatus ws1 = g.getWeatherStatus();            // base
-        WeatherStatus ws2 = g.getSecondaryWeatherStatus();   // extra 2
-        WeatherStatus ws3 = g.getThirdWeatherStatus();       // extra 3
+        WeatherStatus ws1 = g.getWeatherStatus(); // base
+        WeatherStatus ws2 = g.getSecondaryWeatherStatus(); // extra 2
+        WeatherStatus ws3 = g.getThirdWeatherStatus(); // extra 3
 
         // 2) si pas de météo active => on s’arrête
-        if (ws1 == null && ws2 == null && ws3 == null) return;
+        if (ws1 == null && ws2 == null && ws3 == null)
+            return;
 
         // 3) s'assurer qu'il y a une liste pour chaque joueur
         for (var p : g.getPlayers()) {
@@ -4542,11 +4664,11 @@ public class GameService {
                     }
                 }
             }
-            case STORM    -> {
+            case STORM -> {
                 for (var p : g.getPlayers())
                     g.getRaidMods().get(p.getId()).add(new StatMod("DEFENSE", -2, "WEATHER:STORM"));
             }
-            case RAIN     -> {
+            case RAIN -> {
                 for (var p : g.getPlayers())
                     g.getRaidMods().get(p.getId()).add(new StatMod("ATTACK", -2, "WEATHER:RAIN"));
             }
@@ -4554,7 +4676,7 @@ public class GameService {
                 for (var p : g.getPlayers())
                     g.getRaidMods().get(p.getId()).add(new StatMod("ATTACK", -1, "WEATHER:BLIZZARD"));
             }
-            case DUSK     -> {
+            case DUSK -> {
                 for (var p : g.getPlayers())
                     if ("VAMPIRE".equals(p.getRole()) || "SERVANT".equals(p.getRole()))
                         g.getRaidMods().get(p.getId()).add(new StatMod("DEFENSE", +1, "WEATHER:DUSK"));
@@ -4597,9 +4719,7 @@ public class GameService {
         if (g.getPhase() != Phase.PHASE0)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "not in weather phase");
 
-        var vamp = getVamp(g).orElseThrow(() ->
-                new ResponseStatusException(HttpStatus.CONFLICT, "no vampire")
-        );
+        var vamp = getVamp(g).orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "no vampire"));
         if (!vamp.getId().equals(userId))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "only vampire can roll weather");
 
@@ -4607,7 +4727,8 @@ public class GameService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "weather already rolled");
 
         // Sécurité : structures non-null
-        if (g.getRaidMods() == null) g.setRaidMods(new HashMap<>());
+        if (g.getRaidMods() == null)
+            g.setRaidMods(new HashMap<>());
 
         // 1) Mutations PURES (aucun save / aucun event ici)
         int roll = 1 + RND.nextInt(12);
@@ -4618,8 +4739,8 @@ public class GameService {
 
         // 3) Events APRÈS COMMIT (aucune course avec les GET)
         afterCommit(() -> {
-            live.weatherRolled(g);      // payload construit depuis g (déjà commité)
-            live.raidModsUpdated(g);    // pour rafraîchir les puces météo côté UI
+            live.weatherRolled(g); // payload construit depuis g (déjà commité)
+            live.raidModsUpdated(g); // pour rafraîchir les puces météo côté UI
         });
 
         return g;
@@ -4659,10 +4780,12 @@ public class GameService {
     private void applyWindRepairs(@NonNull Game g) {
         // 1) Chasseurs : -1 ressource aléatoire chacun (réparations du village)
         for (Player p : g.getPlayers()) {
-            if (!"HUNTER".equals(p.getRole())) continue;
+            if (!"HUNTER".equals(p.getRole()))
+                continue;
 
             String type = loseOneRandomBuildResource(p);
-            if (type == null) continue;
+            if (type == null)
+                continue;
 
             String who = nameOf(g, p.getId());
             String resFr = switch (type) {
@@ -4675,8 +4798,7 @@ public class GameService {
             addHistory(g,
                     "Cyclone — " + who
                             + " perd 1 " + resFr
-                            + " pour réparer le village."
-            );
+                            + " pour réparer le village.");
         }
 
         // 2) Domaine : -1 ressource aléatoire par construction
@@ -4695,10 +4817,12 @@ public class GameService {
 
         for (int i = 0; i < nbInfras; i++) {
             Player payer = pickRandomWithBuildResources(vampSide);
-            if (payer == null) break; // plus personne n’a de ressources de construction
+            if (payer == null)
+                break; // plus personne n’a de ressources de construction
 
             String type = loseOneRandomBuildResource(payer);
-            if (type == null) break;
+            if (type == null)
+                break;
 
             String who = nameOf(g, payer.getId());
             String resFr = switch (type) {
@@ -4711,23 +4835,27 @@ public class GameService {
             addHistory(g,
                     "Cyclone — " + who
                             + " dépense 1 " + resFr
-                            + " pour réparer le domaine."
-            );
+                            + " pour réparer le domaine.");
         }
     }
 
     /**
      * Retire 1 ressource de construction aléatoire (bois / fer, pierre plus tard).
+     * 
      * @return "WOOD" | "IRON" | "STONE" | null si aucune ressource à retirer
      */
     private String loseOneRandomBuildResource(Player p) {
         java.util.List<String> pool = new java.util.ArrayList<>();
 
-        if (p.getWood() > 0) pool.add("WOOD");
-        if (p.getIron() > 0) pool.add("IRON");
-        if (p.getStone() > 0) pool.add("STONE");
+        if (p.getWood() > 0)
+            pool.add("WOOD");
+        if (p.getIron() > 0)
+            pool.add("IRON");
+        if (p.getStone() > 0)
+            pool.add("STONE");
 
-        if (pool.isEmpty()) return null;
+        if (pool.isEmpty())
+            return null;
 
         String type = pool.get(RND.nextInt(pool.size()));
         switch (type) {
@@ -4746,7 +4874,8 @@ public class GameService {
         java.util.List<Player> candidates = players.stream()
                 .filter(p -> p.getWood() > 0 || p.getIron() > 0 || p.getStone() > 0)
                 .toList();
-        if (candidates.isEmpty()) return null;
+        if (candidates.isEmpty())
+            return null;
         return candidates.get(RND.nextInt(candidates.size()));
     }
 
@@ -4754,42 +4883,48 @@ public class GameService {
      * Nombre de constructions du domaine.
      */
     private int countDomainConstructions(Game g) {
-        if (g.getBuiltInfras() == null) return 0;
+        if (g.getBuiltInfras() == null)
+            return 0;
         return g.getBuiltInfras().size();
     }
 
     // ressources
-    private int rollD100Tens() { return RND.nextInt(10) * 10; }
+    private int rollD100Tens() {
+        return RND.nextInt(10) * 10;
+    }
 
     private void grant(Player p, String res, int qty) {
-        if (qty <= 0 || p == null) return;
+        if (qty <= 0 || p == null)
+            return;
         switch (res) {
-            case "wood"  -> p.setWood(p.getWood() + qty);
+            case "wood" -> p.setWood(p.getWood() + qty);
             case "herbs" -> p.setHerbs(p.getHerbs() + qty);
             case "stone" -> p.setStone(p.getStone() + qty);
-            case "iron"  -> p.setIron(p.getIron() + qty);
+            case "iron" -> p.setIron(p.getIron() + qty);
             case "water" -> p.setWater(p.getWater() + qty);
-            case "gold"  -> p.setGold(p.getGold() + qty);
+            case "gold" -> p.setGold(p.getGold() + qty);
             case "souls" -> p.setSouls(p.getSouls() + qty);
-            case "silver"-> p.setSilver(p.getSilver() + qty);
+            case "silver" -> p.setSilver(p.getSilver() + qty);
         }
     }
 
-    private String resLabelFr(String res){
+    private String resLabelFr(String res) {
         return switch (res) {
-            case "wood"  -> "bois";
+            case "wood" -> "bois";
             case "herbs" -> "herbe médicinale";
             case "stone" -> "pierre";
-            case "iron"  -> "fer";
+            case "iron" -> "fer";
             case "water" -> "eau pure";
-            case "gold"  -> "or";
+            case "gold" -> "or";
             case "souls" -> "âmes déchues";
-            case "silver"-> "argent";
+            case "silver" -> "argent";
             default -> res;
         };
     }
 
-    /** Applique les récoltes pour les lieux SANS combat (une seule fois par raid). */
+    /**
+     * Applique les récoltes pour les lieux SANS combat (une seule fois par raid).
+     */
     private void applyHarvests(@NonNull Game g) {
         var vamp = getVamp(g).orElse(null);
         var groups = groupPlayersByLocation(g);
@@ -4812,11 +4947,13 @@ public class GameService {
         // - l'instable ne récolte pas
         // - la cible récolte /2
         java.util.Set<String> duelUnstables = new java.util.HashSet<>();
-        java.util.Set<String> duelTargets   = new java.util.HashSet<>();
+        java.util.Set<String> duelTargets = new java.util.HashSet<>();
         if (g.getUnstableTargetByPlayer() != null) {
             g.getUnstableTargetByPlayer().forEach((unstableId, targetId) -> {
-                if (unstableId != null) duelUnstables.add(unstableId);
-                if (targetId   != null) duelTargets.add(targetId);
+                if (unstableId != null)
+                    duelUnstables.add(unstableId);
+                if (targetId != null)
+                    duelTargets.add(targetId);
             });
         }
 
@@ -4859,22 +4996,25 @@ public class GameService {
                 }
 
                 // 2) Duel instable -> cible :
-                //    - instable ne récolte pas
-                if (duelUnstables.contains(p.getId())) continue;
+                // - instable ne récolte pas
+                if (duelUnstables.contains(p.getId()))
+                    continue;
 
                 // 3) Détermine si la récolte doit être divisée par 2
                 boolean halfHarvest = false;
 
-                //    - la cible du duel récolte /2
-                if (duelTargets.contains(p.getId())) halfHarvest = true;
+                // - la cible du duel récolte /2
+                if (duelTargets.contains(p.getId()))
+                    halfHarvest = true;
 
-                //    - si combat prévu : chasseur récolte /2
-                //      (mais on garde les exceptions : instable harvestForVamp + vampire)
+                // - si combat prévu : chasseur récolte /2
+                // (mais on garde les exceptions : instable harvestForVamp + vampire)
                 if (combatHere && !harvestForVamp && !isVamp) {
-                    if (isHunter) halfHarvest = true;
-                    else continue; // serviteur (ou autre) reste bloqué comme avant
+                    if (isHunter)
+                        halfHarvest = true;
+                    else
+                        continue; // serviteur (ou autre) reste bloqué comme avant
                 }
-
 
                 if (skipHarvestBecauseOfConstruction(g, p, loc)) {
                     continue;
@@ -4888,41 +5028,50 @@ public class GameService {
                         int wood = halfHarvest ? (2 / 2) : 2;
                         int herbs = halfHarvest ? (4 / 2) : 4;
 
-                        grant(recipient, "wood", wood);  gains.add("+" + wood + " bois");
-                        grant(recipient, "herbs", herbs); gains.add("+" + herbs + " herbe médicinale");
+                        grant(recipient, "wood", wood);
+                        gains.add("+" + wood + " bois");
+                        grant(recipient, "herbs", herbs);
+                        gains.add("+" + herbs + " herbe médicinale");
                     }
                     case "quarry" -> {
                         int iron = halfHarvest ? (2 / 2) : 2;
                         int stone = halfHarvest ? (4 / 2) : 4;
 
-                        grant(recipient, "iron", iron);   gains.add("+" + iron + " fer");
-                        grant(recipient, "stone", stone); gains.add("+" + stone + " pierre");
+                        grant(recipient, "iron", iron);
+                        gains.add("+" + iron + " fer");
+                        grant(recipient, "stone", stone);
+                        gains.add("+" + stone + " pierre");
                     }
                     case "lake" -> {
                         int herbs = halfHarvest ? (2 / 2) : 2;
                         int water = halfHarvest ? (4 / 2) : 4;
 
-                        grant(recipient, "herbs", herbs); gains.add("+" + herbs + " herbe médicinale");
-                        grant(recipient, "water", water); gains.add("+" + water + " eau pure");
+                        grant(recipient, "herbs", herbs);
+                        gains.add("+" + herbs + " herbe médicinale");
+                        grant(recipient, "water", water);
+                        gains.add("+" + water + " eau pure");
                     }
                     case "manor" -> {
                         int roll = rollD100Tens();
                         if (harvestForVamp && vamp != null) {
                             // Instable qui récolte pour le vampire au Manoir → conversion en âmes
-                            grant(vamp, "souls", roll+100);
+                            grant(vamp, "souls", roll + 100);
                             gains.add("+" + (roll + 100) + " âmes déchues (pour " + nameOf(g, vamp.getId()) + ")");
                         } else {
                             if ("HUNTER".equals(p.getRole())) {
-                                grant(p, "gold", roll+100); gains.add("+" + (roll + 100) + " or");
+                                grant(p, "gold", roll + 100);
+                                gains.add("+" + (roll + 100) + " or");
                             } else if ("VAMPIRE".equals(p.getRole()) || "SERVANT".equals(p.getRole())) {
-                                grant(p, "souls", roll+100); gains.add("+" + (roll + 100) + " âmes déchues");
+                                grant(p, "souls", roll + 100);
+                                gains.add("+" + (roll + 100) + " âmes déchues");
                             }
                         }
                     }
                     case "sawmill" -> {
                         int base = 4;
                         int wood = halfHarvest ? (base / 2) : base;
-                        if (wood <= 0) wood = 1;
+                        if (wood <= 0)
+                            wood = 1;
 
                         grant(recipient, "wood", wood);
                         gains.add("+" + wood + " bois");
@@ -4931,7 +5080,8 @@ public class GameService {
                     case "mine" -> {
                         int base = 4;
                         int iron = halfHarvest ? (base / 2) : base;
-                        if (iron <= 0) iron = 1;
+                        if (iron <= 0)
+                            iron = 1;
 
                         grant(recipient, "iron", iron);
                         gains.add("+" + iron + " fer");
@@ -4942,22 +5092,23 @@ public class GameService {
 
                         if (harvestForVamp && vamp != null) {
                             // Instable qui récolte pour le vampire → âmes
-                            grant(vamp, "souls", roll+50);
+                            grant(vamp, "souls", roll + 50);
                             gains.add("+" + (roll + 50) + " âmes déchues (pour " + nameOf(g, vamp.getId()) + ")");
                         } else {
                             // Récolte normale sur les lieux spéciaux du Manoir :
                             // - Chasseur : or
                             // - Vampire / Serviteur : âmes
                             if ("HUNTER".equals(p.getRole())) {
-                                grant(recipient, "gold", roll+50);
+                                grant(recipient, "gold", roll + 50);
                                 gains.add("+" + (roll + 50) + " or");
                             } else if ("VAMPIRE".equals(p.getRole()) || "SERVANT".equals(p.getRole())) {
-                                grant(recipient, "souls", roll+50);
+                                grant(recipient, "souls", roll + 50);
                                 gains.add("+" + (roll + 50) + " âmes déchues");
                             }
                         }
                     }
-                    default -> { /* plus tard */ }
+                    default -> {
+                        /* plus tard */ }
                 }
 
                 if (!gains.isEmpty()) {
@@ -4975,39 +5126,46 @@ public class GameService {
     private @Nullable String pickStealableFromHunter(Player h) {
         // Ressources volables chez un chasseur (ni or, ni argent)
         java.util.List<String> pool = new java.util.ArrayList<>();
-        if (h.getWood()  > 0) pool.add("wood");
-        if (h.getHerbs() > 0) pool.add("herbs");
-        if (h.getStone() > 0) pool.add("stone");
-        if (h.getIron()  > 0) pool.add("iron");
-        if (h.getWater() > 0) pool.add("water");
+        if (h.getWood() > 0)
+            pool.add("wood");
+        if (h.getHerbs() > 0)
+            pool.add("herbs");
+        if (h.getStone() > 0)
+            pool.add("stone");
+        if (h.getIron() > 0)
+            pool.add("iron");
+        if (h.getWater() > 0)
+            pool.add("water");
         return pool.isEmpty() ? null : pool.get(RND.nextInt(pool.size()));
     }
 
     private @Nullable String vampStealOne(Game g, Player vamp, Player hunter) {
         String res = pickStealableFromHunter(hunter);
         if (res == null) {
-            addHistory(g, nameOf(g, vamp.getId()) + " tente de voler, mais " + nameOf(g, hunter.getId()) + " n'a rien à prendre.");
+            addHistory(g, nameOf(g, vamp.getId()) + " tente de voler, mais " + nameOf(g, hunter.getId())
+                    + " n'a rien à prendre.");
             return null; // rien à afficher en breakdown
         }
         // retire au chasseur
         switch (res) {
-            case "wood"  -> hunter.setWood(hunter.getWood() - 1);
+            case "wood" -> hunter.setWood(hunter.getWood() - 1);
             case "herbs" -> hunter.setHerbs(hunter.getHerbs() - 1);
             case "stone" -> hunter.setStone(hunter.getStone() - 1);
-            case "iron"  -> hunter.setIron(hunter.getIron() - 1);
+            case "iron" -> hunter.setIron(hunter.getIron() - 1);
             case "water" -> hunter.setWater(hunter.getWater() - 1);
         }
         // donne au vampire
         grant(vamp, res, 1);
 
-        String line = "Larcin — " + nameOf(g, vamp.getId()) + " vole 1 " + resLabelFr(res) + " à " + nameOf(g, hunter.getId()) + ".";
+        String line = "Larcin — " + nameOf(g, vamp.getId()) + " vole 1 " + resLabelFr(res) + " à "
+                + nameOf(g, hunter.getId()) + ".";
         addHistory(g, line);
 
         return line; // ← on renvoie la ligne pour la modale spectateur
     }
 
     // actions & potions
-    private RaidEffects raidFx(Game g, String playerId){
+    private RaidEffects raidFx(Game g, String playerId) {
         return g.getRaidEffects().computeIfAbsent(playerId, __ -> new RaidEffects());
     }
 
@@ -5026,18 +5184,16 @@ public class GameService {
         }
 
         // Instables affectés à la RÉCOLTE => ne combattent pas
-        java.util.Set<String> unstableHarvesters =
-                (g.getUnstableHarvestLocByPlayer() != null)
-                        ? g.getUnstableHarvestLocByPlayer().keySet()
-                        : java.util.Set.of();
+        java.util.Set<String> unstableHarvesters = (g.getUnstableHarvestLocByPlayer() != null)
+                ? g.getUnstableHarvestLocByPlayer().keySet()
+                : java.util.Set.of();
 
         // Monstres vivants
-        java.util.List<Game.Monster> aliveMonsters =
-                (g.getMonsters() != null)
-                        ? g.getMonsters().stream()
+        java.util.List<Game.Monster> aliveMonsters = (g.getMonsters() != null)
+                ? g.getMonsters().stream()
                         .filter(m -> m.hp > 0)
                         .toList()
-                        : java.util.List.of();
+                : java.util.List.of();
 
         var groups = groupPlayersByLocation(g); // loc -> List<Player>
 
@@ -5078,17 +5234,21 @@ public class GameService {
         if (g.getUnstableTargetByPlayer() != null) {
             for (var entry : g.getUnstableTargetByPlayer().entrySet()) {
                 String unstableId = entry.getKey();
-                String targetId   = entry.getValue();
-                if (unstableId != null) ids.add(unstableId);
-                if (targetId   != null) ids.add(targetId);
+                String targetId = entry.getValue();
+                if (unstableId != null)
+                    ids.add(unstableId);
+                if (targetId != null)
+                    ids.add(targetId);
             }
         }
 
-        // --- 3) Clones des ombres : les chasseurs ciblés par un clone sont aussi "participants" ---
+        // --- 3) Clones des ombres : les chasseurs ciblés par un clone sont aussi
+        // "participants" ---
         if (g.getClonesLocations() != null && !g.getClonesLocations().isEmpty()) {
             for (String loc : g.getClonesLocations()) {
                 var onLoc = groups.get(loc);
-                if (onLoc == null || onLoc.isEmpty()) continue;
+                if (onLoc == null || onLoc.isEmpty())
+                    continue;
 
                 var hunters = onLoc.stream()
                         .filter(p -> "HUNTER".equals(p.getRole())
@@ -5127,16 +5287,14 @@ public class GameService {
         if (ws1 == WeatherStatus.BLIZZARD || ws2 == WeatherStatus.BLIZZARD) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Impossible d'utiliser des potions sous le blizzard: elles sont gelées."
-            );
+                    "Impossible d'utiliser des potions sous le blizzard: elles sont gelées.");
         }
 
         // bloque les instables qui succombent à la corruption
         if (g.getPhase() == Phase.PREPHASE3 && hasSuccumbedToCorruption(g, playerId)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Tu succombes à la corruption : tu ne peux pas utiliser tes potions ce raid."
-            );
+                    "Tu succombes à la corruption : tu ne peux pas utiliser tes potions ce raid.");
         }
 
         // --- inventaire sur Player
@@ -5158,8 +5316,7 @@ public class GameService {
         if (!isAlive(p)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Tu es hors de combat pour le reste de la partie."
-            );
+                    "Tu es hors de combat pour le reste de la partie.");
         }
 
         // --- mutations + historique (PAS d'events ici)
@@ -5167,7 +5324,8 @@ public class GameService {
 
         switch (type) {
             case FORCE -> {
-                if (g.getRaidMods() == null) g.setRaidMods(new HashMap<>());
+                if (g.getRaidMods() == null)
+                    g.setRaidMods(new HashMap<>());
                 g.getRaidMods().computeIfAbsent(playerId, __ -> new ArrayList<>())
                         .add(new StatMod("ATTACK", +1, "POTION:FORCE"));
                 discardPotion(g, type.name());
@@ -5176,7 +5334,8 @@ public class GameService {
                 feedText = nameOf(g, playerId) + " boit une potion de force !";
             }
             case ENDURANCE -> {
-                if (g.getRaidMods() == null) g.setRaidMods(new HashMap<>());
+                if (g.getRaidMods() == null)
+                    g.setRaidMods(new HashMap<>());
                 g.getRaidMods().computeIfAbsent(playerId, __ -> new ArrayList<>())
                         .add(new StatMod("DEFENSE", +1, "POTION:ENDURANCE"));
                 discardPotion(g, type.name());
@@ -5188,8 +5347,8 @@ public class GameService {
                 int before = p.getHp();
                 int max = ("VAMPIRE".equals(p.getRole()))
                         ? (20 + (int) g.getPlayers().stream()
-                        .filter(x -> "HUNTER".equals(x.getRole()))
-                        .count() * 10)
+                                .filter(x -> "HUNTER".equals(x.getRole()))
+                                .count() * 10)
                         : 20;
 
                 int d6 = 1 + RND.nextInt(6);
@@ -5316,7 +5475,7 @@ public class GameService {
         return g;
     }
 
-    private int maxHpFor(Game g, Player p){
+    private int maxHpFor(Game g, Player p) {
         if ("VAMPIRE".equals(p.getRole())) {
             long hunters = g.getPlayers().stream()
                     .filter(x -> "HUNTER".equals(x.getRole()))
@@ -5327,13 +5486,15 @@ public class GameService {
     }
 
     private boolean hasInvisibility(Game g, String playerId) {
-        if (g.getRaidEffects() == null) return false;
+        if (g.getRaidEffects() == null)
+            return false;
         RaidEffects fx = g.getRaidEffects().get(playerId);
         return fx != null && fx.isInvisible();
     }
 
-    private void pushLive(Game g, String msg){
-        if (g.getMessages() == null) g.setMessages(new ArrayList<>());
+    private void pushLive(Game g, String msg) {
+        if (g.getMessages() == null)
+            g.setMessages(new ArrayList<>());
         g.getMessages().add(msg);
         // notifie le front (déjà géré dans onLiveEvent: MESSAGE)
         live.message(g, msg);
@@ -5341,12 +5502,13 @@ public class GameService {
 
     private boolean hasSuccumbedToCorruption(Game g, String playerId) {
         var eligTargets = g.getUnstableEligibleTargets();
-        var eligLocs    = g.getUnstableEligibleLocations();
+        var eligLocs = g.getUnstableEligibleLocations();
 
-        boolean markedAtk  = (eligTargets != null && eligTargets.containsKey(playerId));
-        boolean markedHarv = (eligLocs    != null && eligLocs.containsKey(playerId));
+        boolean markedAtk = (eligTargets != null && eligTargets.containsKey(playerId));
+        boolean markedHarv = (eligLocs != null && eligLocs.containsKey(playerId));
 
-        // si le jet de corruption a "foiré" pour ce joueur, on l'a mis dans l'une des deux maps
+        // si le jet de corruption a "foiré" pour ce joueur, on l'a mis dans l'une des
+        // deux maps
         return markedAtk || markedHarv;
     }
 
@@ -5358,24 +5520,23 @@ public class GameService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "game not active");
 
         Player p = findPlayer(g, playerId);
-        if (p == null) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
+        if (p == null)
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
 
         if (!isAlive(p)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Tu es hors de combat pour le reste de la partie."
-            );
+                    "Tu es hors de combat pour le reste de la partie.");
         }
 
         boolean isHunter = "HUNTER".equals(p.getRole());
-        boolean isVamp   = "VAMPIRE".equals(p.getRole());
+        boolean isVamp = "VAMPIRE".equals(p.getRole());
 
         // bloque les instables qui succombent à la corruption
         if (g.getPhase() == Phase.PREPHASE3 && hasSuccumbedToCorruption(g, playerId)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Tu succombes à la corruption : tu ne peux pas utiliser tes cartes ce raid."
-            );
+                    "Tu succombes à la corruption : tu ne peux pas utiliser tes cartes ce raid.");
         }
 
         // Présence écrasante du vampire bloque les actions des chasseurs
@@ -5396,8 +5557,7 @@ public class GameService {
 
                 throw new ResponseStatusException(
                         HttpStatus.CONFLICT,
-                        "La présence écrasante du vampire t'empêche d'utiliser des cartes d'action sur ce lieu ce raid."
-                );
+                        "La présence écrasante du vampire t'empêche d'utiliser des cartes d'action sur ce lieu ce raid.");
             }
         }
 
@@ -5443,9 +5603,9 @@ public class GameService {
 
                 save(g);
 
-                final String fFeed   = feedText;
+                final String fFeed = feedText;
                 final String fUserId = playerId;
-                final String fType   = type.name();
+                final String fType = type.name();
 
                 afterCommit(() -> {
                     pushLive(g, fFeed);
@@ -5475,13 +5635,15 @@ public class GameService {
                 inv.remove(type.name());
 
                 // 4) l’envoyer en défausse
-                if (isHunter) discardHunterAction(g, type.name());
-                if (isVamp) discardVampAction(g, type.name());
+                if (isHunter)
+                    discardHunterAction(g, type.name());
+                if (isVamp)
+                    discardVampAction(g, type.name());
 
                 save(g);
 
-                final String fType     = type.name();
-                final String fUserId   = playerId;
+                final String fType = type.name();
+                final String fUserId = playerId;
 
                 afterCommit(() -> {
                     live.actionUsed(g, fUserId, fType);
@@ -5519,10 +5681,9 @@ public class GameService {
                 feedText = nameOf(g, playerId) + " se met sur la piste du vampire.";
 
                 // Si je n'avais pas encore “joué” avant, Pisteur peut finir ma phase.
-                boolean advanceToP2 =
-                        (g.getPhase() == Phase.PHASE1)
-                                && !alreadyPlayed
-                                && allHuntersSelected(g);
+                boolean advanceToP2 = (g.getPhase() == Phase.PHASE1)
+                        && !alreadyPlayed
+                        && allHuntersSelected(g);
 
                 // consommer l’action sur le Player
                 inv.remove(type.name());
@@ -5537,8 +5698,10 @@ public class GameService {
 
                 // 4) envoyer en défausse
                 if (!wasShopBonus) {
-                    if (isHunter) discardHunterAction(g, type.name());
-                    if (isVamp)   discardVampAction(g, type.name());
+                    if (isHunter)
+                        discardHunterAction(g, type.name());
+                    if (isVamp)
+                        discardVampAction(g, type.name());
                 }
 
                 save(g);
@@ -5570,8 +5733,8 @@ public class GameService {
                 WeatherStatus ws = g.getWeatherStatus();
                 if (ws == null
                         || (ws != WeatherStatus.DUSK
-                        && ws != WeatherStatus.NIGHT_DARK
-                        && ws != WeatherStatus.NIGHT_CLEAR)) {
+                                && ws != WeatherStatus.NIGHT_DARK
+                                && ws != WeatherStatus.NIGHT_CLEAR)) {
                     throw new ResponseStatusException(HttpStatus.CONFLICT,
                             "Feu de camp n’a d’effet que par temps de Crépuscule, Nuit obscure ou Nuit claire.");
                 }
@@ -5600,8 +5763,10 @@ public class GameService {
                 inv.remove(type.name());
 
                 // 4) l’envoyer en défausse
-                if (isHunter) discardHunterAction(g, type.name());
-                if (isVamp) discardVampAction(g, type.name());
+                if (isHunter)
+                    discardHunterAction(g, type.name());
+                if (isVamp)
+                    discardVampAction(g, type.name());
 
                 // Marque ce lieu comme protégé par un feu de camp
                 g.getCampfireLocations().add(loc);
@@ -5631,7 +5796,8 @@ public class GameService {
                             "Filet est utilisable uniquement juste avant les combats (PREPHASE3).");
                 }
 
-                // Doit participer à un combat, sinon on pourrait lui laisser la jouer pour rien.
+                // Doit participer à un combat, sinon on pourrait lui laisser la jouer pour
+                // rien.
                 String loc = locationOf(g, playerId);
                 if (loc == null) {
                     throw new ResponseStatusException(HttpStatus.CONFLICT,
@@ -5645,7 +5811,8 @@ public class GameService {
                 }
 
                 if (g.getWeatherStatus() == WeatherStatus.NIGHT_DARK && !isCampfireCancellingWeather(g, loc)) {
-                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Nuit obscure : piège interdit sans feu de camp sur ce lieu.");
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Nuit obscure : piège interdit sans feu de camp sur ce lieu.");
                 }
 
                 // Marque ce chasseur comme ayant un Filet préparé pour ce raid
@@ -5655,8 +5822,10 @@ public class GameService {
                 inv.remove(type.name());
 
                 // 4) l’envoyer en défausse
-                if (isHunter) discardHunterAction(g, type.name());
-                if (isVamp) discardVampAction(g, type.name());
+                if (isHunter)
+                    discardHunterAction(g, type.name());
+                if (isVamp)
+                    discardVampAction(g, type.name());
 
                 String msg = nameOf(g, playerId)
                         + " prépare un Filet pour piéger un adversaire.";
@@ -5671,7 +5840,7 @@ public class GameService {
 
                 afterCommit(() -> {
                     pushLive(g, fFeed);
-                    live.actionUsed(g, fUserId, fType);   // pour refresh front
+                    live.actionUsed(g, fUserId, fType); // pour refresh front
                 });
 
                 return g;
@@ -5698,15 +5867,18 @@ public class GameService {
                 }
 
                 if (g.getWeatherStatus() == WeatherStatus.NIGHT_DARK && !isCampfireCancellingWeather(g, loc)) {
-                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Nuit obscure : piège interdit sans feu de camp sur ce lieu.");
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Nuit obscure : piège interdit sans feu de camp sur ce lieu.");
                 }
 
                 // Marque ce chasseur comme ayant une Fosse préparée
                 g.getPitHunters().add(playerId);
 
                 // Nouveau : enregistre les victimes pour ce chasseur
-                if (g.getPitTargetsByHunter() == null) g.setPitTargetsByHunter(new java.util.HashMap<>());
-                if (g.getPitIndexByHunter() == null)   g.setPitIndexByHunter(new java.util.HashMap<>());
+                if (g.getPitTargetsByHunter() == null)
+                    g.setPitTargetsByHunter(new java.util.HashMap<>());
+                if (g.getPitIndexByHunter() == null)
+                    g.setPitIndexByHunter(new java.util.HashMap<>());
 
                 var victimIds = enemies.stream().map(Player::getId).toList();
                 g.getPitTargetsByHunter().put(playerId, new java.util.ArrayList<>(victimIds));
@@ -5716,8 +5888,10 @@ public class GameService {
                 inv.remove(type.name());
 
                 // 4) l’envoyer en défausse
-                if (isHunter) discardHunterAction(g, type.name());
-                if (isVamp) discardVampAction(g, type.name());
+                if (isHunter)
+                    discardHunterAction(g, type.name());
+                if (isVamp)
+                    discardVampAction(g, type.name());
 
                 String msg = nameOf(g, playerId)
                         + " prépare une Fosse pour ses adversaires.";
@@ -5746,8 +5920,7 @@ public class GameService {
                 if (g.getPhase() != Phase.PREPHASE3) {
                     throw new ResponseStatusException(
                             HttpStatus.CONFLICT,
-                            "Provocation est utilisable uniquement juste avant les combats (PREPHASE3)."
-                    );
+                            "Provocation est utilisable uniquement juste avant les combats (PREPHASE3).");
                 }
 
                 if (hasBlockingActionInProgress(g)) {
@@ -5804,16 +5977,17 @@ public class GameService {
                 addHistory(g, msg);
                 feedText = msg;
 
-                // On annule/redémarre le timer de préphase (comme pour Marque / Affaiblissement)
+                // On annule/redémarre le timer de préphase (comme pour Marque /
+                // Affaiblissement)
                 if (g.getPhase() == Phase.PREPHASE3) {
                     g.setPrephaseTimerVersion(g.getPrephaseTimerVersion() + 1);
                 }
 
                 save(g);
 
-                final String fFeed   = feedText;
+                final String fFeed = feedText;
                 final String fUserId = playerId;
-                final String fType   = type.name();
+                final String fType = type.name();
 
                 afterCommit(() -> {
                     pushLive(g, fFeed);
@@ -5843,7 +6017,8 @@ public class GameService {
                 inv.remove(type.name());
                 discardHunterAction(g, type.name());
 
-                // 2) Enregistrer la préparation : ce chasseur brûlera potentiellement ce lieu en PHASE3
+                // 2) Enregistrer la préparation : ce chasseur brûlera potentiellement ce lieu
+                // en PHASE3
                 g.getIncendiaireLocationByHunter().put(playerId, loc);
 
                 String msg = nameOf(g, playerId)
@@ -5853,9 +6028,9 @@ public class GameService {
 
                 save(g);
 
-                final String fFeed   = feedText;
+                final String fFeed = feedText;
                 final String fUserId = playerId;
-                final String fType   = type.name();
+                final String fType = type.name();
 
                 afterCommit(() -> {
                     pushLive(g, fFeed);
@@ -5873,8 +6048,7 @@ public class GameService {
                 if (g.getPhase() != Phase.PREPHASE3) {
                     throw new ResponseStatusException(
                             HttpStatus.CONFLICT,
-                            "Embuscade est utilisable uniquement juste avant les combats (PREPHASE3)."
-                    );
+                            "Embuscade est utilisable uniquement juste avant les combats (PREPHASE3).");
                 }
 
                 if (hasBlockingActionInProgress(g)) {
@@ -5938,9 +6112,9 @@ public class GameService {
 
                 save(g);
 
-                final String fFeed   = feedText;
+                final String fFeed = feedText;
                 final String fUserId = playerId;
-                final String fType   = type.name();
+                final String fType = type.name();
 
                 afterCommit(() -> {
                     pushLive(g, fFeed);
@@ -5951,16 +6125,20 @@ public class GameService {
             }
 
             case LONELY -> {
-                if (!isHunter) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "chasseurs uniquement");
+                if (!isHunter)
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "chasseurs uniquement");
                 if (g.getPhase() != Phase.PREPHASE3)
-                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Solitaire utilisable uniquement en PREPHASE3.");
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Solitaire utilisable uniquement en PREPHASE3.");
 
                 if (hasBlockingActionInProgress(g))
-                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Une autre action est déjà en cours de résolution.");
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Une autre action est déjà en cours de résolution.");
 
                 String loc = locationOf(g, playerId);
                 if (loc == null)
-                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Tu dois être sur un lieu pour utiliser Solitaire.");
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Tu dois être sur un lieu pour utiliser Solitaire.");
 
                 // consomme la carte
                 inv.remove(type.name());
@@ -5968,10 +6146,9 @@ public class GameService {
 
                 // Hunters éligibles = vivants + pas récolteur instable
                 var harvestMap = g.getUnstableHarvestLocByPlayer();
-                java.util.function.Predicate<Player> eligibleHunter = pl ->
-                        "HUNTER".equals(pl.getRole())
-                                && pl.getHp() > 0
-                                && (harvestMap == null || !harvestMap.containsKey(pl.getId()));
+                java.util.function.Predicate<Player> eligibleHunter = pl -> "HUNTER".equals(pl.getRole())
+                        && pl.getHp() > 0
+                        && (harvestMap == null || !harvestMap.containsKey(pl.getId()));
 
                 var eligibleHunters = g.getPlayers().stream().filter(eligibleHunter).toList();
 
@@ -5999,8 +6176,7 @@ public class GameService {
                 a.setRoll(absent); // on réutilise roll pour passer le bonus au front
                 a.setBreakdownLines(new java.util.ArrayList<>(java.util.List.of(
                         "Solitaire : +" + absent + " ATK et +" + absent + " DEF.",
-                        absent + " chasseur(s) absent(s) sur ce lieu."
-                )));
+                        absent + " chasseur(s) absent(s) sur ce lieu.")));
                 a.setResolvedAtMillis(System.currentTimeMillis());
                 g.setCurrentAction(a);
 
@@ -6048,11 +6224,9 @@ public class GameService {
 
                 // Il doit y avoir au moins un ennemi sur ce lieu (comme Filet)
                 boolean hasEnemy = g.getPlayers().stream()
-                        .anyMatch(pl ->
-                                pl.getHp() > 0
-                                        && loc.equals(locationOf(g, pl.getId()))
-                                        && ("VAMPIRE".equals(pl.getRole()) || "SERVANT".equals(pl.getRole()))
-                        );
+                        .anyMatch(pl -> pl.getHp() > 0
+                                && loc.equals(locationOf(g, pl.getId()))
+                                && ("VAMPIRE".equals(pl.getRole()) || "SERVANT".equals(pl.getRole())));
 
                 // Consommer la carte dans l'inventaire
                 if (inv == null || !inv.remove(type.name())) {
@@ -6094,8 +6268,7 @@ public class GameService {
                 if (g.getPhase() != Phase.PREPHASE3) {
                     throw new ResponseStatusException(
                             HttpStatus.CONFLICT,
-                            "Chapelet sacré est utilisable uniquement juste avant les combats (PREPHASE3)."
-                    );
+                            "Chapelet sacré est utilisable uniquement juste avant les combats (PREPHASE3).");
                 }
 
                 // Si Présence écrasante bloque les actions sur ce lieu, le check global
@@ -6105,8 +6278,7 @@ public class GameService {
                 if (p.isSacredRosary()) {
                     throw new ResponseStatusException(
                             HttpStatus.CONFLICT,
-                            "Tu bénéficies déjà de la protection d’un chapelet sacré."
-                    );
+                            "Tu bénéficies déjà de la protection d’un chapelet sacré.");
                 }
 
                 // Activer l’effet persistant sur ce chasseur
@@ -6122,7 +6294,8 @@ public class GameService {
 
                 // Consommer la carte d’action dans l’inventaire
                 inv.remove(type.name());
-                if (isHunter) discardHunterAction(g, type.name());
+                if (isHunter)
+                    discardHunterAction(g, type.name());
 
                 String msg = nameOf(g, playerId)
                         + " porte un chapelet sacré: il pourra annuler une morsure réussie du vampire.";
@@ -6131,9 +6304,9 @@ public class GameService {
 
                 save(g);
 
-                final String fFeed   = feedText;
+                final String fFeed = feedText;
                 final String fUserId = playerId;
-                final String fType   = type.name();
+                final String fType = type.name();
 
                 afterCommit(() -> {
                     pushLive(g, fFeed);
@@ -6152,23 +6325,20 @@ public class GameService {
                 if (g.getPhase() != Phase.PHASE4) {
                     throw new ResponseStatusException(
                             HttpStatus.CONFLICT,
-                            "Charismatique est utilisable uniquement lors de la boutique (PHASE4)."
-                    );
+                            "Charismatique est utilisable uniquement lors de la boutique (PHASE4).");
                 }
 
                 // Si Présence écrasante bloque les cartes d'action ce raid, on interdit
                 if (g.isHunterActionsBlockedThisRaid()) {
                     throw new ResponseStatusException(
                             HttpStatus.CONFLICT,
-                            "La présence écrasante du vampire t'empêche d'utiliser des cartes d'action ce raid."
-                    );
+                            "La présence écrasante du vampire t'empêche d'utiliser des cartes d'action ce raid.");
                 }
 
                 if (p.isCharismaticThisRaid()) {
                     throw new ResponseStatusException(
                             HttpStatus.CONFLICT,
-                            "L'effet de Charismatique est déjà actif pour ce raid."
-                    );
+                            "L'effet de Charismatique est déjà actif pour ce raid.");
                 }
 
                 // Activer le bonus pour ce raid
@@ -6196,9 +6366,9 @@ public class GameService {
 
                 save(g);
 
-                final String fFeed   = feedText;
+                final String fFeed = feedText;
                 final String fUserId = playerId;
-                final String fType   = type.name();
+                final String fType = type.name();
 
                 afterCommit(() -> {
                     pushLive(g, fFeed);
@@ -6216,16 +6386,17 @@ public class GameService {
                 if (g.getPhase() != Phase.PHASE4) {
                     throw new ResponseStatusException(
                             HttpStatus.CONFLICT,
-                            "Marchand itinérant est utilisable uniquement pendant la maintenance (PHASE4)."
-                    );
+                            "Marchand itinérant est utilisable uniquement pendant la maintenance (PHASE4).");
                 }
 
-                // perso : si CE joueur a déjà une offre / un jet / une modale achat ouverte -> refuse
+                // perso : si CE joueur a déjà une offre / un jet / une modale achat ouverte ->
+                // refuse
                 if (p.isMerchantPending()
                         || p.getShopBonusKind() != null
                         || p.isShopBonusBuyPending()
                         || p.getMerchantRoll() != null) {
-                    throw new ResponseStatusException(HttpStatus.CONFLICT, "tu as déjà une offre du marchand en cours.");
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "tu as déjà une offre du marchand en cours.");
                 }
 
                 // Consommer la carte dans la main du chasseur
@@ -6246,9 +6417,9 @@ public class GameService {
 
                 save(g);
 
-                final String fFeed   = feedText;
+                final String fFeed = feedText;
                 final String fUserId = playerId;
-                final String fType   = type.name();
+                final String fType = type.name();
 
                 afterCommit(() -> {
                     pushLive(g, fFeed);
@@ -6300,9 +6471,9 @@ public class GameService {
 
                 save(g);
 
-                final String fType   = type.name();
+                final String fType = type.name();
                 final String fUserId = playerId;
-                final String fFeed   = feedText;
+                final String fFeed = feedText;
 
                 afterCommit(() -> {
                     pushLive(g, fFeed);
@@ -6347,9 +6518,9 @@ public class GameService {
 
                 save(g);
 
-                final String fType   = type.name();
+                final String fType = type.name();
                 final String fUserId = playerId;
-                final String fFeed   = feedText;
+                final String fFeed = feedText;
 
                 afterCommit(() -> {
                     pushLive(g, fFeed);
@@ -6393,9 +6564,9 @@ public class GameService {
 
                 save(g);
 
-                final String fType   = type.name();
+                final String fType = type.name();
                 final String fUserId = playerId;
-                final String fFeed   = feedText;
+                final String fFeed = feedText;
 
                 afterCommit(() -> {
                     pushLive(g, fFeed);
@@ -6413,14 +6584,14 @@ public class GameService {
                 if (g.getPhase() != Phase.PREPHASE3) {
                     throw new ResponseStatusException(
                             HttpStatus.CONFLICT,
-                            "Présence écrasante est utilisable uniquement juste avant les combats (PREPHASE3)."
-                    );
+                            "Présence écrasante est utilisable uniquement juste avant les combats (PREPHASE3).");
                 }
 
                 // Lieu actuel du vampire
                 String vampLoc = locationOf(g, playerId);
 
-                // Annule toutes les prépas des chasseurs SUR CE LIEU + récupère la liste déjà formatée pour le message
+                // Annule toutes les prépas des chasseurs SUR CE LIEU + récupère la liste déjà
+                // formatée pour le message
                 java.util.List<String> parts = cancelHunterPrephase3ActionsOnVampLoc(g, vampLoc);
 
                 // Bloque les cartes d'action chasseurs pour le reste du raid
@@ -6435,11 +6606,13 @@ public class GameService {
 
                 if (parts.isEmpty()) {
                     msg += "aucune préparation de cartes des chasseurs n'était en cours sur ce lieu, "
-                            + "mais les chasseurs prsénts sur " + labelLieuFr(vampLoc) + " ne pourront plus utiliser de cartes d'action ce raid.";
+                            + "mais les chasseurs prsénts sur " + labelLieuFr(vampLoc)
+                            + " ne pourront plus utiliser de cartes d'action ce raid.";
                 } else {
                     msg += "les préparations de cartes des chasseurs sur ce lieu sont annulées ("
                             + String.join(", ", parts)
-                            + "). Les chasseurs présents sur " + labelLieuFr(vampLoc) + " ne pourront plus utiliser de cartes d'action ce raid.";
+                            + "). Les chasseurs présents sur " + labelLieuFr(vampLoc)
+                            + " ne pourront plus utiliser de cartes d'action ce raid.";
                 }
 
                 addHistory(g, msg);
@@ -6465,10 +6638,10 @@ public class GameService {
 
                 save(g);
 
-                final String fFeed   = feedText;
+                final String fFeed = feedText;
                 final String fUserId = playerId;
-                final String fType   = type.name();
-                final int version    = newVersion;
+                final String fType = type.name();
+                final int version = newVersion;
 
                 afterCommit(() -> {
                     pushLive(g, fFeed);
@@ -6488,8 +6661,7 @@ public class GameService {
                 if (g.getPhase() != Phase.PREPHASE3) {
                     throw new ResponseStatusException(
                             HttpStatus.CONFLICT,
-                            "Éclipse est utilisable uniquement juste avant les combats (PREPHASE3)."
-                    );
+                            "Éclipse est utilisable uniquement juste avant les combats (PREPHASE3).");
                 }
 
                 inv.remove(type.name());
@@ -6530,10 +6702,10 @@ public class GameService {
 
                 save(g);
 
-                final String fFeed   = feedText;
+                final String fFeed = feedText;
                 final String fUserId = playerId;
-                final String fType   = type.name();
-                final int version    = newVersion;
+                final String fType = type.name();
+                final int version = newVersion;
 
                 afterCommit(() -> {
                     pushLive(g, fFeed);
@@ -6555,21 +6727,18 @@ public class GameService {
                 if (g.getPhase() != Phase.PREPHASE3) {
                     throw new ResponseStatusException(
                             HttpStatus.CONFLICT,
-                            "Lune sanglante est utilisable uniquement juste avant les combats (PREPHASE3)."
-                    );
+                            "Lune sanglante est utilisable uniquement juste avant les combats (PREPHASE3).");
                 }
 
                 // Vérifier que la météo contient FULL_MOON (principal ou secondaire)
                 WeatherStatus ws1 = g.getWeatherStatus();
 
-                boolean hasFullMoon =
-                        (ws1 == WeatherStatus.FULL_MOON);
+                boolean hasFullMoon = (ws1 == WeatherStatus.FULL_MOON);
 
                 if (!hasFullMoon) {
                     throw new ResponseStatusException(
                             HttpStatus.CONFLICT,
-                            "Lune sanglante ne peut être utilisée que si la météo est Pleine lune."
-                    );
+                            "Lune sanglante ne peut être utilisée que si la météo est Pleine lune.");
                 }
 
                 // Consommer la carte
@@ -6580,7 +6749,6 @@ public class GameService {
                 g.setWeatherStatus(WeatherStatus.BLOOD_MOON);
                 g.setWeatherStatusNameFr(weatherNameFr(WeatherStatus.BLOOD_MOON));
                 g.setWeatherDescriptionFr(weatherDescFr(WeatherStatus.BLOOD_MOON));
-
 
                 // Rebuilder les mods météo
                 rebuildWeatherMods(g);
@@ -6612,14 +6780,14 @@ public class GameService {
 
                 save(g);
 
-                final String fFeed   = feedText;
+                final String fFeed = feedText;
                 final String fUserId = playerId;
-                final String fType   = type.name();
-                final int version    = newVersion;
+                final String fType = type.name();
+                final int version = newVersion;
 
                 afterCommit(() -> {
                     pushLive(g, fFeed);
-                    live.raidModsUpdated(g);   // pour rafraîchir les mods WEATHER:*
+                    live.raidModsUpdated(g); // pour rafraîchir les mods WEATHER:*
                     live.actionUsed(g, fUserId, fType);
 
                     // On relance un timer PREPHASE3 complet de 30s
@@ -6637,8 +6805,7 @@ public class GameService {
                 if (g.getPhase() != Phase.PREPHASE3) {
                     throw new ResponseStatusException(
                             HttpStatus.CONFLICT,
-                            "Voile de brume est utilisable uniquement juste avant les combats (PREPHASE3)."
-                    );
+                            "Voile de brume est utilisable uniquement juste avant les combats (PREPHASE3).");
                 }
 
                 // Consommer la carte
@@ -6674,9 +6841,9 @@ public class GameService {
 
                 save(g);
 
-                final String fFeed   = feedText;
+                final String fFeed = feedText;
                 final String fUserId = playerId;
-                final String fType   = type.name();
+                final String fType = type.name();
 
                 afterCommit(() -> {
                     pushLive(g, fFeed);
@@ -6694,8 +6861,7 @@ public class GameService {
                 if (g.getPhase() != Phase.PREPHASE3) {
                     throw new ResponseStatusException(
                             HttpStatus.CONFLICT,
-                            "Faim irrépressible est utilisable uniquement juste avant les combats (PREPHASE3)."
-                    );
+                            "Faim irrépressible est utilisable uniquement juste avant les combats (PREPHASE3).");
                 }
 
                 // Consommer la carte sur le vampire
@@ -6736,10 +6902,10 @@ public class GameService {
 
                 save(g);
 
-                final String fFeed   = feedText;
+                final String fFeed = feedText;
                 final String fUserId = playerId;
-                final String fType   = type.name();
-                final int version    = newVersion;
+                final String fType = type.name();
+                final int version = newVersion;
 
                 afterCommit(() -> {
                     pushLive(g, fFeed);
@@ -6758,8 +6924,7 @@ public class GameService {
                 if (g.getPhase() != Phase.PREPHASE3) {
                     throw new ResponseStatusException(
                             HttpStatus.CONFLICT,
-                            "Marque ténébreuse est utilisable uniquement juste avant les combats (PREPHASE3)."
-                    );
+                            "Marque ténébreuse est utilisable uniquement juste avant les combats (PREPHASE3).");
                 }
 
                 if (hasBlockingActionInProgress(g)) {
@@ -6797,9 +6962,9 @@ public class GameService {
 
                 save(g);
 
-                final String fFeed   = feedText;
+                final String fFeed = feedText;
                 final String fUserId = playerId;
-                final String fType   = type.name();
+                final String fType = type.name();
 
                 afterCommit(() -> {
                     pushLive(g, fFeed);
@@ -6817,8 +6982,7 @@ public class GameService {
                 if (g.getPhase() != Phase.PREPHASE3) {
                     throw new ResponseStatusException(
                             HttpStatus.CONFLICT,
-                            "Affaiblissement occulte est utilisable uniquement juste avant les combats (PREPHASE3)."
-                    );
+                            "Affaiblissement occulte est utilisable uniquement juste avant les combats (PREPHASE3).");
                 }
 
                 if (hasBlockingActionInProgress(g)) {
@@ -6855,9 +7019,9 @@ public class GameService {
 
                 save(g);
 
-                final String fFeed   = feedText;
+                final String fFeed = feedText;
                 final String fUserId = playerId;
-                final String fType   = type.name();
+                final String fType = type.name();
 
                 afterCommit(() -> {
                     pushLive(g, fFeed);
@@ -6875,8 +7039,7 @@ public class GameService {
                 if (g.getPhase() != Phase.PREPHASE3) {
                     throw new ResponseStatusException(
                             HttpStatus.CONFLICT,
-                            "Passage secret est utilisable uniquement juste avant les combats (PREPHASE3)."
-                    );
+                            "Passage secret est utilisable uniquement juste avant les combats (PREPHASE3).");
                 }
 
                 // Doit être au Manoir
@@ -6902,7 +7065,7 @@ public class GameService {
                 Game.Action a = new Game.Action();
                 a.setMode("PASSAGE_SECRET");
                 a.setOwnerId(playerId);
-                a.setLocation(loc);  // lieu actuel = Manoir
+                a.setLocation(loc); // lieu actuel = Manoir
                 a.setTargetId(null);
                 a.setRoll(null);
                 a.setBreakdownLines(new java.util.ArrayList<>());
@@ -6922,9 +7085,9 @@ public class GameService {
 
                 save(g);
 
-                final String fFeed   = feedText;
+                final String fFeed = feedText;
                 final String fUserId = playerId;
-                final String fType   = type.name();
+                final String fType = type.name();
 
                 afterCommit(() -> {
                     pushLive(g, fFeed);
@@ -6941,24 +7104,21 @@ public class GameService {
                 if (g.getPhase() != Phase.PHASE4) {
                     throw new ResponseStatusException(
                             HttpStatus.CONFLICT,
-                            "Avidité nocturne est utilisable uniquement lors de la boutique (PHASE4)."
-                    );
+                            "Avidité nocturne est utilisable uniquement lors de la boutique (PHASE4).");
                 }
 
                 // déjà utilisée ce raid ?
                 if (g.isShopPricesIncreasedThisRaid()) {
                     throw new ResponseStatusException(
                             HttpStatus.CONFLICT,
-                            "Avidité nocturne a déjà été utilisée ce raid."
-                    );
+                            "Avidité nocturne a déjà été utilisée ce raid.");
                 }
 
                 // le vampire doit réellement avoir la carte
                 if (inv == null || !inv.contains(type.name())) {
                     throw new ResponseStatusException(
                             HttpStatus.CONFLICT,
-                            "Le vampire ne possède pas la carte Avidité nocturne."
-                    );
+                            "Le vampire ne possède pas la carte Avidité nocturne.");
                 }
 
                 // activer l'effet global pour ce raid
@@ -6985,9 +7145,9 @@ public class GameService {
 
                 save(g);
 
-                final String fFeed   = feedText;
+                final String fFeed = feedText;
                 final String fUserId = playerId;
-                final String fType   = type.name();
+                final String fType = type.name();
 
                 afterCommit(() -> {
                     pushLive(g, fFeed);
@@ -7004,24 +7164,27 @@ public class GameService {
     }
 
     private boolean isBlockingAction(Game.Action a) {
-        if (a == null) return false;
+        if (a == null)
+            return false;
         String m = a.getMode();
-        if (m == null) return false;
+        if (m == null)
+            return false;
 
         return switch (m) {
             case "NET",
-                 "PIT",
-                 "INCENDIAIRE",
-                 "EAU_BENITE",
-                 "PROVOCATION",
-                 "AMBUSH",
-                 "MARQUE_TENEBREUSE",
-                 "AFFAIBLISSEMENT_OCCULTE",
-                 "CLONES_OMBRE",
-                 "IMAGE_MIROIR_SETUP",
-                 "IMAGE_MIROIR_RESOLVE",
-                 "PASSAGE_SECRET",
-                 "CATACLYSME" -> true;
+                    "PIT",
+                    "INCENDIAIRE",
+                    "EAU_BENITE",
+                    "PROVOCATION",
+                    "AMBUSH",
+                    "MARQUE_TENEBREUSE",
+                    "AFFAIBLISSEMENT_OCCULTE",
+                    "CLONES_OMBRE",
+                    "IMAGE_MIROIR_SETUP",
+                    "IMAGE_MIROIR_RESOLVE",
+                    "PASSAGE_SECRET",
+                    "CATACLYSME" ->
+                true;
 
             default -> false; // FAIM, PRESENCE, ECLIPSE, LONELY, BLOOD_MOON, VOILE_DE_BRUME => non bloquantes
         };
@@ -7031,19 +7194,19 @@ public class GameService {
         return isBlockingAction(g.getCurrentAction());
     }
 
-
-// ACTIONS HUNTER
+    // ACTIONS HUNTER
     /**
      * Applique l'effet des chasseurs Pisteur quand le vampire pose son lieu.
      * - si le chasseur avait déjà joué un lieu (ex : fumigé) :
-     *   - on lui rend ce lieu dans la main
+     * - on lui rend ce lieu dans la main
      * - on consomme le lieu du vampire dans sa main
      * - on met sa carte au centre sur le lieu du vampire
      * - la fumigation reste active (garlicBlockedLocations inchangé)
      */
     private void applyTrackerHuntersWhenVampirePlays(Game g, String vampireLocation) {
         var trackers = g.getTrackerHunters();
-        if (trackers == null || trackers.isEmpty()) return;
+        if (trackers == null || trackers.isEmpty())
+            return;
 
         // Copie pour éviter ConcurrentModificationException si on modifie le Set
         var ids = new java.util.ArrayList<>(trackers);
@@ -7053,11 +7216,13 @@ public class GameService {
                     .filter(pp -> pp.getId().equals(hunterId))
                     .findFirst();
 
-            if (opt.isEmpty()) continue;
+            if (opt.isEmpty())
+                continue;
             var hp = opt.get();
 
             // uniquement des chasseurs vivants
-            if (!"HUNTER".equals(hp.getRole()) || hp.getHp() <= 0) continue;
+            if (!"HUNTER".equals(hp.getRole()) || hp.getHp() <= 0)
+                continue;
 
             // === 1) récupérer l'ancien lieu joué par ce chasseur, s'il existe ===
             String oldLoc = null;
@@ -7088,7 +7253,7 @@ public class GameService {
             hand.remove(vampireLocation);
 
             // === 4) poser au centre une nouvelle carte sur le lieu du vampire ===
-            CenterBoard follow = new CenterBoard(hunterId, vampireLocation, /*faceUp=*/false);
+            CenterBoard follow = new CenterBoard(hunterId, vampireLocation, /* faceUp= */false);
             g.getCenter().add(follow);
 
             // === 5) historique lisible ===
@@ -7099,7 +7264,6 @@ public class GameService {
         // effet consommé pour ce raid
         trackers.clear();
     }
-
 
     private void applyFumigationAilPrepare(Game g, Player hunter) {
         if (g.getPendingGarlicPlayers() == null) {
@@ -7120,11 +7284,14 @@ public class GameService {
     }
 
     private boolean isCampfireCancellingWeather(@NonNull Game g, @NonNull String location) {
-        if (g.getCampfireLocations() == null) return false;
-        if (!g.getCampfireLocations().contains(location)) return false;
+        if (g.getCampfireLocations() == null)
+            return false;
+        if (!g.getCampfireLocations().contains(location))
+            return false;
 
         WeatherStatus ws = g.getWeatherStatus();
-        if (ws == null) return false;
+        if (ws == null)
+            return false;
 
         // Carte Feu de camp : ne sert que pour ces 3 états
         return ws == WeatherStatus.DUSK
@@ -7147,17 +7314,19 @@ public class GameService {
         if (g.getNetHunters() != null) {
             for (String hunterId : g.getNetHunters()) {
                 String loc = locationOf(g, hunterId);
-                if (loc == null) continue;
+                if (loc == null)
+                    continue;
 
                 // cible possible = vampire/serviteur ou monstre sur ce lieu
-                if (!hasTrapTargetsOnLocation(g, loc)) continue;
+                if (!hasTrapTargetsOnLocation(g, loc))
+                    continue;
 
                 Game.Action a = new Game.Action();
                 a.setMode("NET");
                 a.setOwnerId(hunterId);
                 a.setLocation(loc);
-                a.setTargetId(null);          // cible pas encore choisie
-                a.setRoll(null);              // dé pas encore lancé
+                a.setTargetId(null); // cible pas encore choisie
+                a.setRoll(null); // dé pas encore lancé
                 a.setBreakdownLines(java.util.List.of());
                 a.setResolvedAtMillis(null);
 
@@ -7170,10 +7339,12 @@ public class GameService {
         if (g.getPitHunters() != null && g.getPitTargetsByHunter() != null) {
             for (String hunterId : g.getPitHunters()) {
                 String loc = locationOf(g, hunterId);
-                if (loc == null) continue;
+                if (loc == null)
+                    continue;
 
                 var victims = g.getPitTargetsByHunter().get(hunterId);
-                if (victims == null || victims.isEmpty()) continue;
+                if (victims == null || victims.isEmpty())
+                    continue;
 
                 int idx = 0;
                 if (g.getPitIndexByHunter() != null && g.getPitIndexByHunter().containsKey(hunterId)) {
@@ -7197,9 +7368,9 @@ public class GameService {
 
                 Game.Action a = new Game.Action();
                 a.setMode("PIT");
-                a.setOwnerId(hunterId);           // chasseur qui a posé la Fosse
+                a.setOwnerId(hunterId); // chasseur qui a posé la Fosse
                 a.setLocation(loc);
-                a.setTargetId(currentVictimId);   // cible courante
+                a.setTargetId(currentVictimId); // cible courante
                 a.setRoll(null);
                 a.setBreakdownLines(java.util.List.of());
                 a.setResolvedAtMillis(null);
@@ -7235,7 +7406,7 @@ public class GameService {
                 a.setMode("INCENDIAIRE");
                 a.setOwnerId(hunterId);
                 a.setLocation(loc);
-                a.setTargetId(null);                 // infra choisie côté front
+                a.setTargetId(null); // infra choisie côté front
                 a.setRoll(null);
                 a.setBreakdownLines(java.util.List.of());
                 a.setResolvedAtMillis(null);
@@ -7245,7 +7416,8 @@ public class GameService {
             }
         }
 
-        // 4) Si on arrive ici : aucun Filet/Fosse/Incendiaire à résoudre -> currentAction reste null
+        // 4) Si on arrive ici : aucun Filet/Fosse/Incendiaire à résoudre ->
+        // currentAction reste null
     }
 
     @Transactional
@@ -7269,20 +7441,17 @@ public class GameService {
         if (a == null) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "aucune action Filet en cours (currentAction null)"
-            );
+                    "aucune action Filet en cours (currentAction null)");
         }
         if (!"NET".equals(a.getMode())) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "action courante n’est pas un Filet (mode=" + a.getMode() + ")"
-            );
+                    "action courante n’est pas un Filet (mode=" + a.getMode() + ")");
         }
         if (!hunterId.equals(a.getOwnerId())) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Filet en cours appartient à " + a.getOwnerId() + ", pas à " + hunterId
-            );
+                    "Filet en cours appartient à " + a.getOwnerId() + ", pas à " + hunterId);
         }
 
         String loc = a.getLocation();
@@ -7326,9 +7495,9 @@ public class GameService {
 
         save(g);
 
-        final String fLoc    = loc;
+        final String fLoc = loc;
         final String fTarget = targetId;
-        final String fOwner  = hunterId;
+        final String fOwner = hunterId;
 
         afterCommit(() -> {
             // Notifie tout le monde que l’action (Filet) a une cible
@@ -7391,7 +7560,8 @@ public class GameService {
 
         Game.Action a = g.getCurrentAction();
         if (a != null && "NET".equals(a.getMode()) && hunterId.equals(a.getOwnerId())) {
-            // Si une cible avait déjà été posée via chooseNetTarget, on vérifie la cohérence
+            // Si une cible avait déjà été posée via chooseNetTarget, on vérifie la
+            // cohérence
             if (a.getTargetId() != null && !a.getTargetId().equals(targetId)) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT,
                         "cible différente de celle choisie pour Filet.");
@@ -7407,7 +7577,8 @@ public class GameService {
         breakdown.add("Jet de Filet : 1d20 = " + roll);
 
         if (roll > 12) {
-            if (g.getRaidMods() == null) g.setRaidMods(new java.util.HashMap<>());
+            if (g.getRaidMods() == null)
+                g.setRaidMods(new java.util.HashMap<>());
             g.getRaidMods().computeIfAbsent(targetId, __ -> new java.util.ArrayList<>())
                     .add(new StatMod("DEFENSE", -1, "ACTION:NET"));
 
@@ -7436,8 +7607,8 @@ public class GameService {
 
         save(g);
 
-        final String fMsg      = msg;
-        final int    fRoll     = roll;
+        final String fMsg = msg;
+        final int fRoll = roll;
         final String fHunterId = hunterId;
         final String fTargetId = targetId;
 
@@ -7465,7 +7636,8 @@ public class GameService {
 
         // joueur qui clique (pas forcément la future cible, si c'est un monstre)
         Player clicker = findPlayer(g, victimId);
-        if (clicker == null) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
+        if (clicker == null)
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
         if (!"VAMPIRE".equals(clicker.getRole()) && !"SERVANT".equals(clicker.getRole())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     "seuls vampire/serviteurs sont concernés par la Fosse.");
@@ -7500,7 +7672,7 @@ public class GameService {
         }
 
         var targetsMap = g.getPitTargetsByHunter();
-        var indexMap   = g.getPitIndexByHunter();
+        var indexMap = g.getPitIndexByHunter();
         if (targetsMap == null || indexMap == null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Fosse mal initialisée.");
@@ -7526,7 +7698,7 @@ public class GameService {
                     "cible de Fosse incohérente.");
         }
 
-        Player targetPlayer     = findPlayer(g, targetId);
+        Player targetPlayer = findPlayer(g, targetId);
         Game.Monster targetMonster = findMonster(g, targetId);
 
         if (targetPlayer == null && targetMonster == null) {
@@ -7535,7 +7707,7 @@ public class GameService {
         }
 
         // si la cible est un joueur : on garde l’ancien comportement :
-        //     la "victime" doit cliquer elle-même.
+        // la "victime" doit cliquer elle-même.
         if (targetPlayer != null) {
             if (!"VAMPIRE".equals(targetPlayer.getRole()) && !"SERVANT".equals(targetPlayer.getRole())) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN,
@@ -7568,7 +7740,8 @@ public class GameService {
         breakdown.add("Jet pour la Fosse : 1d20 = " + roll);
 
         if (roll < 8) {
-            if (g.getRaidMods() == null) g.setRaidMods(new java.util.HashMap<>());
+            if (g.getRaidMods() == null)
+                g.setRaidMods(new java.util.HashMap<>());
             g.getRaidMods().computeIfAbsent(targetId, __ -> new java.util.ArrayList<>())
                     .add(new StatMod("DEFENSE", -2, "ACTION:PIT"));
 
@@ -7602,8 +7775,8 @@ public class GameService {
 
         save(g);
 
-        final String fMsg      = msg;
-        final int    fRoll     = roll;
+        final String fMsg = msg;
+        final int fRoll = roll;
         final String fHunterId = hunterId;
         final String fVictimId = targetId;
 
@@ -7628,8 +7801,7 @@ public class GameService {
         if (g.getPhase() != Phase.PHASE3) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Incendiaire se résout en PHASE3, juste avant les duels."
-            );
+                    "Incendiaire se résout en PHASE3, juste avant les duels.");
         }
 
         Player hunter = findPlayer(g, hunterId);
@@ -7661,8 +7833,7 @@ public class GameService {
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "infrastructure inconnue pour Incendiaire."
-            );
+                    "infrastructure inconnue pour Incendiaire.");
         }
 
         // Jet de dé
@@ -7671,8 +7842,9 @@ public class GameService {
         java.util.List<String> breakdown = new java.util.ArrayList<>();
         breakdown.add("Jet d'Incendiaire : 1d20 = " + roll);
 
-        String infraLocCode = infra.locationCode(); // ex: "sawmill","mine","library","laboratory","ballroom","altar","forge"
-        String infraLabel   = (infraLocCode != null ? labelLieuFr(infraLocCode) : infra.name());
+        String infraLocCode = infra.locationCode(); // ex:
+                                                    // "sawmill","mine","library","laboratory","ballroom","altar","forge"
+        String infraLabel = (infraLocCode != null ? labelLieuFr(infraLocCode) : infra.name());
 
         String msg;
 
@@ -7733,10 +7905,10 @@ public class GameService {
 
         save(g);
 
-        final String fMsg      = msg;
-        final int    fRoll     = roll;
+        final String fMsg = msg;
+        final int fRoll = roll;
         final String fHunterId = hunterId;
-        final String fInfra    = infra.name();
+        final String fInfra = infra.name();
 
         afterCommit(() -> {
             pushLive(g, fMsg);
@@ -7747,11 +7919,13 @@ public class GameService {
     }
 
     /**
-     * Retourne true s'il reste au moins une infrastructure cible possible pour Incendiaire
+     * Retourne true s'il reste au moins une infrastructure cible possible pour
+     * Incendiaire
      * sur ce lieu (construite ou en construction).
      */
     private boolean hasIncendiaireTargetsOnLocation(Game g, String loc) {
-        if (loc == null) return false;
+        if (loc == null)
+            return false;
 
         java.util.EnumSet<Infra> built = (g.getBuiltInfras() != null)
                 ? g.getBuiltInfras()
@@ -7760,8 +7934,7 @@ public class GameService {
         Game.PendingConstruction pc = g.getPendingConstruction();
         Infra pending = (pc != null ? pc.infra : null);
 
-        java.util.function.Predicate<Infra> available = infra ->
-                built.contains(infra) || (pending == infra);
+        java.util.function.Predicate<Infra> available = infra -> built.contains(infra) || (pending == infra);
 
         switch (loc) {
             case "forest":
@@ -7842,7 +8015,7 @@ public class GameService {
         }
 
         String hunterLoc = locationOf(g, hunterId);
-        String enemyLoc  = locationOf(g, enemyId);
+        String enemyLoc = locationOf(g, enemyId);
         if (hunterLoc == null || !hunterLoc.equals(enemyLoc)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "la cible doit être sur le même lieu que le chasseur.");
@@ -8101,9 +8274,9 @@ public class GameService {
 
         save(g);
 
-        final String fMsg    = msg;
-        final int    fRoll   = roll;
-        final String fOwner  = hunter.getId();
+        final String fMsg = msg;
+        final int fRoll = roll;
+        final String fOwner = hunter.getId();
         final String fTarget = targetId;
 
         afterCommit(() -> {
@@ -8125,7 +8298,8 @@ public class GameService {
         }
 
         Player p = findPlayer(g, userId);
-        if (p == null) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
+        if (p == null)
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
         if (!isAlive(p)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Tu es hors de combat pour le reste de la partie.");
         }
@@ -8143,7 +8317,7 @@ public class GameService {
 
         int d6 = 1 + RND.nextInt(6);
         p.setMerchantRoll(d6);
-        p.setMerchantPending(false);     // plus en attente
+        p.setMerchantPending(false); // plus en attente
         p.setShopBonusBuyPending(false); // reset sécurité
 
         // reset offer
@@ -8170,26 +8344,34 @@ public class GameService {
 
             // Règle : si T0/T1 => on propose celui qui est le plus bas, sinon 50/50
             boolean preferWeapon;
-            if (wTier < aTier) preferWeapon = true;
-            else if (aTier < wTier) preferWeapon = false;
-            else preferWeapon = RND.nextBoolean();
+            if (wTier < aTier)
+                preferWeapon = true;
+            else if (aTier < wTier)
+                preferWeapon = false;
+            else
+                preferWeapon = RND.nextBoolean();
 
             boolean weapon;
             Integer tier;
 
             if (preferWeapon && wOffer != null) {
-                weapon = true;  tier = wOffer;
+                weapon = true;
+                tier = wOffer;
             } else if (!preferWeapon && aOffer != null) {
-                weapon = false; tier = aOffer;
+                weapon = false;
+                tier = aOffer;
             } else if (wOffer != null) {
-                weapon = true;  tier = wOffer;
+                weapon = true;
+                tier = wOffer;
             } else if (aOffer != null) {
-                weapon = false; tier = aOffer;
+                weapon = false;
+                tier = aOffer;
             } else {
                 // déjà T2 partout => pas d’équipement (jamais T3) => fallback
                 kind = "ELIXIR";
                 p.setShopBonusKind(kind);
-                addHistory(g, "Marchand itinérant — " + nameOf(g, userId) + " est déjà équipé au maximum (T2). Offre remplacée par un élixir.");
+                addHistory(g, "Marchand itinérant — " + nameOf(g, userId)
+                        + " est déjà équipé au maximum (T2). Offre remplacée par un élixir.");
                 save(g);
                 afterCommit(() -> live.actionResolved(g, "MARCHAND_ITINERANT", userId, null));
                 return g;
@@ -8199,7 +8381,7 @@ public class GameService {
 
             String equipId = weapon ? merchantWeaponIdForTier(tier) : merchantArmorIdForTier(tier);
 
-            p.setShopBonusEquipTier(tier);  // sert au prix
+            p.setShopBonusEquipTier(tier); // sert au prix
             p.setShopBonusEquipId(equipId); // offre stable
             line = "Marchand itinérant — " + (weapon ? "une arme" : "une armure")
                     + " T" + tier + " est disponible à la boutique pour " + nameOf(g, userId) + ".";
@@ -8218,20 +8400,27 @@ public class GameService {
         return g;
     }
 
-
     private int hunterWeaponTier(String weaponId) {
-        if (weaponId == null) return 0;
-        if (weaponId.startsWith("H_WEAPON_T1_")) return 1;
-        if (weaponId.startsWith("H_WEAPON_T2_")) return 2;
-        if (weaponId.startsWith("H_WEAPON_T3_")) return 3;
+        if (weaponId == null)
+            return 0;
+        if (weaponId.startsWith("H_WEAPON_T1_"))
+            return 1;
+        if (weaponId.startsWith("H_WEAPON_T2_"))
+            return 2;
+        if (weaponId.startsWith("H_WEAPON_T3_"))
+            return 3;
         return 0;
     }
 
     private int hunterArmorTier(String armorId) {
-        if (armorId == null) return 0;
-        if (armorId.startsWith("H_ARMOR_T1_")) return 1;
-        if (armorId.startsWith("H_ARMOR_T2_")) return 2;
-        if (armorId.startsWith("H_ARMOR_T3_")) return 3;
+        if (armorId == null)
+            return 0;
+        if (armorId.startsWith("H_ARMOR_T1_"))
+            return 1;
+        if (armorId.startsWith("H_ARMOR_T2_"))
+            return 2;
+        if (armorId.startsWith("H_ARMOR_T3_"))
+            return 3;
         return 0;
     }
 
@@ -8277,7 +8466,8 @@ public class GameService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE4");
 
         Player p = findPlayer(g, userId);
-        if (p == null) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
+        if (p == null)
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
         if (!isAlive(p))
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Tu es hors de combat pour le reste de la partie.");
         if (!"HUNTER".equals(p.getRole()))
@@ -8308,7 +8498,8 @@ public class GameService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE4");
 
         Player p = findPlayer(g, userId);
-        if (p == null) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
+        if (p == null)
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
         if (!isAlive(p))
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Tu es hors de combat pour le reste de la partie.");
         if (!"HUNTER".equals(p.getRole()))
@@ -8330,8 +8521,10 @@ public class GameService {
 
         java.util.function.IntUnaryOperator goldCost = (base) -> {
             int c = base;
-            if (greedy) c += 50;
-            if (charismatic) c = Math.max(0, c - 20);
+            if (greedy)
+                c += 50;
+            if (charismatic)
+                c = Math.max(0, c - 20);
             return c;
         };
 
@@ -8347,14 +8540,17 @@ public class GameService {
                     p.setHerbs(p.getHerbs() - herbsCost);
                 } else {
                     int cost = goldCost.applyAsInt(30);
-                    if (p.getGold() < cost) throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
+                    if (p.getGold() < cost)
+                        throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
                     p.setGold(p.getGold() - cost);
                 }
 
                 String potionId = drawFromDeck(g.getPotionDeck(), g.getPotionDiscard());
-                if (potionId == null) throw new ResponseStatusException(HttpStatus.CONFLICT, "no potions left");
+                if (potionId == null)
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "no potions left");
 
-                if (p.getPotions() == null) p.setPotions(new java.util.ArrayList<>());
+                if (p.getPotions() == null)
+                    p.setPotions(new java.util.ArrayList<>());
                 p.getPotions().add(potionId);
 
                 message = nameOf(g, userId) + " achète une potion (" + potionId + ") via le marchand itinérant ("
@@ -8371,15 +8567,18 @@ public class GameService {
                     p.setHerbs(p.getHerbs() - herbsCost);
                 } else {
                     int cost = goldCost.applyAsInt(60);
-                    if (p.getGold() < cost) throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
+                    if (p.getGold() < cost)
+                        throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
                     p.setGold(p.getGold() - cost);
                 }
 
                 String elixirId = drawFromDeck(g.getElixirDeck(), g.getElixirDiscard());
-                if (elixirId == null) throw new ResponseStatusException(HttpStatus.CONFLICT, "no elixirs left");
+                if (elixirId == null)
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "no elixirs left");
 
                 // FIX: elixirs dans la bonne liste
-                if (p.getElixirs() == null) p.setElixirs(new java.util.ArrayList<>());
+                if (p.getElixirs() == null)
+                    p.setElixirs(new java.util.ArrayList<>());
                 p.getElixirs().add(elixirId);
 
                 message = nameOf(g, userId) + " achète un élixir (" + elixirId + ") via le marchand itinérant ("
@@ -8390,7 +8589,8 @@ public class GameService {
             case "EQUIP_WEAPON" -> {
                 int t = (tier == null) ? 1 : Math.max(1, Math.min(2, tier)); // sécurité 1..2
                 String weaponId = p.getShopBonusEquipId();
-                if (weaponId == null) throw new ResponseStatusException(HttpStatus.CONFLICT, "invalid offer");
+                if (weaponId == null)
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "invalid offer");
 
                 // coût selon tier
                 int woodCost = (t == 2) ? 3 : 2;
@@ -8404,12 +8604,14 @@ public class GameService {
                     p.setIron(p.getIron() - ironCost);
                 } else {
                     int cost = goldCost.applyAsInt(baseGold);
-                    if (p.getGold() < cost) throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
+                    if (p.getGold() < cost)
+                        throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
                     p.setGold(p.getGold() - cost);
                 }
 
                 int current = hunterWeaponTier(p.getWeapon());
-                if (current >= t) throw new ResponseStatusException(HttpStatus.CONFLICT, "tu as déjà une arme supérieure");
+                if (current >= t)
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "tu as déjà une arme supérieure");
 
                 p.setWeapon(weaponId);
                 switch (t) {
@@ -8425,7 +8627,8 @@ public class GameService {
             case "EQUIP_ARMOR" -> {
                 int t = (tier == null) ? 1 : Math.max(1, Math.min(2, tier));
                 String armorId = p.getShopBonusEquipId();
-                if (armorId == null) throw new ResponseStatusException(HttpStatus.CONFLICT, "invalid offer");
+                if (armorId == null)
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "invalid offer");
 
                 int woodCost = (t == 2) ? 3 : 2;
                 int ironCost = (t == 2) ? 3 : 2;
@@ -8438,12 +8641,14 @@ public class GameService {
                     p.setIron(p.getIron() - ironCost);
                 } else {
                     int cost = goldCost.applyAsInt(baseGold);
-                    if (p.getGold() < cost) throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
+                    if (p.getGold() < cost)
+                        throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
                     p.setGold(p.getGold() - cost);
                 }
 
                 int current = hunterArmorTier(p.getArmor());
-                if (current >= t) throw new ResponseStatusException(HttpStatus.CONFLICT, "tu as déjà une armure supérieure");
+                if (current >= t)
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "tu as déjà une armure supérieure");
 
                 p.setArmor(armorId);
                 switch (t) {
@@ -8478,7 +8683,6 @@ public class GameService {
 
         return g;
     }
-
 
     @Transactional
     public Game cancelShopBonusPurchase(String gameId, String userId) {
@@ -8522,12 +8726,12 @@ public class GameService {
         return g;
     }
 
-    //ACTIONS VAMPIRE
+    // ACTIONS VAMPIRE
     @Transactional
     public void resolveCataclysme(String gameId,
-                                  String playerId,
-                                  WeatherStatus secondChoice,
-                                  WeatherStatus thirdChoice) {
+            String playerId,
+            WeatherStatus secondChoice,
+            WeatherStatus thirdChoice) {
 
         Game g = findOr404(gameId);
 
@@ -8567,13 +8771,16 @@ public class GameService {
 
         WeatherStatus base = g.getWeatherStatus();
 
-        // WIND déjà présent AVANT Cataclysme ? (base uniquement, car secondary/third sont null ici)
+        // WIND déjà présent AVANT Cataclysme ? (base uniquement, car secondary/third
+        // sont null ici)
         boolean windAlreadyApplied = (base == WeatherStatus.WIND);
 
         // extras = choix qui ne doublonnent pas la base
         var extras = new ArrayList<WeatherStatus>(2);
-        if (base == null || secondChoice != base) extras.add(secondChoice);
-        if (base == null || thirdChoice  != base) extras.add(thirdChoice);
+        if (base == null || secondChoice != base)
+            extras.add(secondChoice);
+        if (base == null || thirdChoice != base)
+            extras.add(thirdChoice);
 
         WeatherStatus extra2 = extras.size() >= 1 ? extras.get(0) : null;
         WeatherStatus extra3 = extras.size() >= 2 ? extras.get(1) : null;
@@ -8621,6 +8828,9 @@ public class GameService {
         ca.setResolvedAtMillis(System.currentTimeMillis());
         ca.setTargetId(secondChoice.name() + "," + thirdChoice.name());
 
+        // Libère currentAction pour permettre de jouer une autre carte
+        g.setCurrentAction(null);
+
         var msgs = new ArrayList<String>();
         msgs.add("Météo — " + summaryName);
         msgs.add("Le vampire déchire le ciel.");
@@ -8667,8 +8877,7 @@ public class GameService {
 
         a.getBreakdownLines().add(
                 nameOf(g, playerId) + " invoque " + roll + " clone"
-                        + (roll > 1 ? "s" : "") + " des ombres."
-        );
+                        + (roll > 1 ? "s" : "") + " des ombres.");
 
         addHistory(g, "Clones des ombres — " + nameOf(g, playerId)
                 + " contrôle " + roll + " clone" + (roll > 1 ? "s" : "") + ".");
@@ -8730,13 +8939,12 @@ public class GameService {
             }
         }
 
-
         // CUMULER avec les clones déjà présents sur ce raid
         java.util.List<String> all = g.getClonesLocations();
         if (all == null) {
             all = new java.util.ArrayList<>();
         }
-        all.addAll(locations);           // on ajoute les nouveaux clones
+        all.addAll(locations); // on ajoute les nouveaux clones
         g.setClonesLocations(all);
 
         a.setResolvedAtMillis(System.currentTimeMillis());
@@ -8774,16 +8982,15 @@ public class GameService {
      */
     private java.util.List<String> cancelHunterPrephase3ActionsOnVampLoc(Game g, String vampLoc) {
 
-        int cancelledCampfires      = 0;
-        int cancelledNets           = 0;
-        int cancelledPits           = 0;
-        int cancelledAmbush         = 0;
-        int cancelledLonely         = 0;
-        int cancelledIncendiaires   = 0;
-        int cancelledProvocations   = 0;
-        int cancelledBlessedStakes  = 0;
+        int cancelledCampfires = 0;
+        int cancelledNets = 0;
+        int cancelledPits = 0;
+        int cancelledAmbush = 0;
+        int cancelledLonely = 0;
+        int cancelledIncendiaires = 0;
+        int cancelledProvocations = 0;
+        int cancelledBlessedStakes = 0;
         int cancelledSacredRosaries = 0;
-
 
         // ---------- Feux de camp ----------
         if (g.getCampfireLocations() != null) {
@@ -8878,10 +9085,12 @@ public class GameService {
         // ---------- Pieu béni / Chapelet sacré / Solitaire (flags + mods) ----------
         if (g.getPlayers() != null && vampLoc != null) {
             for (Player player : g.getPlayers()) {
-                if (!"HUNTER".equals(player.getRole())) continue;
+                if (!"HUNTER".equals(player.getRole()))
+                    continue;
 
                 String hunterLoc = locationOf(g, player.getId());
-                if (!vampLoc.equals(hunterLoc)) continue;
+                if (!vampLoc.equals(hunterLoc))
+                    continue;
 
                 // --- Pieu béni ---
                 if (player.isBlessedStake()) {
@@ -8923,7 +9132,8 @@ public class GameService {
                             String s = m.getSource();
                             return s != null && s.startsWith("ACTION:LONELY");
                         });
-                        if (removed) cancelledLonely++;
+                        if (removed)
+                            cancelledLonely++;
                     }
                 }
             }
@@ -8951,15 +9161,24 @@ public class GameService {
 
         // ---------- parts (pour le message) ----------
         java.util.List<String> parts = new java.util.ArrayList<>();
-        if (cancelledCampfires > 0)          parts.add(cancelledCampfires      + " Feu de camp");
-        if (cancelledNets > 0)               parts.add(cancelledNets           + " Filet");
-        if (cancelledPits > 0)               parts.add(cancelledPits           + " Fosse");
-        if (cancelledAmbush > 0)             parts.add(cancelledAmbush         + " Embuscade");
-        if (cancelledLonely > 0)             parts.add(cancelledLonely         + " Solitaire");
-        if (cancelledIncendiaires > 0)       parts.add(cancelledIncendiaires   + " Incendiaire");
-        if (cancelledProvocations > 0)       parts.add(cancelledProvocations   + " Provocation");
-        if (cancelledBlessedStakes > 0)      parts.add(cancelledBlessedStakes  + " Épieu béni");
-        if (cancelledSacredRosaries > 0)     parts.add(cancelledSacredRosaries + " Chapelet sacré");
+        if (cancelledCampfires > 0)
+            parts.add(cancelledCampfires + " Feu de camp");
+        if (cancelledNets > 0)
+            parts.add(cancelledNets + " Filet");
+        if (cancelledPits > 0)
+            parts.add(cancelledPits + " Fosse");
+        if (cancelledAmbush > 0)
+            parts.add(cancelledAmbush + " Embuscade");
+        if (cancelledLonely > 0)
+            parts.add(cancelledLonely + " Solitaire");
+        if (cancelledIncendiaires > 0)
+            parts.add(cancelledIncendiaires + " Incendiaire");
+        if (cancelledProvocations > 0)
+            parts.add(cancelledProvocations + " Provocation");
+        if (cancelledBlessedStakes > 0)
+            parts.add(cancelledBlessedStakes + " Épieu béni");
+        if (cancelledSacredRosaries > 0)
+            parts.add(cancelledSacredRosaries + " Chapelet sacré");
 
         return parts;
     }
@@ -9066,7 +9285,7 @@ public class GameService {
                 .orElse(null);
 
         boolean isPrimary = primary != null && primary.equals(loc);
-        boolean isAlt     = alts.contains(loc);
+        boolean isAlt = alts.contains(loc);
 
         if (!isPrimary && !isAlt) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
@@ -9082,13 +9301,14 @@ public class GameService {
 
         g.setMirrorChosenLocation(loc);
 
-        // Si le vampire change de lieu, on met à jour la carte du centre + on swappe les cartes lieux
+        // Si le vampire change de lieu, on met à jour la carte du centre + on swappe
+        // les cartes lieux
         if (primary != null && !loc.equals(primary)) {
             for (CenterBoard cb : g.getCenter()) {
                 if (cb.getPlayerId().equals(ownerId)) {
 
                     String oldCard = cb.getCard(); // lieu joué au début du raid
-                    String newLoc  = loc;          // primary ou alt choisi via Image miroir
+                    String newLoc = loc; // primary ou alt choisi via Image miroir
 
                     if (!java.util.Objects.equals(oldCard, newLoc)) {
                         cb.setCard(newLoc);
@@ -9099,7 +9319,8 @@ public class GameService {
                             p.setHand(hand);
                         }
 
-                        // newLoc vient de la main (vérifié côté setup), on la remet à la place de l'ancien
+                        // newLoc vient de la main (vérifié côté setup), on la remet à la place de
+                        // l'ancien
                         hand.remove(newLoc);
                         hand.add(oldCard);
                     }
@@ -9220,24 +9441,52 @@ public class GameService {
             g.setDarkMarkCorruptedThisRaid(new java.util.HashSet<>());
         }
         java.util.Set<String> done = g.getDarkMarkCorruptedThisRaid();
-        if (done.contains(hunter.getId())) return; // déjà pris 1 corruption ce raid
+        if (done.contains(hunter.getId()))
+            return; // déjà pris 1 corruption ce raid
 
         int before = hunter.getCorruption();
-        if (before >= 3) return; // pas au-delà du max
+        if (before >= 3)
+            return; // pas au-delà du max
 
         hunter.setCorruption(before + 1);
 
         done.add(hunter.getId());
 
-        if(hunter.getCorruption() == 3) {
-            hunter.setRole("SERVANT");
+        if (hunter.getCorruption() == 3) {
             discardAllActionsOf(g, hunter);
+            hunter.setRole("SERVANT");
+            convertHunterGearToServant(g, hunter);
+            cancelPendingCombatsForPlayer(g, hunter);
+
+            // Si une morsure est en cours pour ce joueur (ex: combat déclenché), on marque
+            // la transformation
+            if (g.getCurrentBite() != null && hunter.getId().equals(g.getCurrentBite().getTargetId())) {
+                g.getCurrentBite().setBecameServant(true);
+            }
         }
 
         String line = "Marque ténébreuse — "
                 + nameOf(g, hunter.getId())
                 + " subit la corruption de la marque qui augmente de 1 -> niveau " + (before + 1) + ".";
         addHistory(g, line);
+    }
+
+    /**
+     * Annule tous les combats en attente impliquant un joueur qui vient de devenir
+     * SERVANT. /**
+     * Appelé après une transformation Hunter -> Servant pour nettoyer la queue de
+     * combats.
+     */
+    private void cancelPendingCombatsForPlayer(Game g, Player player) {
+        if (g.getCombatsQueue() == null || g.getCombatsQueue().isEmpty()) {
+            return;
+        }
+
+        String playerId = player.getId();
+        List<RoundFight> queue = g.getCombatsQueue();
+
+        queue.removeIf(fight -> playerId.equals(fight.getAttackerId()) ||
+                playerId.equals(fight.getDefenderId()));
     }
 
     private void cleanseDarkMark(Game g, Player hunter) {
@@ -9374,14 +9623,18 @@ public class GameService {
         }
 
         // 2) Rôle + phase
-        if (!"HUNTER".equals(p.getRole())) return false;
-        if (g.getPhase() != Phase.PREPHASE3) return false;
+        if (!"HUNTER".equals(p.getRole()))
+            return false;
+        if (g.getPhase() != Phase.PREPHASE3)
+            return false;
 
         // 3) Lieu du chasseur
         String loc = locationOf(g, p.getId());
-        if (loc == null) return false;
+        if (loc == null)
+            return false;
 
-        // 4) Présence écrasante peut bloquer les actions des chasseurs sur le même lieu que le vampire
+        // 4) Présence écrasante peut bloquer les actions des chasseurs sur le même lieu
+        // que le vampire
         if (g.isHunterActionsBlockedThisRaid()) {
             Player vamp = g.getPlayers().stream()
                     .filter(pl -> "VAMPIRE".equals(pl.getRole()))
@@ -9397,21 +9650,26 @@ public class GameService {
         }
 
         // 5) Y a-t-il au moins UNE cible valide sur ce lieu ?
-        //    (ici : un chasseur vivant avec corruption > 0 ; tu peux étendre à "marqué" si tu as un helper)
+        // (ici : un chasseur vivant avec corruption > 0 ; tu peux étendre à "marqué" si
+        // tu as un helper)
         var groups = groupPlayersByLocation(g); // loc -> List<Player>
         var onLoc = groups.get(loc);
-        if (onLoc == null || onLoc.isEmpty()) return false;
+        if (onLoc == null || onLoc.isEmpty())
+            return false;
 
         for (Player target : onLoc) {
-            if (!"HUNTER".equals(target.getRole())) continue;
-            if (target.getHp() <= 0) continue;
+            if (!"HUNTER".equals(target.getRole()))
+                continue;
+            if (target.getHp() <= 0)
+                continue;
 
             Integer corr = target.getCorruption();
             if (corr != null && corr > 0) {
                 return true;
             }
 
-            // Si tu as un helper du genre hasDarkMarkThisRaid(g, targetId), tu peux ajouter :
+            // Si tu as un helper du genre hasDarkMarkThisRaid(g, targetId), tu peux ajouter
+            // :
             // if (hasDarkMarkThisRaid(g, target.getId())) return true;
         }
 
@@ -9487,10 +9745,12 @@ public class GameService {
 
     private boolean hasUsableSecretPassageOption(Game g) {
         for (Player p : g.getPlayers()) {
-            if (!"VAMPIRE".equals(p.getRole())) continue;
+            if (!"VAMPIRE".equals(p.getRole()))
+                continue;
 
             List<String> actions = p.getActions();
-            if (actions == null || !actions.contains(Action.PASSAGE_SECRET.name())) continue;
+            if (actions == null || !actions.contains(Action.PASSAGE_SECRET.name()))
+                continue;
 
             String loc = locationOf(g, p.getId());
             // Passage secret n’est jouable que si le vampire est au Manoir
@@ -9549,13 +9809,13 @@ public class GameService {
         if (g.getBuiltInfras() != null) {
             for (Infra infra : g.getBuiltInfras()) {
                 switch (infra) {
-                    case SAWMILL    -> allowed.add("sawmill");
-                    case MINE       -> allowed.add("mine");
-                    case LIBRARY    -> allowed.add("library");
+                    case SAWMILL -> allowed.add("sawmill");
+                    case MINE -> allowed.add("mine");
+                    case LIBRARY -> allowed.add("library");
                     case LABORATORY -> allowed.add("laboratory");
-                    case BALLROOM   -> allowed.add("ballroom");
-                    case ALTAR      -> allowed.add("altar");
-                    case FORGE      -> allowed.add("forge");
+                    case BALLROOM -> allowed.add("ballroom");
+                    case ALTAR -> allowed.add("altar");
+                    case FORGE -> allowed.add("forge");
                 }
             }
         }
@@ -9587,16 +9847,16 @@ public class GameService {
                     "Impossible de trouver la carte de lieu du vampire.");
         }
 
-        // même logique que pour assignTarget / assignHarvest : on swappe les cartes lieu
+        // même logique que pour assignTarget / assignHarvest : on swappe les cartes
+        // lieu
         String oldCard = cb.getCard();
-        String newLoc  = destination;
+        String newLoc = destination;
 
         if (!java.util.Objects.equals(oldCard, newLoc)) {
-            cb.setCard(newLoc);       // le pion passe sur newLoc
-            vamp.getHand().remove(newLoc);      // on "dépense" la carte de destination
-            vamp.getHand().add(oldCard);        // on récupère l’ancienne carte de lieu dans la main
+            cb.setCard(newLoc); // le pion passe sur newLoc
+            vamp.getHand().remove(newLoc); // on "dépense" la carte de destination
+            vamp.getHand().add(oldCard); // on récupère l’ancienne carte de lieu dans la main
         }
-
 
         // Historique
         String msg = "Passage secret — "
@@ -9612,7 +9872,8 @@ public class GameService {
 
         refreshPrephaseRevealMessages(g);
 
-        // On relance la mécanique de préphase (combats à venir potentiellement modifiés)
+        // On relance la mécanique de préphase (combats à venir potentiellement
+        // modifiés)
         setupUnstableAndPrephaseTimeout(g);
 
         save(g);
@@ -9628,17 +9889,20 @@ public class GameService {
         return g;
     }
 
-// Corruption
+    // Corruption
     /**
-     * Reconstruit entièrement les mods de corruption dans raidMods à chaque début de raid (PHASE0),
+     * Reconstruit entièrement les mods de corruption dans raidMods à chaque début
+     * de raid (PHASE0),
      * en purgeant d’abord les anciennes entrées "CORRUPTION:*".
      * Règles:
-     *  - L1: applique -1 ATK / -1 DEF (effet moteur) + 1 chip "affichage"
-     *  - L2: aucune stat modifiée, 1 chip "instable"
-     *  - L3: rôle=SERVANT géré lors de la morsure, aucune stat modifiée, 1 chip "serviteur"
+     * - L1: applique -1 ATK / -1 DEF (effet moteur) + 1 chip "affichage"
+     * - L2: aucune stat modifiée, 1 chip "instable"
+     * - L3: rôle=SERVANT géré lors de la morsure, aucune stat modifiée, 1 chip
+     * "serviteur"
      */
     private void rebuildCorruptionMods(@NonNull Game g) {
-        if (g.getRaidMods() == null) g.setRaidMods(new HashMap<>());
+        if (g.getRaidMods() == null)
+            g.setRaidMods(new HashMap<>());
 
         // Purge des anciennes entrées de corruption
         for (var list : g.getRaidMods().values()) {
@@ -9656,24 +9920,26 @@ public class GameService {
 
             if (lvl == 1) {
                 // Effet moteur L1 : −1 ATK / −1 DEF
-                addRaidMod(g, p.getId(), "ATTACK",  -1, "CORRUPTION:L1:ENG");
+                addRaidMod(g, p.getId(), "ATTACK", -1, "CORRUPTION:L1:ENG");
                 addRaidMod(g, p.getId(), "DEFENSE", -1, "CORRUPTION:L1:ENG");
                 // Une seule puce d’affichage
-                addRaidMod(g, p.getId(), "MULTIPLE",   0, "CORRUPTION:L1:DSP");
+                addRaidMod(g, p.getId(), "MULTIPLE", 0, "CORRUPTION:L1:DSP");
             } else if (lvl == 2) {
                 // L2 : pas de debuff chiffré — seulement la puce “instable”
-                addRaidMod(g, p.getId(), "INSTABLE",   0, "CORRUPTION:L2:DSP");
+                addRaidMod(g, p.getId(), "INSTABLE", 0, "CORRUPTION:L2:DSP");
             } else if (lvl == 3) {
                 // L3 : pas de debuff chiffré — seulement la puce “serviteur”
-                addRaidMod(g, p.getId(), "SERVITEUR",   0, "CORRUPTION:L3:DSP");
+                addRaidMod(g, p.getId(), "SERVITEUR", 0, "CORRUPTION:L3:DSP");
             }
         }
-        // --- Marque ténébreuse : puce DSP permanente tant que le chasseur est marqué ---
+        // --- Marque ténébreuse : puce DSP permanente tant que le chasseur est marqué
+        // ---
         if (g.getDarkMarkedHunters() != null && !g.getDarkMarkedHunters().isEmpty()) {
             for (String pid : g.getDarkMarkedHunters()) {
                 // sécurité : s'assurer que le joueur existe
                 Player h = findPlayer(g, pid);
-                if (h == null) continue;
+                if (h == null)
+                    continue;
 
                 addRaidMod(g, pid, "MARKED", 0, "CORRUPTION:MARK:DSP");
             }
@@ -9681,11 +9947,14 @@ public class GameService {
     }
 
     /**
-     * Redirige un chasseur instable (corruption=2, jet 1–3) vers une cible choisie par le vampire.
+     * Redirige un chasseur instable (corruption=2, jet 1–3) vers une cible choisie
+     * par le vampire.
      * - Valide la phase (PREPHASE3) et les droits (vampire uniquement).
      * - Vérifie que la cible fait partie des éligibles calculés à la révélation.
-     * - Remplace la carte posée au centre par celle de la cible ET rend l’ancienne carte à la main de l’instable.
-     * - Enregistre la décision pour planifier un duel instable -> cible lors de PHASE3.
+     * - Remplace la carte posée au centre par celle de la cible ET rend l’ancienne
+     * carte à la main de l’instable.
+     * - Enregistre la décision pour planifier un duel instable -> cible lors de
+     * PHASE3.
      */
     @Transactional
     public Game assignUnstableTarget(String gameId, String userId, String unstableId, String targetId) {
@@ -9724,7 +9993,7 @@ public class GameService {
                     .findFirst()
                     .ifPresent(cb -> {
                         String oldCard = cb.getCard();
-                        String newLoc  = targetLoc;
+                        String newLoc = targetLoc;
                         if (!java.util.Objects.equals(oldCard, newLoc)) {
                             cb.setCard(newLoc);
                             var unstable = g.getPlayers().stream()
@@ -9736,14 +10005,16 @@ public class GameService {
                         }
                     });
 
-            String targetName   = nameOf(g, targetId);
+            String targetName = nameOf(g, targetId);
             String unstableName = nameOf(g, unstableId);
-            String locLabel     = labelLieuFr(targetLoc);
+            String locLabel = labelLieuFr(targetLoc);
 
-            String interruptionLine = "Récolte de " + targetName + " perturbée par " + unstableName + " (récolte réduite).";
-            String combatLine       = "Combat — " + unstableName + " VS " + targetName + " à " + locLabel + ".";
+            String interruptionLine = "Récolte de " + targetName + " perturbée par " + unstableName
+                    + " (récolte réduite).";
+            String combatLine = "Combat — " + unstableName + " VS " + targetName + " à " + locLabel + ".";
 
-            if (g.getMessages() == null) g.setMessages(new ArrayList<>());
+            if (g.getMessages() == null)
+                g.setMessages(new ArrayList<>());
             g.getMessages().add(combatLine);
             addHistory(g, interruptionLine);
             addHistory(g, combatLine);
@@ -9754,8 +10025,9 @@ public class GameService {
         g.getUnstableEligibleLocations().remove(unstableId);
 
         // 4) (RE)calcule APRÈS mutation
-        boolean hasPendingAfter = !(g.getUnstableEligibleTargets().isEmpty() && g.getUnstableEligibleLocations().isEmpty());
-        boolean upcomingAfter   = computeHasUpcomingCombat(g);
+        boolean hasPendingAfter = !(g.getUnstableEligibleTargets().isEmpty()
+                && g.getUnstableEligibleLocations().isEmpty());
+        boolean upcomingAfter = computeHasUpcomingCombat(g);
         g.setHasUpcomingCombat(upcomingAfter);
 
         // --- Commit
@@ -9769,7 +10041,8 @@ public class GameService {
             if (!hasPendingAfter && !upcomingAfter) {
                 scheduleAdvance(g.getId(), Phase.PREPHASE3, Phase.PHASE3, 4000);
             } else {
-                // sinon, on laisse vivre la fenêtre (potions, autres instables…) / ou timer long déjà en place
+                // sinon, on laisse vivre la fenêtre (potions, autres instables…) / ou timer
+                // long déjà en place
                 live.phaseChanged(g); // petit heartbeat pour rafraîchir les onglets
             }
         });
@@ -9808,7 +10081,7 @@ public class GameService {
                 .findFirst()
                 .ifPresent(cb -> {
                     String oldCard = cb.getCard();
-                    String newLoc  = loc;
+                    String newLoc = loc;
                     if (!java.util.Objects.equals(oldCard, newLoc)) {
                         cb.setCard(newLoc);
                         var unstable = g.getPlayers().stream()
@@ -9820,8 +10093,10 @@ public class GameService {
                     }
                 });
 
-        String line = nameOf(g, unstableId) + " récoltera à " + labelLieuFr(loc) + " pour " + nameOf(g, vamp.getId()) + ".";
-        if (g.getMessages() == null) g.setMessages(new ArrayList<>());
+        String line = nameOf(g, unstableId) + " récoltera à " + labelLieuFr(loc) + " pour " + nameOf(g, vamp.getId())
+                + ".";
+        if (g.getMessages() == null)
+            g.setMessages(new ArrayList<>());
         g.getMessages().add(line);
         addHistory(g, line);
 
@@ -9830,8 +10105,9 @@ public class GameService {
         g.getUnstableEligibleLocations().remove(unstableId);
 
         // 4) (RE)calcule APRÈS mutation
-        boolean hasPendingAfter = !(g.getUnstableEligibleTargets().isEmpty() && g.getUnstableEligibleLocations().isEmpty());
-        boolean upcomingAfter   = computeHasUpcomingCombat(g);
+        boolean hasPendingAfter = !(g.getUnstableEligibleTargets().isEmpty()
+                && g.getUnstableEligibleLocations().isEmpty());
+        boolean upcomingAfter = computeHasUpcomingCombat(g);
         g.setHasUpcomingCombat(upcomingAfter);
 
         // --- Commit
@@ -9866,12 +10142,13 @@ public class GameService {
         // --- Debug précis : ce qu’on a au moment T
         var eligT = g.getUnstableEligibleTargets();
         var eligL = g.getUnstableEligibleLocations();
-        boolean inTargets  = eligT != null && eligT.containsKey(unstableId);
-        boolean inLocations= eligL != null && eligL.containsKey(unstableId);
+        boolean inTargets = eligT != null && eligT.containsKey(unstableId);
+        boolean inLocations = eligL != null && eligL.containsKey(unstableId);
 
         boolean eligibleNow = inTargets || inLocations;
 
-        // --- Idempotence : si déjà consommé/expiré, on répond OK et on force juste un refresh
+        // --- Idempotence : si déjà consommé/expiré, on répond OK et on force juste un
+        // refresh
         if (!eligibleNow) {
             save(g);
             afterCommit(() -> live.phaseChanged(g));
@@ -9881,11 +10158,11 @@ public class GameService {
         // --- Mutations : consomme l’option sans target/harvest
         g.getUnstableEligibleTargets().remove(unstableId);
         g.getUnstableEligibleLocations().remove(unstableId);
-        g.getUnstableTargetByPlayer().remove(unstableId);       // sécurité
-        g.getUnstableHarvestLocByPlayer().remove(unstableId);   // sécurité
+        g.getUnstableTargetByPlayer().remove(unstableId); // sécurité
+        g.getUnstableHarvestLocByPlayer().remove(unstableId); // sécurité
 
-        boolean hasPendingAfter =
-                !(g.getUnstableEligibleTargets().isEmpty() && g.getUnstableEligibleLocations().isEmpty());
+        boolean hasPendingAfter = !(g.getUnstableEligibleTargets().isEmpty()
+                && g.getUnstableEligibleLocations().isEmpty());
         boolean upcomingAfter = computeHasUpcomingCombat(g);
         g.setHasUpcomingCombat(upcomingAfter);
 
@@ -9910,16 +10187,17 @@ public class GameService {
      * Tente / résout une morsure.
      *
      * Deux étapes possibles :
-     *  - Étape 1 (vampire) : jet de morsure (D6).
-     *      * si échec → on clôt la morsure comme avant.
-     *      * si réussite :
-     *          - cible sans armure de plates argent → corruption appliquée immédiatement (comme avant).
-     *          - cible avec armure de plates argent → on NE modifie pas la corruption,
-     *            la cible pourra lancer un D4 sur un second appel.
+     * - Étape 1 (vampire) : jet de morsure (D6).
+     * * si échec → on clôt la morsure comme avant.
+     * * si réussite :
+     * - cible sans armure de plates argent → corruption appliquée immédiatement
+     * (comme avant).
+     * - cible avec armure de plates argent → on NE modifie pas la corruption,
+     * la cible pourra lancer un D4 sur un second appel.
      *
-     *  - Étape 2 (cible, si armure de plates argent) : jet d’armure (D4).
-     *      * si 4 → la morsure est entièrement annulée (pas de corruption).
-     *      * sinon → la corruption est appliquée maintenant.
+     * - Étape 2 (cible, si armure de plates argent) : jet d’armure (D4).
+     * * si 4 → la morsure est entièrement annulée (pas de corruption).
+     * * sinon → la corruption est appliquée maintenant.
      */
     @Transactional
     public Game rollCorruption(String gameId, String userId) {
@@ -9953,13 +10231,14 @@ public class GameService {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "only vampire can roll the bite");
             }
 
-            // AUTEL — message "before" pour la corruption par morsure (premier jet uniquement)
+            // AUTEL — message "before" pour la corruption par morsure (premier jet
+            // uniquement)
             if (fight != null
                     && altarCode != null
                     && altarCode.equals(fight.getLocation())
                     && isAltarBuilt(g)
-                    && !isAltarCorrupted(g)               // sanctuaire encore pur
-                    && !g.isAltarBiteOccurredThisRaid())  // aucune morsure réussie sur ce lieu ce raid
+                    && !isAltarCorrupted(g) // sanctuaire encore pur
+                    && !g.isAltarBiteOccurredThisRaid()) // aucune morsure réussie sur ce lieu ce raid
             {
                 addHistory(g, "Autel — "
                         + nameOf(g, b.getAttackerId())
@@ -10020,16 +10299,19 @@ public class GameService {
                 } else {
                     // Comportement d'origine : on applique la corruption tout de suite
                     int before = target.getCorruption();
-                    int after  = Math.min(3, before + 1);
+                    int after = Math.min(3, before + 1);
                     target.setCorruption(after);
                     addHistory(g, nameOf(g, target.getId())
                             + " se fait mordre... sa corruption passe de " + before + " à " + after + ".");
                     if (after == 3) {
                         discardAllActionsOf(g, target);
                         target.setRole("SERVANT");
+                        convertHunterGearToServant(g, target);
                         target.setSouls(target.getSouls() + target.getGold());
                         target.setGold(0);
                         becameServant = true;
+                        b.setBecameServant(true);
+                        cancelPendingCombatsForPlayer(g, target);
                     }
 
                     var attacker = g.getPlayers().stream()
@@ -10054,7 +10336,6 @@ public class GameService {
                         addHistory(g, "Morsure — le sang versé nourrit le vampire : +50 âmes déchues.");
                     }
 
-
                     b.setResolvedAtMillis(System.currentTimeMillis());
                 }
 
@@ -10066,13 +10347,15 @@ public class GameService {
 
             save(g);
 
-            final boolean sendModsF          = sendMods;
-            final int rollF                  = roll;
-            final String attF                = b.getAttackerId();
-            final String tgtF                = b.getTargetId();
-            final Integer newCF              = (target != null) ? target.getCorruption() : null;
-            final boolean becameServantF     = becameServant;
+            final boolean sendModsF = sendMods;
+            final int rollF = roll;
+            final String attF = b.getAttackerId();
+            final String tgtF = b.getTargetId();
+            final Integer newCF = (target != null) ? target.getCorruption() : null;
+            final boolean becameServantF = becameServant;
             final boolean isSacredRosaryUsedF = isSacredRosaryUsed;
+            final String locF = b.getLocation();
+            final Long resolvedAtF = b.getResolvedAtMillis();
 
             afterCommit(() -> {
                 if (sendModsF) {
@@ -10080,6 +10363,13 @@ public class GameService {
                 }
                 // Ici rollF = D6
                 live.biteRolled(g, rollF, attF, tgtF, newCF, becameServantF, isSacredRosaryUsedF);
+
+                // Si le bite est résolu immédiatement (e.g. transformation Servant, chapelet
+                // sacré),
+                // émettre BITE_RESOLVED pour que les spectateurs ferment aussi le modal
+                if (resolvedAtF != null) {
+                    live.biteResolved(g, attF, tgtF, locF);
+                }
             });
 
             return g;
@@ -10090,10 +10380,10 @@ public class GameService {
         // ======================
 
         // On ne doit arriver ici que si :
-        //  - un D6 a déjà été lancé (b.getRoll() != null),
-        //  - la morsure n'est pas encore résolue (resolvedAtMillis == null),
-        //  - la cible possède l'armure de plates argent,
-        //  - l'appel vient de la cible.
+        // - un D6 a déjà été lancé (b.getRoll() != null),
+        // - la morsure n'est pas encore résolue (resolvedAtMillis == null),
+        // - la cible possède l'armure de plates argent,
+        // - l'appel vient de la cible.
         if (!targetHasSilverPlate
                 || target == null
                 || b.getResolvedAtMillis() != null
@@ -10122,7 +10412,7 @@ public class GameService {
         } else {
             // La morsure "passe" malgré l'armure : on applique la corruption maintenant
             int before = target.getCorruption();
-            int after  = Math.min(3, before + 1);
+            int after = Math.min(3, before + 1);
             target.setCorruption(after);
             addHistory(g, nameOf(g, target.getId())
                     + " se fait finalement corrompre... sa corruption passe de "
@@ -10130,9 +10420,12 @@ public class GameService {
             if (after == 3) {
                 discardAllActionsOf(g, target);
                 target.setRole("SERVANT");
+                convertHunterGearToServant(g, target);
                 target.setSouls(target.getSouls() + target.getGold());
                 target.setGold(0);
                 becameServant2 = true;
+                b.setBecameServant(true);
+                cancelPendingCombatsForPlayer(g, target);
             }
 
             var attacker = g.getPlayers().stream()
@@ -10161,11 +10454,11 @@ public class GameService {
         b.setResolvedAtMillis(System.currentTimeMillis());
         save(g);
 
-        final boolean sendModsF2      = sendMods2;
-        final int rollF2              = d4;  // ici on envoie le D4
-        final String attF2            = b.getAttackerId();
-        final String tgtF2            = b.getTargetId();
-        final Integer newCF2          = (target != null) ? target.getCorruption() : null;
+        final boolean sendModsF2 = sendMods2;
+        final int rollF2 = d4; // ici on envoie le D4
+        final String attF2 = b.getAttackerId();
+        final String tgtF2 = b.getTargetId();
+        final Integer newCF2 = (target != null) ? target.getCorruption() : null;
         final boolean becameServantF2 = becameServant2;
         final boolean isSacredRosaryUsedF = isSacredRosaryUsed;
 
@@ -10182,11 +10475,13 @@ public class GameService {
 
     /**
      * Défausse TOUTES les cartes d'action du joueur, puis vide sa main d'actions.
-     * À appeler AVANT de changer son rôle si on veut savoir s'il était chasseur ou vampire.
+     * À appeler AVANT de changer son rôle si on veut savoir s'il était chasseur ou
+     * vampire.
      */
     private void discardAllActionsOf(Game g, Player p) {
         List<String> inv = p.getActions();
-        if (inv == null || inv.isEmpty()) return;
+        if (inv == null || inv.isEmpty())
+            return;
 
         boolean wasHunter = "HUNTER".equals(p.getRole());
 
@@ -10205,11 +10500,13 @@ public class GameService {
 
     /**
      * Défausse TOUTES les cartes potions du joueur, puis vide sa main d'actions.
-     * À appeler AVANT de changer son rôle si on veut savoir s'il était chasseur ou vampire.
+     * À appeler AVANT de changer son rôle si on veut savoir s'il était chasseur ou
+     * vampire.
      */
     private void discardAllPotionsOf(Game g, Player p) {
         List<String> inv = p.getPotions();
-        if (inv == null || inv.isEmpty()) return;
+        if (inv == null || inv.isEmpty())
+            return;
 
         // On travaille sur une copie pour éviter les soucis pendant le clear()
         var copy = new java.util.ArrayList<>(inv);
@@ -10223,13 +10520,14 @@ public class GameService {
 
     // Maintenance
     @Nullable
-    private Player findPlayer(Game g, String id){
+    private Player findPlayer(Game g, String id) {
         return g.getPlayers().stream().filter(p -> p.getId().equals(id)).findFirst().orElse(null);
     }
 
     // Pioche dans un deck ordonné, avec reshuffle auto depuis la défausse
     private String drawFromDeck(List<String> deck, List<String> discard) {
-        if (deck == null) return null;
+        if (deck == null)
+            return null;
 
         // 1) Si deck vide AVANT pioche, on recrée depuis la défausse
         if (deck.isEmpty() && discard != null && !discard.isEmpty()) {
@@ -10238,7 +10536,8 @@ public class GameService {
             discard.clear();
         }
 
-        if (deck.isEmpty()) return null;
+        if (deck.isEmpty())
+            return null;
 
         // 2) Pioche (top = fin)
         String card = deck.remove(deck.size() - 1);
@@ -10254,21 +10553,24 @@ public class GameService {
     }
 
     private void putOnTop(List<String> deck, String cardId) {
-        if (deck == null || cardId == null) return;
+        if (deck == null || cardId == null)
+            return;
         deck.add(cardId); // top = fin
     }
 
     private void putOnBottom(List<String> deck, String cardId) {
-        if (deck == null || cardId == null) return;
+        if (deck == null || cardId == null)
+            return;
         deck.add(0, cardId); // bottom = début
     }
 
     private void discardCard(List<String> discard, String cardId) {
-        if (discard == null || cardId == null) return;
+        if (discard == null || cardId == null)
+            return;
         discard.add(cardId);
     }
 
-    private String drawHunterAction(Game g){
+    private String drawHunterAction(Game g) {
         return drawFromDeck(g.getHunterActionsDeck(), g.getHunterActionsDiscard());
     }
 
@@ -10315,8 +10617,7 @@ public class GameService {
         if (!isAlive(p)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Tu es hors de combat pour le reste de la partie."
-            );
+                    "Tu es hors de combat pour le reste de la partie.");
         }
 
         int potionsLeft = deckAvailableSize(g.getPotionDeck(), g.getPotionDiscard());
@@ -10354,7 +10655,6 @@ public class GameService {
         return g;
     }
 
-
     @Transactional
     public Game buyAction(String gameId, String userId) {
         Game g = findOr404(gameId);
@@ -10369,14 +10669,13 @@ public class GameService {
         if (!isAlive(p)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Tu es hors de combat pour le reste de la partie."
-            );
+                    "Tu es hors de combat pour le reste de la partie.");
         }
 
-        boolean isVamp   = "VAMPIRE".equals(p.getRole());
+        boolean isVamp = "VAMPIRE".equals(p.getRole());
         boolean isHunter = "HUNTER".equals(p.getRole());
 
-        List<String> deck    = isVamp ? g.getVampActionsDeck()    : g.getHunterActionsDeck();
+        List<String> deck = isVamp ? g.getVampActionsDeck() : g.getHunterActionsDeck();
         List<String> discard = isVamp ? g.getVampActionsDiscard() : g.getHunterActionsDiscard();
 
         int actionsLeft = deckAvailableSize(deck, discard);
@@ -10385,7 +10684,7 @@ public class GameService {
 
         final int baseCost = 50;
         int costSouls = baseCost;
-        int costGold  = baseCost;
+        int costGold = baseCost;
 
         if (isHunter) {
             // +50 si Avidité nocturne
@@ -10421,8 +10720,7 @@ public class GameService {
 
         addHistory(g,
                 nameOf(g, userId) + " pioche une carte d'action (" +
-                        (isVamp ? "camp vampire" : "camp chasseurs") + ")."
-        );
+                        (isVamp ? "camp vampire" : "camp chasseurs") + ").");
 
         int remaining = deckAvailableSize(deck, discard);
 
@@ -10439,20 +10737,21 @@ public class GameService {
 
     @Transactional
     public Game buySilver(String gameId, String userId, int qty) {
-        if (qty <= 0) qty = 1;
+        if (qty <= 0)
+            qty = 1;
 
         Game g = findOr404(gameId);
         if (g.getPhase() != Phase.PHASE4)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE4");
 
         var p = findPlayer(g, userId);
-        if (p == null) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
+        if (p == null)
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
 
         if (!isAlive(p)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Tu es hors de combat pour le reste de la partie."
-            );
+                    "Tu es hors de combat pour le reste de la partie.");
         }
         if (!"HUNTER".equals(p.getRole()))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "hunters only");
@@ -10477,7 +10776,7 @@ public class GameService {
 
         save(g);
 
-        final int fQty  = qty;
+        final int fQty = qty;
         final int fCost = cost;
 
         afterCommit(() -> live.silverBought(g, userId, fQty, fCost));
@@ -10498,8 +10797,7 @@ public class GameService {
         if (!isAlive(p)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Tu es hors de combat pour le reste de la partie."
-            );
+                    "Tu es hors de combat pour le reste de la partie.");
         }
 
         if (!"HUNTER".equals(p.getRole())) {
@@ -10508,7 +10806,7 @@ public class GameService {
 
         // Coût de base
         final int baseGoldCost = 150;
-        final int waterCost    = 6;
+        final int waterCost = 6;
 
         int costGold = baseGoldCost;
 
@@ -10537,12 +10835,11 @@ public class GameService {
         addHistory(g,
                 nameOf(g, userId)
                         + " achète une carte Eau bénite ("
-                        + waterCost + " eaux pures, " + costGold + " or)."
-        );
+                        + waterCost + " eaux pures, " + costGold + " or).");
 
         save(g);
 
-        final int fCostGold  = costGold;
+        final int fCostGold = costGold;
         final int fCostWater = waterCost;
         afterCommit(() -> {
             live.holyWaterActionBought(g, userId, fCostWater, fCostGold);
@@ -10565,8 +10862,7 @@ public class GameService {
         if (!isAlive(p)) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Tu es hors de combat pour le reste de la partie."
-            );
+                    "Tu es hors de combat pour le reste de la partie.");
         }
 
         if (!"HUNTER".equals(p.getRole())) {
@@ -10604,12 +10900,11 @@ public class GameService {
 
         addHistory(g,
                 nameOf(g, userId)
-                        + " achète une carte Pisteur (" + costGold + " or)."
-        );
+                        + " achète une carte Pisteur (" + costGold + " or).");
 
         save(g);
 
-        final int fCostGold  = costGold;
+        final int fCostGold = costGold;
         afterCommit(() -> {
             live.trackingActionBought(g, userId, fCostGold);
         });
@@ -10624,7 +10919,8 @@ public class GameService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE4");
 
         var p = findPlayer(g, userId);
-        if (p == null) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
+        if (p == null)
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
         if (!"HUNTER".equals(p.getRole()))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "hunters only");
         if (!isAlive(p))
@@ -10669,15 +10965,15 @@ public class GameService {
             weaponId = switch (type) {
                 case "BLEED" -> H_WEAPON_T1_SWORD;
                 case "RANGE" -> H_WEAPON_T1_SPEAR;
-                case "STUN"  -> H_WEAPON_T1_MACE;
-                default      -> H_WEAPON_T1_SWORD;
+                case "STUN" -> H_WEAPON_T1_MACE;
+                default -> H_WEAPON_T1_SWORD;
             };
         } else { // tier == 2
             weaponId = switch (type) {
                 case "BLEED" -> H_WEAPON_T2_HALBERD;
                 case "RANGE" -> H_WEAPON_T2_CROSSBOW;
-                case "STUN"  -> H_WEAPON_T2_HAMMER;
-                default      -> H_WEAPON_T2_HALBERD;
+                case "STUN" -> H_WEAPON_T2_HAMMER;
+                default -> H_WEAPON_T2_HALBERD;
             };
         }
 
@@ -10692,8 +10988,10 @@ public class GameService {
         p.setIron(p.getIron() - ironCost);
 
         p.setWeapon(weaponId);
-        if (tier == 1) p.setAttackDice("D6");
-        if (tier == 2) p.setAttackDice("D8");
+        if (tier == 1)
+            p.setAttackDice("D6");
+        if (tier == 2)
+            p.setAttackDice("D8");
 
         String msg = nameOf(g, userId)
                 + " forge une arme de tier " + tier
@@ -10730,7 +11028,8 @@ public class GameService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE4");
 
         var p = findPlayer(g, userId);
-        if (p == null) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
+        if (p == null)
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
         if (!"HUNTER".equals(p.getRole()))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "hunters only");
         if (!isAlive(p))
@@ -10755,8 +11054,10 @@ public class GameService {
         p.setIron(p.getIron() - ironCost);
 
         p.setArmor(armorId);
-        if (tier == 1) p.setDefenseDice("D6");
-        if (tier == 2) p.setDefenseDice("D8");
+        if (tier == 1)
+            p.setDefenseDice("D6");
+        if (tier == 2)
+            p.setDefenseDice("D8");
 
         String msg = nameOf(g, userId)
                 + " achète une armure de tier " + tier
@@ -10776,41 +11077,46 @@ public class GameService {
 
     @Transactional
     public Game sellResource(String gameId, String userId, String res, int qty) {
-        if (qty <= 0) qty = 1;
+        if (qty <= 0)
+            qty = 1;
         Game g = findOr404(gameId);
         if (g.getPhase() != Phase.PHASE4)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE4");
 
         var p = findPlayer(g, userId);
-        if (p == null) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
+        if (p == null)
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
         if (!"HUNTER".equals(p.getRole()))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "hunters only");
 
-        Set<String> allowed = Set.of("wood","herbs","stone","iron","water");
-        if (!allowed.contains(res)) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid resource");
+        Set<String> allowed = Set.of("wood", "herbs", "stone", "iron", "water");
+        if (!allowed.contains(res))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid resource");
 
         // vérifier stock
-        int have = switch(res) {
+        int have = switch (res) {
             case "wood" -> p.getWood();
-            case "herbs"-> p.getHerbs();
-            case "stone"-> p.getStone();
+            case "herbs" -> p.getHerbs();
+            case "stone" -> p.getStone();
             case "iron" -> p.getIron();
-            case "water"-> p.getWater();
+            case "water" -> p.getWater();
             default -> 0;
         };
-        if (have < qty) throw new ResponseStatusException(HttpStatus.CONFLICT, "not enough resource");
+        if (have < qty)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "not enough resource");
 
         // débiter
-        switch(res) {
+        switch (res) {
             case "wood" -> p.setWood(have - qty);
-            case "herbs"-> p.setHerbs(have - qty);
-            case "stone"-> p.setStone(have - qty);
+            case "herbs" -> p.setHerbs(have - qty);
+            case "stone" -> p.setStone(have - qty);
             case "iron" -> p.setIron(have - qty);
-            case "water"-> p.setWater(have - qty);
+            case "water" -> p.setWater(have - qty);
         }
         int base = 10;
         boolean charismatic = p.isCharismaticThisRaid();
-        if (charismatic) base += 10;
+        if (charismatic)
+            base += 10;
 
         int gain = base * qty;
         p.setGold(p.getGold() + gain);
@@ -10833,27 +11139,31 @@ public class GameService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE4");
 
         var p = findPlayer(g, userId);
-        if (p == null) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
+        if (p == null)
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
         if (!"VAMPIRE".equals(p.getRole()) && !"SERVANT".equals(p.getRole()))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "vampire/servants only");
 
         switch (recipe) {
             case "WOOD_TO_IRON" -> { // 2 bois + 1 eau → +2 fer
-                if (p.getWood() < 2 || p.getWater() < 1) throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
+                if (p.getWood() < 2 || p.getWater() < 1)
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
                 p.setWood(p.getWood() - 2);
                 p.setWater(p.getWater() - 1);
                 p.setIron(p.getIron() + 2);
                 addHistory(g, nameOf(g, userId) + " transmute: 2 bois + 1 eau → +2 fer.");
             }
             case "IRON_TO_WOOD" -> { // 2 fer + 1 eau → +2 bois
-                if (p.getIron() < 2 || p.getWater() < 1) throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
+                if (p.getIron() < 2 || p.getWater() < 1)
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
                 p.setIron(p.getIron() - 2);
                 p.setWater(p.getWater() - 1);
                 p.setWood(p.getWood() + 2);
                 addHistory(g, nameOf(g, userId) + " transmute: 2 fer + 1 eau → +2 bois.");
             }
             case "TRINITY_TO_SOULS" -> { // 1 bois + 1 fer + 1 eau → +20 âmes
-                if (p.getWood() < 1 || p.getIron() < 1 || p.getWater() < 1) throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
+                if (p.getWood() < 1 || p.getIron() < 1 || p.getWater() < 1)
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
                 p.setWood(p.getWood() - 1);
                 p.setIron(p.getIron() - 1);
                 p.setWater(p.getWater() - 1);
@@ -10868,28 +11178,33 @@ public class GameService {
         return g;
     }
 
-    private boolean sameSideCanTrade(Player a, Player b){
-        if ("HUNTER".equals(a.getRole()) && "HUNTER".equals(b.getRole())) return true;
+    private boolean sameSideCanTrade(Player a, Player b) {
+        if ("HUNTER".equals(a.getRole()) && "HUNTER".equals(b.getRole()))
+            return true;
         // vamp side: vamp <-> servant uniquement
-        if ("VAMPIRE".equals(a.getRole()) && "SERVANT".equals(b.getRole())) return true;
-        if ("SERVANT".equals(a.getRole()) && "VAMPIRE".equals(b.getRole())) return true;
+        if ("VAMPIRE".equals(a.getRole()) && "SERVANT".equals(b.getRole()))
+            return true;
+        if ("SERVANT".equals(a.getRole()) && "VAMPIRE".equals(b.getRole()))
+            return true;
         return false;
     }
 
-    private String sideOf(Player a, Player b){
+    private String sideOf(Player a, Player b) {
         return "HUNTER".equals(a.getRole()) && "HUNTER".equals(b.getRole()) ? "HUNTERS" : "VAMP_SIDE";
     }
 
-    private Game.Trade getOrCreateTrade(Game g, String aId, String bId){
+    private Game.Trade getOrCreateTrade(Game g, String aId, String bId) {
         String lo = aId.compareTo(bId) <= 0 ? aId : bId;
         String hi = aId.compareTo(bId) <= 0 ? bId : aId;
 
         for (var t : g.getTrades()) {
-            if ((t.getAId().equals(lo) && t.getBId().equals(hi))) return t;
+            if ((t.getAId().equals(lo) && t.getBId().equals(hi)))
+                return t;
         }
         var t = new Game.Trade();
         t.setId(java.util.UUID.randomUUID().toString());
-        t.setAId(lo); t.setBId(hi);
+        t.setAId(lo);
+        t.setBId(hi);
         var pa = findPlayer(g, lo);
         var pb = findPlayer(g, hi);
         t.setSide(sideOf(pa, pb));
@@ -10898,29 +11213,35 @@ public class GameService {
     }
 
     @Transactional
-    public Game tradeSetMyOffer(String gameId, String userId, String targetId, Map<String,Integer> offer) {
+    public Game tradeSetMyOffer(String gameId, String userId, String targetId, Map<String, Integer> offer) {
         Game g = findOr404(gameId);
         if (g.getPhase() != Phase.PHASE4)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE4");
 
         var me = findPlayer(g, userId);
         var you = findPlayer(g, targetId);
-        if (me == null || you == null) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "player not found");
-        if (!sameSideCanTrade(me, you)) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "pair not eligible");
+        if (me == null || you == null)
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "player not found");
+        if (!sameSideCanTrade(me, you))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "pair not eligible");
 
         var t = getOrCreateTrade(g, userId, targetId);
 
         // sanitize
-        Map<String,Integer> sanitized = new java.util.HashMap<>();
+        Map<String, Integer> sanitized = new java.util.HashMap<>();
         if (offer != null) {
             for (var e : offer.entrySet()) {
-                int q = Math.max(0, e.getValue()==null?0:e.getValue());
-                if (q > 0) sanitized.put(e.getKey(), q);
+                int q = Math.max(0, e.getValue() == null ? 0 : e.getValue());
+                if (q > 0)
+                    sanitized.put(e.getKey(), q);
             }
         }
 
         boolean iAmA = userId.equals(t.getAId());
-        if (iAmA) t.setOfferA(sanitized); else t.setOfferB(sanitized);
+        if (iAmA)
+            t.setOfferA(sanitized);
+        else
+            t.setOfferB(sanitized);
 
         // UX : toute modif remet les deux côtés à PENDING
         t.setStatusA("PENDING");
@@ -10940,30 +11261,37 @@ public class GameService {
 
         var me = findPlayer(g, userId);
         var you = findPlayer(g, targetId);
-        if (me == null || you == null) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "player not found");
-        if (!sameSideCanTrade(me, you)) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "pair not eligible");
+        if (me == null || you == null)
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "player not found");
+        if (!sameSideCanTrade(me, you))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "pair not eligible");
 
         var t = getOrCreateTrade(g, userId, targetId);
         boolean iAmA = userId.equals(t.getAId());
 
         String st = switch (action) {
             case "confirm" -> "CONFIRMED";
-            case "refuse"  -> "REFUSED";
-            case "cancel"  -> "CANCELLED";
+            case "refuse" -> "REFUSED";
+            case "cancel" -> "CANCELLED";
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid action");
         };
 
-        if (iAmA) t.setStatusA(st); else t.setStatusB(st);
+        if (iAmA)
+            t.setStatusA(st);
+        else
+            t.setStatusB(st);
         t.setUpdatedAt(System.currentTimeMillis());
 
         String tId = t.getId();
         String aId = t.getAId();
         String bId = t.getBId();
-        Map<String,Integer> offerA = t.getOfferA()==null? java.util.Map.of() : new java.util.HashMap<>(t.getOfferA());
-        Map<String,Integer> offerB = t.getOfferB()==null? java.util.Map.of() : new java.util.HashMap<>(t.getOfferB());
+        Map<String, Integer> offerA = t.getOfferA() == null ? java.util.Map.of()
+                : new java.util.HashMap<>(t.getOfferA());
+        Map<String, Integer> offerB = t.getOfferB() == null ? java.util.Map.of()
+                : new java.util.HashMap<>(t.getOfferB());
 
         boolean deleted = false;
-        boolean success  = false;
+        boolean success = false;
 
         if ("CONFIRMED".equals(t.getStatusA()) && "CONFIRMED".equals(t.getStatusB())) {
             success = true;
@@ -10982,11 +11310,10 @@ public class GameService {
             final var fOfferB = offerB;
 
             final String fResult = fSuccess ? "SUCCESS" : "CLOSED";
-            final java.util.Map<String,Object> extra = fSuccess
+            final java.util.Map<String, Object> extra = fSuccess
                     ? new java.util.HashMap<>(java.util.Map.of(
-                    "offerA", fOfferA,
-                    "offerB", fOfferB
-            ))
+                            "offerA", fOfferA,
+                            "offerB", fOfferB))
                     : java.util.Map.of();
 
             afterCommit(() -> {
@@ -10994,8 +11321,7 @@ public class GameService {
                         g, tId, aId, bId,
                         "FINAL",
                         fResult,
-                        extra
-                );
+                        extra);
             });
         } else {
             afterCommit(() -> live.tradeSync(g, t));
@@ -11003,74 +11329,106 @@ public class GameService {
         return g;
     }
 
-    private boolean isFinal(String s){ return "REFUSED".equals(s) || "CANCELLED".equals(s); }
+    private boolean isFinal(String s) {
+        return "REFUSED".equals(s) || "CANCELLED".equals(s);
+    }
 
     // Exécution de l'échange (débits puis crédits)
-    private void applyTradeExchange(Game g, Game.Trade t){
+    private void applyTradeExchange(Game g, Game.Trade t) {
         var a = findPlayer(g, t.getAId());
         var b = findPlayer(g, t.getBId());
-        if (a==null || b==null) return;
+        if (a == null || b == null)
+            return;
 
         // vérif stocks côté A et B
         if (!hasAll(a, t.getOfferA()) || !hasAll(b, t.getOfferB()))
             throw new ResponseStatusException(HttpStatus.CONFLICT, "insufficient resources");
 
-        debit(a, t.getOfferA()); debit(b, t.getOfferB());
-        credit(a, t.getOfferB()); credit(b, t.getOfferA());
+        debit(a, t.getOfferA());
+        debit(b, t.getOfferB());
+        credit(a, t.getOfferB());
+        credit(b, t.getOfferA());
 
         addHistory(g, nameOf(g, a.getId()) + " et " + nameOf(g, b.getId()) + " concluent un échange.");
     }
 
     // helpers
-    private boolean hasAll(Player p, Map<String,Integer> pack){
-        if (pack==null) return true;
-        for (var e : pack.entrySet()){
-            int need = Math.max(0, e.getValue()==null?0:e.getValue());
+    private boolean hasAll(Player p, Map<String, Integer> pack) {
+        if (pack == null)
+            return true;
+        for (var e : pack.entrySet()) {
+            int need = Math.max(0, e.getValue() == null ? 0 : e.getValue());
             switch (e.getKey()) {
-                case "wood"  -> { if (p.getWood()  < need) return false; }
-                case "herbs" -> { if (p.getHerbs() < need) return false; }
-                case "stone" -> { if (p.getStone() < need) return false; }
-                case "iron"  -> { if (p.getIron()  < need) return false; }
-                case "water" -> { if (p.getWater() < need) return false; }
-                case "gold"  -> { if (p.getGold()  < need) return false; }          // boutique dit or permis côté hunters
-                case "souls" -> { if (p.getSouls() < need) return false; }         // transmutation côté vamp
-                case "silver"-> { if (p.getSilver()< need) return false; }
+                case "wood" -> {
+                    if (p.getWood() < need)
+                        return false;
+                }
+                case "herbs" -> {
+                    if (p.getHerbs() < need)
+                        return false;
+                }
+                case "stone" -> {
+                    if (p.getStone() < need)
+                        return false;
+                }
+                case "iron" -> {
+                    if (p.getIron() < need)
+                        return false;
+                }
+                case "water" -> {
+                    if (p.getWater() < need)
+                        return false;
+                }
+                case "gold" -> {
+                    if (p.getGold() < need)
+                        return false;
+                } // boutique dit or permis côté hunters
+                case "souls" -> {
+                    if (p.getSouls() < need)
+                        return false;
+                } // transmutation côté vamp
+                case "silver" -> {
+                    if (p.getSilver() < need)
+                        return false;
+                }
                 default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid resource: " + e.getKey());
             }
         }
         return true;
     }
 
-    private void debit(Player p, Map<String,Integer> pack){
-        if (pack == null) return;
-        for (var e : pack.entrySet()){
-            int q = Math.max(0, e.getValue()==null ? 0 : e.getValue());
-            switch (e.getKey()){
-                case "wood"   -> p.setWood(p.getWood() - q);
-                case "herbs"  -> p.setHerbs(p.getHerbs() - q);
-                case "stone"  -> p.setStone(p.getStone() - q);
-                case "iron"   -> p.setIron(p.getIron() - q);
-                case "water"  -> p.setWater(p.getWater() - q);
-                case "gold"   -> p.setGold(p.getGold() - q);
-                case "souls"  -> p.setSouls(p.getSouls() - q);
+    private void debit(Player p, Map<String, Integer> pack) {
+        if (pack == null)
+            return;
+        for (var e : pack.entrySet()) {
+            int q = Math.max(0, e.getValue() == null ? 0 : e.getValue());
+            switch (e.getKey()) {
+                case "wood" -> p.setWood(p.getWood() - q);
+                case "herbs" -> p.setHerbs(p.getHerbs() - q);
+                case "stone" -> p.setStone(p.getStone() - q);
+                case "iron" -> p.setIron(p.getIron() - q);
+                case "water" -> p.setWater(p.getWater() - q);
+                case "gold" -> p.setGold(p.getGold() - q);
+                case "souls" -> p.setSouls(p.getSouls() - q);
                 case "silver" -> p.setSilver(p.getSilver() - q);
                 default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid resource: " + e.getKey());
             }
         }
     }
 
-    private void credit(Player p, Map<String,Integer> pack){
-        if (pack == null) return;
-        for (var e : pack.entrySet()){
-            int q = Math.max(0, e.getValue()==null ? 0 : e.getValue());
-            switch (e.getKey()){
-                case "wood"   -> p.setWood(p.getWood() + q);
-                case "herbs"  -> p.setHerbs(p.getHerbs() + q);
-                case "stone"  -> p.setStone(p.getStone() + q);
-                case "iron"   -> p.setIron(p.getIron() + q);
-                case "water"  -> p.setWater(p.getWater() + q);
-                case "gold"   -> p.setGold(p.getGold() + q);
-                case "souls"  -> p.setSouls(p.getSouls() + q);
+    private void credit(Player p, Map<String, Integer> pack) {
+        if (pack == null)
+            return;
+        for (var e : pack.entrySet()) {
+            int q = Math.max(0, e.getValue() == null ? 0 : e.getValue());
+            switch (e.getKey()) {
+                case "wood" -> p.setWood(p.getWood() + q);
+                case "herbs" -> p.setHerbs(p.getHerbs() + q);
+                case "stone" -> p.setStone(p.getStone() + q);
+                case "iron" -> p.setIron(p.getIron() + q);
+                case "water" -> p.setWater(p.getWater() + q);
+                case "gold" -> p.setGold(p.getGold() + q);
+                case "souls" -> p.setSouls(p.getSouls() + q);
                 case "silver" -> p.setSilver(p.getSilver() + q);
                 default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid resource: " + e.getKey());
             }
@@ -11097,8 +11455,7 @@ public class GameService {
                 || g.getSecondaryWeatherStatus() == WeatherStatus.WIND) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Impossible de construire ce raid à cause du cyclone."
-            );
+                    "Impossible de construire ce raid à cause du cyclone.");
         }
 
         if (!"VAMPIRE".equals(p.getRole())) {
@@ -11127,14 +11484,14 @@ public class GameService {
         // --- QUELLE CARTE LIEU DOIT-IL JOUER ? ---
         final String card;
         switch (infra) {
-            case SAWMILL     -> card = "forest";
-            case MINE        -> card = "quarry";
-            case LIBRARY     -> card = "manor";
-            case LABORATORY  -> card = "manor";
-            case BALLROOM    -> card = "manor";
-            case ALTAR       -> card = "manor";
-            case FORGE       -> card = "manor";
-            default      -> throw new IllegalArgumentException("Infra non supportée: " + infra);
+            case SAWMILL -> card = "forest";
+            case MINE -> card = "quarry";
+            case LIBRARY -> card = "manor";
+            case LABORATORY -> card = "manor";
+            case BALLROOM -> card = "manor";
+            case ALTAR -> card = "manor";
+            case FORGE -> card = "manor";
+            default -> throw new IllegalArgumentException("Infra non supportée: " + infra);
         }
 
         // --- FUMIGATION : vampire/servant ne peuvent pas aller sur un lieu fumigé ---
@@ -11158,7 +11515,7 @@ public class GameService {
         boolean fumigate = false;
 
         // Pose au centre (comme selectLocation)
-        CenterBoard cb = new CenterBoard(playerId, card, /*faceUp=*/fumigate);
+        CenterBoard cb = new CenterBoard(playerId, card, /* faceUp= */fumigate);
         g.getCenter().add(cb);
 
         // Pisteur : même comportement que quand le vampire joue un lieu
@@ -11180,7 +11537,7 @@ public class GameService {
         save(g);
 
         final String gid = g.getId();
-        //final Infra infraFinal = infra;
+        // final Infra infraFinal = infra;
 
         afterCommit(() -> {
             live.locationSelected(g, playerId, card);
@@ -11197,14 +11554,14 @@ public class GameService {
 
     private boolean hasResourcesForInfra(Player p, Infra infra) {
         return switch (infra) {
-            case SAWMILL    -> p.getStone() >= 2 && p.getIron() >= 2;
-            case MINE       -> p.getWood()  >= 3 && p.getIron() >= 1;
-            case LIBRARY    -> p.getWood()  >= 4 && p.getStone() >= 2 && p.getIron() >= 1;
+            case SAWMILL -> p.getStone() >= 2 && p.getIron() >= 2;
+            case MINE -> p.getWood() >= 3 && p.getIron() >= 1;
+            case LIBRARY -> p.getWood() >= 4 && p.getStone() >= 2 && p.getIron() >= 1;
             case LABORATORY -> p.getWater() >= 2
                     && p.getHerbs() >= 2
                     && p.getStone() >= 3
                     && p.getSouls() >= 50;
-            case BALLROOM -> p.getStone() >= 5  && p.getIron() >= 2 && p.getSouls() >= 50;
+            case BALLROOM -> p.getStone() >= 5 && p.getIron() >= 2 && p.getSouls() >= 50;
             case ALTAR -> p.getStone() >= 4
                     && p.getWood() >= 1
                     && p.getIron() >= 2
@@ -11219,37 +11576,37 @@ public class GameService {
         switch (infra) {
             case SAWMILL -> {
                 p.setStone(p.getStone() - 2);
-                p.setIron(p.getIron()  - 2);
+                p.setIron(p.getIron() - 2);
             }
             case MINE -> {
-                p.setWood(p.getWood()  - 3);
-                p.setIron(p.getIron()  - 1);
+                p.setWood(p.getWood() - 3);
+                p.setIron(p.getIron() - 1);
             }
             case LIBRARY -> {
-                p.setWood (p.getWood()  - 4);
+                p.setWood(p.getWood() - 4);
                 p.setStone(p.getStone() - 2);
-                p.setIron (p.getIron()  - 1);
+                p.setIron(p.getIron() - 1);
             }
             case LABORATORY -> {
-                p.setWater (p.getWater()  - 2);
+                p.setWater(p.getWater() - 2);
                 p.setHerbs(p.getHerbs() - 2);
-                p.setStone (p.getStone()  - 3);
-                p.setSouls (p.getSouls()  - 50);
+                p.setStone(p.getStone() - 3);
+                p.setSouls(p.getSouls() - 50);
             }
             case BALLROOM -> {
-                p.setStone (p.getStone()  - 5);
+                p.setStone(p.getStone() - 5);
                 p.setIron(p.getIron() - 2);
-                p.setSouls (p.getSouls()  - 50);
+                p.setSouls(p.getSouls() - 50);
             }
             case ALTAR -> {
-                p.setStone (p.getStone()  - 4);
+                p.setStone(p.getStone() - 4);
                 p.setWood(p.getWood() - 1);
                 p.setIron(p.getIron() - 2);
-                p.setSouls (p.getSouls()  - 50);
+                p.setSouls(p.getSouls() - 50);
             }
             case FORGE -> {
                 p.setIron(p.getIron() - 5);
-                p.setStone (p.getStone()  - 4);
+                p.setStone(p.getStone() - 4);
                 p.setWood(p.getWood() - 2);
             }
         }
@@ -11268,7 +11625,8 @@ public class GameService {
                 gains.add("+2 fer");
             }
             case LIBRARY, LABORATORY, BALLROOM, ALTAR, FORGE -> {
-                // Pour l’instant : même logique que Manoir, tu ajusteras si tu as déjà un case "manor"
+                // Pour l’instant : même logique que Manoir, tu ajusteras si tu as déjà un case
+                // "manor"
                 // Exemple : +1d100 or OU +1d100 âmes déchues selon rôle
                 int d100 = rollD100Tens();
                 if ("VAMPIRE".equals(vamp.getRole())) {
@@ -11291,19 +11649,22 @@ public class GameService {
 
     private boolean skipHarvestBecauseOfConstruction(Game g, Player p, String loc) {
         var pc = g.getPendingConstruction();
-        if (pc == null) return false;
+        if (pc == null)
+            return false;
 
         var vampOpt = getVamp(g);
-        if (vampOpt.isEmpty()) return false;
+        if (vampOpt.isEmpty())
+            return false;
         var vamp = vampOpt.get();
 
         // On ne bloque que la récolte du vampire lui-même
-        if (!p.getId().equals(vamp.getId())) return false;
+        if (!p.getId().equals(vamp.getId()))
+            return false;
 
         // Mapping infra -> lieu de base
         return switch (pc.infra) {
             case SAWMILL -> "forest".equals(loc);
-            case MINE    -> "quarry".equals(loc);
+            case MINE -> "quarry".equals(loc);
             case LIBRARY -> "manor".equals(loc);
             case LABORATORY -> "manor".equals(loc);
             case BALLROOM -> "manor".equals(loc);
@@ -11323,25 +11684,27 @@ public class GameService {
     /** À appeler à la fin de la PHASE3, avant de passer en PHASE4. */
     private void resolveInfraConstruction(Game g) {
         var pc = g.getPendingConstruction();
-        if (pc == null) return;
+        if (pc == null)
+            return;
 
         // On consomme la construction en attente dans tous les cas
         g.setPendingConstruction(null);
 
         var vampOpt = getVamp(g);
-        if (vampOpt.isEmpty()) return;
+        if (vampOpt.isEmpty())
+            return;
         var vamp = vampOpt.get();
 
         /*
-        // 1) Si le vampire a pris des dégâts, la construction échoue,
-        //    mais il récolte le lieu d'origine (forêt/carrière)
-        if (g.isVampireTookDamageThisRaid()) {
-            addHistory(g, "La construction de " + pc.infra
-                    + " échoue : le vampire a subi des dégâts durant le raid.");
-            applyBaseLocationHarvestForInfra(g, vamp, pc.infra);
-            return;
-        }
-        */
+         * // 1) Si le vampire a pris des dégâts, la construction échoue,
+         * // mais il récolte le lieu d'origine (forêt/carrière)
+         * if (g.isVampireTookDamageThisRaid()) {
+         * addHistory(g, "La construction de " + pc.infra
+         * + " échoue : le vampire a subi des dégâts durant le raid.");
+         * applyBaseLocationHarvestForInfra(g, vamp, pc.infra);
+         * return;
+         * }
+         */
 
         // 2) Vérifier qu'il a encore les ressources
         if (!hasResourcesForInfra(vamp, pc.infra)) {
@@ -11391,15 +11754,19 @@ public class GameService {
         switch (infra) {
             case SAWMILL -> {
                 // même logique que case "forest" de applyHarvests pour le vampire
-                grant(vamp, "wood", 2);  gains.add("+1 bois");
-                grant(vamp, "herbs", 4); gains.add("+2 herbe médicinale");
+                grant(vamp, "wood", 2);
+                gains.add("+1 bois");
+                grant(vamp, "herbs", 4);
+                gains.add("+2 herbe médicinale");
                 locKey = "forest";
                 locLabel = labelLieuFr("forest");
             }
             case MINE -> {
                 // même logique que case "quarry"
-                grant(vamp, "iron", 2);  gains.add("+1 fer");
-                grant(vamp, "stone", 4); gains.add("+2 pierre");
+                grant(vamp, "iron", 2);
+                gains.add("+1 fer");
+                grant(vamp, "stone", 4);
+                gains.add("+2 pierre");
                 locKey = "quarry";
                 locLabel = labelLieuFr("quarry");
             }
@@ -11407,10 +11774,10 @@ public class GameService {
                 // même logique que "manor" quand la construction échoue
                 int d100 = rollD100Tens();
                 if ("VAMPIRE".equals(vamp.getRole())) {
-                    grant(vamp, "souls", d100+100);
+                    grant(vamp, "souls", d100 + 100);
                     gains.add("+" + (d100 + 100) + " âmes déchues");
                 } else {
-                    grant(vamp, "gold", d100+100);
+                    grant(vamp, "gold", d100 + 100);
                     gains.add("+" + (d100 + 100) + " or");
                 }
                 locKey = "manor";
@@ -11430,17 +11797,17 @@ public class GameService {
 
     /**
      * Fin de PREPHASE3 :
-     *  - soit on démarre / poursuit la file d'effets de lieu,
-     *  - soit on bascule en PHASE3 (récoltes + combats + pièges).
+     * - soit on démarre / poursuit la file d'effets de lieu,
+     * - soit on bascule en PHASE3 (récoltes + combats + pièges).
      *
      * Cette méthode :
-     *  - suppose qu'on est encore en PREPHASE3,
-     *  - suppose qu'il n'y a plus de choix "instable" en attente,
-     *  - ne vérifie PAS readyForPhase3 (utile pour les timers serveur).
+     * - suppose qu'on est encore en PREPHASE3,
+     * - suppose qu'il n'y a plus de choix "instable" en attente,
+     * - ne vérifie PAS readyForPhase3 (utile pour les timers serveur).
      */
     private void finishPrephaseAndMaybeStartLocationEffects(Game g, String gameId) {
         // 1) Si un effet est déjà en cours (file non vide + index valide + pending),
-        //    on ne fait rien : scheduleNextLocationEffect gérera la suite.
+        // on ne fait rien : scheduleNextLocationEffect gérera la suite.
         if (g.getLocationEffectPending()
                 && g.getLocationEffectsQueue() != null
                 && g.getCurrentLocationEffectIndex() != null) {
@@ -11503,9 +11870,9 @@ public class GameService {
      *
      * - Réinitialise la structure (queue, index courant, flags).
      * - Ajoute une entrée par joueur éligible pour chaque lieu à effet
-     *   (actuellement LIBRARY et LABORATORY).
+     * (actuellement LIBRARY et LABORATORY).
      * - Utilise l'état final de PREPHASE3 (positions, instables, combats)
-     *   pour décider qui a droit à un effet.
+     * pour décider qui a droit à un effet.
      */
     private void buildLocationEffectsQueue(Game g) {
         // Réinit de la structure
@@ -11523,11 +11890,11 @@ public class GameService {
             return;
         }
 
-        boolean hasLibrary    = g.getBuiltInfras().contains(Infra.LIBRARY);
+        boolean hasLibrary = g.getBuiltInfras().contains(Infra.LIBRARY);
         boolean hasLaboratory = g.getBuiltInfras().contains(Infra.LABORATORY);
-        boolean hasBallroom   = g.getBuiltInfras().contains(Infra.BALLROOM);
+        boolean hasBallroom = g.getBuiltInfras().contains(Infra.BALLROOM);
         boolean hasAltar = g.getBuiltInfras().contains(Infra.ALTAR);
-        boolean hasForge      = g.getBuiltInfras().contains(Infra.FORGE);
+        boolean hasForge = g.getBuiltInfras().contains(Infra.FORGE);
 
         if (!hasLibrary && !hasLaboratory && !hasBallroom && !hasAltar && !hasForge) {
             return; // aucune infra à effet
@@ -11546,19 +11913,19 @@ public class GameService {
         }
 
         // Joueurs impliqués dans des duels instables par lieu
-        java.util.Map<String, java.util.Set<String>> unstableCombatPlayersByLoc =
-                new java.util.HashMap<>();
+        java.util.Map<String, java.util.Set<String>> unstableCombatPlayersByLoc = new java.util.HashMap<>();
         if (g.getUnstableTargetByPlayer() != null) {
             for (var entry : g.getUnstableTargetByPlayer().entrySet()) {
                 String unstableId = entry.getKey();
-                String targetId   = entry.getValue();
+                String targetId = entry.getValue();
 
                 String loc = g.getCenter().stream()
                         .filter(cb -> cb.getPlayerId().equals(targetId))
                         .map(CenterBoard::getCard)
                         .findFirst()
                         .orElse(null);
-                if (loc == null) continue;
+                if (loc == null)
+                    continue;
 
                 var set = unstableCombatPlayersByLoc
                         .computeIfAbsent(loc, __ -> new java.util.HashSet<>());
@@ -11594,18 +11961,21 @@ public class GameService {
                     .toList();
 
             // Joueurs impliqués dans des duels instables SUR "library"
-            java.util.Set<String> unstableCombatOnLibrary =
-                    unstableCombatPlayersByLoc.getOrDefault(libraryCardCode, java.util.Set.of());
+            java.util.Set<String> unstableCombatOnLibrary = unstableCombatPlayersByLoc.getOrDefault(libraryCardCode,
+                    java.util.Set.of());
 
             for (var cb : g.getCenter()) {
-                if (!libraryCardCode.equals(cb.getCard())) continue;
+                if (!libraryCardCode.equals(cb.getCard()))
+                    continue;
 
                 var owner = g.getPlayers().stream()
                         .filter(p -> p.getId().equals(cb.getPlayerId()))
                         .findFirst()
                         .orElse(null);
-                if (owner == null) continue;
-                if (owner.getHp() <= 0) continue; // mort → pas d'effet
+                if (owner == null)
+                    continue;
+                if (owner.getHp() <= 0)
+                    continue; // mort → pas d'effet
 
                 boolean ownerIsVamp = "VAMPIRE".equals(owner.getRole());
 
@@ -11645,12 +12015,13 @@ public class GameService {
 
                 Game.LocationEffectInstance inst = new Game.LocationEffectInstance();
                 inst.ownerId = owner.getId();
-                inst.infra   = Infra.LIBRARY;
-                inst.choice  = null;
+                inst.infra = Infra.LIBRARY;
+                inst.choice = null;
                 g.getLocationEffectsQueue().add(inst);
             }
 
-            // --- Sécurité : s'assurer que le vampire a bien une entrée s'il a joué Bibliothèque ---
+            // --- Sécurité : s'assurer que le vampire a bien une entrée s'il a joué
+            // Bibliothèque ---
             var vampOpt = getVamp(g);
             if (vampOpt.isPresent()) {
                 var vamp = vampOpt.get();
@@ -11666,8 +12037,8 @@ public class GameService {
                     if (!alreadyQueued) {
                         Game.LocationEffectInstance inst = new Game.LocationEffectInstance();
                         inst.ownerId = vamp.getId();
-                        inst.infra   = Infra.LIBRARY;
-                        inst.choice  = null;
+                        inst.infra = Infra.LIBRARY;
+                        inst.choice = null;
                         g.getLocationEffectsQueue().add(inst);
                     }
                 }
@@ -11696,19 +12067,22 @@ public class GameService {
                     .filter(m -> m.hp > 0)
                     .toList();
 
-            java.util.Set<String> unstableCombatOnLab =
-                    unstableCombatPlayersByLoc.getOrDefault(labCardCode, java.util.Set.of());
+            java.util.Set<String> unstableCombatOnLab = unstableCombatPlayersByLoc.getOrDefault(labCardCode,
+                    java.util.Set.of());
 
             for (var cb : g.getCenter()) {
-                if (!labCardCode.equals(cb.getCard())) continue;
+                if (!labCardCode.equals(cb.getCard()))
+                    continue;
 
                 var owner = g.getPlayers().stream()
                         .filter(p -> p.getId().equals(cb.getPlayerId()))
                         .findFirst()
                         .orElse(null);
 
-                if (owner == null) continue;
-                if (owner.getHp() <= 0) continue; // mort → pas d'effet
+                if (owner == null)
+                    continue;
+                if (owner.getHp() <= 0)
+                    continue; // mort → pas d'effet
 
                 boolean ownerIsVamp = "VAMPIRE".equals(owner.getRole());
 
@@ -11740,9 +12114,9 @@ public class GameService {
                 }
 
                 Game.LocationEffectInstance inst = new Game.LocationEffectInstance();
-                inst.ownerId = owner.getId();   // VAMPIRE, HUNTER ou SERVANT
-                inst.infra   = Infra.LABORATORY;
-                inst.choice  = null;
+                inst.ownerId = owner.getId(); // VAMPIRE, HUNTER ou SERVANT
+                inst.infra = Infra.LABORATORY;
+                inst.choice = null;
                 g.getLocationEffectsQueue().add(inst);
             }
         }
@@ -11768,19 +12142,22 @@ public class GameService {
                     .filter(m -> m.hp > 0)
                     .toList();
 
-            java.util.Set<String> unstableCombatOnBallroom =
-                    unstableCombatPlayersByLoc.getOrDefault(ballroomCode, java.util.Set.of());
+            java.util.Set<String> unstableCombatOnBallroom = unstableCombatPlayersByLoc.getOrDefault(ballroomCode,
+                    java.util.Set.of());
 
             for (var cb : g.getCenter()) {
-                if (!ballroomCode.equals(cb.getCard())) continue;
+                if (!ballroomCode.equals(cb.getCard()))
+                    continue;
 
                 var owner = g.getPlayers().stream()
                         .filter(p -> p.getId().equals(cb.getPlayerId()))
                         .findFirst()
                         .orElse(null);
 
-                if (owner == null) continue;
-                if (owner.getHp() <= 0) continue; // mort → pas d'effet
+                if (owner == null)
+                    continue;
+                if (owner.getHp() <= 0)
+                    continue; // mort → pas d'effet
 
                 boolean ownerIsVamp = "VAMPIRE".equals(owner.getRole());
 
@@ -11813,8 +12190,8 @@ public class GameService {
 
                 Game.LocationEffectInstance inst = new Game.LocationEffectInstance();
                 inst.ownerId = owner.getId();
-                inst.infra   = Infra.BALLROOM;
-                inst.choice  = null;
+                inst.infra = Infra.BALLROOM;
+                inst.choice = null;
                 g.getLocationEffectsQueue().add(inst);
             }
         }
@@ -11840,24 +12217,26 @@ public class GameService {
                     .filter(m -> m.hp > 0)
                     .toList();
 
-            java.util.Set<String> unstableCombatOnAltar =
-                    unstableCombatPlayersByLoc.getOrDefault(altarCode, java.util.Set.of());
+            java.util.Set<String> unstableCombatOnAltar = unstableCombatPlayersByLoc.getOrDefault(altarCode,
+                    java.util.Set.of());
 
             for (var cb : g.getCenter()) {
-                if (!altarCode.equals(cb.getCard())) continue;
+                if (!altarCode.equals(cb.getCard()))
+                    continue;
 
                 var owner = g.getPlayers().stream()
                         .filter(p -> p.getId().equals(cb.getPlayerId()))
                         .findFirst()
                         .orElse(null);
 
-                if (owner == null) continue;
-                if (owner.getHp() <= 0) continue; // mort → pas d'effet de lieu
+                if (owner == null)
+                    continue;
+                if (owner.getHp() <= 0)
+                    continue; // mort → pas d'effet de lieu
                 // Sur l'autel : les serviteurs n'ont JAMAIS accès à l'effet de lieu
                 if ("SERVANT".equals(owner.getRole())) {
                     continue;
                 }
-
 
                 boolean ownerIsVamp = "VAMPIRE".equals(owner.getRole());
 
@@ -11890,8 +12269,8 @@ public class GameService {
 
                 Game.LocationEffectInstance inst = new Game.LocationEffectInstance();
                 inst.ownerId = owner.getId();
-                inst.infra   = Infra.ALTAR;
-                inst.choice  = null;
+                inst.infra = Infra.ALTAR;
+                inst.choice = null;
                 g.getLocationEffectsQueue().add(inst);
             }
         }
@@ -11917,21 +12296,25 @@ public class GameService {
                     .filter(m -> m.hp > 0)
                     .toList();
 
-            java.util.Set<String> unstableCombatOnForge =
-                    unstableCombatPlayersByLoc.getOrDefault(forgeCode, java.util.Set.of());
+            java.util.Set<String> unstableCombatOnForge = unstableCombatPlayersByLoc.getOrDefault(forgeCode,
+                    java.util.Set.of());
 
             for (var cb : g.getCenter()) {
-                if (!forgeCode.equals(cb.getCard())) continue;
+                if (!forgeCode.equals(cb.getCard()))
+                    continue;
 
                 var owner = g.getPlayers().stream()
                         .filter(p -> p.getId().equals(cb.getPlayerId()))
                         .findFirst()
                         .orElse(null);
 
-                if (owner == null) continue;
-                if (owner.getHp() <= 0) continue; // mort → pas d'effet
+                if (owner == null)
+                    continue;
+                if (owner.getHp() <= 0)
+                    continue; // mort → pas d'effet
 
-                // Règle générique : chasseur/serviteur qui VA combattre sur ce lieu → pas d'effet
+                // Règle générique : chasseur/serviteur qui VA combattre sur ce lieu → pas
+                // d'effet
                 boolean ownerIsVamp = "VAMPIRE".equals(owner.getRole());
 
                 if (!ownerIsVamp) {
@@ -11961,7 +12344,8 @@ public class GameService {
                     }
                 }
 
-                // Règle spécifique Forge : si le joueur ne peut rien forger (aucun choix dispo),
+                // Règle spécifique Forge : si le joueur ne peut rien forger (aucun choix
+                // dispo),
                 // on NE l'ajoute PAS à la queue d'effets.
                 if (!canForgeAnything(g, owner)) {
                     continue;
@@ -11969,8 +12353,8 @@ public class GameService {
 
                 Game.LocationEffectInstance inst = new Game.LocationEffectInstance();
                 inst.ownerId = owner.getId();
-                inst.infra   = Infra.FORGE;
-                inst.choice  = null;
+                inst.infra = Infra.FORGE;
+                inst.choice = null;
                 g.getLocationEffectsQueue().add(inst);
             }
         }
@@ -11981,9 +12365,10 @@ public class GameService {
      *
      * - Vérifie que l’on est bien en PREPHASE3 et sur un effet en attente.
      * - Contrôle que le joueur appelant est le propriétaire de l’effet.
-     * - Applique ou prépare l’effet selon le choix (STUDY / THEFT / OMEN, pour LIBRARY).
+     * - Applique ou prépare l’effet selon le choix (STUDY / THEFT / OMEN, pour
+     * LIBRARY).
      * - Marque l’effet comme interactif si une étape supplémentaire est nécessaire
-     *   (THEFT / OMEN), sinon enchaîne directement sur l’effet suivant.
+     * (THEFT / OMEN), sinon enchaîne directement sur l’effet suivant.
      */
     @Transactional
     public Game chooseLocationEffect(String gameId, String playerId, LocationEffectChoice choice) {
@@ -12040,7 +12425,8 @@ public class GameService {
                     }
                 }
                 case OMEN -> {
-                    // 1) Vérif serveur : deck adverse doit avoir > 3 cartes (en tenant compte du reshuffle)
+                    // 1) Vérif serveur : deck adverse doit avoir > 3 cartes (en tenant compte du
+                    // reshuffle)
                     if (!canUseLibraryOmen(g, p)) {
                         // On NE throw plus : on log et on consomme l'effet
                         addHistory(g, "Bibliothèque — " + nameOf(g, p.getId())
@@ -12103,7 +12489,8 @@ public class GameService {
                     g.setLaboratoryExplosionRoll(null);
 
                     // IMPORTANT : on n'applique pas l'effet ici
-                    // Et on n'avance pas la file d'effets ici : on attend resolveLaboratoryExplosion()
+                    // Et on n'avance pas la file d'effets ici : on attend
+                    // resolveLaboratoryExplosion()
                     waitForExtraResolution = true;
 
                     addHistory(g, "Laboratoire occulte — " + nameOf(g, playerId)
@@ -12243,7 +12630,7 @@ public class GameService {
                 // puis appellera un endpoint /effect-forge avec le code choisi.
                 waitForExtraResolution = true;
             }
-        }  else {
+        } else {
             // S'il y a d'autres infras plus tard, tu pourras les gérer ici
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "unknown location effect infra: " + inst.infra);
@@ -12267,7 +12654,8 @@ public class GameService {
             // Notifie le front que l'effet a été choisi (ouvre la modale correspondante)
             live.locationEffectUsed(fresh, fChoice, freshOwner);
 
-            // STUDY = immédiat ; THEFT/OMEN/EXPERIMENT interactifs → on attend la résolution dédiée
+            // STUDY = immédiat ; THEFT/OMEN/EXPERIMENT interactifs → on attend la
+            // résolution dédiée
             if (!fWaitExtra) {
                 scheduleNextLocationEffect(fresh.getId());
             }
@@ -12280,7 +12668,8 @@ public class GameService {
      * Effet de Bibliothèque : STUDY.
      *
      * Fait piocher 1 carte Action au joueur (dans son deck de camp)
-     * et l’ajoute à sa main, si possible. Ajoute aussi un message dans l’historique.
+     * et l’ajoute à sa main, si possible. Ajoute aussi un message dans
+     * l’historique.
      */
     private void applyLibraryStudyEffect(Game g, Player user) {
         boolean isVamp = "VAMPIRE".equals(user.getRole());
@@ -12313,7 +12702,7 @@ public class GameService {
      *
      * - Retire une carte Action dans la main de la cible (slotIndex).
      * - Replace cette carte dans le deck d’Actions du camp de la cible
-     *   (côté adverse du lanceur), puis mélange le deck.
+     * (côté adverse du lanceur), puis mélange le deck.
      * - Log l’action dans l’historique.
      *
      * Les validations (cible, index, rôles, phase…) sont supposées faites en amont.
@@ -12335,14 +12724,16 @@ public class GameService {
         boolean ownerIsVamp = "VAMPIRE".equals(owner.getRole());
 
         if (ownerIsVamp) {
-            // Vampire vole une carte à un chasseur → carte remise dans le deck Actions CHASSEURS
+            // Vampire vole une carte à un chasseur → carte remise dans le deck Actions
+            // CHASSEURS
             deck = g.getHunterActionsDeck();
             if (deck == null) {
                 deck = new java.util.ArrayList<>();
                 g.setHunterActionsDeck(deck);
             }
         } else {
-            // Chasseur vole une carte au vampire → carte remise dans le deck Actions VAMPIRE
+            // Chasseur vole une carte au vampire → carte remise dans le deck Actions
+            // VAMPIRE
             deck = g.getVampActionsDeck();
             if (deck == null) {
                 deck = new java.util.ArrayList<>();
@@ -12354,7 +12745,7 @@ public class GameService {
         java.util.Collections.shuffle(deck, RND);
 
         // 3) Historique
-        String who  = nameOf(g, owner.getId());
+        String who = nameOf(g, owner.getId());
         String who2 = nameOf(g, target.getId());
         addHistory(g, "Bibliothèque — " + who
                 + " subtilise un manuscrit à " + who2
@@ -12362,7 +12753,7 @@ public class GameService {
     }
 
     private boolean canUseLibraryTheft(Game g, Player user) {
-        boolean isVamp   = "VAMPIRE".equals(user.getRole());
+        boolean isVamp = "VAMPIRE".equals(user.getRole());
         boolean isHunter = "HUNTER".equals(user.getRole());
 
         if (isVamp) {
@@ -12376,9 +12767,11 @@ public class GameService {
         if (isHunter) {
             // Cible unique = vampire
             var vampOpt = getVamp(g);
-            if (vampOpt.isEmpty()) return false;
+            if (vampOpt.isEmpty())
+                return false;
             Player vamp = vampOpt.get();
-            if (vamp.getHp() <= 0) return false;
+            if (vamp.getHp() <= 0)
+                return false;
             return vamp.getActions() != null && !vamp.getActions().isEmpty();
         }
 
@@ -12391,7 +12784,7 @@ public class GameService {
      * - Valide le contexte (phase, effet en cours, propriétaire, cible, index).
      * - Applique le vol via applyLibraryTheftEffect().
      * - Sauvegarde la partie, notifie le front et enchaîne sur
-     *   le prochain effet de lieu via scheduleNextLocationEffect().
+     * le prochain effet de lieu via scheduleNextLocationEffect().
      */
     @Transactional
     public Game resolveLibraryTheft(String gameId, String playerId, String targetId, int slotIndex) {
@@ -12426,14 +12819,14 @@ public class GameService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not your theft effect");
         }
 
-        var owner  = findPlayer(g, playerId);
+        var owner = findPlayer(g, playerId);
         var target = findPlayer(g, targetId);
 
         if (target == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid target");
         }
 
-        boolean ownerIsVamp   = "VAMPIRE".equals(owner.getRole());
+        boolean ownerIsVamp = "VAMPIRE".equals(owner.getRole());
         boolean ownerIsHunter = "HUNTER".equals(owner.getRole());
 
         if (!ownerIsVamp && !ownerIsHunter) {
@@ -12483,23 +12876,28 @@ public class GameService {
      * Prédiction occulte :
      * - prépare libraryOmenState avec jusqu'à 3 cartes du deck adverse
      * - ne fait PAS avancer la file d'effets (résolution en 2 temps).
+     * 
      * @return nombre de cartes réellement préparées (0 si impossibilité)
      */
     private int applyLibraryOmenEffect(Game g, Player user) {
         boolean isVamp = "VAMPIRE".equals(user.getRole());
 
-        List<String> deck    = isVamp ? g.getHunterActionsDeck()   : g.getVampActionsDeck();
-        List<String> discard = isVamp ? g.getHunterActionsDiscard(): g.getVampActionsDiscard();
+        List<String> deck = isVamp ? g.getHunterActionsDeck() : g.getVampActionsDeck();
+        List<String> discard = isVamp ? g.getHunterActionsDiscard() : g.getVampActionsDiscard();
 
         if (deck == null) {
             deck = new java.util.ArrayList<>();
-            if (isVamp) g.setHunterActionsDeck(deck);
-            else        g.setVampActionsDeck(deck);
+            if (isVamp)
+                g.setHunterActionsDeck(deck);
+            else
+                g.setVampActionsDeck(deck);
         }
         if (discard == null) {
             discard = new java.util.ArrayList<>();
-            if (isVamp) g.setHunterActionsDiscard(discard);
-            else        g.setVampActionsDiscard(discard);
+            if (isVamp)
+                g.setHunterActionsDiscard(discard);
+            else
+                g.setVampActionsDiscard(discard);
         }
 
         // Si deck vide mais discard non vide → on recrée le deck maintenant
@@ -12510,13 +12908,14 @@ public class GameService {
         }
 
         Game.LibraryOmenState state = new Game.LibraryOmenState();
-        state.ownerId    = user.getId();
+        state.ownerId = user.getId();
         state.targetSide = isVamp ? "HUNTERS" : "VAMPIRE";
-        state.cards      = new java.util.ArrayList<>();
+        state.cards = new java.util.ArrayList<>();
 
         for (int i = 0; i < 3; i++) {
             String c = drawFromDeck(deck, discard);
-            if (c == null) break;
+            if (c == null)
+                break;
             state.cards.add(c);
         }
 
@@ -12530,12 +12929,11 @@ public class GameService {
         return state.cards.size(); // normalement 3
     }
 
-
     private boolean canUseLibraryOmen(Game g, Player user) {
         boolean isVamp = "VAMPIRE".equals(user.getRole());
 
-        List<String> deck    = isVamp ? g.getHunterActionsDeck()   : g.getVampActionsDeck();
-        List<String> discard = isVamp ? g.getHunterActionsDiscard(): g.getVampActionsDiscard();
+        List<String> deck = isVamp ? g.getHunterActionsDeck() : g.getVampActionsDeck();
+        List<String> discard = isVamp ? g.getHunterActionsDiscard() : g.getVampActionsDiscard();
 
         int available = deckAvailableSize(deck, discard);
 
@@ -12548,9 +12946,9 @@ public class GameService {
      *
      * - Utilise l’état temporaire libraryOmenState préparé auparavant.
      * - Replace chaque carte préparée en haut ou en bas du deck adverse
-     *   selon la liste placements.
+     * selon la liste placements.
      * - Ajoute un message d’historique, nettoie l’état OMEN,
-     *   sauvegarde et enchaîne sur le prochain effet de lieu.
+     * sauvegarde et enchaîne sur le prochain effet de lieu.
      */
     @Transactional
     public Game resolveLibraryOmen(String gameId, String playerId, java.util.List<String> placements) {
@@ -12579,23 +12977,27 @@ public class GameService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid placements");
 
         boolean targetIsVamp = "VAMPIRE".equals(omen.targetSide);
-        List<String> deck    = targetIsVamp ? g.getVampActionsDeck()   : g.getHunterActionsDeck();
-        List<String> discard = targetIsVamp ? g.getVampActionsDiscard(): g.getHunterActionsDiscard();
+        List<String> deck = targetIsVamp ? g.getVampActionsDeck() : g.getHunterActionsDeck();
+        List<String> discard = targetIsVamp ? g.getVampActionsDiscard() : g.getHunterActionsDiscard();
 
         if (deck == null) {
             deck = new java.util.ArrayList<>();
-            if (targetIsVamp) g.setVampActionsDeck(deck);
-            else              g.setHunterActionsDeck(deck);
+            if (targetIsVamp)
+                g.setVampActionsDeck(deck);
+            else
+                g.setHunterActionsDeck(deck);
         }
         if (discard == null) {
             discard = new java.util.ArrayList<>();
-            if (targetIsVamp) g.setVampActionsDiscard(discard);
-            else              g.setHunterActionsDiscard(discard);
+            if (targetIsVamp)
+                g.setVampActionsDiscard(discard);
+            else
+                g.setHunterActionsDiscard(discard);
         }
 
         for (int i = 0; i < omen.cards.size(); i++) {
             String cardId = omen.cards.get(i);
-            String where  = placements.get(i);
+            String where = placements.get(i);
 
             if ("BOTTOM".equalsIgnoreCase(where)) {
                 putOnBottom(deck, cardId);
@@ -12630,7 +13032,7 @@ public class GameService {
      * Effet de Laboratoire occulte : EXPERIMENT.
      *
      * - Consomme un certain nombre d'âmes sur le vampire
-     *   en fonction du type de monstre.
+     * en fonction du type de monstre.
      * - Crée le monstre et l'ajoute à g.getMonsters().
      * - Ajoute un message d'historique.
      *
@@ -12638,9 +13040,9 @@ public class GameService {
      * sont faites dans resolveLaboratoryExperiment().
      */
     private void applyLaboratoryExperimentEffect(Game g,
-                                                 Player vamp,
-                                                 Game.MonsterType type,
-                                                 String location) {
+            Player vamp,
+            Game.MonsterType type,
+            String location) {
 
         if (!"VAMPIRE".equals(vamp.getRole())) {
             throw new IllegalStateException("only vampire can experiment");
@@ -12659,26 +13061,27 @@ public class GameService {
         switch (type) {
             case REVENANT -> {
                 soulsCost = 100;
-                hp        = 5;
-                atkDice   = "D6";
-                defDice   = "D4";
+                hp = 5;
+                atkDice = "D6";
+                defDice = "D4";
             }
             case GARGOYLE -> {
                 soulsCost = 200;
-                hp        = 10;
-                atkDice   = "D6";
-                defDice   = "D8";
+                hp = 10;
+                atkDice = "D6";
+                defDice = "D8";
             }
             case ABERRATION -> {
                 soulsCost = 400;
-                hp        = 15;
-                atkDice   = "D8";
-                defDice   = "D12";
+                hp = 15;
+                atkDice = "D8";
+                defDice = "D12";
             }
             default -> throw new IllegalArgumentException("unsupported monster type: " + type);
         }
 
-        // Par sécurité : ne devrait pas arriver si canUseLaboratoryExperiment a été testé
+        // Par sécurité : ne devrait pas arriver si canUseLaboratoryExperiment a été
+        // testé
         if (vamp.getSouls() < soulsCost) {
             throw new IllegalStateException("not enough souls for " + type);
         }
@@ -12692,11 +13095,11 @@ public class GameService {
         }
 
         Game.Monster m = new Game.Monster();
-        m.id          = java.util.UUID.randomUUID().toString();
-        m.type        = type;
-        m.location    = location;
-        m.hp          = hp;
-        m.attackDice  = atkDice;
+        m.id = java.util.UUID.randomUUID().toString();
+        m.type = type;
+        m.location = location;
+        m.hp = hp;
+        m.attackDice = atkDice;
         m.defenseDice = defDice;
 
         g.getMonsters().add(m);
@@ -12719,9 +13122,9 @@ public class GameService {
 
     @Transactional
     public void updateLaboratoryExperimentDraft(String gameId,
-                                                String playerId,
-                                                Game.MonsterType type,
-                                                String location) {
+            String playerId,
+            Game.MonsterType type,
+            String location) {
         Game g = findOr404(gameId);
 
         if (g.getStatus() != GameStatus.ACTIVE)
@@ -12777,9 +13180,9 @@ public class GameService {
 
     @Transactional
     public Game resolveLaboratoryExperiment(String gameId,
-                                            String playerId,
-                                            Game.MonsterType type,
-                                            String location) {
+            String playerId,
+            Game.MonsterType type,
+            String location) {
         Game g = findOr404(gameId);
 
         if (g.getStatus() != GameStatus.ACTIVE)
@@ -12824,7 +13227,8 @@ public class GameService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid monster location");
         }
 
-        // ---- Ici on applique enfin l'effet, comme pour applyLibraryTheftEffect/applyLibraryOmenEffect ----
+        // ---- Ici on applique enfin l'effet, comme pour
+        // applyLibraryTheftEffect/applyLibraryOmenEffect ----
         applyLaboratoryExperimentEffect(g, vamp, type, location);
 
         save(g);
@@ -12845,8 +13249,8 @@ public class GameService {
 
     private String monsterNameFr(Game.MonsterType type) {
         return switch (type) {
-            case REVENANT   -> "Revenant";
-            case GARGOYLE   -> "Gargouille";
+            case REVENANT -> "Revenant";
+            case GARGOYLE -> "Gargouille";
             case ABERRATION -> "Aberration";
         };
     }
@@ -12908,13 +13312,15 @@ public class GameService {
 
     private int rollMonsterAttack(Game.Monster m) {
         int sides = diceSides(m.attackDice); // même helper que pour les joueurs
-        if (sides <= 0) return 0;
+        if (sides <= 0)
+            return 0;
         return 1 + RND.nextInt(sides);
     }
 
     private int rollMonsterDefense(Game.Monster m) {
         int sides = diceSides(m.defenseDice);
-        if (sides <= 0) return 0;
+        if (sides <= 0)
+            return 0;
         return 1 + RND.nextInt(sides);
     }
 
@@ -13029,7 +13435,7 @@ public class GameService {
             applyLaboratoryExplosionEffect(g, hunter);
         } else {
             int before = hunter.getHp();
-            int after  = Math.max(0, before - 2);
+            int after = Math.max(0, before - 2);
             hunter.setHp(after);
 
             addHistory(g, "Laboratoire occulte — " + who
@@ -13059,9 +13465,10 @@ public class GameService {
      *
      * - Utilisable uniquement par un chasseur.
      * - Immédiat en PREPHASE3 : le vampire perd 1 ressource aléatoire (si possible)
-     *   et 20 âmes déchues.
+     * et 20 âmes déchues.
      * - La destruction effective du Laboratoire est différée : elle sera appliquée
-     *   à la fin des combats, juste avant de passer en PHASE4 (via laboratoryToDestroy).
+     * à la fin des combats, juste avant de passer en PHASE4 (via
+     * laboratoryToDestroy).
      */
     private void applyLaboratoryExplosionEffect(Game g, Player hunter) {
         if (!"HUNTER".equals(hunter.getRole())) {
@@ -13076,27 +13483,32 @@ public class GameService {
 
         // 1) Ressource aléatoire à -1 (si possible)
         List<String> resourceKeys = new ArrayList<>();
-        if (vamp.getWood()   > 0) resourceKeys.add("wood");
-        if (vamp.getHerbs()  > 0) resourceKeys.add("herbs");
-        if (vamp.getStone()  > 0) resourceKeys.add("stone");
-        if (vamp.getIron()   > 0) resourceKeys.add("iron");
-        if (vamp.getWater()  > 0) resourceKeys.add("water");
+        if (vamp.getWood() > 0)
+            resourceKeys.add("wood");
+        if (vamp.getHerbs() > 0)
+            resourceKeys.add("herbs");
+        if (vamp.getStone() > 0)
+            resourceKeys.add("stone");
+        if (vamp.getIron() > 0)
+            resourceKeys.add("iron");
+        if (vamp.getWater() > 0)
+            resourceKeys.add("water");
 
         String lostResKey = null;
         if (!resourceKeys.isEmpty()) {
             lostResKey = resourceKeys.get(RND.nextInt(resourceKeys.size()));
             switch (lostResKey) {
-                case "wood"   -> vamp.setWood(  vamp.getWood()   - 1);
-                case "herbs"  -> vamp.setHerbs( vamp.getHerbs()  - 1);
-                case "stone"  -> vamp.setStone( vamp.getStone()  - 1);
-                case "iron"   -> vamp.setIron(  vamp.getIron()   - 1);
-                case "water"  -> vamp.setWater( vamp.getWater()  - 1);
+                case "wood" -> vamp.setWood(vamp.getWood() - 1);
+                case "herbs" -> vamp.setHerbs(vamp.getHerbs() - 1);
+                case "stone" -> vamp.setStone(vamp.getStone() - 1);
+                case "iron" -> vamp.setIron(vamp.getIron() - 1);
+                case "water" -> vamp.setWater(vamp.getWater() - 1);
             }
         }
 
         // 2) Perte de 20 âmes (ou moins si pas assez)
         int soulsBefore = vamp.getSouls();
-        int soulsLost   = 20;
+        int soulsLost = 20;
         if (soulsBefore >= 20) {
             vamp.setSouls(soulsBefore - soulsLost);
         } else {
@@ -13105,7 +13517,7 @@ public class GameService {
         }
 
         String hunterName = nameOf(g, hunter.getId());
-        String vampName   = nameOf(g, vamp.getId());
+        String vampName = nameOf(g, vamp.getId());
 
         if (lostResKey != null && soulsLost > 0) {
             addHistory(g, "Laboratoire occulte — " + hunterName
@@ -13151,7 +13563,8 @@ public class GameService {
 
             for (Infra infra : toDestroy) {
                 String locCode = infra.locationCode();
-                if (locCode == null) continue;
+                if (locCode == null)
+                    continue;
                 hand.removeIf(card -> card.equals(locCode));
             }
         }
@@ -13159,7 +13572,8 @@ public class GameService {
         // 3) Enlever les infras construites + effets permanents associés
         if (g.getBuiltInfras() != null) {
             for (Infra infra : toDestroy) {
-                if (!g.getBuiltInfras().contains(infra)) continue;
+                if (!g.getBuiltInfras().contains(infra))
+                    continue;
 
                 g.getBuiltInfras().remove(infra);
 
@@ -13204,17 +13618,23 @@ public class GameService {
     }
 
     private boolean isBallroomBloodWaltzAttack(Game g,
-                                               RoundFight r,
-                                               String userId,
-                                               Player attackerPlayer0,
-                                               Player defenderPlayer0) {
-        if (!g.isBallroomBloodWaltz()) return false;
-        if (attackerPlayer0 == null || defenderPlayer0 == null) return false;
-        if (!"VAMPIRE".equals(attackerPlayer0.getRole())) return false;
-        if (!"HUNTER".equals(defenderPlayer0.getRole())) return false;
-        if (!userId.equals(r.getAttackerId())) return false;
+            RoundFight r,
+            String userId,
+            Player attackerPlayer0,
+            Player defenderPlayer0) {
+        if (!g.isBallroomBloodWaltz())
+            return false;
+        if (attackerPlayer0 == null || defenderPlayer0 == null)
+            return false;
+        if (!"VAMPIRE".equals(attackerPlayer0.getRole()))
+            return false;
+        if (!"HUNTER".equals(defenderPlayer0.getRole()))
+            return false;
+        if (!userId.equals(r.getAttackerId()))
+            return false;
 
-        if (g.getBuiltInfras() == null || !g.getBuiltInfras().contains(Infra.BALLROOM)) return false;
+        if (g.getBuiltInfras() == null || !g.getBuiltInfras().contains(Infra.BALLROOM))
+            return false;
 
         String ballroomCode = Infra.BALLROOM.locationCode();
         return ballroomCode != null && ballroomCode.equals(r.getLocation());
@@ -13288,7 +13708,8 @@ public class GameService {
     }
 
     private boolean canUseAltarHeal(Game g, Player user) {
-        if (!"HUNTER".equals(user.getRole())) return false;
+        if (!"HUNTER".equals(user.getRole()))
+            return false;
 
         return g.getPlayers().stream()
                 .filter(p -> "HUNTER".equals(p.getRole()))
@@ -13297,7 +13718,8 @@ public class GameService {
     }
 
     private boolean canUseAltarCorrupt(Game g, Player user) {
-        if (!"VAMPIRE".equals(user.getRole())) return false;
+        if (!"VAMPIRE".equals(user.getRole()))
+            return false;
 
         return g.getPlayers().stream()
                 .filter(p -> "HUNTER".equals(p.getRole()))
@@ -13404,7 +13826,7 @@ public class GameService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not your altar effect");
         }
 
-        var user   = findPlayer(g, playerId);
+        var user = findPlayer(g, playerId);
         var target = findPlayer(g, targetId);
 
         if (user == null || target == null) {
@@ -13500,7 +13922,7 @@ public class GameService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not your altar effect");
         }
 
-        var user   = findPlayer(g, playerId);
+        var user = findPlayer(g, playerId);
         var target = findPlayer(g, targetId);
 
         if (user == null || target == null) {
@@ -13538,6 +13960,8 @@ public class GameService {
         if (newCorruption == 3) {
             discardAllActionsOf(g, target);
             target.setRole("SERVANT");
+            convertHunterGearToServant(g, target);
+            cancelPendingCombatsForPlayer(g, target);
             target.setSouls(target.getSouls() + target.getGold());
             target.setGold(0);
 
@@ -13571,15 +13995,20 @@ public class GameService {
     }
 
     private void onAltarBite(Game g, RoundFight r, Player attacker, Player defender) {
-        if (!isAltarBuilt(g)) return;
+        if (!isAltarBuilt(g))
+            return;
 
         String code = Infra.ALTAR.locationCode();
-        if (!code.equals(r.getLocation())) return;
+        if (!code.equals(r.getLocation()))
+            return;
 
         // On ne considère que les morsures du vampire sur un chasseur
-        if (attacker == null || defender == null) return;
-        if (!"VAMPIRE".equals(attacker.getRole())) return;
-        if (!"HUNTER".equals(defender.getRole())) return;
+        if (attacker == null || defender == null)
+            return;
+        if (!"VAMPIRE".equals(attacker.getRole()))
+            return;
+        if (!"HUNTER".equals(defender.getRole()))
+            return;
 
         // Au moins une morsure a eu lieu sur l'autel ce raid
         g.setAltarBiteOccurredThisRaid(true);
@@ -13596,11 +14025,14 @@ public class GameService {
     }
 
     private void onAltarVampireDamaged(Game g, RoundFight r, int damage) {
-        if (!isAltarBuilt(g)) return;
-        if (damage <= 0) return;
+        if (!isAltarBuilt(g))
+            return;
+        if (damage <= 0)
+            return;
 
         String code = Infra.ALTAR.locationCode();
-        if (!code.equals(r.getLocation())) return;
+        if (!code.equals(r.getLocation()))
+            return;
 
         g.setAltarVampTookDamageThisRaid(true);
     }
@@ -13638,54 +14070,62 @@ public class GameService {
     // --- ÉQUIPEMENTS FORGE (codes) ---
 
     // CHASSEURS — armes T1
-    private static final String H_WEAPON_T1_SWORD      = "H_WEAPON_T1_SWORD";      // épée fer, bleed +1
-    private static final String H_WEAPON_T1_MACE       = "H_WEAPON_T1_MACE";       // masse fer, stun -1
-    private static final String H_WEAPON_T1_SPEAR      = "H_WEAPON_T1_SPEAR";      // lance fer, range 1
+    private static final String H_WEAPON_T1_SWORD = "H_WEAPON_T1_SWORD"; // épée fer, bleed +1
+    private static final String H_WEAPON_T1_MACE = "H_WEAPON_T1_MACE"; // masse fer, stun -1
+    private static final String H_WEAPON_T1_SPEAR = "H_WEAPON_T1_SPEAR"; // lance fer, range 1
 
     // CHASSEURS — armure T1
-    private static final String H_ARMOR_T1_BRIGANDINE  = "H_ARMOR_T1_BRIGANDINE";  // D6
+    private static final String H_ARMOR_T1_BRIGANDINE = "H_ARMOR_T1_BRIGANDINE"; // D6
 
     // CHASSEURS — armes T2
-    private static final String H_WEAPON_T2_HALBERD    = "H_WEAPON_T2_HALBERD";    // bleed +2
-    private static final String H_WEAPON_T2_HAMMER     = "H_WEAPON_T2_HAMMER";     // stun -2
-    private static final String H_WEAPON_T2_CROSSBOW   = "H_WEAPON_T2_CROSSBOW";   // range 1-2
+    private static final String H_WEAPON_T2_HALBERD = "H_WEAPON_T2_HALBERD"; // bleed +2
+    private static final String H_WEAPON_T2_HAMMER = "H_WEAPON_T2_HAMMER"; // stun -2
+    private static final String H_WEAPON_T2_CROSSBOW = "H_WEAPON_T2_CROSSBOW"; // range 1-2
 
     // CHASSEURS — armure T2
-    private static final String H_ARMOR_T2_HAUBERT     = "H_ARMOR_T2_HAUBERT";     // D8
+    private static final String H_ARMOR_T2_HAUBERT = "H_ARMOR_T2_HAUBERT"; // D8
 
     // CHASSEURS — armes T3
     private static final String H_WEAPON_T3_WRIST_BLADES = "H_WEAPON_T3_WRIST_BLADES"; // bleed +3
-    private static final String H_WEAPON_T3_FLAIL        = "H_WEAPON_T3_FLAIL";        // stun -3
-    private static final String H_WEAPON_T3_PISTOL       = "H_WEAPON_T3_PISTOL";       // range 1-3
+    private static final String H_WEAPON_T3_FLAIL = "H_WEAPON_T3_FLAIL"; // stun -3
+    private static final String H_WEAPON_T3_PISTOL = "H_WEAPON_T3_PISTOL"; // range 1-3
 
     // CHASSEURS — armure T3
-    private static final String H_ARMOR_T3_PLATE_SILVER  = "H_ARMOR_T3_PLATE_SILVER";  // D20 + effet morsure
+    private static final String H_ARMOR_T3_PLATE_SILVER = "H_ARMOR_T3_PLATE_SILVER"; // D20 + effet morsure
 
     // VAMPIRE/SERVITEUR — armes
-    private static final String V_WEAPON_T1_SCYTHE       = "V_WEAPON_T1_SCYTHE";       // D6, regen 1 sur roll 7-8
-    private static final String V_WEAPON_T2_SWORD        = "V_WEAPON_T2_SWORD";        // D8, regen 2 sur roll 10-12
-    private static final String V_WEAPON_T3_CLAWS        = "V_WEAPON_T3_CLAWS";        // D12, regen 3 sur roll >=10
+    private static final String V_WEAPON_T1_SCYTHE = "V_WEAPON_T1_SCYTHE"; // D6, regen 1 sur roll 7-8
+    private static final String V_WEAPON_T2_SWORD = "V_WEAPON_T2_SWORD"; // D8, regen 2 sur roll 10-12
+    private static final String V_WEAPON_T3_CLAWS = "V_WEAPON_T3_CLAWS"; // D12, regen 3 sur roll >=10
 
     // VAMPIRE/SERVITEUR — armures
-    private static final String V_ARMOR_T1_CARAPACE      = "V_ARMOR_T1_CARAPACE";      // D6 +1 DEF
-    private static final String V_ARMOR_T2_HAUBERT       = "V_ARMOR_T2_HAUBERT";       // D8 +1 DEF
-    private static final String V_ARMOR_T3_ECORCE        = "V_ARMOR_T3_ECORCE";        // D12 + esquive sur 12
+    private static final String V_ARMOR_T1_CARAPACE = "V_ARMOR_T1_CARAPACE"; // D6 +1 DEF
+    private static final String V_ARMOR_T2_HAUBERT = "V_ARMOR_T2_HAUBERT"; // D8 +1 DEF
+    private static final String V_ARMOR_T3_ECORCE = "V_ARMOR_T3_ECORCE"; // D12 + esquive sur 12
 
     private int currentWeaponTier(Player p) {
         String w = p.getWeapon();
-        if (w == null) return 0;
-        if (w.contains("_T1_")) return 1;
-        if (w.contains("_T2_")) return 2;
-        if (w.contains("_T3_")) return 3;
+        if (w == null)
+            return 0;
+        if (w.contains("_T1_"))
+            return 1;
+        if (w.contains("_T2_"))
+            return 2;
+        if (w.contains("_T3_"))
+            return 3;
         return 0;
     }
 
     private int currentArmorTier(Player p) {
         String a = p.getArmor();
-        if (a == null) return 0;
-        if (a.contains("_T1_")) return 1;
-        if (a.contains("_T2_")) return 2;
-        if (a.contains("_T3_")) return 3;
+        if (a == null)
+            return 0;
+        if (a.contains("_T1_"))
+            return 1;
+        if (a.contains("_T2_"))
+            return 2;
+        if (a.contains("_T3_"))
+            return 3;
         return 0;
     }
 
@@ -13693,50 +14133,68 @@ public class GameService {
         // CHASSEURS
         switch (equipCode) {
             // --- T1 hunters ---
-            case H_WEAPON_T1_SWORD ->
-            { return p.getWood() >= 1 && p.getIron() >= 2; }
-            case H_WEAPON_T1_MACE ->
-            { return p.getWood() >= 1 && p.getIron() >= 2; }
-            case H_WEAPON_T1_SPEAR ->
-            { return p.getWood() >= 2 && p.getIron() >= 1; }
-            case H_ARMOR_T1_BRIGANDINE ->
-            { return p.getIron() >= 3; }
+            case H_WEAPON_T1_SWORD -> {
+                return p.getWood() >= 1 && p.getIron() >= 2;
+            }
+            case H_WEAPON_T1_MACE -> {
+                return p.getWood() >= 1 && p.getIron() >= 2;
+            }
+            case H_WEAPON_T1_SPEAR -> {
+                return p.getWood() >= 2 && p.getIron() >= 1;
+            }
+            case H_ARMOR_T1_BRIGANDINE -> {
+                return p.getIron() >= 3;
+            }
 
             // --- T2 hunters ---
-            case H_WEAPON_T2_HALBERD ->
-            { return p.getWood() >= 2 && p.getIron() >= 2; }
-            case H_WEAPON_T2_HAMMER ->
-            { return p.getWood() >= 1 && p.getIron() >= 3; }
-            case H_WEAPON_T2_CROSSBOW ->
-            { return p.getWood() >= 3 && p.getIron() >= 1; }
-            case H_ARMOR_T2_HAUBERT ->
-            { return p.getIron() >= 4; }
+            case H_WEAPON_T2_HALBERD -> {
+                return p.getWood() >= 2 && p.getIron() >= 2;
+            }
+            case H_WEAPON_T2_HAMMER -> {
+                return p.getWood() >= 1 && p.getIron() >= 3;
+            }
+            case H_WEAPON_T2_CROSSBOW -> {
+                return p.getWood() >= 3 && p.getIron() >= 1;
+            }
+            case H_ARMOR_T2_HAUBERT -> {
+                return p.getIron() >= 4;
+            }
 
             // --- T3 hunters ---
-            case H_WEAPON_T3_WRIST_BLADES ->
-            { return p.getIron() >= 5 && p.getSilver() >= 3; }
-            case H_WEAPON_T3_FLAIL ->
-            { return p.getWood() >= 2 && p.getIron() >= 3 && p.getSilver() >= 3; }
-            case H_WEAPON_T3_PISTOL ->
-            { return p.getWood() >= 5 && p.getSilver() >= 3; }
-            case H_ARMOR_T3_PLATE_SILVER ->
-            { return p.getIron() >= 5 && p.getSilver() >= 4; }
+            case H_WEAPON_T3_WRIST_BLADES -> {
+                return p.getIron() >= 5 && p.getSilver() >= 3;
+            }
+            case H_WEAPON_T3_FLAIL -> {
+                return p.getWood() >= 2 && p.getIron() >= 3 && p.getSilver() >= 3;
+            }
+            case H_WEAPON_T3_PISTOL -> {
+                return p.getWood() >= 5 && p.getSilver() >= 3;
+            }
+            case H_ARMOR_T3_PLATE_SILVER -> {
+                return p.getIron() >= 5 && p.getSilver() >= 4;
+            }
 
             // --- VAMPIRE / SERVITEUR ---
-            case V_WEAPON_T1_SCYTHE ->
-            { return p.getWood() >= 2 && p.getIron() >= 2 && p.getSouls() >= 40; }
-            case V_ARMOR_T1_CARAPACE ->
-            { return p.getIron() >= 3 && p.getSouls() >= 40; }
+            case V_WEAPON_T1_SCYTHE -> {
+                return p.getWood() >= 2 && p.getIron() >= 2 && p.getSouls() >= 40;
+            }
+            case V_ARMOR_T1_CARAPACE -> {
+                return p.getIron() >= 3 && p.getSouls() >= 40;
+            }
 
-            case V_WEAPON_T2_SWORD ->
-            { return p.getWood() >= 2 && p.getIron() >= 4 && p.getSouls() >= 60; }
-            case V_ARMOR_T2_HAUBERT ->
-            { return p.getIron() >= 4 && p.getSouls() >= 60; }
+            case V_WEAPON_T2_SWORD -> {
+                return p.getWood() >= 2 && p.getIron() >= 4 && p.getSouls() >= 60;
+            }
+            case V_ARMOR_T2_HAUBERT -> {
+                return p.getIron() >= 4 && p.getSouls() >= 60;
+            }
 
-            case V_WEAPON_T3_CLAWS ->
-            { return p.getWood() >= 5 && p.getIron() >= 5 && p.getSouls() >= 100; }
-            case V_ARMOR_T3_ECORCE ->
-            { return p.getWood() >= 2 && p.getIron() >= 4 && p.getSouls() >= 100; }
+            case V_WEAPON_T3_CLAWS -> {
+                return p.getWood() >= 5 && p.getIron() >= 5 && p.getSouls() >= 100;
+            }
+            case V_ARMOR_T3_ECORCE -> {
+                return p.getWood() >= 2 && p.getIron() >= 4 && p.getSouls() >= 100;
+            }
 
             default -> {
                 return false;
@@ -13843,7 +14301,7 @@ public class GameService {
         java.util.List<String> opts = new java.util.ArrayList<>();
 
         boolean isHunter = "HUNTER".equals(p.getRole());
-        boolean isVSide  = "VAMPIRE".equals(p.getRole()) || "SERVANT".equals(p.getRole());
+        boolean isVSide = "VAMPIRE".equals(p.getRole()) || "SERVANT".equals(p.getRole());
 
         if (!isHunter && !isVSide) {
             return opts;
@@ -13856,22 +14314,25 @@ public class GameService {
             // --- Armes chasseur ---
             if (wTier == 0) {
                 // accès T1
-                for (String code : new String[]{
+                for (String code : new String[] {
                         H_WEAPON_T1_SWORD, H_WEAPON_T1_MACE, H_WEAPON_T1_SPEAR
                 }) {
-                    if (hasResourcesForEquipment(p, code)) opts.add(code);
+                    if (hasResourcesForEquipment(p, code))
+                        opts.add(code);
                 }
             } else if (wTier == 1) {
-                for (String code : new String[]{
+                for (String code : new String[] {
                         H_WEAPON_T2_HALBERD, H_WEAPON_T2_HAMMER, H_WEAPON_T2_CROSSBOW
                 }) {
-                    if (hasResourcesForEquipment(p, code)) opts.add(code);
+                    if (hasResourcesForEquipment(p, code))
+                        opts.add(code);
                 }
             } else if (wTier == 2) {
-                for (String code : new String[]{
+                for (String code : new String[] {
                         H_WEAPON_T3_WRIST_BLADES, H_WEAPON_T3_FLAIL, H_WEAPON_T3_PISTOL
                 }) {
-                    if (hasResourcesForEquipment(p, code)) opts.add(code);
+                    if (hasResourcesForEquipment(p, code))
+                        opts.add(code);
                 }
             }
             // pas de T4
@@ -13975,28 +14436,28 @@ public class GameService {
     private String labelEquipmentFr(String equipCode) {
         return switch (equipCode) {
             // Hunters
-            case H_WEAPON_T1_SWORD       -> "une épée en fer";
-            case H_WEAPON_T1_MACE        -> "une masse en fer";
-            case H_WEAPON_T1_SPEAR       -> "une lance en fer";
-            case H_ARMOR_T1_BRIGANDINE   -> "une brigandine en fer";
+            case H_WEAPON_T1_SWORD -> "une épée en fer";
+            case H_WEAPON_T1_MACE -> "une masse en fer";
+            case H_WEAPON_T1_SPEAR -> "une lance en fer";
+            case H_ARMOR_T1_BRIGANDINE -> "une brigandine en fer";
 
-            case H_WEAPON_T2_HALBERD     -> "une hallebarde en fer";
-            case H_WEAPON_T2_HAMMER      -> "un marteau à deux mains en fer";
-            case H_WEAPON_T2_CROSSBOW    -> "une arbalète en fer";
-            case H_ARMOR_T2_HAUBERT      -> "un haubert de fer";
+            case H_WEAPON_T2_HALBERD -> "une hallebarde en fer";
+            case H_WEAPON_T2_HAMMER -> "un marteau à deux mains en fer";
+            case H_WEAPON_T2_CROSSBOW -> "une arbalète en fer";
+            case H_ARMOR_T2_HAUBERT -> "un haubert de fer";
 
             case H_WEAPON_T3_WRIST_BLADES -> "des lames de poignet en argent";
-            case H_WEAPON_T3_FLAIL        -> "un fléau en argent";
-            case H_WEAPON_T3_PISTOL       -> "un pistolet en argent";
-            case H_ARMOR_T3_PLATE_SILVER  -> "une armure de plates en argent";
+            case H_WEAPON_T3_FLAIL -> "un fléau en argent";
+            case H_WEAPON_T3_PISTOL -> "un pistolet en argent";
+            case H_ARMOR_T3_PLATE_SILVER -> "une armure de plates en argent";
 
             // Vampire side
-            case V_WEAPON_T1_SCYTHE      -> "une faux occulte";
-            case V_ARMOR_T1_CARAPACE     -> "une carapace nocturne";
-            case V_WEAPON_T2_SWORD       -> "une épée vampirique";
-            case V_ARMOR_T2_HAUBERT      -> "un haubert impie";
-            case V_WEAPON_T3_CLAWS       -> "les griffes des damnés";
-            case V_ARMOR_T3_ECORCE       -> "l'écorce de la Nuit";
+            case V_WEAPON_T1_SCYTHE -> "une faux occulte";
+            case V_ARMOR_T1_CARAPACE -> "une carapace nocturne";
+            case V_WEAPON_T2_SWORD -> "une épée vampirique";
+            case V_ARMOR_T2_HAUBERT -> "un haubert impie";
+            case V_WEAPON_T3_CLAWS -> "les griffes des damnés";
+            case V_ARMOR_T3_ECORCE -> "l'écorce de la Nuit";
 
             default -> equipCode;
         };
@@ -14061,12 +14522,12 @@ public class GameService {
      * Reconstruit entièrement les mods d'équipement (EQUIP:*) dans raidMods.
      *
      * Pour l’instant :
-     *  - V_ARMOR_T1_CARAPACE et V_ARMOR_T2_HAUBERT donnent +1 DEF
-     *    via un mod moteur persistant "EQUIP:VAMP_ARMOR_DEF".
+     * - V_ARMOR_T1_CARAPACE et V_ARMOR_T2_HAUBERT donnent +1 DEF
+     * via un mod moteur persistant "EQUIP:VAMP_ARMOR_DEF".
      *
      * Appelée :
-     *  - au début de raid (PHASE0),
-     *  - après un changement d'équipement (Forge, loot plus tard, etc.).
+     * - au début de raid (PHASE0),
+     * - après un changement d'équipement (Forge, loot plus tard, etc.).
      */
     private void rebuildEquipmentMods(@NonNull Game g) {
         if (g.getRaidMods() == null) {
@@ -14086,7 +14547,8 @@ public class GameService {
         // 2) Réinjection en fonction de l'équipement actuel
         for (var p : g.getPlayers()) {
 
-            // --- AURA ARMURE VAMP T1/T2 (ENGINE + chip implicite via buildModBreakdownLines) ---
+            // --- AURA ARMURE VAMP T1/T2 (ENGINE + chip implicite via
+            // buildModBreakdownLines) ---
             if ("VAMPIRE".equals(p.getRole()) || "SERVANT".equals(p.getRole())) {
                 int bonus = vampArmorDefenseBonus(p.getArmor()); // 0 ou 1
                 if (bonus != 0) {
@@ -14128,13 +14590,13 @@ public class GameService {
         }
     }
 
-
     // --- Hunters : saignement ---
     private int bleedBonusForWeapon(String weaponCode) {
-        if (weaponCode == null) return 0;
+        if (weaponCode == null)
+            return 0;
         return switch (weaponCode) {
-            case H_WEAPON_T1_SWORD      -> 1;
-            case H_WEAPON_T2_HALBERD    -> 2;
+            case H_WEAPON_T1_SWORD -> 1;
+            case H_WEAPON_T2_HALBERD -> 2;
             case H_WEAPON_T3_WRIST_BLADES -> 3;
             default -> 0;
         };
@@ -14142,11 +14604,12 @@ public class GameService {
 
     // --- Hunters : étourdissement ---
     private int stunPenalityForWeapon(String weaponCode) {
-        if (weaponCode == null) return 0;
+        if (weaponCode == null)
+            return 0;
         return switch (weaponCode) {
-            case H_WEAPON_T1_MACE    -> 1;
-            case H_WEAPON_T2_HAMMER  -> 2;
-            case H_WEAPON_T3_FLAIL   -> 3;
+            case H_WEAPON_T1_MACE -> 1;
+            case H_WEAPON_T2_HAMMER -> 2;
+            case H_WEAPON_T3_FLAIL -> 3;
             default -> 0;
         };
     }
@@ -14156,35 +14619,65 @@ public class GameService {
      * Retourne true si le jet d'attaque brut d'un chasseur avec une arme à distance
      * déclenche l'effet "tenu à distance".
      *
-     * - Lance en fer      (1d8)  : 8
-     * - Arbalète         (1d12) : 11 ou 12
-     * - Pistolet         (1d20) : 18, 19 ou 20
+     * - Lance en fer (1d8) : 8
+     * - Arbalète (1d12) : 11 ou 12
+     * - Pistolet (1d20) : 18, 19 ou 20
      */
     private boolean rangedKeepAwayTriggered(String weaponCode, int rawAtk) {
-        if (weaponCode == null) return false;
+        if (weaponCode == null)
+            return false;
         return switch (weaponCode) {
-            case H_WEAPON_T1_SPEAR    -> (rawAtk == 6);
+            case H_WEAPON_T1_SPEAR -> (rawAtk == 6);
             case H_WEAPON_T2_CROSSBOW -> (rawAtk == 7 || rawAtk == 8);
-            case H_WEAPON_T3_PISTOL   -> (rawAtk == 10 || rawAtk == 11 || rawAtk == 12);
+            case H_WEAPON_T3_PISTOL -> (rawAtk == 10 || rawAtk == 11 || rawAtk == 12);
             default -> false;
         };
     }
 
     // --- Vampire : régénération via arme ---
     private int vampRegenAmount(String weaponCode, int attackRoll) {
-        if (weaponCode == null) return 0;
+        if (weaponCode == null)
+            return 0;
 
         return switch (weaponCode) {
             case V_WEAPON_T1_SCYTHE -> (attackRoll == 6) ? 1 : 0;
-            case V_WEAPON_T2_SWORD  -> (attackRoll >= 7 && attackRoll <= 8) ? 2 : 0;
-            case V_WEAPON_T3_CLAWS  -> (attackRoll >= 10) ? 3 : 0;
+            case V_WEAPON_T2_SWORD -> (attackRoll >= 7 && attackRoll <= 8) ? 2 : 0;
+            case V_WEAPON_T3_CLAWS -> (attackRoll >= 10) ? 3 : 0;
             default -> 0;
         };
     }
 
+    // --- Conversion équipement Hunter -> Servant
+    private void convertHunterGearToServant(Game g, Player p) {
+        String w = p.getWeapon();
+        String a = p.getArmor();
+
+        // 1) Armes
+        if (H_WEAPON_T1_SWORD.equals(w) || H_WEAPON_T1_MACE.equals(w) || H_WEAPON_T1_SPEAR.equals(w)) {
+            p.setWeapon(V_WEAPON_T1_SCYTHE);
+        } else if (H_WEAPON_T2_HALBERD.equals(w) || H_WEAPON_T2_HAMMER.equals(w) || H_WEAPON_T2_CROSSBOW.equals(w)) {
+            p.setWeapon(V_WEAPON_T2_SWORD);
+        } else if (H_WEAPON_T3_WRIST_BLADES.equals(w) || H_WEAPON_T3_FLAIL.equals(w) || H_WEAPON_T3_PISTOL.equals(w)) {
+            p.setWeapon(V_WEAPON_T3_CLAWS);
+        }
+
+        // 2) Armures
+        if (H_ARMOR_T1_BRIGANDINE.equals(a)) {
+            p.setArmor(V_ARMOR_T1_CARAPACE);
+        } else if (H_ARMOR_T2_HAUBERT.equals(a)) {
+            p.setArmor(V_ARMOR_T2_HAUBERT);
+        } else if (H_ARMOR_T3_PLATE_SILVER.equals(a)) {
+            p.setArmor(V_ARMOR_T3_ECORCE);
+        }
+
+        // Forcer le refresh des mods
+        rebuildEquipmentMods(g);
+    }
+
     // --- Vampire : bonus défensifs d'armure ---
     private int vampArmorDefenseBonus(String armorCode) {
-        if (armorCode == null) return 0;
+        if (armorCode == null)
+            return 0;
         return switch (armorCode) {
             case V_ARMOR_T1_CARAPACE, V_ARMOR_T2_HAUBERT -> 1;
             default -> 0;
@@ -14205,7 +14698,7 @@ public class GameService {
 
     private boolean hunterWeaponIsRanged(String w) {
         return H_WEAPON_T1_SPEAR.equals(w)
-                ||H_WEAPON_T2_CROSSBOW.equals(w)
+                || H_WEAPON_T2_CROSSBOW.equals(w)
                 || H_WEAPON_T3_PISTOL.equals(w);
     }
 
@@ -14224,11 +14717,13 @@ public class GameService {
     }
 
     private void applyBleed(Game g) {
-        if (g.getBleedDamageByTarget() == null) return;
+        if (g.getBleedDamageByTarget() == null)
+            return;
         for (var e : g.getBleedDamageByTarget().entrySet()) {
             String targetId = e.getKey();
             int bleed = e.getValue();
-            if (bleed <= 0) continue;
+            if (bleed <= 0)
+                continue;
 
             Player p = g.getPlayers().stream()
                     .filter(pl -> pl.getId().equals(targetId))
@@ -14258,10 +14753,13 @@ public class GameService {
 
     /**
      * Consomme les effets one-shot posés sur un HIT :
-     *  - HIT:STUN_WEAPON:ENG (malus d'attaque sur vampire/serviteur, posé sur la cible)
-     *  - HIT:RANGED_WEAPON:DSP (puce "tenu à distance" sur la cible vampire/serviteur)
+     * - HIT:STUN_WEAPON:ENG (malus d'attaque sur vampire/serviteur, posé sur la
+     * cible)
+     * - HIT:RANGED_WEAPON:DSP (puce "tenu à distance" sur la cible
+     * vampire/serviteur)
      *
-     * Appelé après la résolution d'un duel, juste avant de passer au combat suivant.
+     * Appelé après la résolution d'un duel, juste avant de passer au combat
+     * suivant.
      */
     private boolean consumeHitModsAfterFight(Game g, RoundFight r) {
         boolean changed = false;
@@ -14282,7 +14780,8 @@ public class GameService {
                     changed = true;
                     addHistory(g, nameOf(g, atkPlayer.getId()) + " se remet de l'étourdissement.");
                 }
-                if (mods.isEmpty()) g.getRaidMods().remove(atkPlayer.getId()); // optionnel mais propre
+                if (mods.isEmpty())
+                    g.getRaidMods().remove(atkPlayer.getId()); // optionnel mais propre
             }
         }
 
@@ -14294,18 +14793,21 @@ public class GameService {
                 changed = true;
                 addHistory(g, entityName(g, r.getDefenderId()) + " n'est plus tenu à distance.");
             }
-            if (defMods.isEmpty()) g.getRaidMods().remove(r.getDefenderId());
+            if (defMods.isEmpty())
+                g.getRaidMods().remove(r.getDefenderId());
         }
 
         return changed;
     }
 
     private void purgeTransientRaidMods(Game g) {
-        if (g.getRaidMods() == null) return;
+        if (g.getRaidMods() == null)
+            return;
 
         for (var e : g.getRaidMods().entrySet()) {
             var mods = e.getValue();
-            if (mods == null) continue;
+            if (mods == null)
+                continue;
             mods.removeIf(m -> {
                 String s = m.getSource();
                 return "HIT:STUN_WEAPON:ENG".equals(s) || "HIT:RANGED_WEAPON:DSP".equals(s);
@@ -14319,7 +14821,8 @@ public class GameService {
      * (riposte) où attaquant = defId et défenseur = attId.
      */
     private void cancelReverseFight(Game g, String attId, String defId) {
-        if (g.getCombatsQueue() == null || g.getCurrentCombatIndex() == null) return;
+        if (g.getCombatsQueue() == null || g.getCurrentCombatIndex() == null)
+            return;
 
         int idx = g.getCurrentCombatIndex();
         var queue = g.getCombatsQueue();
@@ -14345,7 +14848,8 @@ public class GameService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "bank only in PHASE4");
 
         Player p = findPlayer(g, playerId);
-        if (p == null) throw new ResponseStatusException(HttpStatus.CONFLICT, "invalid player");
+        if (p == null)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "invalid player");
 
         if (!"HUNTER".equals(p.getRole()))
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "hunters only");
@@ -14400,11 +14904,14 @@ public class GameService {
 
     private void applyBankBonusOnPhase4Entry(Game g) {
         int lvl = (g.getBankLevel() == null ? 0 : g.getBankLevel());
-        if (lvl <= 0) return;
+        if (lvl <= 0)
+            return;
 
         for (Player p : g.getPlayers()) {
-            if (!"HUNTER".equals(p.getRole())) continue;
-            if (p.getHp() <= 0) continue;
+            if (!"HUNTER".equals(p.getRole()))
+                continue;
+            if (p.getHp() <= 0)
+                continue;
 
             int goldGain = (lvl >= 3) ? 100 : 50;
             p.setGold(p.getGold() + goldGain);
