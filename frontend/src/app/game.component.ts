@@ -23,6 +23,10 @@ import { ShopModalVm, ShopModalActions, ShopModalHelpers } from './components/mo
 import { ShopModalComponent } from './components/modals/shop-modal/shop-modal.component';
 import { ActionModalVm, ActionModalActions, ActionModalHelpers } from './components/modals/action-modal/action-modal.vm';
 import { ActionModalComponent } from './components/modals/action-modal/action-modal.component';
+import { BuildModalVm, BuildModalActions, BuildModalHelpers, InfraCode } from './components/modals/build-modal/build-modal.vm';
+import { BuildModalComponent } from './components/modals/build-modal/build-modal.component';
+import { BuildConfirmModalVm, BuildConfirmModalActions } from './components/modals/build-confirm-modal/build-confirm-modal.vm';
+import { BuildConfirmModalComponent } from './components/modals/build-confirm-modal/build-confirm-modal.component';
 
 type ForgeRes = 'wood' | 'iron' | 'silver' | 'souls';
 type ForgeCost = Partial<Record<ForgeRes, number>>;
@@ -58,8 +62,7 @@ const FORGE_COSTS: Record<string, ForgeCost> = {
 };
 
 
-type InfraCode =
-  'SAWMILL' | 'MINE' | 'LIBRARY' | 'LABORATORY' | 'BALLROOM' | 'ALTAR' | 'FORGE';
+// InfraCode is now imported from build-modal.vm.ts
 type RoundFightView = GameSnapshot['combatsQueue'][number];
 type SPlayer = GameSnapshot['players'][number];
 type SMonster = NonNullable<GameSnapshot['monsters']>[number];
@@ -87,7 +90,8 @@ interface ForgeOption {
   selector: 'app-game',
   imports: [CommonModule, PhaseBubbleComponent, ToastComponent, DeathModalComponent, EndGameModalComponent, ZoomOverlayComponent, WeatherModalComponent,
     BiteModalComponent, CorruptionModalComponent, RollModalComponent,
-    SpectateModalComponent, ShopModalComponent, ActionModalComponent
+    SpectateModalComponent, ShopModalComponent, ActionModalComponent,
+    BuildModalComponent, BuildConfirmModalComponent
   ],
   templateUrl: './game.component.html',
   styleUrls: ['./game.component.scss']
@@ -359,6 +363,44 @@ export class GameComponent {
     isClosing: this.isClosing.bind(this),
     isClosingOk: this.isClosingOk.bind(this),
     isClosingKo: this.isClosingKo.bind(this)
+  };
+
+  get buildVm(): BuildModalVm {
+    return {
+      show: this.buildModalOpen && !this.isGameEnded,
+      backgroundImage: this.setImageBackground('construire') || '',
+      title: 'Construire un lieu',
+      me: this.me ?? null,
+      buildOptions: this.buildOptions
+    };
+  }
+
+  readonly buildActions: BuildModalActions = {
+    chooseInfra: (code) => this.onChooseInfra(code),
+    close: () => this.closeBuildModal()
+  };
+
+  readonly buildHelpers: BuildModalHelpers = {
+    isInfraBuilt: (code) => this.isInfraBuilt(code),
+    infraImg: (code) => this.infraImg(code),
+    infraCostList: (code) => this.infraCostList(code),
+    locationInfo: (code) => this.locationInfo(code),
+    zoomEnter: (ev, badge, isHunter, size, info) => this.zoomEnter(ev, badge, isHunter, size, info),
+    zoomMove: (ev) => this.zoomMove(ev),
+    zoomLeave: () => this.zoomLeave()
+  };
+
+  get buildConfirmVm(): BuildConfirmModalVm {
+    return {
+      show: this.buildConfirmModalOpen && !!this.buildChoice && !this.isGameEnded,
+      backgroundImage: this.setImageBackground('construction') || '',
+      text: this.buildChoice ? this.getInfraConfirmText(this.buildChoice) : ''
+    };
+  }
+
+  readonly buildConfirmActions: BuildConfirmModalActions = {
+    confirm: () => this.doBuild(),
+    cancel: () => this.cancelBuild()
   };
 
   readonly rollActions: RollModalActions = {

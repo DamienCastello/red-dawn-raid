@@ -1,0 +1,108 @@
+<div class="modal construction-modal choices" [style.backgroundImage]="vm.backgroundImage">
+    <div>
+        <h2 class="bg-badge">Construire un lieu</h2>
+    </div>
+
+    <div class="construction-scroll">
+        <div class="res-board" *ngIf="vm.me as m">
+            <span class="res-title">Ressources:</span>
+
+            <span *ngIf="m.role==='HUNTER'" class="res-item"
+                title="L'or est utile pour obtenir des actions et de l'eau bénite">
+                <span class="res-ico-box">
+                    <img class="res-ico res-ico-s" src="/assets/icons/gold.png" alt="Or">
+                </span>
+                <span class="res-val">{{ m.gold || 0 }}</span>
+            </span>
+
+            <span *ngIf="m.role==='VAMPIRE' || m.role==='SERVANT'" class="res-item"
+                title="Les âmes déchues sont utiles pour obtenir des actions">
+                <span class="res-ico-box">
+                    <img class="res-ico res-ico-s" src="/assets/icons/souls.png" alt="Âmes déchues">
+                </span>
+                <span class="res-val">{{ m.souls || 0 }}</span>
+            </span>
+
+            <span class="res-item" title="L'eau pure est utile pour l'alchimie et obtenir de l'eau bénite">
+                <span class="res-ico-box">
+                    <img class="res-ico res-ico-s" src="/assets/icons/water.png" alt="Eau pure">
+                </span>
+                <span class="res-val">{{ m.water || 0 }}</span>
+            </span>
+
+            <span class="res-item" title="L'herbe médicinale est utile pour l'alchimie">
+                <span class="res-ico-box">
+                    <img class="res-ico res-ico-s" src="/assets/icons/medical_grass.png" alt="Herbe médicinale">
+                </span>
+                <span class="res-val">{{ m.herbs || 0 }}</span>
+            </span>
+
+            <span class="res-item" title="Le bois est utile pour la fabrication d'équipement">
+                <span class="res-ico-box">
+                    <img class="res-ico res-ico-l" src="/assets/icons/wood.png" alt="Bois">
+                </span>
+                <span class="res-val">{{ m.wood || 0 }}</span>
+            </span>
+
+            <span class="res-item" title="Le fer est utile pour la fabrication d'équipement">
+                <span class="res-ico-box">
+                    <img class="res-ico res-ico-m" src="/assets/icons/iron.png" alt="Fer">
+                </span>
+                <span class="res-val">{{ m.iron || 0 }}</span>
+            </span>
+
+            <span class="res-item"
+                title="La pierre est utile pour les constructions du vampire ou pour vendre a la ville et gagner de l'or">
+                <span class="res-ico-box">
+                    <img class="res-ico res-ico-s" src="/assets/icons/stone.png" alt="Pierre">
+                </span>
+                <span class="res-val">{{ m.stone || 0 }}</span>
+            </span>
+
+            <span *ngIf="m.role==='HUNTER'" class="res-item"
+                title="L'argent est utile late game pour fabriquer de l'équipement sacré">
+                <span class="res-ico-box">
+                    <img class="res-ico res-ico-s" src="/assets/icons/silver.png" alt="Argent">
+                </span>
+                <span class="res-val">{{ m.silver || 0 }}</span>
+            </span>
+        </div>
+
+        <div>
+            <div class="build-grid">
+
+                <ng-container *ngFor="let opt of vm.buildOptions">
+
+                    <div class="build-item" *ngIf="!helpers.isInfraBuilt(opt.code)">
+
+                        <!-- bouton = image du lieu + zoom -->
+                        <button type="button" class="build-card-btn" (click)="actions.chooseInfra(opt.code)"
+                            (mouseenter)="helpers.zoomEnter($event, undefined, undefined, 'L', helpers.locationInfo(opt.code))"
+                            (mousemove)="helpers.zoomMove($event)" (mouseleave)="helpers.zoomLeave()">
+                            <img class="build-card-img" [src]="helpers.infraImg(opt.code)" [alt]="opt.title" />
+                        </button>
+
+                        <div class="build-title">{{ opt.title }}</div>
+                        <div class="build-sub">Coûts de construction</div>
+
+                        <!-- coût en icônes -->
+                        <div class="build-cost price price-icons">
+                            <span class="cost-item" *ngFor="let c of helpers.infraCostList(opt.code)">
+                                <span class="cost-val">{{ c.qty }}</span>
+                                <span class="cost-ico-box">
+                                    <img class="cost-ico cost-ico-s" [src]="c.icon" [alt]="c.label" />
+                                </span>
+                            </span>
+                        </div>
+
+                    </div>
+
+                </ng-container>
+
+            </div>
+
+
+            <button class="btn-secondary" (click)="actions.close()">Annuler</button>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,10 @@
+<div class="modal construction-modal" [style.backgroundImage]="vm.backgroundImage">
+    <div class="modal-overlay-content">
+        <p class="bg-badge">{{ vm.text }}</p>
+
+        <div class="modal-button-row">
+            <button class="btn-primary" (click)="actions.confirm()" style="margin-right: 10px;">Oui</button>
+            <button class="btn-secondary" (click)="actions.cancel()">Annuler</button>
+        </div>
+    </div>
+</div>
