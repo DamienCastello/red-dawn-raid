@@ -1,0 +1,406 @@
+/* === MODALE CONSTRUCTION & EFFETS DE LIEU (Shared) === */
+
+.modal.construction-modal {
+    position: relative;
+    width: 80vw;
+    height: 90vh;
+    max-width: 1200px;
+    max-height: 1100px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+    text-align: center;
+    background-size: cover;
+    background-position: center;
+    box-sizing: border-box;
+}
+
+.modal.construction-modal .construction-scroll {
+    width: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    overflow: auto;
+    box-sizing: border-box;
+    padding-right: 2px;
+}
+
+@media (max-width: 900px) {
+    .modal.construction-modal {
+        width: 92vw;
+        height: 86vh;
+        padding: 1rem;
+    }
+}
+
+@media (max-width: 600px) {
+    .modal.construction-modal {
+        width: 96vw;
+        height: 90vh;
+        padding: .85rem;
+    }
+}
+
+.modal.construction-modal.choices {
+    justify-content: space-around;
+}
+
+.modal.construction-modal .bg-badge {
+    display: inline-block;
+    margin: 0 auto .4rem;
+    text-align: center;
+    line-height: 1.15;
+    padding: .35rem .75rem;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, .45);
+    color: #fff;
+}
+
+.modal.construction-modal .build-grid {
+    width: 100%;
+    margin: 1rem 0;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: .9rem;
+    align-items: flex-start;
+}
+
+.modal.construction-modal .build-item {
+    flex: 0 0 190px;
+    height: 280px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .45rem;
+    padding: .65rem .65rem .75rem;
+    border-radius: 14px;
+    background: rgba(0, 0, 0, .35);
+    border: 1px solid rgba(255, 255, 255, .18);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, .25);
+}
+
+.modal.construction-modal .build-card-btn {
+    border: none;
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+}
+
+.modal.construction-modal .build-card-img {
+    width: 110px;
+    height: 150px;
+    object-fit: contain;
+    display: block;
+    filter: drop-shadow(0 10px 18px rgba(0, 0, 0, .35));
+}
+
+.modal.construction-modal .build-title {
+    flex: 0 0 auto;
+    font: 800 14px/1.1 system-ui, sans-serif;
+    color: #fff;
+    text-align: center;
+}
+
+.modal.construction-modal .build-sub {
+    flex: 0 0 auto;
+    font: 650 12px/1.1 system-ui, sans-serif;
+    color: rgba(255, 255, 255, .75);
+    margin-top: -2px;
+    text-align: center;
+}
+
+.modal.construction-modal .price.price-icons {
+    display: inline-flex;
+    align-items: center;
+    gap: .25rem;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.modal.construction-modal .cost-item {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid rgba(255, 255, 255, .28);
+    background: rgba(0, 0, 0, .22);
+    border-radius: 999px;
+    padding: .06rem .25rem;
+}
+
+.modal.construction-modal .cost-ico-box {
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 18px;
+}
+
+.modal.construction-modal .cost-ico {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.modal.construction-modal .cost-ico-s {
+    width: 16px;
+    height: 16px;
+}
+
+.modal.construction-modal .cost-val {
+    font: 800 12px/1 system-ui, sans-serif;
+    color: #fff;
+    min-width: 2ch;
+    text-align: right;
+}
+
+.modal.construction-modal .build-info {
+    width: 100%;
+    margin-top: .25rem;
+    border-radius: 12px;
+    padding: .55rem .6rem;
+    background: rgba(0, 0, 0, .28);
+    border: 1px solid rgba(255, 255, 255, .16);
+    text-align: left;
+    color: rgba(255, 255, 255, .92);
+}
+
+.modal.construction-modal .build-info ul {
+    margin: .25rem 0 0;
+    padding-left: 1.05rem;
+}
+
+.modal.construction-modal .build-info li {
+    margin: .15rem 0;
+    font: 650 12px/1.25 system-ui, sans-serif;
+    color: rgba(255, 255, 255, .88);
+}
+
+.modal.construction-modal .btn-secondary {
+    padding: 0.5rem 1rem;
+    background: #444;
+    color: #eee;
+    margin-top: 10px;
+}
+
+.modal.location-effect-modal {
+    background-size: cover;
+    background-position: center 30%;
+}
+
+.modal.location-effect-modal .modal-overlay-content {
+    box-sizing: border-box;
+    background: rgba(0, 0, 0, 0.65);
+    padding: 1.5rem;
+    border-radius: 8px;
+    max-width: 560px;
+    width: min(560px, 90vw);
+    color: #fff;
+    text-align: center;
+    max-height: 100%;
+    overflow: auto;
+    max-width: 100%;
+    min-height: 0;
+    min-width: 0;
+}
+
+.forge-costs {
+    margin-top: .35rem;
+    display: flex;
+    justify-content: center;
+    opacity: .95;
+}
+
+.forge-costs .cost-item {
+    display: inline-flex;
+    gap: .35rem;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+/* Resources styles (from BuildModal) */
+.res-title {
+    font-weight: 800;
+    color: white;
+    /* Adapted for modals */
+}
+
+.res-item {
+    display: inline-flex;
+    align-items: center;
+    gap: .25rem;
+    padding: .15rem .35rem;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 999px;
+    background: rgba(155, 158, 165, 0.55);
+}
+
+.res-ico-box {
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 26px;
+}
+
+.res-ico {
+    display: block;
+    object-fit: contain;
+    filter: drop-shadow(0 4px 10px rgba(0, 0, 0, .25));
+}
+
+.res-ico-s {
+    width: 20px;
+    height: 20px;
+}
+
+.res-ico-m {
+    width: 23px;
+    height: 23px;
+}
+
+.res-ico-l {
+    width: 29px;
+    height: 29px;
+}
+
+.res-val {
+    font: 800 12px/1 system-ui, sans-serif;
+    color: white;
+    min-width: 2ch;
+    text-align: right;
+}
+
+.modal.location-effect-modal .modal-button-row .effect-option,
+.modal.location-effect-modal .altar-target {
+    background: transparent;
+    border: none;
+    color: #ddd;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+}
+
+.modal.location-effect-modal .modal-button-row .effect-option[disabled] {
+    cursor: default;
+    opacity: 0.5;
+}
+
+.modal.location-effect-modal .modal-button-row .effect-option.selected,
+.modal.location-effect-modal .altar-target.selected {
+    color: #fff;
+    font-weight: 600;
+    text-decoration: underline;
+    outline: none;
+    background: transparent;
+}
+
+.modal.location-effect-modal .forge-section .forge-options-row .effect-option.selected,
+.modal.location-effect-modal .location-list button.selected {
+    border: 3px solid white;
+    background-color: #cbcbcb;
+}
+
+.modal.location-effect-modal .footer-row {
+    margin-top: 0.75rem;
+}
+
+.location-effect-result {
+    margin-top: 0.75rem;
+    font-style: italic;
+}
+
+.monster-pick-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: .75rem;
+}
+
+.monster-pick {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .35rem;
+    padding: .5rem;
+    border: 1px solid rgba(255, 255, 255, .2);
+    border-radius: .75rem;
+    background: rgba(0, 0, 0, .25);
+    cursor: pointer;
+}
+
+.monster-pick.selected {
+    outline: 2px solid rgba(255, 255, 255, .6);
+}
+
+.monster-img {
+    height: min(300px, 30vh);
+    width: auto;
+    max-width: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+.monster-name {
+    color: white;
+    font-weight: 700;
+}
+
+.monster-stats {
+    font-size: .9rem;
+    opacity: .9;
+    color: white;
+    text-align: center;
+    line-height: 1.2rem;
+}
+
+.cards-row.omen-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: .75rem;
+    align-items: start;
+}
+
+.omen-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .45rem;
+}
+
+.omen-card-btn {
+    border: none;
+    background: transparent;
+    padding: 0;
+}
+
+.omen-card-img {
+    width: 110px;
+    height: 150px;
+    object-fit: contain;
+    display: block;
+}
+
+.omen-place-btn {
+    width: 100%;
+    max-width: 170px;
+}
+
+.omen-place-btn.selected {
+    text-decoration: underline;
+    font-weight: 700;
+}
+
+@media (max-width: 700px) {
+    .cards-row.omen-row {
+        grid-template-columns: 1fr;
+    }
+
+    .omen-card-img {
+        width: 140px;
+        height: 190px;
+    }
+}

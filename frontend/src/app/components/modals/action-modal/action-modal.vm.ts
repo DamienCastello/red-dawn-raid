@@ -1,4 +1,4 @@
-import { GameSnapshot } from '../../../api.service';
+import { GameSnapshot } from '../../../services/api.service';
 
 export type SPlayer = GameSnapshot['players'][number];
 

@@ -1,10 +1,9 @@
 import { Component, inject, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { ApiService, GameSnapshot, RawStatMod, Phase, Pile } from './api.service';
-import { LiveService, GameEvent } from './live.service';
+import { ApiService, GameSnapshot, RawStatMod, Phase, Pile } from './services/api.service';
+import { LiveService, GameEvent } from './services/live.service';
 import { NotifyService } from './services/notif.service';
-import { ChangeDetectorRef } from '@angular/core';
 
 import { PhaseBubbleComponent } from './phase-buble.component';
 import { ToastComponent } from './toast.component';
@@ -27,6 +26,18 @@ import { BuildModalVm, BuildModalActions, BuildModalHelpers, InfraCode } from '.
 import { BuildModalComponent } from './components/modals/build-modal/build-modal.component';
 import { BuildConfirmModalVm, BuildConfirmModalActions } from './components/modals/build-confirm-modal/build-confirm-modal.vm';
 import { BuildConfirmModalComponent } from './components/modals/build-confirm-modal/build-confirm-modal.component';
+import { SelectLibraryEffectModalVm, SelectLibraryEffectModalActions } from './components/modals/select-location-effect/library/select-library-effect-modal.vm';
+import { SelectLibraryEffectModalComponent } from './components/modals/select-location-effect/library/select-library-effect-modal.component';
+import { SelectLaboratoryEffectModalVm, SelectLaboratoryEffectModalActions } from './components/modals/select-location-effect/laboratory/select-laboratory-effect-modal.vm';
+import { SelectLaboratoryEffectModalComponent } from './components/modals/select-location-effect/laboratory/select-laboratory-effect-modal.component';
+import { SelectBallroomEffectModalVm, SelectBallroomEffectModalActions } from './components/modals/select-location-effect/ballroom/select-ballroom-effect-modal.vm';
+import { SelectBallroomEffectModalComponent } from './components/modals/select-location-effect/ballroom/select-ballroom-effect-modal.component';
+import { SelectAltarEffectModalVm, SelectAltarEffectModalActions } from './components/modals/select-location-effect/altar/select-altar-effect-modal.vm';
+import { SelectAltarEffectModalComponent } from './components/modals/select-location-effect/altar/select-altar-effect-modal.component';
+import { SelectForgeEffectModalVm, SelectForgeEffectModalActions } from './components/modals/select-location-effect/forge/select-forge-effect-modal.vm';
+import { SelectForgeEffectModalComponent } from './components/modals/select-location-effect/forge/select-forge-effect-modal.component';
+import { UseLocationEffectModalVm, UseLocationEffectModalActions } from './components/modals/use-location-effect/use-location-effect-modal.vm';
+import { UseLocationEffectModalComponent } from './components/modals/use-location-effect/use-location-effect-modal.component';
 
 type ForgeRes = 'wood' | 'iron' | 'silver' | 'souls';
 type ForgeCost = Partial<Record<ForgeRes, number>>;
@@ -91,7 +102,9 @@ interface ForgeOption {
   imports: [CommonModule, PhaseBubbleComponent, ToastComponent, DeathModalComponent, EndGameModalComponent, ZoomOverlayComponent, WeatherModalComponent,
     BiteModalComponent, CorruptionModalComponent, RollModalComponent,
     SpectateModalComponent, ShopModalComponent, ActionModalComponent,
-    BuildModalComponent, BuildConfirmModalComponent
+    BuildModalComponent, BuildConfirmModalComponent, SelectLibraryEffectModalComponent,
+    SelectLaboratoryEffectModalComponent, SelectBallroomEffectModalComponent, SelectAltarEffectModalComponent,
+    SelectForgeEffectModalComponent, UseLocationEffectModalComponent
   ],
   templateUrl: './game.component.html',
   styleUrls: ['./game.component.scss']
@@ -403,12 +416,247 @@ export class GameComponent {
     cancel: () => this.cancelBuild()
   };
 
+  get selectLibraryEffectVm(): SelectLibraryEffectModalVm {
+    const g = this.game;
+    const me = this.me;
+    const ownerId = g?.locationEffectOwnerId;
+
+    return {
+      show: !!g?.locationEffectPending && g?.locationEffectInfra === 'LIBRARY' && !this.locationActionModalOpen,
+      backgroundImage: this.locationEffectBackground(),
+      title: 'Bibliothèque occulte',
+      ownerText: ownerId ? (ownerId === me?.id ? 'Vous devez choisir un effet de la Bibliothèque pour ce raid.' : `${this.usernameOf(ownerId)} choisit un effet de la Bibliothèque…`) : '',
+      isOwner: this.isLocationEffectOwner,
+      canChoose: this.canChooseLocationEffect,
+      choice: this.effectChoice,
+      serverChoiceLabel: g?.locationEffectChoice ? this.translateLocationEffect(g.locationEffectChoice) : null,
+      options: [
+        { id: 'STUDY', title: 'Étude des grimoires', desc: 'Piocher 1 carte Action.', disabled: !this.canChooseLocationEffect },
+        { id: 'THEFT', title: 'Subtilisation de manuscrit', desc: 'Voler 1 carte Action à l’adversaire et la mélanger dans sa pioche.', disabled: !this.canChooseLocationEffect },
+        { id: 'OMEN', title: 'Prédiction occulte', desc: 'Regarder et réordonner secrètement les 3 prochaines cartes Action de l’adversaire.', disabled: !this.canChooseLocationEffect },
+      ]
+    };
+  }
+
+  readonly selectLibraryEffectActions: SelectLibraryEffectModalActions = {
+    select: (id) => this.onEffectOptionClick(id as any),
+    validate: () => this.chooseLocationEffect(),
+    cancel: () => this.onCancelLocationEffect()
+  };
+
+  get selectLaboratoryEffectVm(): SelectLaboratoryEffectModalVm {
+    const g = this.game;
+    const me = this.me;
+    const ownerId = g?.locationEffectOwnerId;
+
+    return {
+      show: !!g?.locationEffectPending && g?.locationEffectInfra === 'LABORATORY' && !this.locationActionModalOpen,
+      backgroundImage: this.locationEffectBackground(),
+      title: 'Laboratoire occulte',
+      ownerText: ownerId ? (ownerId === me?.id ? 'Vous devez choisir un effet du Laboratoire pour ce raid.' : `${this.usernameOf(ownerId)} choisit un effet du Laboratoire…`) : '',
+      isOwner: this.isLocationEffectOwner,
+      canChoose: this.canChooseLocationEffect,
+      choice: this.effectChoice,
+      serverChoiceLabel: g?.locationEffectChoice ? this.translateLocationEffect(g.locationEffectChoice) : null,
+      showRareAlchemyWarning: !this.canUseRareAlchemy(),
+      options: [
+        { id: 'EXPERIMENT', title: 'Expérience occulte', desc: 'Invoquer une créature et l’envoyer défendre un lieu.', disabled: !this.canChooseLocationEffect || !this.canUseExperiment() },
+        { id: 'ALCHEMY', title: 'Alchimie', desc: 'Préparer 1 potion gratuitement.', disabled: !this.canChooseLocationEffect },
+        { id: 'RARE_ALCHEMY', title: 'Alchimie avancée', desc: 'Préparer 1 élixir (6 eau, 6 herbes).', disabled: !this.canChooseLocationEffect || !this.canUseRareAlchemy() },
+        { id: 'EXPLOSION', title: 'Explosion alchimique', desc: 'Détruire le Laboratoire (chasseur uniquement).', disabled: !this.canChooseLocationEffect || !this.canUseExplosion() },
+      ]
+    };
+  }
+
+  readonly selectLaboratoryEffectActions: SelectLaboratoryEffectModalActions = {
+    select: (id) => this.onEffectOptionClick(id as any),
+    validate: () => this.chooseLocationEffect(),
+    cancel: () => this.onCancelLocationEffect()
+  };
+
+  get selectBallroomEffectVm(): SelectBallroomEffectModalVm {
+    const g = this.game;
+    const me = this.me;
+    const ownerId = g?.locationEffectOwnerId;
+
+    return {
+      show: !!g?.locationEffectPending && g?.locationEffectInfra === 'BALLROOM' && !this.locationActionModalOpen,
+      backgroundImage: this.locationEffectBackground(),
+      title: 'Salle de bal vampirique',
+      ownerText: ownerId ? (ownerId === me?.id ? 'Vous devez choisir un effet de la Salle de bal pour ce raid.' : `${this.usernameOf(ownerId)} choisit un effet de la Salle de bal…`) : '',
+      isOwner: this.isLocationEffectOwner,
+      canChoose: this.canChooseLocationEffect,
+      choice: this.effectChoice,
+      serverChoiceLabel: g?.locationEffectChoice ? this.translateLocationEffect(g.locationEffectChoice) : null,
+      options: [
+        { id: 'DEATH_DANCE', title: 'Danse macabre', desc: 'Lorsque le vampire réussit une attaque, le chasseur subit aussi directement 1 point de corruption.', disabled: this.isBallroomChoiceDisabled('DEATH_DANCE') },
+        { id: 'SNEAK_ATTACK', title: 'Attaque sournoise', desc: 'Le vampire peut voler directement une ressource au hasard à chaque chasseur présent.', disabled: this.isBallroomChoiceDisabled('SNEAK_ATTACK') },
+        { id: 'BLOOD_WALTZ', title: 'Valse sanguinaire', desc: 'Le vampire jette autant de dé d’attaque que de chasseurs présents, conserve le meilleur dé et applique l’attaque contre tous les chasseurs de la salle.', disabled: this.isBallroomChoiceDisabled('BLOOD_WALTZ') },
+        { id: 'LOOTING', title: 'Pillage', desc: 'Les chasseurs gagnent plus d\'or.', disabled: this.isBallroomChoiceDisabled('LOOTING') },
+      ]
+    };
+  }
+
+  readonly selectBallroomEffectActions: SelectBallroomEffectModalActions = {
+    select: (id) => this.onEffectOptionClick(id as any),
+    validate: () => this.chooseLocationEffect(),
+    cancel: () => this.onCancelLocationEffect()
+  };
+
+  get selectAltarEffectVm(): SelectAltarEffectModalVm {
+    const g = this.game;
+    const me = this.me;
+    const ownerId = g?.locationEffectOwnerId;
+    const isCorrupted = !!g?.altarCorrupted;
+
+    const options = isCorrupted ? [
+      { id: 'CORRUPT', title: 'Corrompre un chasseur', desc: 'Ajoute 1 point de corruption à un chasseur vivant.', disabled: this.isAltarChoiceDisabled('CORRUPT') || !this.canChooseLocationEffect },
+      { id: 'PURIFY_WATER', title: 'Purifier le sanctuaire', desc: 'Rend le lieu à nouveau sacré.', disabled: this.isAltarChoiceDisabled('PURIFY_WATER') || !this.canChooseLocationEffect },
+    ] : [
+      { id: 'HEAL', title: 'Purifier un chasseur', desc: 'Soigne 1 point de corruption sur un chasseur vivant.', disabled: this.isAltarChoiceDisabled('HEAL') || !this.canChooseLocationEffect },
+      { id: 'CORRUPT_SOULS', title: 'Profaner le sanctuaire', desc: 'Renforce la corruption spirituelle du lieu.', disabled: this.isAltarChoiceDisabled('CORRUPT_SOULS') || !this.canChooseLocationEffect },
+    ];
+
+    return {
+      show: !!g?.locationEffectPending && g?.locationEffectInfra === 'ALTAR' && !this.locationActionModalOpen,
+      backgroundImage: this.locationEffectBackground(),
+      altarCorrupted: isCorrupted,
+      title: isCorrupted ? 'Autel corrompu' : 'Sanctuaire du sang',
+      ownerText: ownerId ? (ownerId === me?.id ? 'Vous devez choisir un effet de l’autel pour ce raid.' : `${this.usernameOf(ownerId)} choisit un effet de l’autel…`) : '',
+      isOwner: this.isLocationEffectOwner,
+      canChoose: this.canChooseLocationEffect,
+      choice: this.effectChoice,
+      serverChoiceLabel: g?.locationEffectChoice ? this.translateLocationEffect(g.locationEffectChoice) : null,
+      options
+    };
+  }
+
+  readonly selectAltarEffectActions: SelectAltarEffectModalActions = {
+    select: (id) => this.onEffectOptionClick(id as any),
+    validate: () => this.chooseLocationEffect(),
+    cancel: () => this.onCancelLocationEffect()
+  };
+
+  get selectForgeEffectVm(): SelectForgeEffectModalVm {
+    const g = this.game;
+    const me = this.me;
+    const ownerId = g?.locationEffectOwnerId;
+
+    return {
+      show: !!g?.locationEffectPending && g?.locationEffectInfra === 'FORGE' && !this.locationActionModalOpen,
+      backgroundImage: "url('/assets/locations/forge.png')",
+      title: 'Forge maudite',
+      ownerText: ownerId ? (ownerId === me?.id ? 'Vous devez choisir comment utiliser la Forge pour ce raid.' : `${this.usernameOf(ownerId)} choisit comment utiliser la Forge…`) : '',
+      isOwner: this.isLocationEffectOwner,
+      canChoose: this.canChooseLocationEffect,
+      choice: this.effectChoice,
+      serverChoiceLabel: g?.locationEffectChoice ? this.translateLocationEffect(g.locationEffectChoice) : null,
+      options: [
+        { id: 'FORGE', title: 'Forger de l’équipement', desc: 'Fabrication d’arme ou d’armure.', disabled: !this.canChooseLocationEffect },
+      ]
+    };
+  }
+
+  readonly selectForgeEffectActions: SelectForgeEffectModalActions = {
+    select: (id) => this.onEffectOptionClick(id as any),
+    validate: () => this.chooseLocationEffect(),
+    cancel: () => this.onCancelLocationEffect()
+  };
+
   readonly rollActions: RollModalActions = {
     rollNow: () => this.rollNow()
   };
+
+  get useLocationEffectVm(): UseLocationEffectModalVm {
+    const g = this.game;
+    const infra = g?.locationEffectInfra ?? null;
+    const kind = this.locationActionKind;
+
+    return {
+      show: this.locationActionModalOpen && !this.isGameEnded,
+      backgroundImage: this.locationEffectBackground(),
+      title: infra ? (this.labelLocation(infra) || String(infra)) : '',
+      ownerText: this.isLocationActionOwner ? 'À vous de jouer' : `${this.usernameOf(g?.locationEffectOwnerId || '')} agit...`,
+      infra,
+      kind,
+      isOwner: this.isLocationActionOwner,
+      choiceLabel: g?.locationEffectChoice ? this.translateLocationEffect(g.locationEffectChoice) : null,
+
+      omen: kind === 'OMEN' ? {
+        cards: this.omenCards.map(id => ({
+          id,
+          img: this.actionImg(id, this.me?.role),
+          label: this.actionLabelFr(id)
+        })),
+        placements: this.omenPlacements,
+        canSubmit: this.omenCanSubmit,
+        submitting: this.omenSubmitting
+      } : undefined,
+
+      theft: kind === 'THEFT' ? {
+        targets: this.theftTargets,
+        selectedTargetId: this.theftSelectedTargetId,
+        slots: this.theftSlots,
+        selectedSlotIndex: this.theftSelectedSlotIndex,
+        canSubmit: this.theftCanSubmit,
+        submitting: this.theftSubmitting
+      } : undefined,
+
+      experiment: kind === 'EXPERIMENT' ? {
+        monsterMeta: this.experimentMonsterMeta,
+        selectedMonsterType: this.experimentMonsterType,
+        availableLocations: this.experimentPossibleLocations.map(id => ({
+          id,
+          label: this.labelLocation(id) || id
+        })),
+        selectedLocation: this.experimentLocation,
+        canSubmit: this.experimentCanSubmit,
+        submitting: this.experimentSubmitting
+      } : undefined,
+
+      explosion: kind === 'EXPLOSION' ? {
+        roll: g?.laboratoryExplosionRoll ?? null
+      } : undefined,
+
+      altar: (kind === 'HEAL' || kind === 'CORRUPT') ? {
+        targets: this.altarTargets,
+        selectedTargetId: this.altarSelectedTargetId,
+        canSubmit: this.altarCanSubmit,
+        submitting: this.altarSubmitting
+      } : undefined,
+
+      forge: kind === 'FORGE' ? {
+        weaponOptions: this.forgeWeaponOptions,
+        armorOptions: this.forgeArmorOptions,
+        selectedId: this.forgeSelectedId,
+        submitting: this.forgeSubmitting,
+        canSubmit: this.forgeCanSubmit,
+        resolvedLabel: this.forgeResolvedLabel
+      } : undefined,
+    };
+  }
+
+  readonly useLocationEffectActions: UseLocationEffectModalActions = {
+    onOmenPlacementClick: (idx, p) => this.onOmenPlacementClick(idx, p),
+    confirmOmenPlacements: () => this.confirmOmenPlacements(),
+    onSelectTheftTarget: (id) => this.onSelectTheftTarget(id),
+    onSelectTheftSlot: (idx) => this.onSelectTheftSlot(idx),
+    confirmTheftSelection: () => this.confirmTheftSelection(),
+    onExperimentMonsterClick: (t) => this.onExperimentMonsterClick(t as any),
+    onExperimentLocationClick: (l) => this.onExperimentLocationClick(l),
+    confirmExperiment: () => this.confirmExperiment(),
+    rollLabExplosion: () => this.rollLabExplosion(),
+    onSelectAltarTarget: (id) => this.onSelectAltarTarget(id),
+    confirmAltarHeal: () => this.confirmAltarHeal(),
+    confirmAltarCorrupt: () => this.confirmAltarCorrupt(),
+    onSelectForgeOption: (id) => this.onSelectForgeOption({ id } as any),
+    confirmForge: () => this.confirmForge(),
+    zoomEnter: (ev, card, isH, side) => this.zoomEnter(ev, card, isH, side === 'L' ? 'L' : 'M'),
+    zoomMove: (ev) => this.zoomMove(ev),
+    zoomLeave: () => this.zoomLeave()
+  };
   private unsubscribeGameTopic?: () => void; // coupe l’abonnement WS au destroy
   private notify = inject(NotifyService);
-  private cdr = inject(ChangeDetectorRef);
 
   private weatherWaitTimer?: any;
 
@@ -1907,15 +2155,6 @@ export class GameComponent {
     return `${this.entityDisplayName(r.attackerId)} vs ${this.entityDisplayName(r.defenderId)}`;
   }
 
-  /* non utilisé pour le moment 
-  /*
-  get readyGauge(): string {
-    const g: any = this.game || {};
-    const ready = (typeof g.readyCount === 'number') ? g.readyCount : (g.readyForPhase3?.length || 0);
-    const total = (typeof g.readyTotal === 'number') ? g.readyTotal : (g.players?.length || 0);
-    return `${ready}/${total}`;
-  }
-  */
 
   trackById(_i: number, p: SPlayer) { return p.id; }
 
@@ -2025,10 +2264,8 @@ export class GameComponent {
   entityRoleIcon(id: string, name: 'sword' | 'armor'): string {
     const p = this.getPlayer(id);
     if (p) {
-      console.log("player", p);
       if (p.role === 'SERVANT') {
         const side = this.servantEquipSide(p, name);
-        console.log("servantEquipSide", side);
         return `/assets/icons/${side}-${name}.png`;
       }
       return `/assets/icons/${p.role}-${name}.png`;
@@ -2698,26 +2935,6 @@ export class GameComponent {
         break;
       }
 
-      /*
-      case 'DICE_ROLLED': {
-        // patch léger si le roll concerne le round courant; sinon GET
-        const r = this.game?.currentCombat;
-        if (!this.game || !r || r.id !== event.payload.roundId) {
-          this.api.getGame(this.gameId).subscribe({
-            next: g => this.game = g,
-            error: e => this.showError(e)
-          });
-          break;
-        }
-        const side = event.payload.side; // "ATTACK"|"DEFENSE"
-        const val  = event.payload.roll as number;
-        const patched = { ...(this.game as any) };
-        if (side === 'ATTACK') patched.currentCombat.attackerRoll = val;
-        if (side === 'DEFENSE') patched.currentCombat.defenderRoll = val;
-        this.game = patched as GameSnapshot;
-        break;
-      }
-      */
 
       case 'DICE_ROLLED': {
         // Toujours un GET : on récupère attackerFirstRoll / defenderFirstRoll / rolls finaux proprement
@@ -7013,9 +7230,6 @@ export class GameComponent {
     });
   }
 
-  get experimentAvailableLocations(): string[] {
-    return this.experimentPossibleLocations;
-  }
 
   get experimentCanSubmit(): boolean {
     return this.locationActionKind === 'EXPERIMENT'

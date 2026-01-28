@@ -2,7 +2,7 @@ import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { ApiService } from './api.service';
+import { ApiService } from './services/api.service';
 import { AssetPreloaderService } from './services/asset-preloader.service';
 
 @Component({
@@ -375,8 +375,8 @@ export class AuthComponent {
     password: ['', Validators.required],
   });
 
-  signup(){ this.submit('signup'); }
-  login(){ this.submit('login'); }
+  signup() { this.submit('signup'); }
+  login() { this.submit('login'); }
 
   isLocalDev = location.origin.startsWith('http://localhost') || location.origin.startsWith('http://127.0.0.1');
 
@@ -419,12 +419,12 @@ export class AuthComponent {
     });
   }
 
-  private submit(kind:'signup'|'login'){
-    if (this.form.invalid){ this.form.markAllAsTouched(); return; }
-    const { username, password } = this.form.value as {username:string;password:string};
+  private submit(kind: 'signup' | 'login') {
+    if (this.form.invalid) { this.form.markAllAsTouched(); return; }
+    const { username, password } = this.form.value as { username: string; password: string };
     this.loading = true; this.error = '';
 
-    const req$ = kind==='signup' ? this.api.signup(username, password) : this.api.login(username, password);
+    const req$ = kind === 'signup' ? this.api.signup(username, password) : this.api.login(username, password);
     req$.subscribe({
       next: (r) => {
         sessionStorage.setItem('authToken', r.authToken);

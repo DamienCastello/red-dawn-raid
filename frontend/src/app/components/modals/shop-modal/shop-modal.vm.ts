@@ -1,4 +1,4 @@
-import { GameSnapshot, Player, TradeView, Pile } from "../../../api.service";
+import { GameSnapshot, Player, TradeView, Pile } from "../../../services/api.service";
 
 export type SPlayer = Player;
 export type STrade = TradeView;

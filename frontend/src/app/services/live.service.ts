@@ -3,8 +3,8 @@ import { Client, IMessage, IFrame, StompHeaders } from '@stomp/stompjs';
 import { TradeView } from './api.service';
 
 export type GameEvent =
-  { type: 'LOBBY_UPDATED'; gameId: string; payload: { gameId: string; status: string; players: {id:string; username:string; leftGame?: boolean}[], readyForStart: string[] }; ts: number }
-  | { type: 'GAME_CREATED'; gameId: string; payload: { gameId: string; status: string; players: {id:string; username:string; leftGame?: boolean}[], readyForStart: string[] }; ts: number }
+  { type: 'LOBBY_UPDATED'; gameId: string; payload: { gameId: string; status: string; players: { id: string; username: string; leftGame?: boolean }[], readyForStart: string[] }; ts: number }
+  | { type: 'GAME_CREATED'; gameId: string; payload: { gameId: string; status: string; players: { id: string; username: string; leftGame?: boolean }[], readyForStart: string[] }; ts: number }
   | { type: 'GAME_DELETED'; gameId: string; payload: { gameId: string }; ts: number }
   | { type: 'PHASE_CHANGED'; gameId: string; payload: { phase: string; raid: number }; ts: number }
   | { type: 'WEATHER_ROLLED'; gameId: string; payload: { roll: number; status: string; nameFr: string; descFr: string }; ts: number }
@@ -14,34 +14,34 @@ export type GameEvent =
   | { type: 'RAID_MODS_UPDATED'; gameId: string; payload: { mods?: Record<string, any[]>; playerId?: string }; ts: number }
   | { type: 'CENTER_REVEALED'; gameId: string; payload: {}; ts: number }
   | { type: 'LOCATION_STARTED'; gameId: string; payload: { ownerId: string; username: string; infra: string }; ts: number }
-  | { type: 'LOCATION_USED';    gameId: string; payload: { choice: 'STUDY'|'THEFT'|'OMEN'|'EXPERIMENT'|'ALCHEMY'|'RARE_ALCHEMY'|'EXPLOSION'|'DEATH_DANCE'|'SNEAK_ATTACK'|'BLOOD_WALTZ'|'LOOTING'|'HEAL'|'CORRUPT_SOULS'|'CORRUPT'|'PURIFY_WATER'|'FORGE'; playerId: string; username: string; infra: string|null }; ts: number }
-  | { type: 'DRAFT_UPDATED'; gameId: string; payload: { infra: string | null; choice: string | null; ownerId: string | null; monsterType: 'REVENANT'|'GARGOYLE'|'ABERRATION' | null; location: string | null; }; ts: number; }
+  | { type: 'LOCATION_USED'; gameId: string; payload: { choice: 'STUDY' | 'THEFT' | 'OMEN' | 'EXPERIMENT' | 'ALCHEMY' | 'RARE_ALCHEMY' | 'EXPLOSION' | 'DEATH_DANCE' | 'SNEAK_ATTACK' | 'BLOOD_WALTZ' | 'LOOTING' | 'HEAL' | 'CORRUPT_SOULS' | 'CORRUPT' | 'PURIFY_WATER' | 'FORGE'; playerId: string; username: string; infra: string | null }; ts: number }
+  | { type: 'DRAFT_UPDATED'; gameId: string; payload: { infra: string | null; choice: string | null; ownerId: string | null; monsterType: 'REVENANT' | 'GARGOYLE' | 'ABERRATION' | null; location: string | null; }; ts: number; }
   | { type: 'POTION_USED'; gameId: string; payload: { playerId: string; type: string }; ts: number }
   | { type: 'ACTION_USED'; gameId: string; payload: { playerId: string; type: string }; ts: number }
   | { type: 'INFRA_BUILT'; gameId: string; payload: { builderId: string; infra: string }; ts: number }
-  | { type: 'ACTION_STARTED';   gameId: string; payload: { mode: 'NET'|'PIT'|'MARCHAND_BONUS_BUY'; ownerId: string; location: string; targetId: string | null }; ts: number }
-  | { type: 'ACTION_ROLLED';    gameId: string; payload: { mode: 'NET'|'PIT'; ownerId: string; targetId: string; roll: number }; ts: number }
-  | { type: 'ACTION_RESOLVED';  gameId: string; payload: { mode: 'NET'|'PIT'; ownerId: string; targetId?: string | null }; ts: number }
-  | { type: 'UNSTABLE_ASSIGNED'; gameId: string; payload: { unstableId: string; kind: 'TARGET'|'HARVEST'|'NOTHING'; value: string }; ts: number }
-  | { type: 'DICE_ROLLED'; gameId: string; payload: { roundId: string; rollerId: string; side: 'ATTACK'|'DEFENSE'; roll: number }; ts: number }
+  | { type: 'ACTION_STARTED'; gameId: string; payload: { mode: 'NET' | 'PIT' | 'MARCHAND_BONUS_BUY'; ownerId: string; location: string; targetId: string | null }; ts: number }
+  | { type: 'ACTION_ROLLED'; gameId: string; payload: { mode: 'NET' | 'PIT'; ownerId: string; targetId: string; roll: number }; ts: number }
+  | { type: 'ACTION_RESOLVED'; gameId: string; payload: { mode: 'NET' | 'PIT'; ownerId: string; targetId?: string | null }; ts: number }
+  | { type: 'UNSTABLE_ASSIGNED'; gameId: string; payload: { unstableId: string; kind: 'TARGET' | 'HARVEST' | 'NOTHING'; value: string }; ts: number }
+  | { type: 'DICE_ROLLED'; gameId: string; payload: { roundId: string; rollerId: string; side: 'ATTACK' | 'DEFENSE'; roll: number }; ts: number }
   | { type: 'COMBAT_RESOLVED'; gameId: string; payload: { roundId: string; dmg: number; defenderId: string; defenderHp: number; breakdown: string[] }; ts: number }
   | { type: 'BITE_STARTED'; gameId: string; payload: { attackerId: string; targetId: string; location: string }; ts: number }
-  | { type: 'BITE_ROLLED'; gameId: string; payload: { roll: number; attackerId: string; targetId: string; newCorruption?: number|null; becameServant: boolean; isSacredRosaryUsed: boolean; }; ts: number }
-  | { type: 'BITE_RESOLVED';      gameId: string; payload: { attackerId: string; targetId: string; location: string }; ts: number } 
-  | { type: 'POTION_BOUGHT';  gameId: string; payload: { playerId: string; type: string; pool: number }; ts: number }
-  | { type: 'ACTION_BOUGHT';  gameId: string; payload: { playerId: string; type: string; pool: number }; ts: number }
-  | { type: 'STUFF_BOUGHT';  gameId: string; payload: { playerId: string; item: string; }; ts: number }
-  | { type: 'SILVER_BOUGHT';  gameId: string; payload: { playerId: string; qty: number; cost: number }; ts: number }
-  | { type: 'HOLY_WATER_BOUGHT';  gameId: string; payload: { playerId: string; costWater: number; costGold: number; }; ts: number }
-  | { type: 'TRACKING_BOUGHT';  gameId: string; payload: { playerId: string; costGold: number; }; ts: number }
-  | { type: 'RESOURCE_SOLD';  gameId: string; payload: { playerId: string; res: string; qty: number; gain: number }; ts: number }
-  | { type: 'TRANSMUTED';     gameId: string; payload: { playerId: string; recipe: 'WOOD_TO_IRON'|'IRON_TO_WOOD'|'TRINITY_TO_SOULS' }; ts: number }
-  | { type: 'TRADE_SYNC';     gameId: string; payload: TradeView; ts: number }
-  | { type: 'TRADE_DELETED';  gameId: string; payload: { id: string }; ts: number }
+  | { type: 'BITE_ROLLED'; gameId: string; payload: { roll: number; attackerId: string; targetId: string; newCorruption?: number | null; becameServant: boolean; isSacredRosaryUsed: boolean; }; ts: number }
+  | { type: 'BITE_RESOLVED'; gameId: string; payload: { attackerId: string; targetId: string; location: string }; ts: number }
+  | { type: 'POTION_BOUGHT'; gameId: string; payload: { playerId: string; type: string; pool: number }; ts: number }
+  | { type: 'ACTION_BOUGHT'; gameId: string; payload: { playerId: string; type: string; pool: number }; ts: number }
+  | { type: 'STUFF_BOUGHT'; gameId: string; payload: { playerId: string; item: string; }; ts: number }
+  | { type: 'SILVER_BOUGHT'; gameId: string; payload: { playerId: string; qty: number; cost: number }; ts: number }
+  | { type: 'HOLY_WATER_BOUGHT'; gameId: string; payload: { playerId: string; costWater: number; costGold: number; }; ts: number }
+  | { type: 'TRACKING_BOUGHT'; gameId: string; payload: { playerId: string; costGold: number; }; ts: number }
+  | { type: 'RESOURCE_SOLD'; gameId: string; payload: { playerId: string; res: string; qty: number; gain: number }; ts: number }
+  | { type: 'TRANSMUTED'; gameId: string; payload: { playerId: string; recipe: 'WOOD_TO_IRON' | 'IRON_TO_WOOD' | 'TRINITY_TO_SOULS' }; ts: number }
+  | { type: 'TRADE_SYNC'; gameId: string; payload: TradeView; ts: number }
+  | { type: 'TRADE_DELETED'; gameId: string; payload: { id: string }; ts: number }
   | { type: 'BANK_UPDATED'; gameId: string; payload: { playerId: string }; ts: number }
-  | { type: 'PHASE4_READY_UPDATED';gameId: string; payload: { playerId: string; ready: number; total: number }; ts: number };
+  | { type: 'PHASE4_READY_UPDATED'; gameId: string; payload: { playerId: string; ready: number; total: number }; ts: number };
 
-  type AnyEvent = GameEvent & { ts?: number };
+type AnyEvent = GameEvent & { ts?: number };
 
 @Injectable({ providedIn: 'root' })
 export class LiveService {
@@ -51,7 +51,7 @@ export class LiveService {
     this.client = new Client({
       webSocketFactory: () => new WebSocket(this.buildWsUrl()),
       reconnectDelay: 3000,
-      onConnect: (_frame: IFrame) => {},
+      onConnect: (_frame: IFrame) => { },
       onStompError: (frame: IFrame) => {
         console.error('[STOMP] Broker error', frame.headers as StompHeaders, frame.body);
       },
@@ -89,16 +89,16 @@ export class LiveService {
         try {
           const e = JSON.parse(msg.body) as GameEvent;
           handle(e);
-        } catch {}
+        } catch { }
       });
-      unsub = () => { try { sub.unsubscribe(); } catch {} };
+      unsub = () => { try { sub.unsubscribe(); } catch { } };
     };
 
     if (this.client.connected) doSubscribe();
     else {
       const prev = this.client.onConnect;
       this.client.onConnect = (frame: any) => {
-        try { prev?.(frame); } catch {}
+        try { prev?.(frame); } catch { }
         doSubscribe();
         this.client.onConnect = prev;
       };
@@ -145,7 +145,7 @@ export class LiveService {
     } else {
       const previousOnConnect = this.client.onConnect;
       this.client.onConnect = (frame: IFrame) => {
-        try { previousOnConnect?.(frame); } catch {}
+        try { previousOnConnect?.(frame); } catch { }
         doSubscribe();
         this.client.onConnect = previousOnConnect;
       };

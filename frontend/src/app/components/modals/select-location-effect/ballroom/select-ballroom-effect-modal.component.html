@@ -1,0 +1,35 @@
+<div class="modal construction-modal location-effect-modal" [style.backgroundImage]="vm.backgroundImage">
+    <div class="modal-overlay-content">
+        <h2>{{ vm.title }}</h2>
+
+        <p class="bg-badge">
+            {{ vm.ownerText }}
+        </p>
+
+        <div class="modal-button-row" *ngIf="vm.isOwner">
+            <ng-container *ngFor="let opt of vm.options">
+                <button type="button" class="effect-option" (click)="actions.select(opt.id)" [disabled]="opt.disabled"
+                    [class.selected]="vm.choice === opt.id">
+                    {{ opt.title }}<br />
+                    <small>{{ opt.desc }}</small>
+                </button>
+            </ng-container>
+        </div>
+
+        <div class="modal-button-row footer-row" *ngIf="vm.isOwner">
+            <button type="button" class="btn-primary" style="margin-right: 10px;" (click)="actions.validate()"
+                [disabled]="!vm.canChoose || !vm.choice">
+                Valider
+            </button>
+
+            <button type="button" class="btn-secondary" *ngIf="!vm.serverChoiceLabel" (click)="actions.cancel()">
+                Annuler
+            </button>
+        </div>
+
+        <!-- Résultat figé (info pour tous) -->
+        <p *ngIf="vm.serverChoiceLabel" class="location-effect-result">
+            Effet choisi: {{ vm.serverChoiceLabel }}
+        </p>
+    </div>
+</div>

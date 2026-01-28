@@ -1,4 +1,4 @@
-import { GameSnapshot, RawStatMod } from "../../../api.service";
+import { GameSnapshot, RawStatMod } from "../../../services/api.service";
 
 export type RoundFightView = GameSnapshot['combatsQueue'][number];
 export type UiStatMod = RawStatMod & { labelFr?: string; displayOnly?: boolean };

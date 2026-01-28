@@ -11806,22 +11806,13 @@ public class GameService {
      * - ne vérifie PAS readyForPhase3 (utile pour les timers serveur).
      */
     private void finishPrephaseAndMaybeStartLocationEffects(Game g, String gameId) {
-        // 1) Si un effet est déjà en cours (file non vide + index valide + pending),
-        // on ne fait rien : scheduleNextLocationEffect gérera la suite.
-        if (g.getLocationEffectPending()
-                && g.getLocationEffectsQueue() != null
-                && g.getCurrentLocationEffectIndex() != null) {
-
-            int idx = g.getCurrentLocationEffectIndex();
-            if (idx >= 0 && idx < g.getLocationEffectsQueue().size()) {
-                // Petit heartbeat seulement
-                save(g);
-                afterCommit(() -> {
-                    Game fresh = findOr404(gameId);
-                    live.phaseChanged(fresh);
-                });
-                return;
-            }
+        // 1) Si la file a déjà été bâtie pour ce raid, on ne fait rien de plus.
+        // Cela évite de redémarrer à l'index 0 si cette méthode est appelée plusieurs
+        // fois
+        // (ex: plusieurs clics "Ready" ou timeout serveur alors que la file est en
+        // cours).
+        if (g.getLocationEffectsQueue() != null && !g.getLocationEffectsQueue().isEmpty()) {
+            return;
         }
 
         // 2) (Re)construire la file d'effets à partir de l'état FINAL de PREPHASE3

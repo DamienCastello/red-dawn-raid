@@ -1,0 +1,315 @@
+<div class="modal construction-modal location-effect-modal" [style.backgroundImage]="vm.backgroundImage">
+    <div class="modal-overlay-content">
+        <h2>{{ vm.title }}</h2>
+
+        <p class="bg-badge">
+            {{ vm.ownerText }}
+        </p>
+
+        <p class="bg-badge" *ngIf="vm.choiceLabel">
+            Effet en cours: {{ vm.choiceLabel }}
+        </p>
+
+        <ng-container [ngSwitch]="vm.kind">
+
+            <!-- OMEN -->
+            <div *ngSwitchCase="'OMEN'">
+                <ng-container *ngIf="vm.omen">
+                    <p *ngIf="!vm.isOwner">
+                        Le joueur consulte secrètement les trois prochaines cartes d’action de l’adversaire.
+                    </p>
+
+                    <div class="cards-row omen-row" *ngIf="vm.isOwner">
+                        <div class="omen-card" *ngFor="let card of vm.omen.cards; let i = index">
+
+                            <button type="button" class="omen-card-btn"
+                                (mouseenter)="actions.zoomEnter($event, card.id, false, 'L')"
+                                (mousemove)="actions.zoomMove($event)" (mouseleave)="actions.zoomLeave()">
+                                <img class="omen-card-img" [src]="card.img" [alt]="card.label">
+                            </button>
+
+                            <button type="button" class="omen-place-btn"
+                                (click)="actions.onOmenPlacementClick(i, 'TOP')" [disabled]="!vm.isOwner"
+                                [class.selected]="vm.omen.placements[i] === 'TOP'">
+                                Dessus le deck
+                            </button>
+
+                            <button type="button" class="omen-place-btn"
+                                (click)="actions.onOmenPlacementClick(i, 'BOTTOM')" [disabled]="!vm.isOwner"
+                                [class.selected]="vm.omen.placements[i] === 'BOTTOM'">
+                                Dessous le deck
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="modal-button-row footer-row" *ngIf="vm.isOwner">
+                        <button type="button" (click)="actions.confirmOmenPlacements()"
+                            [disabled]="!vm.omen.canSubmit || vm.omen.submitting">
+                            Valider les placements
+                        </button>
+                    </div>
+                </ng-container>
+            </div>
+
+            <!-- THEFT -->
+            <div *ngSwitchCase="'THEFT'" class="theft-container">
+                <ng-container *ngIf="vm.theft">
+                    <div *ngIf="vm.isOwner; else theftSpectator">
+                        <p>Choisissez d’abord une cible, puis une carte parmi sa main d’actions.</p>
+
+                        <div class="theft-targets" *ngIf="vm.theft.targets.length > 0; else noTheftTargets">
+                            <div class="theft-target" *ngFor="let t of vm.theft.targets"
+                                [class.selected]="t.id === vm.theft.selectedTargetId"
+                                (click)="actions.onSelectTheftTarget(t.id)">
+                                <strong>{{ t.username }}</strong>
+                                <span> — {{ t.actionsCount }} carte(s) Action</span>
+                            </div>
+                        </div>
+
+                        <ng-template #noTheftTargets>
+                            <p>Aucun adversaire ne possède de carte Action à subtiliser.</p>
+                        </ng-template>
+
+                        <div class="theft-slots" *ngIf="vm.theft.selectedTargetId && vm.theft.slots.length > 0">
+                            <p>Choisissez une carte:</p>
+                            <div class="slot-row">
+                                <button type="button" *ngFor="let idx of vm.theft.slots"
+                                    (click)="actions.onSelectTheftSlot(idx)"
+                                    [class.selected]="vm.theft.selectedSlotIndex === idx">
+                                    Carte {{ idx + 1 }}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="modal-button-row footer-row">
+                            <button type="button" (click)="actions.confirmTheftSelection()"
+                                [disabled]="!vm.theft.canSubmit || vm.theft.submitting">
+                                Valider le vol
+                            </button>
+                        </div>
+                    </div>
+
+                    <ng-template #theftSpectator>
+                        <p>Le joueur actif choisit secrètement une carte d’action à subtiliser chez son adversaire…</p>
+                    </ng-template>
+                </ng-container>
+            </div>
+
+            <!-- EXPERIMENT -->
+            <div *ngSwitchCase="'EXPERIMENT'" class="experiment-container">
+                <ng-container *ngIf="vm.experiment">
+                    <p *ngIf="vm.isOwner; else experimentSpectator">
+                        Choisissez le type de créature et le lieu où l’envoyer défendre.
+                    </p>
+                    <ng-template #experimentSpectator>
+                        <p>Le vampire choisit une créature et un lieu…</p>
+                    </ng-template>
+
+                    <div class="experiment-row">
+                        <div class="experiment-col">
+                            <h3>Type de créature</h3>
+                            <div class="monster-pick-grid">
+                                <button type="button" class="monster-pick"
+                                    (click)="actions.onExperimentMonsterClick('REVENANT')" [disabled]="!vm.isOwner"
+                                    [class.selected]="vm.experiment.selectedMonsterType === 'REVENANT'">
+                                    <img class="monster-img" src="/assets/monster/revenant.png" alt="Revenant" />
+                                    <div class="monster-name">Revenant</div>
+                                    <div class="monster-stats" *ngIf="vm.experiment.monsterMeta.REVENANT">
+                                        <div>Coût: {{ vm.experiment.monsterMeta.REVENANT.cost }}</div>
+                                        <div>PV: {{ vm.experiment.monsterMeta.REVENANT.hp }}</div>
+                                        <div>ATK: {{ vm.experiment.monsterMeta.REVENANT.atkDice }}</div>
+                                        <div>DEF: {{ vm.experiment.monsterMeta.REVENANT.defDice }}</div>
+                                    </div>
+                                </button>
+                                <button type="button" class="monster-pick"
+                                    (click)="actions.onExperimentMonsterClick('GARGOYLE')" [disabled]="!vm.isOwner"
+                                    [class.selected]="vm.experiment.selectedMonsterType === 'GARGOYLE'">
+                                    <img class="monster-img" src="/assets/monster/gargouille.png" alt="Gargouille" />
+                                    <div class="monster-name">Gargouille</div>
+                                    <div class="monster-stats" *ngIf="vm.experiment.monsterMeta.GARGOYLE">
+                                        <div>Coût: {{ vm.experiment.monsterMeta.GARGOYLE.cost }}</div>
+                                        <div>PV: {{ vm.experiment.monsterMeta.GARGOYLE.hp }}</div>
+                                        <div>ATK: {{ vm.experiment.monsterMeta.GARGOYLE.atkDice }}</div>
+                                        <div>DEF: {{ vm.experiment.monsterMeta.GARGOYLE.defDice }}</div>
+                                    </div>
+                                </button>
+                                <button type="button" class="monster-pick"
+                                    (click)="actions.onExperimentMonsterClick('ABERRATION')" [disabled]="!vm.isOwner"
+                                    [class.selected]="vm.experiment.selectedMonsterType === 'ABERRATION'">
+                                    <img class="monster-img" src="/assets/monster/aberration.png" alt="Aberration" />
+                                    <div class="monster-name">Aberration</div>
+                                    <div class="monster-stats" *ngIf="vm.experiment.monsterMeta.ABERRATION">
+                                        <div>Coût: {{ vm.experiment.monsterMeta.ABERRATION.cost }}</div>
+                                        <div>PV: {{ vm.experiment.monsterMeta.ABERRATION.hp }}</div>
+                                        <div>ATK: {{ vm.experiment.monsterMeta.ABERRATION.atkDice }}</div>
+                                        <div>DEF: {{ vm.experiment.monsterMeta.ABERRATION.defDice }}</div>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="experiment-col">
+                            <h3>Lieu de déploiement</h3>
+                            <div class="location-list">
+                                <button type="button" *ngFor="let loc of vm.experiment.availableLocations"
+                                    (click)="actions.onExperimentLocationClick(loc.id)" [disabled]="!vm.isOwner"
+                                    [class.selected]="vm.experiment.selectedLocation === loc.id">
+                                    {{ loc.label }}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal-button-row footer-row" *ngIf="vm.isOwner">
+                        <button type="button" (click)="actions.confirmExperiment()"
+                            [disabled]="!vm.experiment.canSubmit || vm.experiment.submitting">
+                            {{ vm.experiment.submitting ? 'Validation…' : 'Valider l’expérience' }}
+                        </button>
+                    </div>
+                </ng-container>
+            </div>
+
+            <!-- EXPLOSION -->
+            <div *ngSwitchCase="'EXPLOSION'" class="explosion-container">
+                <ng-container *ngIf="vm.explosion">
+                    <p class="bg-badge">Jet de d20: <b>15+</b> = explosion, sinon vous perdez <b>2 PV</b>.</p>
+                    <div class="dice-row">
+                        <div class="dice-wrap" [attr.data-digits]="2">
+                            <img class="dice-big" src="/assets/dices/d20-red.png" alt="d20" />
+                            <div class="dice-overlay" *ngIf="vm.explosion.roll != null">{{ vm.explosion.roll }}</div>
+                        </div>
+                    </div>
+                    <ng-container *ngIf="vm.explosion.roll == null; else explosionResult">
+                        <ng-container *ngIf="vm.isOwner; else waitExplosion">
+                            <button type="button" class="btn-primary" (click)="actions.rollLabExplosion()">Jeter le
+                                d20</button>
+                        </ng-container>
+                        <ng-template #waitExplosion><span class="bg-badge">En attente du jet…</span></ng-template>
+                    </ng-container>
+                    <ng-template #explosionResult>
+                        <span class="bg-badge">
+                            {{ (vm.explosion.roll || 0) >= 15 ? 'Explosion réussie !' : 'Échec : -2 PV.' }}
+                        </span>
+                    </ng-template>
+                </ng-container>
+            </div>
+
+            <!-- HEAL / CORRUPT -->
+            <div *ngSwitchCase="'HEAL'" class="altar-container">
+                <ng-container *ngIf="vm.altar">
+                    <p *ngIf="!vm.isOwner">Le joueur actif choisit un chasseur à purifier à l’autel…</p>
+                    <div *ngIf="vm.isOwner">
+                        <p>Choisissez un chasseur vivant possédant au moins 1 point de corruption.</p>
+                        <div class="altar-targets" *ngIf="vm.altar.targets.length > 0; else noAltarHealTargets">
+                            <div class="altar-target" *ngFor="let t of vm.altar.targets"
+                                [class.selected]="t.id === vm.altar.selectedTargetId"
+                                (click)="actions.onSelectAltarTarget(t.id)">
+                                <strong>{{ t.username }}</strong>
+                                <span> — PV {{ t.hp }}, Corruption {{ t.corruption }}</span>
+                            </div>
+                        </div>
+                        <ng-template #noAltarHealTargets>
+                            <p>Aucun chasseur corrompu et vivant à purifier.</p>
+                        </ng-template>
+                        <div class="modal-button-row footer-row">
+                            <button type="button" (click)="actions.confirmAltarHeal()"
+                                [disabled]="!vm.altar.canSubmit || vm.altar.submitting">
+                                Valider la purification
+                            </button>
+                        </div>
+                    </div>
+                </ng-container>
+            </div>
+
+            <div *ngSwitchCase="'CORRUPT'" class="altar-container">
+                <ng-container *ngIf="vm.altar">
+                    <p *ngIf="!vm.isOwner">Le joueur actif choisit un chasseur à corrompre depuis l’autel…</p>
+                    <div *ngIf="vm.isOwner">
+                        <p>Choisissez un chasseur vivant à corrompre (+1 corruption).</p>
+                        <div class="altar-targets" *ngIf="vm.altar.targets.length > 0; else noAltarCorruptTargets">
+                            <div class="altar-target" *ngFor="let t of vm.altar.targets"
+                                [class.selected]="t.id === vm.altar.selectedTargetId"
+                                (click)="actions.onSelectAltarTarget(t.id)">
+                                <strong>{{ t.username }}</strong>
+                                <span> — PV {{ t.hp }}, Corruption {{ t.corruption }}</span>
+                            </div>
+                        </div>
+                        <ng-template #noAltarCorruptTargets>
+                            <p>Aucun chasseur vivant à corrompre.</p>
+                        </ng-template>
+                        <div class="modal-button-row footer-row">
+                            <button type="button" (click)="actions.confirmAltarCorrupt()"
+                                [disabled]="!vm.altar.canSubmit || vm.altar.submitting">
+                                Valider la corruption
+                            </button>
+                        </div>
+                    </div>
+                </ng-container>
+            </div>
+
+            <!-- FORGE -->
+            <div *ngSwitchCase="'FORGE'" class="forge-container">
+                <ng-container *ngIf="vm.forge">
+                    <p *ngIf="!vm.isOwner && !vm.forge.resolvedLabel">Le joueur est en train de forger…</p>
+                    <div *ngIf="vm.isOwner && !vm.forge.resolvedLabel">
+                        <p>Choisissez l’équipement de tier supérieur que vous voulez forger.</p>
+
+                        <ng-template #forgeCostTpl let-c>
+                            <div class="forge-costs">
+                                <span class="cost-item">
+                                    <ng-container *ngIf="c?.wood"><span class="cost-val">{{ c.wood }}</span><span
+                                            class="cost-ico-box"><img src="/assets/icons/wood.png" alt="Bois"
+                                                class="cost-ico cost-ico-s"></span></ng-container>
+                                    <ng-container *ngIf="c?.iron"><span class="cost-val">{{ c.iron }}</span><span
+                                            class="cost-ico-box"><img src="/assets/icons/iron.png" alt="Fer"
+                                                class="cost-ico cost-ico-s"></span></ng-container>
+                                    <ng-container *ngIf="c?.silver"><span class="cost-val">{{ c.silver }}</span><span
+                                            class="cost-ico-box"><img src="/assets/icons/silver.png" alt="Argent"
+                                                class="cost-ico cost-ico-s"></span></ng-container>
+                                    <ng-container *ngIf="c?.souls"><span class="cost-val">{{ c.souls }}</span><span
+                                            class="cost-ico-box"><img src="/assets/icons/souls.png" alt="Âmes"
+                                                class="cost-ico cost-ico-s"></span></ng-container>
+                                </span>
+                            </div>
+                        </ng-template>
+
+                        <div class="forge-section" *ngIf="vm.forge.weaponOptions.length > 0">
+                            <h3>Armes disponibles</h3>
+                            <div class="forge-options-row">
+                                <button type="button" class="effect-option" *ngFor="let opt of vm.forge.weaponOptions"
+                                    (click)="actions.onSelectForgeOption(opt.id)"
+                                    [class.selected]="vm.forge.selectedId === opt.id" [disabled]="vm.forge.submitting">
+                                    {{ opt.label }}<br /><small>{{ opt.desc }}</small>
+                                    <ng-container
+                                        *ngTemplateOutlet="forgeCostTpl; context:{ $implicit: opt.cost }"></ng-container>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="forge-section" *ngIf="vm.forge.armorOptions.length > 0">
+                            <h3>Armures disponibles</h3>
+                            <div class="forge-options-row">
+                                <button type="button" class="effect-option" *ngFor="let opt of vm.forge.armorOptions"
+                                    (click)="actions.onSelectForgeOption(opt.id)"
+                                    [class.selected]="vm.forge.selectedId === opt.id" [disabled]="vm.forge.submitting">
+                                    {{ opt.label }}<br /><small>{{ opt.desc }}</small>
+                                    <ng-container
+                                        *ngTemplateOutlet="forgeCostTpl; context:{ $implicit: opt.cost }"></ng-container>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="modal-button-row footer-row">
+                            <button type="button" class="btn-primary" (click)="actions.confirmForge()"
+                                [disabled]="!vm.forge.canSubmit || vm.forge.submitting">Valider</button>
+                        </div>
+                    </div>
+
+                    <p *ngIf="vm.forge.resolvedLabel" class="location-effect-result">Équipement forgé: {{
+                        vm.forge.resolvedLabel }}
+                    </p>
+                </ng-container>
+            </div>
+        </ng-container>
+    </div>
+</div>

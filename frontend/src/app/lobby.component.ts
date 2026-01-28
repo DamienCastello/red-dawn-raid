@@ -2,9 +2,9 @@ import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { ApiService, LobbyGame } from './api.service';
+import { ApiService, LobbyGame } from './services/api.service';
 
-import { LiveService, GameEvent } from './live.service';
+import { LiveService, GameEvent } from './services/live.service';
 import { AssetPreloaderService } from './services/asset-preloader.service';
 
 @Component({
@@ -613,10 +613,10 @@ export class LobbyComponent {
     this.stopPresence();
     this.presenceGameId = gameId;
 
-    this.api.presence(gameId).subscribe({ error: () => {} });
+    this.api.presence(gameId).subscribe({ error: () => { } });
 
     this.presenceTimer = setInterval(() => {
-      this.api.presence(gameId).subscribe({ error: () => {} });
+      this.api.presence(gameId).subscribe({ error: () => { } });
     }, 15_000);
   }
 
@@ -665,7 +665,7 @@ export class LobbyComponent {
     if (!iAmIn) return;
 
     this.assets.waitDone()
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => {
         this.localAssetsDone = true;
 
@@ -705,16 +705,16 @@ export class LobbyComponent {
     this.unsubscribeLobby = this.live.subscribeLobby((e) => this.onLobbyEvent(e));
   }
 
-  ngOnDestroy(){
+  ngOnDestroy() {
     this.stopPresence();
     this.unsubscribeLobby?.();
     this.unsubscribeSelectedGame?.();
     if (this.bootReadyRetryTimer) clearTimeout(this.bootReadyRetryTimer);
   }
 
-  private showError(e:any){
-    try{ this.errorMsg = e?.error?.message || 'Erreur'; }catch{ this.errorMsg='Erreur'; }
-    setTimeout(()=>this.errorMsg='',4000);
+  private showError(e: any) {
+    try { this.errorMsg = e?.error?.message || 'Erreur'; } catch { this.errorMsg = 'Erreur'; }
+    setTimeout(() => this.errorMsg = '', 4000);
   }
 
   // expose l'id pour le template
@@ -748,7 +748,7 @@ export class LobbyComponent {
 
   endedSnap: any | null = null;
 
-  onSelect(g: LobbyGame){
+  onSelect(g: LobbyGame) {
     this.selected = g;
 
     this.bootReadySentForGameId = null;
@@ -783,7 +783,7 @@ export class LobbyComponent {
     }
   }
 
-  private onLobbyEvent(e: GameEvent){
+  private onLobbyEvent(e: GameEvent) {
     if (e.type === 'GAME_CREATED') {
       const g = this.asListItem(e);
       this.upsertInList(g);
@@ -864,11 +864,11 @@ export class LobbyComponent {
 
     const players =
       Array.isArray(e?.payload?.players) ? e.payload.players :
-      (prev?.players ?? []);
+        (prev?.players ?? []);
 
     const readyForStart =
       Array.isArray(e?.payload?.readyForStart) ? e.payload.readyForStart :
-      ((prev as any)?.readyForStart ?? []);
+        ((prev as any)?.readyForStart ?? []);
 
     return {
       id,
@@ -878,7 +878,7 @@ export class LobbyComponent {
     } as any;
   }
 
-  private upsertInList(item: any){
+  private upsertInList(item: any) {
     const i = this.games.findIndex(x => x.id === item.id);
     if (i >= 0) this.games[i] = { ...this.games[i], ...item };
     else this.games.unshift(item);
@@ -891,7 +891,7 @@ export class LobbyComponent {
     return (g.players || []).some(p => p.id === this.myUserId && !p.leftGame);
   }
 
-  list(){
+  list() {
     this.api.listGames().subscribe({
       next: gs => {
         this.games = gs;
@@ -917,13 +917,13 @@ export class LobbyComponent {
     });
   }
 
-  pick(g: LobbyGame){
+  pick(g: LobbyGame) {
     this.onSelect(g);
   }
 
-  create(){
+  create() {
     if (this.cannotCreateGame) {
-      this.showError({ error: { message: "Vous êtes déjà dans une partie. Quittez-la avant d'en créer une autre." }});
+      this.showError({ error: { message: "Vous êtes déjà dans une partie. Quittez-la avant d'en créer une autre." } });
       return;
     }
 
@@ -943,7 +943,7 @@ export class LobbyComponent {
     });
   }
 
-  leaveCreated(){
+  leaveCreated() {
     if (!this.selected) return;
 
     this.api.leaveGame(this.selected.id).subscribe({
@@ -976,7 +976,7 @@ export class LobbyComponent {
   get isSelectedActive(): boolean { return this.selected?.status === 'ACTIVE'; }
   get myActiveGameIdView(): string | null { return this.myActiveGameId; }
 
-  private clearCurrentGameStorage(){
+  private clearCurrentGameStorage() {
     sessionStorage.removeItem('gameId');
     sessionStorage.removeItem('playerId');
   }
@@ -986,7 +986,7 @@ export class LobbyComponent {
     return g?.id ?? null;
   }
 
-  private syncStorageWithServer(){
+  private syncStorageWithServer() {
     const gid = this.myActiveGameId;
     if (gid) {
       sessionStorage.setItem('gameId', gid);
@@ -996,11 +996,11 @@ export class LobbyComponent {
     }
   }
 
-  goToGame(){
+  goToGame() {
     if (this.selected) this.router.navigate(['/game', this.selected.id]);
   }
 
-  join(){
+  join() {
     const sel = this.selected;
     if (!sel) return;
 
@@ -1035,7 +1035,7 @@ export class LobbyComponent {
     sessionStorage.setItem('playerId', this.myUserId);
   }
 
-  start(){
+  start() {
     if (!this.selected) return;
     this.api.startGame(this.selected.id).subscribe({ error: e => this.showError(e) });
   }
