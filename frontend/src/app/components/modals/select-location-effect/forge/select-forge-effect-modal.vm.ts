@@ -7,6 +7,7 @@ export interface SelectForgeEffectModalVm {
     canChoose: boolean;
     choice: string | null;
     serverChoiceLabel: string | null;
+    insufficientResources: boolean; // true si le joueur n'a pas assez de ressources pour forger
     options: {
         id: string;
         title: string;

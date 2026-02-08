@@ -21,6 +21,7 @@ export interface ActionModalVm {
     clonesIndexes: number[];
     clonesLocationChoices: string[];
     clonesSelectedLocations: string[];
+    clonesBiteParams: boolean[];
     weatherSecondChoices: string[];
     weatherThirdChoices: string[];
     selectedWeather2: string | null;
@@ -33,6 +34,9 @@ export interface ActionModalVm {
     hunterPlayers: SPlayer[];
     secretPassageChoices: string[];
     selectedSecretPassageLoc: string | null;
+    voileLocationChoices: string[];
+    voileHuntersByLoc: Record<string, SPlayer[]>;
+    secretPassageHuntersByLoc: Record<string, SPlayer[]>;
     diceColor: string;
     isGameEnded: boolean;
     game: GameSnapshot | undefined;
@@ -55,12 +59,14 @@ export interface ActionModalActions {
     onCataclysmeConfirm: () => void;
     onClonesRoll: () => void;
     onCloneLocationChange: (idx: number, ev: any) => void;
+    onCloneBiteChange: (idx: number, ev: any) => void;
     onClonesConfirm: () => void;
     onMirrorSetupConfirm: () => void;
     onMirrorResolveChoose: (loc: any) => void;
     onDarkMarkChoose: (id: string) => void;
     onOccultWeakeningTarget: (id: string) => void;
     onSecretPassageConfirm: () => void;
+    onVoileChoose: (loc: string) => void;
     setSelectedActionTargetId: (id: string | null) => void;
     setSelectedMirrorLoc: (loc: string | null) => void;
     setSelectedSecretPassageLoc: (loc: string | null) => void;
@@ -80,4 +86,5 @@ export interface ActionModalHelpers {
     labelWeather: (ws: any) => string;
     diceAsset: (type: any, color: any) => string;
     canConfirmClones: () => boolean;
+    clonesTotalCost: () => number;
 }

@@ -81,28 +81,55 @@
             <!-- ========== FOSSE ========== -->
             <ng-container *ngIf="vm.mode === 'PIT'">
 
-                <!-- Vue ACTEUR -->
-                <ng-container *ngIf="vm.isActor; else pitSpectate">
+                <!-- PIT groupé contre monstre (auto-résolu) -->
+                <ng-container *ngIf="vm.breakdownLines && vm.breakdownLines.length > 0 && vm.roll !== null">
 
-                    <p *ngIf="vm.currentPitTarget">
-                        Cible: {{ vm.currentPitTarget.username }} ({{ vm.currentPitTarget.role }})
-                    </p>
+                    <div class="pit-monster-batch">
+                        <div class="pit-monster-group" *ngFor="let group of getPitGroups()">
+                            <p class="breakdown-label">
+                                Résultats des fosses contre <strong>{{ group.monsterName }}</strong> :
+                            </p>
 
-                    <button type="button" (click)="actions.onPitRoll()"
-                        [disabled]="vm.resolving || vm.roll !== null || !vm.currentPitTarget">
-                        Lancer le dé
-                    </button>
+                            <!-- Afficher tous les dés groupés en ligne -->
+                            <div class="pit-monster-results">
+                                <div *ngFor="let result of group.results" class="pit-monster-dice">
+                                    <div class="dice-wrap" [attr.data-digits]="result.roll.toString().length">
+                                        <img class="dice" [src]="helpers.diceAsset('D20', vm.diceColor)" alt="dice" />
+                                        <div class="dice-overlay">{{ result.roll }}</div>
+                                    </div>
+                                    <p class="result-label">
+                                        {{ result.roll < 8 ? 'Tombé dans la fosse !' : 'Évite la fosse' }} </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </ng-container>
 
-                <!-- Vue SPECTATEUR -->
-                <ng-template #pitSpectate>
-                    <ng-container *ngIf="vm.currentPitTarget; else pitWaitTarget">
-                        <p>Cible: {{ vm.currentPitTarget.username }} ({{ vm.currentPitTarget.role }})</p>
+                <!-- PIT manuel classique (joueur ou acteur) -->
+                <ng-container *ngIf="!vm.breakdownLines || vm.breakdownLines.length === 0 || vm.roll === null">
+                    <!-- Vue ACTEUR -->
+                    <ng-container *ngIf="vm.isActor; else pitSpectate">
+
+                        <p *ngIf="vm.currentPitTarget">
+                            Cible: {{ vm.currentPitTarget.username }} ({{ vm.currentPitTarget.role }})
+                        </p>
+
+                        <button type="button" (click)="actions.onPitRoll()"
+                            [disabled]="vm.resolving || vm.roll !== null || !vm.currentPitTarget">
+                            Lancer le dé
+                        </button>
                     </ng-container>
-                    <ng-template #pitWaitTarget>
-                        <p>En attente du jet pour la fosse...</p>
+
+                    <!-- Vue SPECTATEUR -->
+                    <ng-template #pitSpectate>
+                        <ng-container *ngIf="vm.currentPitTarget; else pitWaitTarget">
+                            <p>Cible: {{ vm.currentPitTarget.username }} ({{ vm.currentPitTarget.role }})</p>
+                        </ng-container>
+                        <ng-template #pitWaitTarget>
+                            <p>En attente du jet pour la fosse...</p>
+                        </ng-template>
                     </ng-template>
-                </ng-template>
+                </ng-container>
             </ng-container>
 
             <!-- ========== PROVOCATION ========== -->
@@ -431,8 +458,21 @@
                                         {{ helpers.labelLocation(loc) }}
                                     </option>
                                 </select>
+                                <label class="bite-checkbox">
+                                    <input type="checkbox" [checked]="vm.clonesBiteParams[idx] || false"
+                                        (change)="actions.onCloneBiteChange(idx, $event)" />
+                                    Capacité morsure - coût: 50 âmes
+                                </label>
                             </div>
                         </div>
+
+                        <p class="bite-info" style="margin-top: 0.5rem; font-size: 0.9em; font-style: italic;">
+                            Vous pouvez donner aux clones la capacité de mordre avec réussite si dé > 15
+                        </p>
+
+                        <p *ngIf="helpers.clonesTotalCost() > 0" style="margin-top: 0.5rem; font-weight: bold;">
+                            Coût total: {{ helpers.clonesTotalCost() }} âmes
+                        </p>
 
                         <button type="button" style="margin-top:.75rem" (click)="actions.onClonesConfirm()"
                             [disabled]="vm.resolving || !helpers.canConfirmClones()">
@@ -454,6 +494,32 @@
                 </ng-template>
             </ng-container>
 
+            <!-- ========== VOILE DE BRUME ========== -->
+            <ng-container *ngIf="vm.mode === 'VOILE_DE_BRUME'">
+                <ng-container *ngIf="vm.isActor; else voileSpectate">
+                    <p class="breakdown">
+                        Choisissez un lieu à envelopper d'un voile de brume mystique.
+                        Les chasseurs présents subiront -1 DEF et leur récolte sera divisée par 2.
+                    </p>
+
+                    <div class="action-targets">
+                        <button type="button" *ngFor="let loc of vm.voileLocationChoices"
+                            (click)="actions.onVoileChoose(loc)" [disabled]="vm.resolving">
+                            {{ helpers.labelLocation(loc) }}
+                            <span *ngIf="vm.voileHuntersByLoc[loc]?.length ?? 0 > 0"
+                                style="font-size:0.85em;opacity:0.8">
+                                ({{ vm.voileHuntersByLoc[loc]?.length }} chasseur<span
+                                    *ngIf="(vm.voileHuntersByLoc[loc]?.length ?? 0) > 1">s</span>)
+                            </span>
+                        </button>
+                    </div>
+                </ng-container>
+
+                <ng-template #voileSpectate>
+                    <p class="breakdown">Le vampire invoque un voile de brume...</p>
+                </ng-template>
+            </ng-container>
+
             <!-- ========== IMAGE MIROIR (PHASE2 : choix du 2e lieu) ========== -->
             <ng-container *ngIf="vm.mode === 'IMAGE_MIROIR_SETUP'">
                 <ng-container *ngIf="vm.isActor; else miroirSetupSpectate">
@@ -467,6 +533,11 @@
                             (click)="actions.setSelectedMirrorLoc(loc)" [class.selected]="vm.selectedMirrorLoc === loc"
                             [disabled]="vm.resolving">
                             {{ helpers.labelLocation(loc) }}
+                            <span *ngIf="vm.mirrorHuntersByLoc[loc]?.length ?? 0 > 0"
+                                style="font-size:0.85em;opacity:0.8">
+                                ({{ vm.mirrorHuntersByLoc[loc]?.length }} chasseur<span
+                                    *ngIf="(vm.mirrorHuntersByLoc[loc]?.length ?? 0) > 1">s</span>)
+                            </span>
                         </button>
                     </div>
 
@@ -594,6 +665,11 @@
                             [class.selected]="loc === vm.selectedSecretPassageLoc"
                             (click)="actions.setSelectedSecretPassageLoc(loc)">
                             {{ helpers.labelLocation(loc) }}
+                            <span *ngIf="vm.secretPassageHuntersByLoc[loc]?.length ?? 0 > 0"
+                                style="font-size:0.85em;opacity:0.8">
+                                ({{ vm.secretPassageHuntersByLoc[loc]?.length }} chasseur<span
+                                    *ngIf="(vm.secretPassageHuntersByLoc[loc]?.length ?? 0) > 1">s</span>)
+                            </span>
                         </button>
                     </div>
 
@@ -630,7 +706,7 @@
             <div class="trap-result">
 
                 <!-- Dé visuel -->
-                <div class="dice-wrap" *ngIf="vm.mode === 'PIT' 
+                <div class="dice-wrap" *ngIf="(vm.mode === 'PIT' && (vm.roll === null || !vm.breakdownLines?.length))
                   || vm.mode === 'NET' 
                   || vm.mode === 'CLONES_OMBRE'
                   || vm.mode === 'BLESSED_STAKE'
@@ -647,10 +723,12 @@
                     </div>
                 </div>
 
-                <!-- Texte existant -->
-                <p *ngFor="let line of vm.breakdownLines">
-                    {{ line }}
-                </p>
+                <!-- Texte existant (On cache aussi les metadata et les résultats déjà affichés pour PIT) -->
+                <ng-container *ngFor="let line of vm.breakdownLines">
+                    <p *ngIf="vm.mode !== 'PIT' || (!line.startsWith('TOTAL_MONSTER_TARGETS:') && !parsePitLine(line))">
+                        {{ line }}
+                    </p>
+                </ng-container>
             </div>
         </div>
     </div>

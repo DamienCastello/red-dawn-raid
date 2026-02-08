@@ -5,11 +5,11 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 export type GameSnapshot = {
   id: string; status: string; raid: number; phase: Phase;
   winnerSide?: 'HUNTERS' | 'VAMPIRE' | null;
-  weather: { 
-    roll: number|null; 
-    status: string|null;
-    nameFr: string|null; 
-    descFr: string|null; 
+  weather: {
+    roll: number | null;
+    status: string | null;
+    nameFr: string | null;
+    descFr: string | null;
     secondaryStatus?: string | null;
     secondaryNameFr?: string | null;
     secondaryDescFr?: string | null;
@@ -24,7 +24,7 @@ export type GameSnapshot = {
   readyForPhase3: string[];
 
   decks: DecksView;
-  phase4DeadlineMillis?: number|null;
+  phase4DeadlineMillis?: number | null;
   readyForNextRaid?: string[];
   trades?: TradeView[];
 
@@ -39,6 +39,8 @@ export type GameSnapshot = {
   unstableTargetByPlayer?: Record<string, string>;
   unstableHarvestLocByPlayer?: Record<string, string>;
 
+  fogAffectedLocation?: string | null;
+
   currentAction?: {
     mode: 'EAU_BENITE' | 'NET' | 'PIT' | 'PROVOCATION' | 'INCENDIAIRE' | 'AMBUSH' | 'LONELY' | 'BLESSED_STAKE' | 'CHARISMATIQUE' | 'MARCHAND_ITINERANT' | 'MARCHAND_BONUS_BUY' | 'PRESENCE_ECRASANTE' | 'CATACLYSME' | 'CLONES_OMBRE' | 'IMAGE_MIROIR_SETUP' | 'IMAGE_MIROIR_RESOLVE' | 'ECLIPSE' | 'BLOOD_MOON' | 'VOILE_DE_BRUME' | 'FAIM_IRREPRESSIBLE' | 'AFFAIBLISSEMENT_OCCULTE' | 'MARQUE_TENEBREUSE' | 'PASSAGE_SECRET' | 'AVIDITE_NOCTURNE';
     ownerId: string;
@@ -51,6 +53,7 @@ export type GameSnapshot = {
   } | null;
 
   trackerHunters?: string[];
+  ambushLocations: string[];
   garlicBlockedLocations: string[];
   campfireLocations: string[];
   netHunters: string[];
@@ -61,10 +64,11 @@ export type GameSnapshot = {
   mirrorOwnerId?: string | null;
   mirrorAltLocations?: string[] | null;
   mirrorChosenLocation?: string | null;
+  pendingVampireEscape?: string | null;
 
-  pendingConstructionInfra?: 
-    'SAWMILL' | 'MINE' | 'LIBRARY' | 'LABORATORY' | 'BALLROOM' | 'ALTAR' | 'FORGE'
-    | null;
+  pendingConstructionInfra?:
+  'SAWMILL' | 'MINE' | 'LIBRARY' | 'LABORATORY' | 'BALLROOM' | 'ALTAR' | 'FORGE'
+  | null;
   builtInfras: ('SAWMILL' | 'MINE' | 'LIBRARY' | 'LABORATORY' | 'BALLROOM' | 'ALTAR' | 'FORGE')[];
 
   locationEffectPending: boolean;
@@ -73,7 +77,7 @@ export type GameSnapshot = {
   locationEffectInfra: 'LIBRARY' | 'LABORATORY' | 'BALLROOM' | 'ALTAR' | 'FORGE' | null;
   libraryOmenCards: string[] | null;
   monsters?: Monster[];
-  laboratoryDraftMonsterType?: 'REVENANT'|'GARGOYLE'|'ABERRATION' | null;
+  laboratoryDraftMonsterType?: 'REVENANT' | 'BAT' | 'GARGOYLE' | 'WOLF' | 'ABERRATION' | 'LICHE' | null;
   laboratoryDraftLocation?: string | null;
   laboratoryExplosionRoll?: number | null;
   ballroomBloodWaltz: boolean;
@@ -84,9 +88,12 @@ export type GameSnapshot = {
   bankStoneProgress: number;
   shopWeaponOfferTypeByHunter: Record<string, 'BLEED' | 'RANGE' | 'STUN'>;
   shopWeaponOfferTierByHunter: Record<string, number>;
+  shopPricesIncreasedThisRaid: boolean;
+  actionCardsBoughtThisRaid: Record<string, number>;
 
   history: HistoryItem[];
   messages: string[];
+  initialPlayerCount: number;
   ts: number; whoami: string;
 };
 
@@ -108,9 +115,9 @@ export interface Bite {
 
 type Health = { status: string };
 
-export type PlayerRole = 'VAMPIRE'|'HUNTER'|'SERVANT';
+export type PlayerRole = 'VAMPIRE' | 'HUNTER' | 'SERVANT';
 
-export type Phase = 'PHASE0'|'PHASE1'|'PHASE2'|'PREPHASE3'|'PHASE3'|'PHASE4';
+export type Phase = 'PHASE0' | 'PHASE1' | 'PHASE2' | 'PREPHASE3' | 'PHASE3' | 'PHASE4';
 
 export interface RaidEffectsView {
   focus: boolean;
@@ -131,38 +138,40 @@ export type RoundFight = {
   resolvedAtMillis: number | null;
   breakdownLines: string[];
   cloneAttack?: boolean;
+  canBite?: boolean;
 };
 
 export type Player = {
-    id: string; username: string; role: PlayerRole;
-    hp: number; corruption: number;
-    attackDice: string; defenseDice: string;
-    weapon: string; armor: string;
-    wood: number; herbs: number; stone: number; iron: number;
-    water: number; gold: number; souls: number; silver: number;
-    hand: string[]; actions: string[];
-    potions: string[]; elixirs: string[];
-    isBlessedStake: boolean;
-    isSacredRosary: boolean;
-    charismaticThisRaid: boolean;
-    leftGame: boolean;
-    merchantPending?: boolean;
-    merchantRoll?: number;
+  id: string; username: string; role: PlayerRole;
+  hp: number; corruption: number;
+  attackDice: string; defenseDice: string;
+  weapon: string; armor: string;
+  wood: number; herbs: number; stone: number; iron: number;
+  water: number; gold: number; souls: number; silver: number;
+  hand: string[]; actions: string[];
+  potions: string[]; elixirs: string[];
+  isBlessedStake: boolean;
+  isSacredRosary: boolean;
+  charismaticThisRaid: boolean;
+  elixirUsedThisRaid: boolean;
+  leftGame: boolean;
+  merchantPending?: boolean;
+  merchantRoll?: number;
 
-    shopBonusKind?: 'POTION'|'ELIXIR'|'EQUIP_WEAPON'|'EQUIP_ARMOR';
-    shopBonusEquipId?: string;
-    shopBonusEquipTier?: number;
-    shopBonusBuyPending?: boolean;
+  shopBonusKind?: 'POTION' | 'ELIXIR' | 'EQUIP_WEAPON' | 'EQUIP_ARMOR';
+  shopBonusEquipId?: string;
+  shopBonusEquipTier?: number;
+  shopBonusBuyPending?: boolean;
 };
 
 type Monster = {
-    id: string;
-    type: 'REVENANT'|'GARGOYLE'|'ABERRATION';
-    hp: number;
-    attackDice: string;
-    defenseDice: string;
-    location: string;
-  };
+  id: string;
+  type: 'REVENANT' | 'BAT' | 'GARGOYLE' | 'WOLF' | 'ABERRATION' | 'LICHE';
+  hp: number;
+  attackDice: string;
+  defenseDice: string;
+  location: string;
+};
 
 export type CenterBoard = {
   playerId: string;
@@ -171,8 +180,8 @@ export type CenterBoard = {
 };
 
 // --- Types Phase 4 --- //
-export type TradeStatus = 'PENDING'|'CONFIRMED'|'REFUSED'|'CANCELLED';
-export type TradeSide   = 'HUNTERS'|'VAMP_SIDE';
+export type TradeStatus = 'PENDING' | 'CONFIRMED' | 'REFUSED' | 'CANCELLED';
+export type TradeSide = 'HUNTERS' | 'VAMP_SIDE';
 
 export interface TradeView {
   id: string;
@@ -199,7 +208,7 @@ export interface DecksView {
 }
 
 export type RawStatMod = {
-  stat: 'ATTACK'|'DEFENSE'|'MULTIPLE'|'INSTABLE'|'SERVITEUR'|'FOCALISATION';
+  stat: 'ATTACK' | 'DEFENSE' | 'MULTIPLE' | 'INSTABLE' | 'SERVITEUR' | 'FOCALISATION';
   amount: number;
   source: string;
 };
@@ -253,11 +262,11 @@ export class ApiService {
   private base = computeApiBase();
 
   // Games
-  health()             { return this.http.get<Health>(`${this.base}/health`); }
-  listGames()  { return this.http.get<LobbyGame[]>(`${this.base}/games`); }
+  health() { return this.http.get<Health>(`${this.base}/health`); }
+  listGames() { return this.http.get<LobbyGame[]>(`${this.base}/games`); }
   createGame() { return this.http.post<LobbyGame>(`${this.base}/games`, {}); }
 
-  
+
   getGame(id: string) {
     return this.http.get<GameSnapshot>(`${this.base}/games/${id}`);
   }
@@ -287,7 +296,7 @@ export class ApiService {
   selectLocation(id: string, card: string) {
     return this.http.post<void>(`${this.base}/games/${id}/select-location`, { card });
   }
-  
+
   skipPrePhase3(id: string) {
     return this.http.post<void>(`${this.base}/games/${id}/skip`, {});
   }
@@ -300,15 +309,15 @@ export class ApiService {
     return this.http.post<void>(`${this.base}/games/${gameId}/combat/continue`, {});
   }
 
-  rollWeather(id: string){
+  rollWeather(id: string) {
     return this.http.post<void>(`${this.base}/games/${id}/weather/roll`, {});
   }
 
-  usePotion(gameId: string, type: string){
+  usePotion(gameId: string, type: string) {
     return this.http.post<void>(`${this.base}/games/${gameId}/potions/use`, { type });
   }
 
-  useAction(gameId: string, type: string){
+  useAction(gameId: string, type: string) {
     return this.http.post<void>(`${this.base}/games/${gameId}/actions/use`, { type });
   }
 
@@ -402,10 +411,19 @@ export class ApiService {
     return this.http.post<GameSnapshot>(`${this.base}/games/${gameId}/actions/clones/roll`, {});
   }
 
-  confirmClones(gameId: string, locations: string[]) {
+  confirmClones(gameId: string, locations: string[], biteEnabled?: boolean[]) {
     return this.http.post<GameSnapshot>(
       `${this.base}/games/${gameId}/actions/clones/confirm`,
-      { locations }
+      { locations, biteEnabled }
+    );
+  }
+
+  resolveVoileDeBrume(gameId: string, location: string) {
+    const params = new HttpParams().set('location', location);
+    return this.http.post<GameSnapshot>(
+      `${this.base}/games/${gameId}/actions/voile-brume/resolve`,
+      null,
+      { params }
     );
   }
 
@@ -470,7 +488,7 @@ export class ApiService {
     );
   }
 
-  rollCorruption(gameId: string){
+  rollCorruption(gameId: string) {
     return this.http.post<void>(`${this.base}/games/${gameId}/corruption/roll`, {});
   }
 
@@ -493,7 +511,7 @@ export class ApiService {
     return this.http.post<void>(`${this.base}/games/${gameId}/unstable/assign-nothing`, null, { params });
   }
 
-  advancePhase(id: string, to: 'PHASE0'|'PHASE1'|'PHASE2'|'PREPHASE3'|'PHASE3'|'PHASE4') {
+  advancePhase(id: string, to: 'PHASE0' | 'PHASE1' | 'PHASE2' | 'PREPHASE3' | 'PHASE3' | 'PHASE4') {
     return this.http.post<void>(`${this.base}/games/${id}/advance?to=${to}`, {});
   }
 
@@ -518,7 +536,7 @@ export class ApiService {
     return this.http.post<void>(`${this.base}/games/${gameId}/shop/buy-tracking`, {});
   }
 
-  sellResource(gameId: string, res: 'wood'|'herbs'|'stone'|'iron'|'water', qty = 1) {
+  sellResource(gameId: string, res: 'wood' | 'herbs' | 'stone' | 'iron' | 'water', qty = 1) {
     return this.http.post<void>(`${this.base}/games/${gameId}/shop/sell`, { res, qty });
   }
 
@@ -526,11 +544,11 @@ export class ApiService {
     return this.http.post<void>(`${this.base}/games/${gameId}/phase4/finish`, {});
   }
 
-  transmute(gameId: string, recipe: 'WOOD_TO_IRON'|'IRON_TO_WOOD'|'TRINITY_TO_SOULS') {
+  transmute(gameId: string, recipe: 'WOOD_TO_IRON' | 'IRON_TO_WOOD' | 'TRINITY_TO_SOULS') {
     return this.http.post<void>(`${this.base}/games/${gameId}/transmutation/do`, { recipe });
   }
 
-  buyUpgradeWeapon(gameId: string, body: { tier: number; type: 'BLEED'|'RANGE'|'STUN' }) {
+  buyUpgradeWeapon(gameId: string, body: { tier: number; type: 'BLEED' | 'RANGE' | 'STUN' }) {
     return this.http.post<void>(
       `${this.base}/games/${gameId}/shop-upgrade-weapon`,
       body
@@ -545,7 +563,7 @@ export class ApiService {
     return this.http.post<void>(`${this.base}/games/${gameId}/trade/offer`, { targetId, offer });
   }
 
-  tradeAction(gameId: string, action: 'confirm'|'refuse'|'cancel', targetId: string) {
+  tradeAction(gameId: string, action: 'confirm' | 'refuse' | 'cancel', targetId: string) {
     return this.http.post<void>(`${this.base}/games/${gameId}/trade/${action}?targetId=${targetId}`, {});
   }
 
@@ -554,22 +572,22 @@ export class ApiService {
     return this.http.post<void>(`${this.base}/games/${gameId}/plan-construction`, null, { params });
   }
 
-  chooseLocationEffect(gameId: string, 
-    choice: 
-      'STUDY' 
-      | 'THEFT' 
-      | 'OMEN' 
-      | 'EXPERIMENT' 
-      | 'ALCHEMY' 
-      | 'RARE_ALCHEMY' 
-      | 'EXPLOSION' 
+  chooseLocationEffect(gameId: string,
+    choice:
+      'STUDY'
+      | 'THEFT'
+      | 'OMEN'
+      | 'EXPERIMENT'
+      | 'ALCHEMY'
+      | 'RARE_ALCHEMY'
+      | 'EXPLOSION'
       | 'DEATH_DANCE'
       | 'SNEAK_ATTACK'
       | 'BLOOD_WALTZ'
       | 'LOOTING'
-      | 'HEAL' 
-      | 'CORRUPT_SOULS' 
-      | 'CORRUPT' 
+      | 'HEAL'
+      | 'CORRUPT_SOULS'
+      | 'CORRUPT'
       | 'PURIFY_WATER'
       | 'FORGE') {
     const params = new HttpParams().set('choice', choice);
@@ -592,7 +610,7 @@ export class ApiService {
 
   updateExperimentDraft(
     gameId: string,
-    body: { type: 'REVENANT'|'GARGOYLE'|'ABERRATION' | null; location: string | null }
+    body: { type: 'REVENANT' | 'BAT' | 'GARGOYLE' | 'WOLF' | 'ABERRATION' | 'LICHE' | null; location: string | null }
   ) {
     return this.http.post<void>(
       `${this.base}/games/${gameId}/effect-experiment-draft`,
@@ -602,7 +620,7 @@ export class ApiService {
 
   resolveLaboratoryExperiment(
     gameId: string,
-    monsterType: 'REVENANT'|'GARGOYLE'|'ABERRATION',
+    monsterType: 'REVENANT' | 'BAT' | 'GARGOYLE' | 'WOLF' | 'ABERRATION' | 'LICHE',
     location: string
   ) {
     return this.http.post<void>(
@@ -650,10 +668,10 @@ export class ApiService {
 
   // Auth
   signup(username: string, password: string) {
-    return this.http.post<{authToken:string, userId:string, username:string}>(`${this.base}/auth/signup`, { username, password });
+    return this.http.post<{ authToken: string, userId: string, username: string }>(`${this.base}/auth/signup`, { username, password });
   }
   login(username: string, password: string) {
-    return this.http.post<{authToken:string, userId:string, username:string}>(`${this.base}/auth/login`,  { username, password });
+    return this.http.post<{ authToken: string, userId: string, username: string }>(`${this.base}/auth/login`, { username, password });
   }
   wipeDbEnv() {
     return this.http.post(`${this.base}/admin/wipe?confirm=YES`, {});

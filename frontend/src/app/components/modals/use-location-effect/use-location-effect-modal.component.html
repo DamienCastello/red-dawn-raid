@@ -1,5 +1,5 @@
 <div class="modal construction-modal location-effect-modal" [style.backgroundImage]="vm.backgroundImage">
-    <div class="modal-overlay-content">
+    <div class="modal-overlay-content" [class.is-experiment]="vm.kind === 'EXPERIMENT'">
         <h2>{{ vm.title }}</h2>
 
         <p class="bg-badge">
@@ -122,27 +122,87 @@
                                     </div>
                                 </button>
                                 <button type="button" class="monster-pick"
-                                    (click)="actions.onExperimentMonsterClick('GARGOYLE')" [disabled]="!vm.isOwner"
-                                    [class.selected]="vm.experiment.selectedMonsterType === 'GARGOYLE'">
+                                    (click)="actions.onExperimentMonsterClick('BAT')" [disabled]="!vm.isOwner"
+                                    [class.selected]="vm.experiment.selectedMonsterType === 'BAT'">
+                                    <img class="monster-img" src="/assets/monster/bat.png" alt="Chauve-souris" />
+                                    <div class="monster-name">Chauve-souris</div>
+                                    <div class="monster-stats" *ngIf="vm.experiment.monsterMeta.BAT">
+                                        <div>Coût: {{ vm.experiment.monsterMeta.BAT.cost }}</div>
+                                        <div>PV: {{ vm.experiment.monsterMeta.BAT.hp }}</div>
+                                        <div>ATK: {{ vm.experiment.monsterMeta.BAT.atkDice }}</div>
+                                        <div>DEF: {{ vm.experiment.monsterMeta.BAT.defDice }}</div>
+                                    </div>
+                                </button>
+                                <button type="button" class="monster-pick"
+                                    (click)="actions.onExperimentMonsterClick('GARGOYLE')"
+                                    [disabled]="!vm.isOwner || vm.raid < 5"
+                                    [class.selected]="vm.experiment.selectedMonsterType === 'GARGOYLE'"
+                                    [class.locked]="vm.raid < 5">
                                     <img class="monster-img" src="/assets/monster/gargouille.png" alt="Gargouille" />
                                     <div class="monster-name">Gargouille</div>
-                                    <div class="monster-stats" *ngIf="vm.experiment.monsterMeta.GARGOYLE">
+                                    <div class="monster-stats"
+                                        *ngIf="vm.experiment.monsterMeta.GARGOYLE && vm.raid >= 5">
                                         <div>Coût: {{ vm.experiment.monsterMeta.GARGOYLE.cost }}</div>
                                         <div>PV: {{ vm.experiment.monsterMeta.GARGOYLE.hp }}</div>
                                         <div>ATK: {{ vm.experiment.monsterMeta.GARGOYLE.atkDice }}</div>
                                         <div>DEF: {{ vm.experiment.monsterMeta.GARGOYLE.defDice }}</div>
                                     </div>
+                                    <div class="lock-msg" *ngIf="vm.raid < 5">
+                                        Débloqué au raid 5
+                                    </div>
                                 </button>
                                 <button type="button" class="monster-pick"
-                                    (click)="actions.onExperimentMonsterClick('ABERRATION')" [disabled]="!vm.isOwner"
-                                    [class.selected]="vm.experiment.selectedMonsterType === 'ABERRATION'">
+                                    (click)="actions.onExperimentMonsterClick('WOLF')"
+                                    [disabled]="!vm.isOwner || vm.raid < 5"
+                                    [class.selected]="vm.experiment.selectedMonsterType === 'WOLF'"
+                                    [class.locked]="vm.raid < 5">
+                                    <img class="monster-img" src="/assets/monster/wolf.png" alt="Loup" />
+                                    <div class="monster-name">Loup</div>
+                                    <div class="monster-stats" *ngIf="vm.experiment.monsterMeta.WOLF && vm.raid >= 5">
+                                        <div>Coût: {{ vm.experiment.monsterMeta.WOLF.cost }}</div>
+                                        <div>PV: {{ vm.experiment.monsterMeta.WOLF.hp }}</div>
+                                        <div>ATK: {{ vm.experiment.monsterMeta.WOLF.atkDice }}</div>
+                                        <div>DEF: {{ vm.experiment.monsterMeta.WOLF.defDice }}</div>
+                                    </div>
+                                    <div class="lock-msg" *ngIf="vm.raid < 5">
+                                        Débloqué au raid 5
+                                    </div>
+                                </button>
+                                <button type="button" class="monster-pick"
+                                    (click)="actions.onExperimentMonsterClick('ABERRATION')"
+                                    [disabled]="!vm.isOwner || vm.raid < 10"
+                                    [class.selected]="vm.experiment.selectedMonsterType === 'ABERRATION'"
+                                    [class.locked]="vm.raid < 10">
                                     <img class="monster-img" src="/assets/monster/aberration.png" alt="Aberration" />
                                     <div class="monster-name">Aberration</div>
-                                    <div class="monster-stats" *ngIf="vm.experiment.monsterMeta.ABERRATION">
+                                    <div class="monster-stats"
+                                        *ngIf="vm.experiment.monsterMeta.ABERRATION && vm.raid >= 10">
                                         <div>Coût: {{ vm.experiment.monsterMeta.ABERRATION.cost }}</div>
                                         <div>PV: {{ vm.experiment.monsterMeta.ABERRATION.hp }}</div>
                                         <div>ATK: {{ vm.experiment.monsterMeta.ABERRATION.atkDice }}</div>
                                         <div>DEF: {{ vm.experiment.monsterMeta.ABERRATION.defDice }}</div>
+                                    </div>
+                                    <div class="lock-msg" *ngIf="vm.raid < 10">
+                                        Débloqué au raid 10
+                                    </div>
+                                </button>
+                                <button type="button" class="monster-pick"
+                                    (click)="actions.onExperimentMonsterClick('LICHE')"
+                                    [disabled]="!vm.isOwner || vm.raid < 10"
+                                    [class.selected]="vm.experiment.selectedMonsterType === 'LICHE'"
+                                    [class.locked]="vm.raid < 10">
+                                    <img class="monster-img" src="/assets/monster/liche.png" alt="Liche" />
+                                    <div class="monster-name">Liche</div>
+                                    <div class="monster-stats" *ngIf="vm.experiment.monsterMeta.LICHE && vm.raid >= 10">
+                                        <div>Coût: {{ vm.experiment.monsterMeta.LICHE.cost }}</div>
+                                        <div>PV: {{ vm.experiment.monsterMeta.LICHE.hp }}</div>
+                                        <div>ATK: {{ vm.experiment.monsterMeta.LICHE.atkDice }}</div>
+                                        <div>DEF: {{ vm.experiment.monsterMeta.LICHE.defDice }}</div>
+                                        <div style="color:#ff4d4d; margin-top:4px; font-weight: bold;">Applique marque
+                                            ténébreuse</div>
+                                    </div>
+                                    <div class="lock-msg" *ngIf="vm.raid < 10">
+                                        Débloqué au raid 10
                                     </div>
                                 </button>
                             </div>

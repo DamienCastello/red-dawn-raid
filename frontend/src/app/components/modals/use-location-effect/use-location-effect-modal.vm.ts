@@ -6,6 +6,7 @@ export interface UseLocationEffectModalVm {
     infra: string | null;
     kind: string | null;
     isOwner: boolean;
+    raid: number;
     choiceLabel: string | null;
 
     omen?: {

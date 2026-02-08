@@ -37,6 +37,7 @@ public record GameSnapshot(
 
                 ActionView currentAction,
 
+                List<String> ambushLocations,
                 List<String> garlicBlockedLocations,
                 List<String> trackerHunters,
                 List<String> campfireLocations,
@@ -49,6 +50,7 @@ public record GameSnapshot(
                 List<String> mirrorAltLocations,
                 String mirrorChosenLocation,
                 boolean shopPricesIncreasedThisRaid,
+                Map<String, Integer> actionCardsBoughtThisRaid,
 
                 String pendingConstructionInfra,
                 List<String> builtInfras,
@@ -72,6 +74,7 @@ public record GameSnapshot(
 
                 List<HistoryItemView> history,
                 List<String> messages,
+                int initialPlayerCount,
                 long ts,
                 String whoami) {
 
@@ -109,7 +112,8 @@ public record GameSnapshot(
                         String shopBonusKind,
                         String shopBonusEquipId,
                         Integer shopBonusEquipTier,
-                        boolean shopBonusBuyPending) {
+                        boolean shopBonusBuyPending,
+                        boolean elixirUsedThisRaid) {
         }
 
         public record DecksView(Pile actionsVamp, Pile actionsHunters, Pile potions, Pile elixirs) {
@@ -150,7 +154,8 @@ public record GameSnapshot(
                         Integer attackerReroll, Integer defenderReroll,
                         Long resolvedAtMillis,
                         List<String> breakdownLines,
-                        boolean cloneAttack) {
+                        boolean cloneAttack,
+                        boolean canBite) {
         }
 
         public record HistoryItemView(long ts, int raid, String phase, String text) {

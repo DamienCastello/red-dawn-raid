@@ -1,1 +1,16 @@
-@use '../location-modals-shared.scss';
+@import '../location-modals-shared.scss';
+
+.explosion-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1rem;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.dice-big {
+    max-width: 200px;
+    height: auto;
+}

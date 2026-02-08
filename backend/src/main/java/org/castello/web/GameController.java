@@ -13,7 +13,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 
-
 @RestController
 @RequestMapping("/api/games")
 public class GameController {
@@ -24,7 +23,6 @@ public class GameController {
 
     private static final Logger log = LoggerFactory.getLogger(GameController.class);
 
-
     public GameController(GameService games, AuthService authService, PlayerService playerService) {
         this.games = games;
         this.authService = authService;
@@ -33,17 +31,19 @@ public class GameController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public Game create(@RequestHeader(value="Authorization", required=false) String authorization) {
+    public Game create(@RequestHeader(value = "Authorization", required = false) String authorization) {
         // possible d'exiger un user connecté ici
         return games.create();
     }
 
     @GetMapping
-    public Iterable<Game> list() { return games.list(); }
+    public Iterable<Game> list() {
+        return games.list();
+    }
 
     @GetMapping("/{id}")
     public GameSnapshot view(@PathVariable String id,
-                             @RequestHeader("Authorization") String authorization) {
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         return games.viewSnapshot(id, user.getId());
@@ -52,7 +52,7 @@ public class GameController {
     @PostMapping("/{id}/join")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void join(@PathVariable String id,
-                     @RequestHeader("Authorization") String authorization) {
+            @RequestHeader("Authorization") String authorization) {
 
         var user = authService.requireUser(authorization);
         String username = user.getUsername();
@@ -63,7 +63,7 @@ public class GameController {
     @PostMapping("/{id}/boot-ready")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void bootReady(@PathVariable String id,
-                          @RequestHeader("Authorization") String authorization) {
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.bootReady(id, user.getId());
@@ -72,7 +72,7 @@ public class GameController {
     @PostMapping("/{id}/presence")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void presence(@PathVariable String id,
-                         @RequestHeader("Authorization") String authorization) {
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.presence(id, user.getId());
@@ -81,7 +81,7 @@ public class GameController {
     @PostMapping("/{id}/start")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void start(@PathVariable String id,
-                      @RequestHeader("Authorization") String authorization) {
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.requestStart(id);
@@ -90,28 +90,27 @@ public class GameController {
     @PostMapping("/{id}/surrender")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void surrender(@PathVariable String id,
-                        @RequestHeader("Authorization") String authorization) {
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.surrender(id, user.getId());
     }
 
-
     @PostMapping("/{id}/leave")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void leave(@PathVariable String id,
-                      @RequestHeader("Authorization") String authorization) {
+            @RequestHeader("Authorization") String authorization) {
 
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
 
-        games.leave(id, user.getId());        // JSONB: leftGame=true
+        games.leave(id, user.getId()); // JSONB: leftGame=true
         playerService.leaveGame(user.getId(), id); // SQL: delete PlayerEntity
     }
 
     @GetMapping("/{id}/summary")
     public EndedGameSummary summary(@PathVariable String id,
-                                    @RequestHeader("Authorization") String authorization) {
+            @RequestHeader("Authorization") String authorization) {
         authService.requireUser(authorization);
         return games.viewEndedSummary(id);
     }
@@ -119,20 +118,21 @@ public class GameController {
     @PostMapping("/{id}/advance")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void advance(@PathVariable String id,
-                        @RequestParam("to") String to,
-                        @RequestHeader("Authorization") String authorization) {
+            @RequestParam("to") String to,
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.advancePhase(id, user.getId(), org.castello.game.Phase.valueOf(to));
     }
 
-    public record SelectLocationReq(String card) {}
+    public record SelectLocationReq(String card) {
+    }
 
     @PostMapping("/{id}/select-location")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void selectLocation(@PathVariable String id,
-                               @RequestBody SelectLocationReq req,
-                               @RequestHeader("Authorization") String authorization) {
+            @RequestBody SelectLocationReq req,
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
 
@@ -146,7 +146,7 @@ public class GameController {
     @PostMapping("/{id}/skip")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void skip(@PathVariable String id,
-                     @RequestHeader("Authorization") String authorization) {
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.skipAction(id, user.getId());
@@ -155,7 +155,7 @@ public class GameController {
     @PostMapping("/{id}/roll")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void roll(@PathVariable String id,
-                     @RequestHeader("Authorization") String authorization) {
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.rollDice(id, user.getId());
@@ -164,7 +164,7 @@ public class GameController {
     @PostMapping("/{id}/combat/continue")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void combatContinue(@PathVariable String id,
-                               @RequestHeader("Authorization") String authorization) {
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.combatContinue(id, user.getId()); // émettra live.phaseChanged(g)
@@ -173,20 +173,22 @@ public class GameController {
     @PostMapping("/{id}/weather/roll")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void rollWeather(@PathVariable String id,
-                            @RequestHeader("Authorization") String authorization) {
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.rollWeather(id, user.getId());
     }
 
     // --- Utiliser une potion ---
-    public static class UsePotionReq { public String type; } // tu peux garder
+    public static class UsePotionReq {
+        public String type;
+    } // tu peux garder
 
     @PostMapping("/{id}/potions/use")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void usePotion(@PathVariable String id,
-                          @RequestBody UsePotionReq body,
-                          @RequestHeader("Authorization") String authorization) {
+            @RequestBody UsePotionReq body,
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         if (body == null || body.type == null || body.type.isBlank()) {
@@ -200,9 +202,9 @@ public class GameController {
     @PostMapping("/{id}/unstable/assign-target")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void assignUnstable(@PathVariable String id,
-                               @RequestParam String unstableId,
-                               @RequestParam String targetId,
-                               @RequestHeader("Authorization") String authorization) {
+            @RequestParam String unstableId,
+            @RequestParam String targetId,
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.assignUnstableTarget(id, user.getId(), unstableId, targetId);
@@ -211,9 +213,9 @@ public class GameController {
     @PostMapping("/{id}/unstable/assign-harvest")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void assignUnstableHarvest(@PathVariable String id,
-                                      @RequestParam String unstableId,
-                                      @RequestParam String loc,
-                                      @RequestHeader("Authorization") String authorization) {
+            @RequestParam String unstableId,
+            @RequestParam String loc,
+            @RequestHeader("Authorization") String authorization) {
         log.info("[{}] HTTP assign-harvest unstableId={}", id, unstableId);
 
         var user = authService.requireUser(authorization);
@@ -224,8 +226,8 @@ public class GameController {
     @PostMapping("/{id}/unstable/assign-nothing")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void assignUnstableNothing(@PathVariable String id,
-                                      @RequestParam String unstableId,
-                                      @RequestHeader("Authorization") String authorization) {
+            @RequestParam String unstableId,
+            @RequestHeader("Authorization") String authorization) {
         log.info("[{}] HTTP assign-nothing unstableId={}", id, unstableId);
 
         var user = authService.requireUser(authorization);
@@ -236,7 +238,7 @@ public class GameController {
     @PostMapping("/{id}/corruption/roll")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void rollCorruption(@PathVariable String id,
-                               @RequestHeader("Authorization") String authorization) {
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.rollCorruption(id, user.getId());
@@ -247,7 +249,7 @@ public class GameController {
     @PostMapping("/{id}/phase4/finish")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void finishTrade(@PathVariable String id,
-                            @RequestHeader("Authorization") String authorization){
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.finishTrade(id, user.getId());
@@ -257,7 +259,7 @@ public class GameController {
     @PostMapping("/{id}/shop/buy-potion")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void buyPotion(@PathVariable String id,
-                          @RequestHeader("Authorization") String authorization){
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.buyPotion(id, user.getId());
@@ -267,7 +269,7 @@ public class GameController {
     @PostMapping("/{id}/shop/buy-action")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void buyAction(@PathVariable String id,
-                          @RequestHeader("Authorization") String authorization){
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.buyAction(id, user.getId());
@@ -276,8 +278,8 @@ public class GameController {
     @PostMapping("/{id}/shop/buy-silver")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void buySilver(@PathVariable String id,
-                          @RequestParam(defaultValue="1") int qty,
-                          @RequestHeader("Authorization") String authorization){
+            @RequestParam(defaultValue = "1") int qty,
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.buySilver(id, user.getId(), qty);
@@ -286,7 +288,7 @@ public class GameController {
     @PostMapping("/{id}/shop/buy-holy-water")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void buyHolyWater(@PathVariable String id,
-                          @RequestHeader("Authorization") String authorization){
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.buyHolyWaterAction(id, user.getId());
@@ -295,7 +297,7 @@ public class GameController {
     @PostMapping("/{id}/shop/buy-tracking")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void buyTracking(@PathVariable String id,
-                          @RequestHeader("Authorization") String authorization){
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.buyTrackingAction(id, user.getId());
@@ -305,8 +307,7 @@ public class GameController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public Game rollMerchant(
             @PathVariable String id,
-            @RequestHeader("Authorization") String authorization
-    ) {
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         return games.rollMerchantItinerant(id, user.getId());
@@ -316,8 +317,7 @@ public class GameController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public Game startBonus(
             @PathVariable String id,
-            @RequestHeader("Authorization") String authorization
-    ) {
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         return games.startShopBonusPurchase(id, user.getId());
@@ -328,8 +328,7 @@ public class GameController {
     public Game buyBonus(
             @PathVariable String id,
             @RequestParam String payment,
-            @RequestHeader("Authorization") String authorization
-    ) {
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         return games.buyShopBonus(id, user.getId(), payment);
@@ -339,44 +338,52 @@ public class GameController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public Game cancelBonus(
             @PathVariable String id,
-            @RequestHeader("Authorization") String authorization
-    ) {
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         return games.cancelShopBonusPurchase(id, user.getId());
     }
 
+    public static class SellReq {
+        public String res;
+        public Integer qty;
+    }
 
-    public static class SellReq { public String res; public Integer qty; }
     @PostMapping("/{id}/shop/sell")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void sell(@PathVariable String id,
-                     @RequestBody SellReq body,
-                     @RequestHeader("Authorization") String authorization){
+            @RequestBody SellReq body,
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
-        games.sellResource(id, user.getId(), body.res, body.qty!=null?body.qty:1);
+        games.sellResource(id, user.getId(), body.res, body.qty != null ? body.qty : 1);
     }
 
-    public static class TransmuteReq { public String recipe; }
+    public static class TransmuteReq {
+        public String recipe;
+    }
+
     @PostMapping("/{id}/transmutation/do")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void transmute(@PathVariable String id,
-                          @RequestBody TransmuteReq body,
-                          @RequestHeader("Authorization") String authorization){
+            @RequestBody TransmuteReq body,
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.transmute(id, user.getId(), body.recipe);
     }
 
     // --- Trades ---
-    public static class OfferReq { public String targetId; public java.util.Map<String,Integer> offer; }
+    public static class OfferReq {
+        public String targetId;
+        public java.util.Map<String, Integer> offer;
+    }
 
     @PostMapping("/{id}/trade/offer")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void tradeOffer(@PathVariable String id,
-                           @RequestBody OfferReq body,
-                           @RequestHeader("Authorization") String authorization){
+            @RequestBody OfferReq body,
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.tradeSetMyOffer(id, user.getId(), body.targetId, body.offer);
@@ -385,21 +392,22 @@ public class GameController {
     @PostMapping("/{id}/trade/{action}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void tradeAction(@PathVariable String id,
-                            @PathVariable String action,     // confirm | refuse | cancel
-                            @RequestParam String targetId,
-                            @RequestHeader("Authorization") String authorization){
+            @PathVariable String action, // confirm | refuse | cancel
+            @RequestParam String targetId,
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.tradeAction(id, user.getId(), targetId, action);
     }
 
-    public record UpgradeWeaponReq(Integer tier, String type) {}
+    public record UpgradeWeaponReq(Integer tier, String type) {
+    }
 
     @PostMapping("/{id}/shop-upgrade-weapon")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void buyUpgradeWeapon(@PathVariable String id,
-                                 @RequestBody UpgradeWeaponReq body,
-                                 @RequestHeader("Authorization") String authorization) {
+            @RequestBody UpgradeWeaponReq body,
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
 
@@ -410,24 +418,25 @@ public class GameController {
         games.buyUpgradeWeapon(id, user.getId(), body.tier(), body.type());
     }
 
-
     @PostMapping("/{id}/shop/buy-upgrade-armor")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void buyUpgradeArmor(@PathVariable String id,
-                                @RequestHeader("Authorization") String authorization) {
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.buyUpgradeArmor(id, user.getId());
     }
 
     // --- Utiliser une carte action ---
-    public static class UseActionReq { public String type; }
+    public static class UseActionReq {
+        public String type;
+    }
 
     @PostMapping("/{id}/actions/use")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void useAction(@PathVariable String id,
-                          @RequestBody UseActionReq body,
-                          @RequestHeader("Authorization") String authorization) {
+            @RequestBody UseActionReq body,
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         if (body == null || body.type == null || body.type.isBlank()) {
@@ -439,8 +448,8 @@ public class GameController {
     @PostMapping("/{id}/actions/net/target")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void chooseNetTarget(@PathVariable String id,
-                                @RequestParam String targetId,
-                                @RequestHeader("Authorization") String authorization) {
+            @RequestParam String targetId,
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.chooseNetTarget(id, user.getId(), targetId);
@@ -449,8 +458,8 @@ public class GameController {
     @PostMapping("/{id}/actions/net/resolve")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void resolveNet(@PathVariable String id,
-                           @RequestParam String targetId,
-                           @RequestHeader("Authorization") String authorization) {
+            @RequestParam String targetId,
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.resolveNet(id, user.getId(), targetId);
@@ -459,7 +468,7 @@ public class GameController {
     @PostMapping("/{id}/actions/pit/resolve")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void resolvePit(@PathVariable String id,
-                           @RequestHeader("Authorization") String authorization) {
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.resolvePit(id, user.getId());
@@ -468,8 +477,8 @@ public class GameController {
     @PostMapping("/{id}/actions/provocation/resolve")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void resolveProvocation(@PathVariable String id,
-                                  @RequestParam("targetId") String targetId,
-                                  @RequestHeader("Authorization") String authorization) {
+            @RequestParam("targetId") String targetId,
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.resolveProvocation(id, user.getId(), targetId);
@@ -478,8 +487,8 @@ public class GameController {
     @PostMapping("/{id}/actions/ambush/resolve")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void resolveAmbush(@PathVariable String id,
-                                  @RequestParam("targetId") String targetId,
-                                  @RequestHeader("Authorization") String authorization) {
+            @RequestParam("targetId") String targetId,
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.resolveAmbush(id, user.getId(), targetId);
@@ -487,7 +496,7 @@ public class GameController {
 
     @PostMapping("/{id}/actions/blessed-stake/resolve")
     public void resolveBlessedStake(@PathVariable String id,
-                                    @RequestHeader("Authorization") String authorization) {
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.resolveBlessedStake(id, user.getId());
@@ -496,8 +505,8 @@ public class GameController {
     @PostMapping("/{id}/actions/incendiaire/resolve")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void resolveIncendiaire(@PathVariable String id,
-                                   @RequestParam("infra") Infra infra,
-                                   @RequestHeader("Authorization") String authorization) {
+            @RequestParam("infra") Infra infra,
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.resolveIncendiaire(id, user.getId(), infra.name());
@@ -506,9 +515,9 @@ public class GameController {
     @PostMapping("/{id}/actions/cataclysme/resolve")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void resolveCataclysme(@PathVariable String id,
-                                  @RequestParam("first") WeatherStatus first,
-                                  @RequestParam("second") WeatherStatus second,
-                                  @RequestHeader("Authorization") String authorization) {
+            @RequestParam("first") WeatherStatus first,
+            @RequestParam("second") WeatherStatus second,
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.resolveCataclysme(id, user.getId(), first, second);
@@ -517,29 +526,39 @@ public class GameController {
     @PostMapping("/{id}/actions/clones/roll")
     public void rollClones(
             @PathVariable("id") String gameId,
-            @RequestHeader("Authorization") String authorization
-    ) {
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         games.rollShadowClones(gameId, user.getId());
     }
 
-    public record ClonesRequest(java.util.List<String> locations) {}
+    public record ClonesRequest(java.util.List<String> locations, java.util.List<Boolean> biteEnabled) {
+    }
 
     @PostMapping("/{id}/actions/clones/confirm")
     public void confirmClones(
             @PathVariable String id,
             @RequestHeader("Authorization") String authorization,
-            @RequestBody ClonesRequest body
-    ) {
+            @RequestBody ClonesRequest body) {
         var user = authService.requireUser(authorization);
-        games.resolveShadowClones(id, user.getId(), body.locations);
+        games.resolveShadowClones(id, user.getId(), body.locations, body.biteEnabled);
+    }
+
+    @PostMapping("/{id}/actions/voile-brume/resolve")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resolveVoileDeBrume(
+            @PathVariable String id,
+            @RequestParam("location") String location,
+            @RequestHeader("Authorization") String authorization) {
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+        games.resolveVoileDeBrume(id, user.getId(), location);
     }
 
     @PostMapping("/{id}/actions/image-miroir/resolve")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void resolveImageMiroirSetup(@PathVariable String id,
-                                        @RequestParam("loc") String loc,
-                                        @RequestHeader("Authorization") String authorization) {
+            @RequestParam("loc") String loc,
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.resolveImageMiroirSetup(id, user.getId(), loc);
@@ -548,8 +567,8 @@ public class GameController {
     @PostMapping("/{id}/actions/image-miroir/choose")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void chooseImageMiroir(@PathVariable String id,
-                                  @RequestParam("loc") String loc,
-                                  @RequestHeader("Authorization") String authorization) {
+            @RequestParam("loc") String loc,
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.resolveImageMiroirChoice(id, user.getId(), loc);
@@ -557,8 +576,8 @@ public class GameController {
 
     @PostMapping("/{id}/actions/secret-passage/resolve")
     public void resolveSecretPassage(@PathVariable String id,
-                                     @RequestParam("loc") String loc,
-                                     @RequestHeader("Authorization") String authorization) {
+            @RequestParam("loc") String loc,
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.resolveSecretPassage(id, user.getId(), loc);
@@ -567,19 +586,18 @@ public class GameController {
     @PostMapping("/{id}/actions/dark-mark/resolve")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void resolveDarkMark(@PathVariable String id,
-                                @RequestParam("targetId") String targetId,
-                                @RequestHeader("Authorization") String authorization) {
+            @RequestParam("targetId") String targetId,
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.resolveDarkMark(id, user.getId(), targetId);
     }
 
-
     @PostMapping("/{id}/actions/occult-weakening/resolve")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void resolveOccultWeakening(@PathVariable String id,
-                                @RequestParam("targetId") String targetId,
-                                @RequestHeader("Authorization") String authorization) {
+            @RequestParam("targetId") String targetId,
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.resolveOccultWeakening(id, user.getId(), targetId);
@@ -588,8 +606,8 @@ public class GameController {
     @PostMapping("/{id}/actions/eau-benite/resolve")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void resolveHolyWater(@PathVariable String id,
-                                 @RequestParam("mode") String mode,
-                                 @RequestHeader("Authorization") String authorization) {
+            @RequestParam("mode") String mode,
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.resolveHolyWater(id, user.getId(), mode);
@@ -598,8 +616,8 @@ public class GameController {
     @PostMapping("/{id}/plan-construction")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void planConstruction(@PathVariable String id,
-                                 @RequestParam("infra") Infra infra,
-                                 @RequestHeader("Authorization") String authorization) {
+            @RequestParam("infra") Infra infra,
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
 
@@ -610,21 +628,22 @@ public class GameController {
     @PostMapping("/{id}/location-effect")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void chooseLocationEffect(@PathVariable String id,
-                                     @RequestParam("choice") LocationEffectChoice choice,
-                                     @RequestHeader("Authorization") String authorization) {
+            @RequestParam("choice") LocationEffectChoice choice,
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
 
         games.chooseLocationEffect(id, user.getId(), choice);
     }
 
-    public record LibraryTheftRequest(String targetId, Integer slotIndex) {}
+    public record LibraryTheftRequest(String targetId, Integer slotIndex) {
+    }
 
     @PostMapping("/{id}/effect-theft")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void resolveLocationTheft(@PathVariable String id,
-                                     @RequestBody LibraryTheftRequest body,
-                                     @RequestHeader("Authorization") String authorization) {
+            @RequestBody LibraryTheftRequest body,
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
 
@@ -642,8 +661,8 @@ public class GameController {
     @PostMapping("/{id}/effect-omen")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void resolveLocationOmen(@PathVariable String id,
-                                    @RequestBody OmenResolvePayload body,
-                                    @RequestHeader("Authorization") String authorization) {
+            @RequestBody OmenResolvePayload body,
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
 
@@ -651,8 +670,8 @@ public class GameController {
     }
 
     public static class ExperimentReq {
-        public Game.MonsterType type;   // REVENANT / GARGOYLE / ABERRATION
-        public String location;    // "forest","quarry","manor","lab", ...
+        public Game.MonsterType type; // REVENANT / GARGOYLE / ABERRATION
+        public String location; // "forest","quarry","manor","lab", ...
     }
 
     public static class ExperimentDraftReq {
@@ -663,8 +682,8 @@ public class GameController {
     @PostMapping("/{id}/effect-experiment-draft")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void updateExperimentDraft(@PathVariable String id,
-                                      @RequestBody ExperimentDraftReq body,
-                                      @RequestHeader("Authorization") String authorization) {
+            @RequestBody ExperimentDraftReq body,
+            @RequestHeader("Authorization") String authorization) {
 
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
@@ -678,8 +697,8 @@ public class GameController {
     @PostMapping("/{id}/effect-experiment")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void resolveExperiment(@PathVariable String id,
-                                  @RequestBody ExperimentReq body,
-                                  @RequestHeader("Authorization") String authorization) {
+            @RequestBody ExperimentReq body,
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
 
@@ -693,7 +712,7 @@ public class GameController {
     @PostMapping("/{id}/effect-lab-explosion")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void resolveLabExplosion(@PathVariable String id,
-                                    @RequestHeader("Authorization") String authorization) {
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
 
@@ -703,8 +722,8 @@ public class GameController {
     @PostMapping("/{id}/effect-heal")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void resolveAltarHeal(@PathVariable String id,
-                                 @RequestParam String targetId,
-                                 @RequestHeader("Authorization") String authorization) {
+            @RequestParam String targetId,
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.resolveAltarHeal(id, user.getId(), targetId);
@@ -713,8 +732,8 @@ public class GameController {
     @PostMapping("/{id}/effect-corrupt")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void resolveAltarCorrupt(@PathVariable String id,
-                                    @RequestParam String targetId,
-                                    @RequestHeader("Authorization") String authorization) {
+            @RequestParam String targetId,
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.resolveAltarCorrupt(id, user.getId(), targetId);
@@ -727,8 +746,8 @@ public class GameController {
     @PostMapping("/{id}/effect-forge")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void resolveForge(@PathVariable String id,
-                             @RequestBody ForgeReq body,
-                             @RequestHeader("Authorization") String authorization) {
+            @RequestBody ForgeReq body,
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
 
@@ -743,7 +762,7 @@ public class GameController {
     @PostMapping("/{id}/bank-contribute")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void contributeBankStone(@PathVariable String id,
-                                    @RequestHeader("Authorization") String authorization) {
+            @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
 

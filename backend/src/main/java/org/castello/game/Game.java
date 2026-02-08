@@ -59,9 +59,6 @@ public class Game {
         private long ts;
         private String text;
 
-        public HistoryItem() {
-        }
-
         public HistoryItem(int raid, Phase phase, long ts, String text) {
             this.raid = raid;
             this.phase = phase;
@@ -133,14 +130,20 @@ public class Game {
     // Ennemi ciblé par Embuscade -> liste des chasseurs embusqués
     private Map<String, List<String>> ambushHuntersByEnemy = new HashMap<>();
 
+    // Lieux où une embuscade a déjà été effectuée ce raid
+    private java.util.Set<String> ambushLocations = new java.util.HashSet<>();
+
     // Infras qui seront détruites à la fin du raid courant (Incendiaire)
     private java.util.EnumSet<Infra> infrasToDestroyEndOfRaid = java.util.EnumSet.noneOf(Infra.class);
 
     // Blocage des actions chasseur
     private boolean hunterActionsBlockedThisRaid;
 
+    private int initialPlayerCount;
+
     // lieux des clones vampire
     private java.util.List<String> clonesLocations = new java.util.ArrayList<>();
+    private java.util.List<Boolean> clonesBiteCapabilities = new java.util.ArrayList<>();
     private boolean clonesFaceUp;
 
     // lieux de l'image miroir
@@ -148,8 +151,11 @@ public class Game {
     private java.util.List<String> mirrorAltLocations;
     private String mirrorChosenLocation;
 
-    // annule récolte chasseurs
+    // annule récolte chasseurs (DEPRECATED - use fogAffectedLocation instead)
     private boolean fogBlocksHunterHarvestThisRaid;
+
+    // Lieu affecté par Voile de brume (récolte /2 + -1 DEF)
+    private String fogAffectedLocation;
 
     // morsure garantie si attaque fail
     private boolean hungerAllowsBiteThisRaid;
@@ -165,6 +171,18 @@ public class Game {
 
     // Effets temporaires pour le raid courant (réinitialisés en PHASE0)
     private Map<String, RaidEffects> raidEffects = new HashMap<>();
+
+    // Action d'échappatoire vampire en attente (résolution fin de préphase)
+    // "PASSAGE_SECRET" ou "IMAGE_MIROIR_SETUP"
+    private String pendingVampireEscape;
+
+    public String getPendingVampireEscape() {
+        return pendingVampireEscape;
+    }
+
+    public void setPendingVampireEscape(String s) {
+        this.pendingVampireEscape = s;
+    }
 
     // --- Action (affichage / spectate) ---
     public static class Action {
@@ -247,7 +265,18 @@ public class Game {
     // hunterId -> index courant dans la liste ci-dessus
     private Map<String, Integer> pitIndexByHunter;
 
+    // hunterId -> nombre de cartes NET restantes (pour résoudre plusieurs NETs avec
+    // choix libre de cible)
+    private Map<String, Integer> netCardsRemaining;
+
+    // hunterId -> nombre de cartes PIT jouées (pour résoudre N fois contre chaque
+    // monstre)
+    private Map<String, Integer> pitCardsCount;
+
     private Action currentAction;
+
+    // hunterId -> count of action cards bought this raid (for limits/pricing)
+    private Map<String, Integer> actionCardsBoughtThisRaid = new HashMap<>();
 
     // Corruption
     public static class BiteAttempt {
@@ -494,7 +523,12 @@ public class Game {
     }
 
     public enum MonsterType {
-        REVENANT, GARGOYLE, ABERRATION
+        REVENANT,
+        BAT,
+        GARGOYLE,
+        WOLF,
+        ABERRATION,
+        LICHE
     }
 
     private MonsterType laboratoryDraftMonsterType; // nullable
@@ -766,6 +800,14 @@ public class Game {
         this.harvestedRaid = v;
     }
 
+    public int getInitialPlayerCount() {
+        return initialPlayerCount;
+    }
+
+    public void setInitialPlayerCount(int initialPlayerCount) {
+        this.initialPlayerCount = initialPlayerCount;
+    }
+
     public Map<String, RaidEffects> getRaidEffects() {
         return raidEffects;
     }
@@ -853,6 +895,17 @@ public class Game {
         this.ambushHuntersByEnemy = (m != null ? m : new HashMap<>());
     }
 
+    public java.util.Set<String> getAmbushLocations() {
+        if (ambushLocations == null) {
+            ambushLocations = new java.util.HashSet<>();
+        }
+        return ambushLocations;
+    }
+
+    public void setAmbushLocations(java.util.Set<String> s) {
+        this.ambushLocations = (s != null ? s : new java.util.HashSet<>());
+    }
+
     public java.util.EnumSet<Infra> getInfrasToDestroyEndOfRaid() {
         return infrasToDestroyEndOfRaid;
     }
@@ -886,6 +939,17 @@ public class Game {
 
     public void setClonesLocations(java.util.List<String> locs) {
         this.clonesLocations = (locs != null ? locs : new java.util.ArrayList<>());
+    }
+
+    public java.util.List<Boolean> getClonesBiteCapabilities() {
+        if (clonesBiteCapabilities == null) {
+            clonesBiteCapabilities = new java.util.ArrayList<>();
+        }
+        return clonesBiteCapabilities;
+    }
+
+    public void setClonesBiteCapabilities(java.util.List<Boolean> caps) {
+        this.clonesBiteCapabilities = (caps != null ? caps : new java.util.ArrayList<>());
     }
 
     public boolean isClonesFaceUp() {
@@ -926,6 +990,14 @@ public class Game {
 
     public void setFogBlocksHunterHarvestThisRaid(boolean fogBlocksHunterHarvestThisRaid) {
         this.fogBlocksHunterHarvestThisRaid = fogBlocksHunterHarvestThisRaid;
+    }
+
+    public String getFogAffectedLocation() {
+        return fogAffectedLocation;
+    }
+
+    public void setFogAffectedLocation(String fogAffectedLocation) {
+        this.fogAffectedLocation = fogAffectedLocation;
     }
 
     public boolean isHungerAllowsBiteThisRaid() {
@@ -974,6 +1046,30 @@ public class Game {
 
     public void setPitIndexByHunter(Map<String, Integer> pitIndexByHunter) {
         this.pitIndexByHunter = pitIndexByHunter;
+    }
+
+    public Map<String, Integer> getActionCardsBoughtThisRaid() {
+        return actionCardsBoughtThisRaid;
+    }
+
+    public void setActionCardsBoughtThisRaid(Map<String, Integer> actionCardsBoughtThisRaid) {
+        this.actionCardsBoughtThisRaid = actionCardsBoughtThisRaid;
+    }
+
+    public Map<String, Integer> getNetCardsRemaining() {
+        return netCardsRemaining;
+    }
+
+    public void setNetCardsRemaining(Map<String, Integer> netCardsRemaining) {
+        this.netCardsRemaining = netCardsRemaining;
+    }
+
+    public Map<String, Integer> getPitCardsCount() {
+        return pitCardsCount;
+    }
+
+    public void setPitCardsCount(Map<String, Integer> pitCardsCount) {
+        this.pitCardsCount = pitCardsCount;
     }
 
     // corruption

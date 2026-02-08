@@ -269,6 +269,16 @@
     </div>
 
     <div class="footer">
+        <ng-container *ngIf="vm.combat.currentCombat as r">
+            <p *ngIf="r.cloneAttack && vm.isVampire" style="margin-bottom: 0.5rem; font-size: 0.9em;">
+                <ng-container *ngIf="r.canBite">
+                    <strong>Capacité de morsure active</strong>
+                </ng-container>
+                <ng-container *ngIf="!r.canBite">
+                    <em>Capacité de morsure inactive</em>
+                </ng-container>
+            </p>
+        </ng-container>
         <button (click)="actions.rollNow()" [disabled]="!vm.canRoll">
             {{ vm.rollButtonLabel }}
         </button>

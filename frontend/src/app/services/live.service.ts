@@ -15,7 +15,7 @@ export type GameEvent =
   | { type: 'CENTER_REVEALED'; gameId: string; payload: {}; ts: number }
   | { type: 'LOCATION_STARTED'; gameId: string; payload: { ownerId: string; username: string; infra: string }; ts: number }
   | { type: 'LOCATION_USED'; gameId: string; payload: { choice: 'STUDY' | 'THEFT' | 'OMEN' | 'EXPERIMENT' | 'ALCHEMY' | 'RARE_ALCHEMY' | 'EXPLOSION' | 'DEATH_DANCE' | 'SNEAK_ATTACK' | 'BLOOD_WALTZ' | 'LOOTING' | 'HEAL' | 'CORRUPT_SOULS' | 'CORRUPT' | 'PURIFY_WATER' | 'FORGE'; playerId: string; username: string; infra: string | null }; ts: number }
-  | { type: 'DRAFT_UPDATED'; gameId: string; payload: { infra: string | null; choice: string | null; ownerId: string | null; monsterType: 'REVENANT' | 'GARGOYLE' | 'ABERRATION' | null; location: string | null; }; ts: number; }
+  | { type: 'DRAFT_UPDATED'; gameId: string; payload: { infra: string | null; choice: string | null; ownerId: string | null; monsterType: 'REVENANT' | 'BAT' | 'GARGOYLE' | 'WOLF' | 'ABERRATION' | 'LICHE' | null; location: string | null; }; ts: number; }
   | { type: 'POTION_USED'; gameId: string; payload: { playerId: string; type: string }; ts: number }
   | { type: 'ACTION_USED'; gameId: string; payload: { playerId: string; type: string }; ts: number }
   | { type: 'INFRA_BUILT'; gameId: string; payload: { builderId: string; infra: string }; ts: number }

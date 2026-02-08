@@ -93,7 +93,7 @@
                         <h4>Actions</h4>
                         <span class="price price-icons">
                             <span class="cost-item">
-                                <span class="cost-val">50</span>
+                                <span class="cost-val">{{ vm.actionPrice }}</span>
                                 <span class="cost-ico-box"><img class="cost-ico cost-ico-s"
                                         src="/assets/icons/souls.png" alt="Âmes"></span>
                             </span>
@@ -188,7 +188,7 @@
                         <h4>Eau bénite</h4>
                         <span class="price price-icons">
                             <span class="cost-item">
-                                <span class="cost-val">6</span>
+                                <span class="cost-val">4</span>
                                 <span class="cost-ico-box"><img class="cost-ico cost-ico-s"
                                         src="/assets/icons/water.png" alt="Eau"></span>
                                 <span class="cost-val">{{ vm.holyWaterGoldPrice }}</span>
@@ -578,14 +578,14 @@
                             <div class="res" *ngFor="let r of helpers.tradeResources()">
                                 <div class="label">{{ r }} <small>(x{{ helpers.resOf(vm.me, r) }})</small></div>
 
-                                <div class="actions" *ngIf="r !== 'gold'; else goldActions">
+                                <div class="actions" *ngIf="r !== 'gold' && r !== 'souls'; else largeIncrements">
                                     <button (click)="actions.bumpOffer(r, +1)"
                                         [disabled]="helpers.resOf(vm.me, r) < (helpers.offerQty(r)+1)">+1</button>
                                     <button (click)="actions.bumpOffer(r, -1)"
                                         [disabled]="helpers.offerQty(r) <= 0">-1</button>
                                 </div>
 
-                                <ng-template #goldActions>
+                                <ng-template #largeIncrements>
                                     <div class="actions">
                                         <button (click)="actions.bumpOffer(r, +10)"
                                             [disabled]="helpers.resOf(vm.me, r) < (helpers.offerQty(r)+10)">+10</button>

@@ -2,9 +2,9 @@ package org.castello.game;
 
 public class RoundFight {
     private String id;
-    private String location;      // "forest", "quarry", "lake", "manor"
-    private String attackerId;    // joueur qui attaque
-    private String defenderId;    // joueur qui défend
+    private String location; // "forest", "quarry", "lake", "manor"
+    private String attackerId; // joueur qui attaque
+    private String defenderId; // joueur qui défend
     private Integer attackerRoll; // jet (null tant que pas lancé)
     private Integer defenderRoll; // jet (null tant que pas lancé)
     private Long resolvedAtMillis;// quand les dégâts ont été appliqués (info)
@@ -21,9 +21,11 @@ public class RoundFight {
     private Integer ballroomWaltzBest;
 
     private boolean cloneAttack;
+    private boolean canBite;
     private boolean blessedStakePending;
 
-    public RoundFight() {}
+    public RoundFight() {
+    }
 
     public RoundFight(String id, String location, String attackerId, String defenderId) {
         this.id = id;
@@ -33,54 +35,147 @@ public class RoundFight {
         this.breakdownLines = new java.util.ArrayList<>();
     }
 
-    public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
+    public String getId() {
+        return id;
+    }
 
-    public String getLocation() { return location; }
-    public void setLocation(String location) { this.location = location; }
+    public void setId(String id) {
+        this.id = id;
+    }
 
-    public String getAttackerId() { return attackerId; }
-    public void setAttackerId(String attackerId) { this.attackerId = attackerId; }
+    public String getLocation() {
+        return location;
+    }
 
-    public String getDefenderId() { return defenderId; }
-    public void setDefenderId(String defenderId) { this.defenderId = defenderId; }
+    public void setLocation(String location) {
+        this.location = location;
+    }
 
-    public Integer getAttackerRoll() { return attackerRoll; }
-    public void setAttackerRoll(Integer attackerRoll) { this.attackerRoll = attackerRoll; }
+    public String getAttackerId() {
+        return attackerId;
+    }
 
-    public Integer getDefenderRoll() { return defenderRoll; }
-    public void setDefenderRoll(Integer defenderRoll) { this.defenderRoll = defenderRoll; }
+    public void setAttackerId(String attackerId) {
+        this.attackerId = attackerId;
+    }
 
-    public Long getResolvedAtMillis() { return resolvedAtMillis; }
-    public void setResolvedAtMillis(Long resolvedAtMillis) { this.resolvedAtMillis = resolvedAtMillis; }
+    public String getDefenderId() {
+        return defenderId;
+    }
 
-    public java.util.List<String> getBreakdownLines() { return breakdownLines; }
-    public void setBreakdownLines(java.util.List<String> breakdownLines) { this.breakdownLines = breakdownLines; }
+    public void setDefenderId(String defenderId) {
+        this.defenderId = defenderId;
+    }
 
-    public Integer getAttackerFirstRoll() { return attackerFirstRoll; }
-    public void setAttackerFirstRoll(Integer attackerFirstRoll) { this.attackerFirstRoll = attackerFirstRoll; }
+    public Integer getAttackerRoll() {
+        return attackerRoll;
+    }
 
-    public Integer getDefenderFirstRoll() { return defenderFirstRoll; }
-    public void setDefenderFirstRoll(Integer defenderFirstRoll) { this.defenderFirstRoll = defenderFirstRoll; }
+    public void setAttackerRoll(Integer attackerRoll) {
+        this.attackerRoll = attackerRoll;
+    }
 
-    public Integer getAttackerReroll() { return attackerReroll; }
-    public void setAttackerReroll(Integer attackerReroll) { this.attackerReroll = attackerReroll; }
+    public Integer getDefenderRoll() {
+        return defenderRoll;
+    }
 
-    public Integer getDefenderReroll() { return defenderReroll; }
-    public void setDefenderReroll(Integer defenderReroll) { this.defenderReroll = defenderReroll; }
+    public void setDefenderRoll(Integer defenderRoll) {
+        this.defenderRoll = defenderRoll;
+    }
 
-    public boolean isRapidExtra() { return rapidExtra; }
-    public void setRapidExtra(boolean rapidExtra) { this.rapidExtra = rapidExtra;}
+    public Long getResolvedAtMillis() {
+        return resolvedAtMillis;
+    }
 
-    public java.util.List<Integer> getBallroomWaltzRolls() { return ballroomWaltzRolls; }
-    public void setBallroomWaltzRolls(java.util.List<Integer> rolls) { this.ballroomWaltzRolls = rolls; }
+    public void setResolvedAtMillis(Long resolvedAtMillis) {
+        this.resolvedAtMillis = resolvedAtMillis;
+    }
 
-    public Integer getBallroomWaltzBest() { return ballroomWaltzBest; }
-    public void setBallroomWaltzBest(Integer v) { this.ballroomWaltzBest = v; }
+    public java.util.List<String> getBreakdownLines() {
+        return breakdownLines;
+    }
 
-    public boolean isCloneAttack() { return cloneAttack; }
-    public void setCloneAttack(boolean cloneAttack) { this.cloneAttack = cloneAttack; }
+    public void setBreakdownLines(java.util.List<String> breakdownLines) {
+        this.breakdownLines = breakdownLines;
+    }
 
-    public boolean isBlessedStakePending() { return blessedStakePending; }
-    public void setBlessedStakePending(boolean blessedStakePending) { this.blessedStakePending = blessedStakePending; }
+    public Integer getAttackerFirstRoll() {
+        return attackerFirstRoll;
+    }
+
+    public void setAttackerFirstRoll(Integer attackerFirstRoll) {
+        this.attackerFirstRoll = attackerFirstRoll;
+    }
+
+    public Integer getDefenderFirstRoll() {
+        return defenderFirstRoll;
+    }
+
+    public void setDefenderFirstRoll(Integer defenderFirstRoll) {
+        this.defenderFirstRoll = defenderFirstRoll;
+    }
+
+    public Integer getAttackerReroll() {
+        return attackerReroll;
+    }
+
+    public void setAttackerReroll(Integer attackerReroll) {
+        this.attackerReroll = attackerReroll;
+    }
+
+    public Integer getDefenderReroll() {
+        return defenderReroll;
+    }
+
+    public void setDefenderReroll(Integer defenderReroll) {
+        this.defenderReroll = defenderReroll;
+    }
+
+    public boolean isRapidExtra() {
+        return rapidExtra;
+    }
+
+    public void setRapidExtra(boolean rapidExtra) {
+        this.rapidExtra = rapidExtra;
+    }
+
+    public java.util.List<Integer> getBallroomWaltzRolls() {
+        return ballroomWaltzRolls;
+    }
+
+    public void setBallroomWaltzRolls(java.util.List<Integer> rolls) {
+        this.ballroomWaltzRolls = rolls;
+    }
+
+    public Integer getBallroomWaltzBest() {
+        return ballroomWaltzBest;
+    }
+
+    public void setBallroomWaltzBest(Integer v) {
+        this.ballroomWaltzBest = v;
+    }
+
+    public boolean isCloneAttack() {
+        return cloneAttack;
+    }
+
+    public void setCloneAttack(boolean cloneAttack) {
+        this.cloneAttack = cloneAttack;
+    }
+
+    public boolean isCanBite() {
+        return canBite;
+    }
+
+    public void setCanBite(boolean canBite) {
+        this.canBite = canBite;
+    }
+
+    public boolean isBlessedStakePending() {
+        return blessedStakePending;
+    }
+
+    public void setBlessedStakePending(boolean blessedStakePending) {
+        this.blessedStakePending = blessedStakePending;
+    }
 }

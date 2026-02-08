@@ -196,15 +196,20 @@
     background: rgba(0, 0, 0, 0.65);
     padding: 1.5rem;
     border-radius: 8px;
-    max-width: 560px;
-    width: min(560px, 90vw);
+    max-width: 1000px;
+    width: min(1000px, 95vw);
     color: #fff;
     text-align: center;
     max-height: 100%;
-    overflow: auto;
-    max-width: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
     min-height: 0;
     min-width: 0;
+
+    &.is-experiment {
+        max-width: 1100px;
+        width: min(1100px, 98vw);
+    }
 }
 
 .forge-costs {
@@ -315,29 +320,56 @@
 }
 
 .monster-pick-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: .75rem;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: .5rem;
+    margin: 0 auto;
 }
 
 .monster-pick {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: .35rem;
-    padding: .5rem;
+    gap: .25rem;
+    padding: .35rem;
     border: 1px solid rgba(255, 255, 255, .2);
-    border-radius: .75rem;
+    border-radius: .6rem;
     background: rgba(0, 0, 0, .25);
     cursor: pointer;
+    width: 168px;
+    flex: 0 0 auto;
 }
 
 .monster-pick.selected {
     outline: 2px solid rgba(255, 255, 255, .6);
 }
 
+.monster-pick.locked {
+    cursor: default;
+    filter: grayscale(1);
+    opacity: 0.6;
+    pointer-events: none;
+    position: relative;
+    border-style: dashed;
+}
+
+.lock-msg {
+    margin-top: auto;
+    font-size: 0.75rem;
+    color: #ffbaba;
+    font-weight: 800;
+    text-transform: uppercase;
+    text-align: center;
+    background: rgba(139, 0, 0, 0.45);
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
 .monster-img {
-    height: min(300px, 30vh);
+    height: 168px;
     width: auto;
     max-width: 100%;
     object-fit: contain;
@@ -347,14 +379,15 @@
 .monster-name {
     color: white;
     font-weight: 700;
+    font-size: 0.9rem;
 }
 
 .monster-stats {
-    font-size: .9rem;
+    font-size: .8rem;
     opacity: .9;
     color: white;
     text-align: center;
-    line-height: 1.2rem;
+    line-height: 1.1rem;
 }
 
 .cards-row.omen-row {
@@ -403,4 +436,70 @@
         width: 140px;
         height: 190px;
     }
+}
+
+/* === DICE STYLES (Shared) === */
+.dice-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+.dice-wrap {
+    position: relative;
+    display: inline-block;
+}
+
+.dice {
+    width: 180px;
+    height: auto;
+}
+
+.dice-big {
+    width: 240px;
+    height: auto;
+}
+
+.dice-overlay {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font: 700 42px/1 system-ui, sans-serif;
+    color: #cc9c00;
+    pointer-events: none;
+    font-variant-numeric: tabular-nums;
+    transform: translate(var(--dx, 0px), var(--dy, 0px));
+}
+
+/* 1 chiffre */
+.dice-wrap[data-digits="1"] .dice-overlay {
+    --dx: -1px;
+    --dy: 7px;
+}
+
+/* 2 chiffres */
+.dice-wrap[data-digits="2"] .dice-overlay {
+    --dx: -5px;
+    --dy: 7px;
+    letter-spacing: -0.5px;
+}
+
+.dice-overlay-small {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font: 700 25px/1 system-ui, sans-serif;
+    color: #cc9c00;
+    pointer-events: none;
+    font-variant-numeric: tabular-nums;
+    transform: translate(var(--dx, 0px), var(--dy, 0px));
+}
+
+.dice-wrap[data-digits="1"] .dice-overlay-small {
+    --dx: 0px;
+    --dy: 5px;
 }

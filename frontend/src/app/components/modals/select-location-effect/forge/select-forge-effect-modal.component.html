@@ -6,7 +6,17 @@
             {{ vm.ownerText }}
         </p>
 
-        <div class="modal-button-row" *ngIf="vm.isOwner">
+        <!-- Message si ressources insuffisantes -->
+        <div class="modal-button-row" *ngIf="vm.isOwner && vm.insufficientResources">
+            <div class="insufficient-resources-message">
+                <p style="color: #ff6b6b; font-weight: bold; text-align: center; padding: 20px;">
+                    Vous n'avez plus assez de ressources pour forger un équipement.
+                </p>
+            </div>
+        </div>
+
+        <!-- Options normales si ressources suffisantes -->
+        <div class="modal-button-row" *ngIf="vm.isOwner && !vm.insufficientResources">
             <ng-container *ngFor="let opt of vm.options">
                 <button type="button" class="effect-option" (click)="actions.select(opt.id)" [disabled]="opt.disabled"
                     [class.selected]="vm.choice === opt.id">

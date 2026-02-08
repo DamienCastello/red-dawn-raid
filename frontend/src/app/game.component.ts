@@ -56,10 +56,10 @@ const FORGE_COSTS: Record<string, ForgeCost> = {
   H_ARMOR_T2_HAUBERT: { iron: 4 },
 
   // Hunters T3
-  H_WEAPON_T3_WRIST_BLADES: { iron: 5, silver: 3 },
-  H_WEAPON_T3_FLAIL: { wood: 2, iron: 3, silver: 3 },
-  H_WEAPON_T3_PISTOL: { wood: 5, iron: 3, silver: 3 },
-  H_ARMOR_T3_PLATE_SILVER: { iron: 5, silver: 4 },
+  H_WEAPON_T3_WRIST_BLADES: { iron: 4, silver: 3 },
+  H_WEAPON_T3_FLAIL: { wood: 2, iron: 2, silver: 3 },
+  H_WEAPON_T3_PISTOL: { wood: 4, silver: 3 },
+  H_ARMOR_T3_PLATE_SILVER: { iron: 4, silver: 4 },
 
   // Vamp/Servant
   V_WEAPON_T1_SCYTHE: { iron: 2, wood: 2, souls: 40 },
@@ -129,6 +129,7 @@ export class GameComponent {
       isRolling: this.isRolling,
       canRoll: !!mySide && !this.isRolling,
       rollButtonLabel: this.rollButtonLabel,
+      isVampire: this.me?.role === 'VAMPIRE',
       isMyFocusFirstStep: this.isMyFocusFirstStep,
       combat: {
         monsterHp: r ? (this.monsterHpInCombat(r) ?? null) : null,
@@ -221,6 +222,7 @@ export class GameComponent {
       clonesIndexes: this.clonesIndexes,
       clonesLocationChoices: this.clonesLocationChoices,
       clonesSelectedLocations: this.clonesSelectedLocations,
+      clonesBiteParams: this.clonesBiteParams,
       weatherSecondChoices: this.weatherSecondChoices,
       weatherThirdChoices: this.weatherThirdChoices,
       selectedWeather2: this.selectedWeather2,
@@ -233,6 +235,9 @@ export class GameComponent {
       hunterPlayers: this.hunterPlayers,
       secretPassageChoices: this.secretPassageChoices,
       selectedSecretPassageLoc: this.selectedSecretPassageLoc,
+      voileLocationChoices: this.voileLocationChoices,
+      voileHuntersByLoc: this.voileHuntersByLoc,
+      secretPassageHuntersByLoc: this.secretPassageHuntersByLoc,
       diceColor: this.actionDiceColor,
       isGameEnded: this.isGameEnded,
       game: this.game
@@ -256,12 +261,14 @@ export class GameComponent {
     onCataclysmeConfirm: () => this.onCataclysmeConfirm(),
     onClonesRoll: () => this.onClonesRoll(),
     onCloneLocationChange: (idx, ev) => this.onCloneLocationChange(idx, ev),
+    onCloneBiteChange: (idx, ev) => this.onCloneBiteChange(idx, ev),
     onClonesConfirm: () => this.onClonesConfirm(),
     onMirrorSetupConfirm: () => this.onMirrorSetupConfirm(),
     onMirrorResolveChoose: (loc) => this.onMirrorResolveChoose(loc),
     onDarkMarkChoose: (id) => this.onDarkMarkChoose(id),
     onOccultWeakeningTarget: (id) => this.onOccultWeakeningTarget(id),
     onSecretPassageConfirm: () => this.onSecretPassageConfirm(),
+    onVoileChoose: (loc) => this.onVoileChoose(loc),
     setSelectedActionTargetId: (id) => this.actionSelectedTargetId = id,
     setSelectedMirrorLoc: (loc) => this.selectedMirrorLoc = loc,
     setSelectedSecretPassageLoc: (loc) => this.selectedSecretPassageLoc = loc,
@@ -281,6 +288,7 @@ export class GameComponent {
     labelWeather: this.labelWeather.bind(this),
     diceAsset: this.diceAsset.bind(this),
     canConfirmClones: this.canConfirmClones.bind(this),
+    clonesTotalCost: () => this.clonesTotalCost,
   };
 
   get shopVm(): ShopModalVm {
@@ -431,7 +439,7 @@ export class GameComponent {
       choice: this.effectChoice,
       serverChoiceLabel: g?.locationEffectChoice ? this.translateLocationEffect(g.locationEffectChoice) : null,
       options: [
-        { id: 'STUDY', title: 'Étude des grimoires', desc: 'Piocher 1 carte Action.', disabled: !this.canChooseLocationEffect },
+        { id: 'STUDY', title: 'Étude des grimoires', desc: 'Piocher 1 carte Action.', disabled: !this.canChooseLocationEffect || this.me?.role === 'SERVANT' },
         { id: 'THEFT', title: 'Subtilisation de manuscrit', desc: 'Voler 1 carte Action à l’adversaire et la mélanger dans sa pioche.', disabled: !this.canChooseLocationEffect },
         { id: 'OMEN', title: 'Prédiction occulte', desc: 'Regarder et réordonner secrètement les 3 prochaines cartes Action de l’adversaire.', disabled: !this.canChooseLocationEffect },
       ]
@@ -542,6 +550,9 @@ export class GameComponent {
     const me = this.me;
     const ownerId = g?.locationEffectOwnerId;
 
+    // Détecte si le backend a auto-skip à cause de ressources insuffisantes
+    const insufficientResources = !!g?.locationEffectChoice && g.locationEffectChoice === 'FORGE' && !this.locationActionModalOpen;
+
     return {
       show: !!g?.locationEffectPending && g?.locationEffectInfra === 'FORGE' && !this.locationActionModalOpen,
       backgroundImage: "url('/assets/locations/forge.png')",
@@ -551,6 +562,7 @@ export class GameComponent {
       canChoose: this.canChooseLocationEffect,
       choice: this.effectChoice,
       serverChoiceLabel: g?.locationEffectChoice ? this.translateLocationEffect(g.locationEffectChoice) : null,
+      insufficientResources,
       options: [
         { id: 'FORGE', title: 'Forger de l’équipement', desc: 'Fabrication d’arme ou d’armure.', disabled: !this.canChooseLocationEffect },
       ]
@@ -580,6 +592,7 @@ export class GameComponent {
       infra,
       kind,
       isOwner: this.isLocationActionOwner,
+      raid: g?.raid ?? 1,
       choiceLabel: g?.locationEffectChoice ? this.translateLocationEffect(g.locationEffectChoice) : null,
 
       omen: kind === 'OMEN' ? {
@@ -750,6 +763,8 @@ export class GameComponent {
   actionBreakdownLines: string[] = [];
   // Afficher / cacher la modale
   showActionModal = false;
+
+  private pitAutoCloseTimer: any = null;
   // Flag pour éviter les doubles clics pendant l'appel API
   actionResolving = false;
 
@@ -765,6 +780,7 @@ export class GameComponent {
   lastCharismRaid: number | null = null;
 
   clonesSelectedLocations: string[] = [];
+  clonesBiteParams: boolean[] = [];
 
   selectedWeather2: string | null = null;
   selectedWeather3: string | null = null;
@@ -791,6 +807,7 @@ export class GameComponent {
 
   // Passage secret
   secretPassageChoices: string[] = [];
+  secretPassageHuntersByLoc: Record<string, SPlayer[]> = {};
   selectedSecretPassageLoc: string | null = null;
 
   // Avidité nocturne
@@ -857,15 +874,18 @@ export class GameComponent {
   omenSubmitting = false;
 
   // EXPERIMENT
-  experimentMonsterType: 'REVENANT' | 'GARGOYLE' | 'ABERRATION' | null = null;
+  experimentMonsterType: 'REVENANT' | 'GARGOYLE' | 'ABERRATION' | "BAT" | "WOLF" | "LICHE" | null = null;
   experimentLocation: string | null = null;
   experimentSubmitting = false;
   experimentPossibleLocations: string[] = [];
 
   experimentMonsterMeta = {
     REVENANT: { cost: 100, hp: 5, atkDice: 'D6', defDice: 'D4' },
-    GARGOYLE: { cost: 200, hp: 10, atkDice: 'D8', defDice: 'D6' },
-    ABERRATION: { cost: 400, hp: 15, atkDice: 'D12', defDice: 'D8' },
+    BAT: { cost: 100, hp: 5, atkDice: 'D4', defDice: 'D6' },
+    GARGOYLE: { cost: 400, hp: 10, atkDice: 'D6', defDice: 'D8' },
+    WOLF: { cost: 400, hp: 10, atkDice: 'D8', defDice: 'D6' },
+    ABERRATION: { cost: 600, hp: 15, atkDice: 'D8', defDice: 'D8' },
+    LICHE: { cost: 600, hp: 10, atkDice: 'D8', defDice: 'D8' },
   } as const;
 
   // ALTAR
@@ -1303,15 +1323,36 @@ export class GameComponent {
   private readonly VAMP_ACTIONS_DIR = '/assets/cards/vampire_actions/';
   private readonly POTIONS_DIR = '/assets/cards/potions/';
 
+
+  private readonly HUNTER_CODES = [
+    'EAU_BENITE', 'FUMIGATION_AIL', 'PISTEUR', 'FEU_DE_CAMP',
+    'NET', 'PIT', 'PROVOCATION', 'INCENDIAIRE', 'AMBUSH',
+    'LONELY', 'BLESSED_STAKE', 'SACRED_ROSARY', 'CHARISMATIQUE',
+    'MARCHAND_ITINERANT', 'MARCHAND_BONUS_BUY'
+  ];
+  private readonly VAMP_CODES = [
+    'CATACLYSME', 'CLONES_OMBRE', 'IMAGE_MIROIR', 'PRESENCE_ECRASANTE',
+    'ECLIPSE', 'BLOOD_MOON', 'VOILE_DE_BRUME', 'FAIM_IRREPRESSIBLE',
+    'MARQUE_TENEBREUSE', 'AFFAIBLISSEMENT_OCCULTE', 'PASSAGE_SECRET',
+    'AVIDITE_NOCTURNE', 'IMAGE_MIROIR_SETUP', 'IMAGE_MIROIR_RESOLVE'
+  ];
+
   /** Action -> image (dossier dépend du rôle du joueur courant) */
   actionImg(code: string | null | undefined, role: string | null | undefined = undefined): string {
     if (!code) return '';
     let base;
 
-    if (role === 'HUNTER') {
-      base = this.VAMP_ACTIONS_DIR;
-    } else if (role === 'VAMPIRE' || role === 'SERVANT') {
+    // 1. Force directory based on KNOWN action types (overrides role)
+    if (this.HUNTER_CODES.includes(code)) {
       base = this.HUNTER_ACTIONS_DIR;
+    } else if (this.VAMP_CODES.includes(code)) {
+      base = this.VAMP_ACTIONS_DIR;
+    }
+    // 2. Fallback to role logic if code unknown (or generic)
+    else if (role === 'HUNTER') {
+      base = this.HUNTER_ACTIONS_DIR;
+    } else if (role === 'VAMPIRE' || role === 'SERVANT') {
+      base = this.VAMP_ACTIONS_DIR;
     } else {
       base = (this.me?.role === 'VAMPIRE')
         ? this.VAMP_ACTIONS_DIR
@@ -1460,7 +1501,7 @@ export class GameComponent {
       case 'ELIXIR': return { water: 2, herbs: 4 };
       case 'EQUIP_WEAPON':
       case 'EQUIP_ARMOR':
-        return (t >= 2) ? { wood: 3, iron: 3 } : { wood: 2, iron: 2 };
+        return (t >= 2) ? { wood: 2, iron: 2 } : { wood: 1, iron: 1 };
       default:
         return null;
     }
@@ -2218,8 +2259,11 @@ export class GameComponent {
     if (m) {
       switch (m.type) {
         case 'REVENANT': return 'Revenant';
+        case 'BAT': return 'Chauve-souris';
         case 'GARGOYLE': return 'Gargouille';
+        case 'WOLF': return 'Loup';
         case 'ABERRATION': return 'Aberration';
+        case 'LICHE': return 'Liche';
         default: return 'Créature';
       }
     }
@@ -2513,7 +2557,7 @@ export class GameComponent {
   // --- HP helpers (pour une jauge plus tard) ---
   maxHpOf(p: SPlayer): number {
     if (p.role === 'VAMPIRE') {
-      const hunters = (this.game?.players ?? []).filter(x => x.role === 'HUNTER').length;
+      const hunters = (this.game?.initialPlayerCount ?? 1) - 1;
       return 20 + hunters * 10;
     }
     return 20;
@@ -3176,6 +3220,23 @@ export class GameComponent {
         this.api.getGame(this.gameId).subscribe({
           next: g => {
             this.game = g;
+
+            // ═══════════════════════════════════════════════════════════════════════════
+            // IMPORTANT : Gestion du timer après résolution d'action différée
+            // ═══════════════════════════════════════════════════════════════════════════
+            // Si on vient de résoudre une action différée (Passage Secret ou Image Miroir),
+            // la PREPHASE est déjà TERMINÉE (le timer s'est écoulé OU tout le monde était prêt).
+            //
+            // Le backend a mis hasUpcomingCombat = false pour signaler qu'il ne faut PAS
+            // relancer le timer. On va maintenant soit :
+            //   - Démarrer des effets de lieu (locationEffectPending = true)
+            //   - Passer directement en PHASE3 (combats)
+            //
+            // Dans les deux cas, on ne doit PAS relancer le timer de prephase.
+            // ═══════════════════════════════════════════════════════════════════════════
+            const wasDelayedAction = this.actionMode === 'PASSAGE_SECRET'
+              || this.actionMode === 'IMAGE_MIROIR_RESOLVE';
+
             this.syncActionFromSnapshot(g); // ferme la modale si currentAction=null
             this.syncMerchantUiFromSnapshot(g);
 
@@ -3196,7 +3257,15 @@ export class GameComponent {
               this.pendingBonusFly = null;
             }
 
-            if (g.phase === 'PREPHASE3' && g.hasUpcomingCombat && !g.locationEffectPending) {
+            // Relancer le timer UNIQUEMENT si :
+            // - On n'est PAS en train de résoudre une action différée
+            // - On est toujours en PREPHASE3
+            // - Il y a des combats à venir
+            // - Il n'y a pas d'effet de lieu en cours
+            if (!wasDelayedAction
+              && g.phase === 'PREPHASE3'
+              && g.hasUpcomingCombat
+              && !g.locationEffectPending) {
               // On (re)lance simplement le timer local.
               // Si tu veux éviter de le redémarrer toutes les 2s, tu peux ajouter un petit guard :
               if (!this.prephaseTicker) {
@@ -3728,7 +3797,14 @@ export class GameComponent {
 
     // Web app : fenêtre unique de préparation avant les duels
     if (g.phase === 'PREPHASE3' && g.hasUpcomingCombat) {
-      return this.imInUpcomingCombat();
+      if (!this.imInUpcomingCombat()) return false;
+
+      // Un seul élixir par raid
+      if (this.isElixir(_pot) && me.elixirUsedThisRaid) {
+        return false;
+      }
+
+      return true;
     }
 
     // Jamais en PHASE3
@@ -3796,6 +3872,33 @@ export class GameComponent {
     return !!myFaceUpCard && combatLocs.has(myFaceUpCard);
   }
 
+  hasUsedEscapeThisRaid(): boolean {
+    const g = this.game;
+    if (!g) return false;
+    const raid = g.raid;
+
+    // mirrorAltLocations est persistant tout le raid si utilisé
+    const mirrorUsed = g.mirrorAltLocations && g.mirrorAltLocations.length > 0;
+    if (mirrorUsed) return true;
+
+    // Check history (case-insensitive) - Image Miroir ou Passage Secret
+    const historyUsed = (g.history || []).some(h => {
+      if (h.raid !== raid) return false;
+      const txt = h.text.toLowerCase();
+      return txt.includes('image miroir') || txt.includes('passage secret');
+    });
+    if (historyUsed) return true;
+
+    // Phase active ou pending
+    const curMode = g.currentAction?.mode;
+    if (curMode === 'IMAGE_MIROIR_SETUP' || curMode === 'IMAGE_MIROIR_RESOLVE' || curMode === 'PASSAGE_SECRET') return true;
+
+    const pending = g.pendingVampireEscape;
+    if (pending === 'IMAGE_MIROIR_SETUP' || pending === 'IMAGE_MIROIR_RESOLVE' || pending === 'PASSAGE_SECRET') return true;
+
+    return false;
+  }
+
   private isEnemy(p?: SPlayer): boolean {
     return p?.role === 'VAMPIRE' || p?.role === 'SERVANT';
   }
@@ -3821,6 +3924,14 @@ export class GameComponent {
       || type === 'RAPIDITE'
       || type === 'INVISIBILITE'
       || type === 'INVULNERABILITE';
+  }
+
+  isElixir(id: string): boolean {
+    return id === 'RAGE'
+      || id === 'RESILIENCE'
+      || id === 'RAPIDITE'
+      || id === 'INVISIBILITE'
+      || id === 'INVULNERABILITE';
   }
 
   usePotion(type: string) {
@@ -3926,8 +4037,10 @@ export class GameComponent {
     }
 
     if (_action === 'IMAGE_MIROIR') {
-      // Phase + rôle de base
       if (g.phase !== 'PHASE2' || me.role !== 'VAMPIRE') return false;
+
+      // Un seul escape action par raid (Image miroir ou Passage secret)
+      if (this.hasUsedEscapeThisRaid()) return false;
 
       const hand = me.hand || [];
 
@@ -3975,6 +4088,9 @@ export class GameComponent {
 
     if (_action === 'PASSAGE_SECRET') {
       if (g.phase !== 'PREPHASE3' || me.role !== 'VAMPIRE') return false;
+
+      // Un seul escape action par raid (Image miroir ou Passage secret)
+      if (this.hasUsedEscapeThisRaid()) return false;
 
       const loc = this.locationOf(me.id);
       if (loc !== 'manor') return false;
@@ -4095,12 +4211,22 @@ export class GameComponent {
           (p.role === 'VAMPIRE' || p.role === 'SERVANT') && p.hp > 0
         );
 
-        return hunters.length >= 2 && enemies.length >= 1;
+        if (hunters.length < 2 || enemies.length < 1) return false;
+
+        // Restriction : une seule embuscade par lieu par raid
+        if (g.ambushLocations && g.ambushLocations.includes(loc)) return false;
+
+        return true;
       }
 
       case 'LONELY': {
         if (g.phase !== 'PREPHASE3') return false;
         if (me.role !== 'HUNTER') return false;
+
+        // Disable if already used (active mod)
+        const myMods = g.raidMods?.[me.id] || [];
+        if (myMods.some(m => m.source?.startsWith('ACTION:LONELY'))) return false;
+
         return this.imInUpcomingCombat();
       }
 
@@ -4396,8 +4522,7 @@ export class GameComponent {
       return this.labelFr(targetId.toLowerCase());
     }
 
-    const p = this.game.players.find(pl => pl.id === targetId);
-    return p?.username ?? targetId;
+    return this.entityDisplayName(targetId);
   }
 
   get currentPitTarget(): SPlayer | null {
@@ -4443,12 +4568,11 @@ export class GameComponent {
 
     const playersHere = this.playersOnLocation(loc);
 
-    const huntersCount = playersHere.filter(p => p.role === 'HUNTER' && p.hp > 0).length;
     const enemiesCount = playersHere.filter(p =>
       (p.role === 'VAMPIRE' || p.role === 'SERVANT') && p.hp > 0
     ).length;
 
-    return huntersCount >= 2 && enemiesCount >= 1;
+    return enemiesCount >= 1;
   }
 
   onProvocationChoose(targetId: string) {
@@ -4908,7 +5032,13 @@ export class GameComponent {
 
     this.actionResolving = true;
 
-    this.api.confirmClones(this.game.id, this.clonesSelectedLocations).subscribe({
+    // Filtrer pour n'envoyer que les flags correspondant aux clones actifs
+    const safeBites: boolean[] = [];
+    for (let i = 0; i < this.clonesSelectedLocations.length; i++) {
+      safeBites.push(!!(this.clonesBiteParams && this.clonesBiteParams[i]));
+    }
+
+    this.api.confirmClones(this.game.id, this.clonesSelectedLocations, safeBites).subscribe({
       next: _g => {
         this.actionResolving = false;
         // snapshot + fermeture modale via syncActionFromSnapshot
@@ -4926,7 +5056,32 @@ export class GameComponent {
     if (this.clonesSelectedLocations.length !== this.actionRoll) return false;
 
     // Chaque clone doit avoir un lieu non vide
-    return this.clonesSelectedLocations.every(l => !!l);
+    if (!this.clonesSelectedLocations.every(l => !!l)) return false;
+
+    // Vérifier si le vampire a assez d'âmes pour les capacités
+    const cost = this.clonesTotalCost;
+    if (cost > 0 && (!this.me || this.me.souls < cost)) return false;
+
+    return true;
+  }
+
+  get clonesTotalCost(): number {
+    let cost = 0;
+    if (this.clonesBiteParams) {
+      for (const b of this.clonesBiteParams) {
+        if (b) cost += 50;
+      }
+    }
+    return cost;
+  }
+
+  onCloneBiteChange(idx: number, ev: Event) {
+    const input = ev.target as HTMLInputElement;
+    const checked = input.checked;
+
+    const arr = [...(this.clonesBiteParams || [])];
+    arr[idx] = checked;
+    this.clonesBiteParams = arr;
   }
 
   get clonesLocationChoices(): string[] {
@@ -5096,7 +5251,7 @@ export class GameComponent {
   computeSecretPassageChoices(g: GameSnapshot, currentLoc: string | null): string[] {
     const choices = new Set<string>();
 
-    const baseLocs = ['forest', 'quarry', 'lac', 'manor'];
+    const baseLocs = ['forest', 'quarry', 'lake', 'manor'];
     for (const code of baseLocs) {
       if (code && code !== currentLoc) {
         choices.add(code);
@@ -5116,7 +5271,7 @@ export class GameComponent {
       }
     }
 
-    return [...baseLocs, ...built]
+    return Array.from(choices)
       .filter(loc => loc !== currentLoc)                    // pas le même lieu
       .filter(loc => !this.isGarlicBlockedLocation(loc));   // pas fumigé
   }
@@ -5138,6 +5293,46 @@ export class GameComponent {
           this.showError(e);
         }
       });
+  }
+
+  get voileLocationChoices(): string[] {
+    const g = this.game;
+    if (!g) return [];
+
+    const baseLocs = ['forest', 'quarry', 'lake', 'manor'];
+    const infras = (g.builtInfras || []).map(i => i.toLowerCase());
+
+    return Array.from(new Set([...baseLocs, ...infras]))
+      .filter(loc => !this.isGarlicBlockedLocation(loc));
+  }
+
+  get voileHuntersByLoc(): Record<string, SPlayer[]> {
+    const g = this.game;
+    if (!g) return {};
+
+    const result: Record<string, SPlayer[]> = {};
+
+    // Pour chaque lieu dans la main du vampire, on récupère les chasseurs présents
+    for (const loc of this.voileLocationChoices) {
+      result[loc] = this.playersOnLocation(loc).filter(p => p.role === 'HUNTER');
+    }
+
+    return result;
+  }
+
+  onVoileChoose(loc: string) {
+    if (!this.game || this.actionResolving) return;
+
+    this.actionResolving = true;
+    this.api.resolveVoileDeBrume(this.game.id, loc).subscribe({
+      next: _g => {
+        this.actionResolving = false;
+      },
+      error: e => {
+        this.actionResolving = false;
+        this.showError(e);
+      }
+    });
   }
 
   get actionOwner() {
@@ -5212,6 +5407,13 @@ export class GameComponent {
       return;
     }
 
+    // --- Patch correctif pour timer (Image Miroir Setup) ---
+    if (act && act.mode === 'IMAGE_MIROIR_SETUP' && g.phase === 'PREPHASE3') {
+      // Si on doit choisir le lieu miroir, le timer DOIT être bloqué
+      this.stopPrephaseTimer();
+      this.prephase3AdvanceSent = false;
+    }
+
     // 1) Pas d'action ou mode non géré -> on ferme
     if (!act || (act.mode !== 'NET'
       && act.mode !== 'PIT'
@@ -5259,16 +5461,84 @@ export class GameComponent {
     this.actionRoll = act.roll ?? null;
     this.actionBreakdownLines = act.breakdownLines ?? [];
 
+
     // 3) NET / PIT / PROVOCATION
     if (this.actionMode === 'NET' || this.actionMode === 'PIT' || this.actionMode === 'PROVOCATION') {
-      if (this.actionLocation && g.players) {
-        this.trapEnemies = this.playersOnLocation(this.actionLocation)
+      if (this.actionLocation) {
+        // Ennemis (Vampire / Serviteur)
+        const enemies = this.playersOnLocation(this.actionLocation)
           .filter(p => p.role === 'VAMPIRE' || p.role === 'SERVANT');
+
+        // Monstres
+        const monsters = (g.monsters || []).filter(m => m.location === this.actionLocation);
+        const monsterTargets = monsters.map(m => ({
+          id: m.id,
+          username: this.entityDisplayName(m.id),
+          role: 'MONSTRE' as any,
+          hp: m.hp
+        }));
+
+        this.trapEnemies = [...enemies, ...monsterTargets] as any[];
       } else {
         this.trapEnemies = [];
       }
 
       if (this.actionMode === 'PIT') {
+        // Détection PIT groupé pour monstres
+        if (this.actionRoll !== null && this.actionBreakdownLines && this.actionBreakdownLines.length > 0) {
+          // C'est un PIT groupé contre un monstre : afficher et auto-fermer
+          if (!this.showActionModal) {
+            this.showActionModal = true;
+          }
+
+          // Auto-fermer et appeler combatContinue
+          // Délai: 8s si 1 monstre, 12s si > 1
+          let delay = 8000;
+          const monsterTargetLine = this.actionBreakdownLines.find(l => l.startsWith('TOTAL_MONSTER_TARGETS:'));
+          if (monsterTargetLine) {
+            const count = parseInt(monsterTargetLine.split(':')[1], 10);
+            if (count > 1) {
+              delay = 12000;
+            }
+          }
+
+          if (this.pitAutoCloseTimer) return;
+
+          this.pitAutoCloseTimer = setTimeout(() => {
+            this.pitAutoCloseTimer = null;
+            this.showActionModal = false;
+            this.actionMode = null;
+            this.actionOwnerId = null;
+            this.actionLocation = null;
+            this.actionSelectedTargetId = null;
+            this.actionRoll = null;
+            this.actionBreakdownLines = [];
+            this.trapEnemies = [];
+            this.trapCurrentIndex = 0;
+
+            // Appeler combatContinue pour traiter la suite
+            this.api.combatContinue(this.gameId).subscribe({
+              next: _ => {
+                this.api.getGame(this.gameId).subscribe({
+                  next: g => {
+                    const previous = this.game;
+                    this.game = g;
+                    this.resetHarvestBubbleIfPhaseChanged(previous, g);
+                    this.maybeEmitHarvestBubble(g);
+                    this.bumpHistoryScroll();
+                    this.syncActionFromSnapshot(g);
+                    this.maybeAdvanceToPhase4EndOfRaid();
+                  },
+                  error: e => this.showError(e)
+                });
+              },
+              error: e => this.showError(e)
+            });
+          }, delay);
+          return;
+        }
+
+        // PIT manuel normal
         if (this.actionSelectedTargetId && this.trapEnemies.length) {
           const idx = this.trapEnemies.findIndex(p => p.id === this.actionSelectedTargetId);
           this.trapCurrentIndex = idx >= 0 ? idx : 0;
@@ -5314,10 +5584,18 @@ export class GameComponent {
       || this.actionMode === 'BLOOD_MOON'
       || this.actionMode === 'VOILE_DE_BRUME'
       || this.actionMode === 'FAIM_IRREPRESSIBLE'
-      || this.actionMode === 'AVIDITE_NOCTURNE') {
+      || this.actionMode === 'AVIDITE_NOCTURNE'
+      || this.actionMode === 'IMAGE_MIROIR_SETUP') {
       this.trapEnemies = [];
       this.trapCurrentIndex = 0;
       this.incendiaireChoices = [];
+
+      if (this.actionMode === 'IMAGE_MIROIR_SETUP') {
+        this.mirrorHuntersByLoc = {};
+        for (const loc of this.mirrorLocationChoices) {
+          this.mirrorHuntersByLoc[loc] = this.playersOnLocation(loc).filter(p => p.role === 'HUNTER');
+        }
+      }
     }
 
     // 6) CATACLYSME : choix météo uniquement
@@ -5336,6 +5614,7 @@ export class GameComponent {
       this.incendiaireChoices = [];
       if (this.actionRoll === null) {
         this.clonesSelectedLocations = [];
+        this.clonesBiteParams = [];
       }
     }
 
@@ -5385,9 +5664,14 @@ export class GameComponent {
       || this.actionMode === 'AFFAIBLISSEMENT_OCCULTE'
       || this.actionMode === 'PROVOCATION'
       || this.actionMode === 'AMBUSH'
-      || this.actionMode === 'PASSAGE_SECRET') {
+      || this.actionMode === 'PASSAGE_SECRET'
+      || this.actionMode === 'IMAGE_MIROIR_RESOLVE') {
       this.stopPrephaseTimer();
     }
+
+    // ...
+
+
 
     // 10) PASSAGE_SECRET
     if (this.actionMode === 'PASSAGE_SECRET') {
@@ -5398,6 +5682,10 @@ export class GameComponent {
       const me = this.me;
       const loc = me ? this.locationOf(me.id) : null;
       this.secretPassageChoices = this.computeSecretPassageChoices(g, loc);
+      this.secretPassageHuntersByLoc = {};
+      for (const dest of this.secretPassageChoices) {
+        this.secretPassageHuntersByLoc[dest] = this.playersOnLocation(dest).filter(p => p.role === 'HUNTER');
+      }
 
       if (!this.selectedSecretPassageLoc && this.secretPassageChoices.length === 1) {
         this.selectedSecretPassageLoc = this.secretPassageChoices[0];
@@ -5477,19 +5765,6 @@ export class GameComponent {
         }
       }
 
-    } else if (this.actionMode === 'VOILE_DE_BRUME') {
-      const alreadyShown = this.lastFogRaid === g.raid;
-
-      if (!alreadyShown) {
-        this.lastFogRaid = g.raid;
-        this.showActionModal = true;
-        this.scheduleActionAutoClose();
-
-        if (g.phase === 'PREPHASE3' && !g.locationEffectPending) {
-          this.startPrephaseTimer();
-        }
-      }
-
     } else if (this.actionMode === 'FAIM_IRREPRESSIBLE') {
       this.showActionModal = true;
       this.scheduleActionAutoClose();
@@ -5510,6 +5785,27 @@ export class GameComponent {
           this.lastCataclysmeRaid = g.raid;
           this.showActionModal = true;
           this.scheduleActionAutoClose();
+        }
+      }
+
+
+    } else if (this.actionMode === 'VOILE_DE_BRUME') {
+      const resolved = !!act.resolvedAtMillis;
+
+      if (!resolved) {
+        this.stopPrephaseTimer();
+        this.showActionModal = true;
+      } else {
+        const alreadyShown = this.lastFogRaid === g.raid;
+
+        if (!alreadyShown) {
+          this.lastFogRaid = g.raid;
+          this.showActionModal = true;
+          this.scheduleActionAutoClose();
+
+          if (g.phase === 'PREPHASE3' && !g.locationEffectPending) {
+            this.startPrephaseTimer();
+          }
         }
       }
 
@@ -5707,6 +6003,7 @@ export class GameComponent {
     const g: any = this.game;
     const b = g?.currentBite;
     if (!b || b.roll == null) return '';
+    console.log("check: ", this.getPlayer(b.attackerId))
 
     const attacker = this.getPlayer?.(b.attackerId)?.username ?? 'Le vampire';
     const target = this.getPlayer?.(b.targetId)?.username ?? 'le chasseur';
@@ -5714,8 +6011,12 @@ export class GameComponent {
     const targetPlayer = this.getPlayer?.(b.targetId);
     const hasArmor = this.hasSilverPlate(targetPlayer);
 
-    // Échec direct du D6
-    if (b.roll <= 8) {
+    const currentFight = this.game?.currentCombat;
+    const isClone = currentFight?.cloneAttack;
+    const threshold = isClone ? 15 : 8;
+
+    // Échec selon le seuil
+    if (b.roll <= threshold) {
       return `${attacker} échoue sa tentative de morsure.`;
     }
 
@@ -5729,7 +6030,9 @@ export class GameComponent {
       if (b.becameServant) {
         return `${target} est mordu et succombe à la corruption. ${target} devient un serviteur du vampire !`;
       }
-      return `${target} est mordu. Le sang versé nourrit le vampire: +50 âmes déchues.`;
+      // Différencier clone vs vampire
+      const souls = isClone ? 10 : 50;
+      return `${target} est mordu. Le sang versé nourrit le vampire: +${souls} âmes déchues.`;
     }
 
     if (b.armorRoll <= 3) {
@@ -6030,7 +6333,7 @@ export class GameComponent {
     const left = this.deckSize(snapshot.decks?.actionsVamp);
     if (left <= 0) return false;
 
-    return me.souls >= 50;
+    return me.souls >= this.actionPrice;
   }
 
   get canBuyHunterAction() {
@@ -6068,7 +6371,7 @@ export class GameComponent {
     if (me.hp <= 0) return false;
 
     const goldCost = this.holyWaterGoldPrice;
-    const waterCost = 3;
+    const waterCost = 4;
 
     if (me.water < waterCost) return false;
     if (me.gold < goldCost) return false;
@@ -6112,7 +6415,9 @@ export class GameComponent {
   get actionPrice(): number {
     const g = this.game;
     const me = this.me;
-    let price = 50;
+
+    const bought = (g && g.actionCardsBoughtThisRaid && me && g.actionCardsBoughtThisRaid[me.id]) || 0;
+    let price = (bought + 1) * 50;
 
     const greedy = g && (g as any).shopPricesIncreasedThisRaid;
     if (greedy) price += 50;
@@ -6540,12 +6845,12 @@ export class GameComponent {
   weaponUpgradeCost(): { wood: number; iron: number } | null {
     const t = this.nextWeaponTier();
     if (t == null) return null;
-    return t === 1 ? { wood: 3, iron: 3 } : { wood: 4, iron: 4 };
+    return t === 1 ? { wood: 2, iron: 2 } : { wood: 3, iron: 3 };
   }
   armorUpgradeCost(): { wood: number; iron: number } | null {
     const t = this.nextArmorTier();
     if (t == null) return null;
-    return t === 1 ? { wood: 3, iron: 3 } : { wood: 4, iron: 4 };
+    return t === 1 ? { wood: 2, iron: 2 } : { wood: 3, iron: 3 };
   }
 
   canBuyUpgradeWeapon(): boolean {
@@ -7243,7 +7548,7 @@ export class GameComponent {
     return m?.hp;
   }
 
-  onExperimentMonsterClick(type: 'REVENANT' | 'GARGOYLE' | 'ABERRATION') {
+  onExperimentMonsterClick(type: 'REVENANT' | 'BAT' | 'GARGOYLE' | 'WOLF' | 'ABERRATION' | 'LICHE') {
     if (!this.isLocationActionOwner || !this.game) return;
 
     this.experimentMonsterType = type;

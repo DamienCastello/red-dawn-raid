@@ -160,6 +160,100 @@
 
 .target-list {
     display: flex;
-    justify-content: space between;
+    justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.target-list button {
+    padding: .4rem .75rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, .35);
+    background: rgba(255, 255, 255, .08);
+    color: #fff;
+    cursor: pointer;
+}
+
+.target-list button.selected {
+    background: rgba(255, 255, 255, .25);
+    border-color: #fff;
+}
+
+
+/* Groupement PIT contre Monstres (Round 5+) */
+.pit-monster-batch {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    width: 100%;
+}
+
+.pit-monster-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+
+    .breakdown-label {
+        font-size: clamp(1rem, 2.5vw, 1.25rem);
+        margin-bottom: 0.75rem;
+        color: var(--accent-color, #ffd700);
+        text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+
+        strong {
+            color: #fff;
+            text-decoration: underline;
+        }
+    }
+}
+
+.pit-monster-results {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    justify-content: center;
+    align-items: flex-start;
+    width: 100%;
+}
+
+.pit-monster-dice {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 0 1 auto;
+    min-width: 120px;
+
+    .dice-wrap {
+        width: clamp(80px, 20vw, 140px);
+        aspect-ratio: 1/1;
+
+        .dice {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .dice-overlay {
+            font-size: clamp(1.5rem, 4vw, 2.5rem);
+        }
+    }
+
+    .result-label {
+        font-size: clamp(0.75rem, 2vw, 0.95rem);
+        text-align: center;
+        margin: 0;
+        max-width: 150px;
+        line-height: 1.2;
+    }
+}
+
+/* Cleanup old unused classes */
+.pit-batch-results,
+.pit-batch-dice,
+.grouped-dice-results,
+.single-pit-result {
+    display: none;
 }

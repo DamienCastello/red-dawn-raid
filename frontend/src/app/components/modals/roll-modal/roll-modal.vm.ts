@@ -6,6 +6,7 @@ export interface RollModalVm {
     isRolling: boolean;
     canRoll: boolean;
     rollButtonLabel: string;
+    isVampire: boolean;
     isMyFocusFirstStep: boolean;
     combat: {
         monsterHp: number | null;
