@@ -752,7 +752,7 @@ export class GameComponent {
   // --- Actions ---
   preparedGarlicForThisRaid = false;
   // NET ou PIT, ou null si pas de piège en cours
-  actionMode: 'NET' | 'PIT' | 'INCENDIAIRE' | 'PROVOCATION' | 'AMBUSH' | 'LONELY' | 'BLESSED_STAKE' | 'CHARISMATIQUE' | 'MARCHAND_ITINERANT' | 'MARCHAND_BONUS_BUY' | 'PRESENCE_ECRASANTE' | 'CATACLYSME' | 'CLONES_OMBRE' | 'IMAGE_MIROIR_SETUP' | 'IMAGE_MIROIR_RESOLVE' | 'ECLIPSE' | 'BLOOD_MOON' | 'VOILE_DE_BRUME' | 'FAIM_IRREPRESSIBLE' | 'MARQUE_TENEBREUSE' | 'AFFAIBLISSEMENT_OCCULTE' | 'PASSAGE_SECRET' | 'AVIDITE_NOCTURNE' | 'EAU_BENITE' | 'CAISSE_ABANDONNEE' | null = null;
+  actionMode: 'NET' | 'PIT' | 'INCENDIAIRE' | 'PROVOCATION' | 'AMBUSH' | 'LONELY' | 'BLESSED_STAKE' | 'CHARISMATIQUE' | 'MARCHAND_ITINERANT' | 'MARCHAND_BONUS_BUY' | 'PRESENCE_ECRASANTE' | 'CATACLYSME' | 'CLONES_OMBRE' | 'IMAGE_MIROIR_SETUP' | 'IMAGE_MIROIR_RESOLVE' | 'ECLIPSE' | 'BLOOD_MOON' | 'VOILE_DE_BRUME' | 'FAIM_IRREPRESSIBLE' | 'MARQUE_TENEBREUSE' | 'AFFAIBLISSEMENT_OCCULTE' | 'PASSAGE_SECRET' | 'AVIDITE_NOCTURNE' | 'EAU_BENITE' | 'CRATE_LAKE' | 'CRATE_MANOR' | null = null;
   actionOwnerId: string | null = null;
   actionLocation: string | null = null;
   trapEnemies: SPlayer[] = [];
@@ -1269,8 +1269,15 @@ export class GameComponent {
       clearTimeout(this.actionTimeoutId);
     }
 
+    // Safety guard: NEVER schedule auto-close for a crate action that isn't resolved yet.
+    const isCrate = this.actionMode === 'CRATE_LAKE' || this.actionMode === 'CRATE_MANOR';
+    const resolved = (this.game as any)?.currentAction?.resolvedAtMillis != null;
+    if (isCrate && !resolved) {
+      return;
+    }
+
     this.actionTimeoutId = setTimeout(() => {
-      if (this.actionMode === 'CAISSE_ABANDONNEE') {
+      if (isCrate) {
         this.onCrateResolve();
       } else {
         this.showActionModal = false;
@@ -1334,7 +1341,7 @@ export class GameComponent {
     'EAU_BENITE', 'FUMIGATION_AIL', 'PISTEUR', 'FEU_DE_CAMP',
     'NET', 'PIT', 'PROVOCATION', 'INCENDIAIRE', 'AMBUSH',
     'LONELY', 'BLESSED_STAKE', 'SACRED_ROSARY', 'CHARISMATIQUE',
-    'MARCHAND_ITINERANT', 'MARCHAND_BONUS_BUY', 'CAISSE_ABANDONNEE'
+    'MARCHAND_ITINERANT', 'MARCHAND_BONUS_BUY', 'CRATE_LAKE', 'CRATE_MANOR'
   ];
   private readonly VAMP_CODES = [
     'CATACLYSME', 'CLONES_OMBRE', 'IMAGE_MIROIR', 'PRESENCE_ECRASANTE',
@@ -1389,7 +1396,8 @@ export class GameComponent {
       case 'MARCHAND_ITINERANT':
       case 'MARCHAND_BONUS_BUY':
         return 'marchand_itinerant.png';
-      case 'CAISSE_ABANDONNEE': return 'caisse_abandonnee.png';
+      case 'CRATE_LAKE': return 'crate_lake.png';
+      case 'CRATE_MANOR': return 'crate-manor.png';
 
       // --- VAMPIRE ---
       case 'AFFAIBLISSEMENT_OCCULTE': return 'affaiblissement_occulte.png';
@@ -2485,7 +2493,7 @@ export class GameComponent {
         'PROVOCATION',
         'AMBUSH',
         'LONELY',
-        'CAISSE_ABANDONNEE'
+        'CRATE_LAKE', 'CRATE_MANOR'
       ];
 
       const isHunter = hunterActions.includes(code);
@@ -2536,7 +2544,7 @@ export class GameComponent {
     return fallback;
   }
 
-  actionBackgroundSrc(mode: 'EAU_BENITE' | 'NET' | 'PIT' | 'INCENDIAIRE' | 'PROVOCATION' | 'AMBUSH' | 'LONELY' | 'BLESSED_STAKE' | 'CHARISMATIQUE' | 'MARCHAND_ITINERANT' | 'MARCHAND_BONUS_BUY' | 'PRESENCE_ECRASANTE' | 'CATACLYSME' | 'CLONES_OMBRE' | 'IMAGE_MIROIR_SETUP' | 'IMAGE_MIROIR_RESOLVE' | 'ECLIPSE' | 'BLOOD_MOON' | 'VOILE_DE_BRUME' | 'FAIM_IRREPRESSIBLE' | 'MARQUE_TENEBREUSE' | 'AFFAIBLISSEMENT_OCCULTE' | 'PASSAGE_SECRET' | 'AVIDITE_NOCTURNE' | 'CAISSE_ABANDONNEE' | null): String {
+  actionBackgroundSrc(mode: 'EAU_BENITE' | 'NET' | 'PIT' | 'INCENDIAIRE' | 'PROVOCATION' | 'AMBUSH' | 'LONELY' | 'BLESSED_STAKE' | 'CHARISMATIQUE' | 'MARCHAND_ITINERANT' | 'MARCHAND_BONUS_BUY' | 'PRESENCE_ECRASANTE' | 'CATACLYSME' | 'CLONES_OMBRE' | 'IMAGE_MIROIR_SETUP' | 'IMAGE_MIROIR_RESOLVE' | 'ECLIPSE' | 'BLOOD_MOON' | 'VOILE_DE_BRUME' | 'FAIM_IRREPRESSIBLE' | 'MARQUE_TENEBREUSE' | 'AFFAIBLISSEMENT_OCCULTE' | 'PASSAGE_SECRET' | 'AVIDITE_NOCTURNE' | 'CRATE_LAKE' | 'CRATE_MANOR' | null): String {
     if (mode === 'NET') return 'url(/assets/actions/net.png)';
     if (mode === 'PIT') return 'url(/assets/actions/traphole.png)';
     if (mode === 'INCENDIAIRE') return 'url(/assets/actions/burn.png)';
@@ -2559,7 +2567,8 @@ export class GameComponent {
     if (mode === 'PASSAGE_SECRET') return 'url(/assets/actions/secret_passage.png';
     if (mode === 'AVIDITE_NOCTURNE') return 'url(/assets/actions/nocturnal_greed.png)';
     if (mode === 'EAU_BENITE') return 'url(/assets/actions/holy_water.png';
-    if (mode === 'CAISSE_ABANDONNEE') return 'url(/assets/actions/abandoned_crate.png)';
+    if (mode === 'CRATE_LAKE') return 'url(/assets/actions/crate-lake.png)';
+    if (mode === 'CRATE_MANOR') return 'url(/assets/actions/crate-manor.png)';
     return '';
   }
 
@@ -3179,7 +3188,8 @@ export class GameComponent {
                 || g.currentAction.mode === 'PASSAGE_SECRET'
                 || g.currentAction.mode === 'AVIDITE_NOCTURNE'
                 || g.currentAction.mode === 'EAU_BENITE'
-                || g.currentAction.mode === 'CAISSE_ABANDONNEE')) {
+                || g.currentAction.mode === 'CRATE_LAKE'
+                || g.currentAction.mode === 'CRATE_MANOR')) {
               this.syncActionFromSnapshot(g);
             }
             this.syncMerchantUiFromSnapshot(g);
@@ -3205,7 +3215,14 @@ export class GameComponent {
       }
 
       case 'ACTION_ROLLED': {
-        // 1) refresh pour voir roll / breakdownLines dans currentAction
+        // 1) Update immediate (payload contains roll + breakdown)
+        const p = event.payload as any;
+        if (p) {
+          if (p.roll !== undefined) this.actionRoll = p.roll;
+          if (p.breakdown) this.actionBreakdownLines = p.breakdown;
+        }
+
+        // 2) refresh pour synchroniser tout le reste (et confirmer)
         this.api.getGame(this.gameId).subscribe({
           next: g => {
             this.game = g;
@@ -4152,7 +4169,8 @@ export class GameComponent {
         || _action === 'CHARISMATIQUE'
         || _action === 'MARCHAND_ITINERANT'
         || _action === 'EAU_BENITE'
-        || _action === 'CAISSE_ABANDONNEE')) {
+        || _action === 'CRATE_LAKE'
+        || _action === 'CRATE_MANOR')) {
 
       const me = this.me;
       const vamp = g.players?.find(p => p.role === 'VAMPIRE') || null;
@@ -4234,8 +4252,7 @@ export class GameComponent {
       }
 
       case 'LONELY': {
-        if (g.phase !== 'PREPHASE3') return false;
-        if (me.role !== 'HUNTER') return false;
+        if (g.phase !== 'PREPHASE3' || me.role !== 'HUNTER') return false;
 
         // Disable if already used (active mod)
         const myMods = g.raidMods?.[me.id] || [];
@@ -4267,17 +4284,18 @@ export class GameComponent {
         return true;
       }
 
+      case 'CRATE_LAKE':
+      case 'CRATE_MANOR':
+        if (me.crateUsedThisRaid) return false;
+        if (g.phase !== 'PREPHASE3') return false;
+        const locC = this.locationOf(me.id);
+        if (_action === 'CRATE_LAKE' && locC !== 'lake') return false;
+        if (_action === 'CRATE_MANOR' && locC !== 'manor') return false;
+        return true;
+
       case 'EAU_BENITE':
         if (g.phase !== 'PREPHASE3' && g.phase !== 'PHASE1') return false;
         return this.canPlayHolyWaterkHere();
-
-      case 'CAISSE_ABANDONNEE':
-        if (g.phase !== 'PREPHASE3') return false;
-        if (me.role !== 'HUNTER') return false;
-        if (me.crateUsedThisRaid) return false;
-        // Caisse abandonnée peut être jouée si le chasseur est au Lac ou au Manoir
-        const myLoc = this.locationOf(me.id);
-        return myLoc === 'lake' || myLoc === 'manor';
 
       default:
         return false;
@@ -4300,7 +4318,8 @@ export class GameComponent {
     const canLonely = acts.includes('LONELY') && this.canUseActionNow('LONELY');
     const canStake = acts.includes('BLESSED_STAKE') && this.canUseActionNow('BLESSED_STAKE');
     const canRosary = acts.includes('SACRED_ROSARY') && this.canUseActionNow('SACRED_ROSARY');
-    const canCrate = acts.includes('CAISSE_ABANDONNEE') && this.canUseActionNow('CAISSE_ABANDONNEE');
+    const canCrateLake = acts.includes('CRATE_LAKE') && this.canUseActionNow('CRATE_LAKE');
+    const canCrateManor = acts.includes('CRATE_MANOR') && this.canUseActionNow('CRATE_MANOR');
 
     return (
       canInc ||
@@ -4310,7 +4329,8 @@ export class GameComponent {
       canAmbush ||
       canStake ||
       canRosary ||
-      canCrate
+      canCrateLake ||
+      canCrateManor
     );
   }
 
@@ -4363,7 +4383,8 @@ export class GameComponent {
       case 'CHARISMATIQUE': return 'Charismatique';
       case 'MARCHAND_ITINERANT':
       case 'MARCHAND_BONUS_BUY': return 'Marchand itinérant';
-      case 'CAISSE_ABANDONNEE': return 'Caisse abandonnée';
+      case 'CRATE_LAKE': return 'Caisse : Lac';
+      case 'CRATE_MANOR': return 'Caisse : Manoir';
       case 'PRESENCE_ECRASANTE': return 'Présence écrasante';
       case 'CATACLYSME': return 'Cataclysme';
       case 'CLONES_OMBRE': return 'Clones d’ombre';
@@ -4523,7 +4544,8 @@ export class GameComponent {
       || this.actionMode === 'PASSAGE_SECRET'
       || this.actionMode === 'AVIDITE_NOCTURNE'
       || this.actionMode === 'EAU_BENITE'
-      || this.actionMode === 'CAISSE_ABANDONNEE'
+      || this.actionMode === 'CRATE_LAKE'
+      || this.actionMode === 'CRATE_MANOR'
     ) {
       // Filet : acteur = chasseur propriétaire
       return this.actionOwnerId === meId;
@@ -5410,6 +5432,16 @@ export class GameComponent {
     const act = g.currentAction;
     const meId = this.me?.id;
 
+    // Reset auto-close timers if action changed or disappeared
+    if (this.actionTimeoutId && (!act || act.mode !== this.actionMode)) {
+      clearTimeout(this.actionTimeoutId);
+      this.actionTimeoutId = null;
+    }
+    if (this.pitAutoCloseTimer && (!act || act.mode !== 'PIT')) {
+      clearTimeout(this.pitAutoCloseTimer);
+      this.pitAutoCloseTimer = null;
+    }
+
     // ------------------------------------------------------------------
     // PHASE4 : popups "info" (perso) -> 1 seule fois, uniquement acteur
     // et surtout : ne jamais ré-ouvrir sur les refresh (buyBonus, etc.)
@@ -5467,7 +5499,7 @@ export class GameComponent {
     }
 
     // --- Patch correctif pour timer (Image Miroir Setup / Caisse abandonnée) ---
-    if (act && (act.mode === 'IMAGE_MIROIR_SETUP' || act.mode === 'CAISSE_ABANDONNEE') && g.phase === 'PREPHASE3') {
+    if (act && (act.mode === 'IMAGE_MIROIR_SETUP' || act.mode === 'CRATE_LAKE' || act.mode === 'CRATE_MANOR') && g.phase === 'PREPHASE3') {
       // Si on doit choisir le lieu miroir ou roll la caisse, le timer DOIT être bloqué
       this.stopPrephaseTimer();
       this.prephase3AdvanceSent = false;
@@ -5495,7 +5527,8 @@ export class GameComponent {
       && act.mode !== 'AFFAIBLISSEMENT_OCCULTE'
       && act.mode !== 'PASSAGE_SECRET'
       && act.mode !== 'AVIDITE_NOCTURNE'
-      && act.mode !== 'CAISSE_ABANDONNEE'
+      && act.mode !== 'CRATE_LAKE'
+      && act.mode !== 'CRATE_MANOR'
       && act.mode !== 'EAU_BENITE')) {
 
       this.actionMode = null;
@@ -5879,7 +5912,7 @@ export class GameComponent {
 
       this.showActionModal = true;
 
-    } else if (this.actionMode === 'CAISSE_ABANDONNEE') {
+    } else if (this.actionMode === 'CRATE_LAKE' || this.actionMode === 'CRATE_MANOR') {
       this.showActionModal = true;
       if (act.resolvedAtMillis) {
         this.scheduleActionAutoClose();

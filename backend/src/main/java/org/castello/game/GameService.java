@@ -374,7 +374,8 @@ public class GameService {
                 || "CHARISMATIQUE".equals(a.getMode())
                 || "MARCHAND_ITINERANT".equals(a.getMode())
                 || "MARCHAND_BONUS_BUY".equals(a.getMode())
-                || "CAISSE_ABANDONNEE".equals(a.getMode())
+                || "CRATE_LAKE".equals(a.getMode())
+                || "CRATE_MANOR".equals(a.getMode())
                 || "PRESENCE_ECRASANTE".equals(a.getMode())
                 || "CATACLYSME".equals(a.getMode())
                 || "CLONES_OMBRE".equals(a.getMode())
@@ -1586,7 +1587,7 @@ public class GameService {
                         // "AMBUSH", "AMBUSH", "PROVOCATION", "PROVOCATION",
                         // "NET", "NET", "PIT", "PIT", "NET", "NET", "PIT", "PIT",
                         // "NET", "NET", "PIT", "PIT", "NET", "NET", "PIT", "PIT"
-                        "CAISSE_ABANDONNEE", "CAISSE_ABANDONNEE", "CAISSE_ABANDONNEE"));
+                        "CRATE_LAKE", "CRATE_MANOR", "CRATE_LAKE"));
             }
             if ("VAMPIRE".equals(p.getRole())) {
                 p.getActions().addAll(List.of(
@@ -2387,12 +2388,17 @@ public class GameService {
             if (p.isCrateUsedThisRaid())
                 continue;
             List<String> actions = p.getActions();
-            if (actions != null && actions.contains(Action.CAISSE_ABANDONNEE.name())) {
-                String loc = locationOf(g, p.getId());
-                if ("lake".equals(loc) || "manor".equals(loc)) {
-                    hasCrate = true;
-                    break;
-                }
+            if (actions == null)
+                continue;
+
+            String loc = locationOf(g, p.getId());
+            if (actions.contains(Action.CRATE_LAKE.name()) && "lake".equals(loc)) {
+                hasCrate = true;
+                break;
+            }
+            if (actions.contains(Action.CRATE_MANOR.name()) && "manor".equals(loc)) {
+                hasCrate = true;
+                break;
             }
         }
 
@@ -2411,7 +2417,8 @@ public class GameService {
                 || hasSacredRosary
                 || hasCrate
                 || hasSecretPassageOption
-                || pendingEscape;
+                || pendingEscape
+                || (cur != null && ("CRATE_LAKE".equals(cur.getMode()) || "CRATE_MANOR".equals(cur.getMode())));
 
         // Sémantique étendue : vrai combat OU au moins une carte de préphase
         // intéressante
@@ -2425,7 +2432,9 @@ public class GameService {
                         || hasSacredRosary
                         || hasCrate
                         || hasSecretPassageOption
-                        || pendingEscape);
+                        || pendingEscape
+                        || (cur != null
+                                && ("CRATE_LAKE".equals(cur.getMode()) || "CRATE_MANOR".equals(cur.getMode()))));
 
         // --- Initialisation de readyForPhase3 ---
         g.getReadyForPhase3().clear();
@@ -2494,16 +2503,19 @@ public class GameService {
                         hasPrephaseAction = true;
                     }
 
-                    // CAISSE_ABANDONNEE
+                    // CRATE_LAKE / CRATE_MANOR
                     if (!hasPrephaseAction) {
-                        if (!p.isCrateUsedThisRaid() && acts.contains(Action.CAISSE_ABANDONNEE.name())) {
+                        if (!p.isCrateUsedThisRaid()) {
                             String locC = locationOf(g, pid);
-                            if ("lake".equals(locC) || "manor".equals(locC)) {
+                            if (acts.contains(Action.CRATE_LAKE.name()) && "lake".equals(locC)) {
+                                hasPrephaseAction = true;
+                            } else if (acts.contains(Action.CRATE_MANOR.name()) && "manor".equals(locC)) {
                                 hasPrephaseAction = true;
                             }
                         }
                         // OU déjà en cours de résolution par ce joueur
-                        if (!hasPrephaseAction && cur != null && "CAISSE_ABANDONNEE".equals(cur.getMode())
+                        if (!hasPrephaseAction && cur != null
+                                && ("CRATE_LAKE".equals(cur.getMode()) || "CRATE_MANOR".equals(cur.getMode()))
                                 && pid.equals(cur.getOwnerId())) {
                             hasPrephaseAction = true;
                         }
@@ -2549,7 +2561,8 @@ public class GameService {
             // Si une caisse est en cours (mais pas encore résolue), on ne lance PAS le
             // timer
             // -> on attend que le joueur roll.
-            if (cur != null && "CAISSE_ABANDONNEE".equals(cur.getMode()) && cur.getResolvedAtMillis() == null) {
+            if (cur != null && ("CRATE_LAKE".equals(cur.getMode()) || "CRATE_MANOR".equals(cur.getMode()))
+                    && cur.getResolvedAtMillis() == null) {
                 return;
             }
 
@@ -6681,7 +6694,7 @@ public class GameService {
                 return g;
             }
 
-            case CAISSE_ABANDONNEE -> {
+            case CRATE_LAKE, CRATE_MANOR -> {
                 if (!isHunter) {
                     throw new ResponseStatusException(HttpStatus.FORBIDDEN, "chasseur uniquement");
                 }
@@ -6694,14 +6707,17 @@ public class GameService {
                 if (g.getPhase() != Phase.PREPHASE3) {
                     throw new ResponseStatusException(
                             HttpStatus.CONFLICT,
-                            "Caisse abandonnée est utilisable uniquement pendant la PREPHASE3.");
+                            type.name() + " est utilisable uniquement pendant la PREPHASE3.");
                 }
 
                 String loc = locationOf(g, playerId);
-
-                if (!"lake".equals(loc) && !"manor".equals(loc)) {
+                if (type == Action.CRATE_LAKE && !"lake".equals(loc)) {
                     throw new ResponseStatusException(HttpStatus.CONFLICT,
-                            "Cette action nécessite d'être au Lac ou au Manoir.");
+                            "Cette action nécessite d'être au Lac.");
+                }
+                if (type == Action.CRATE_MANOR && !"manor".equals(loc)) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Cette action nécessite d'être au Manoir.");
                 }
 
                 // Consommer la carte dans la main du chasseur
@@ -6710,7 +6726,7 @@ public class GameService {
 
                 // Créer l'action interactive pour le front
                 Game.Action action = new Game.Action();
-                action.setMode("CAISSE_ABANDONNEE");
+                action.setMode(type.name());
                 action.setOwnerId(playerId);
                 action.setLocation(loc);
                 g.setCurrentAction(action);
@@ -7527,7 +7543,8 @@ public class GameService {
                     "IMAGE_MIROIR_RESOLVE",
                     "PASSAGE_SECRET",
                     "VOILE_DE_BRUME",
-                    "CAISSE_ABANDONNEE",
+                    "CRATE_LAKE",
+                    "CRATE_MANOR",
                     "CATACLYSME" ->
                 true;
 
@@ -8995,7 +9012,8 @@ public class GameService {
         }
 
         Game.Action a = g.getCurrentAction();
-        if (a == null || !"CAISSE_ABANDONNEE".equals(a.getMode()) || !userId.equals(a.getOwnerId())) {
+        if (a == null || (!"CRATE_LAKE".equals(a.getMode()) && !"CRATE_MANOR".equals(a.getMode()))
+                || !userId.equals(a.getOwnerId())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Pas de caisse à ouvrir.");
         }
 
@@ -9034,7 +9052,7 @@ public class GameService {
         final int fRoll = d6;
         afterCommit(() -> {
             pushLive(g, resMsg);
-            live.actionRolled(g, "CAISSE_ABANDONNEE", userId, null, fRoll);
+            live.actionRolled(g, a.getMode(), userId, null, fRoll);
         });
 
         return g;
@@ -9044,15 +9062,22 @@ public class GameService {
     public Game resolveCrateAction(String gameId, String userId) {
         Game g = findOr404(gameId);
         Game.Action a = g.getCurrentAction();
-        if (a == null || !"CAISSE_ABANDONNEE".equals(a.getMode()) || !userId.equals(a.getOwnerId())) {
+        if (a == null || (!"CRATE_LAKE".equals(a.getMode()) && !"CRATE_MANOR".equals(a.getMode()))
+                || !userId.equals(a.getOwnerId())) {
             return g;
+        }
+
+        String oldMode = a.getMode();
+        Player p = findPlayer(g, userId);
+        if (p != null) {
+            p.setCrateUsedThisRaid(true);
         }
 
         g.setCurrentAction(null);
         setupUnstableAndPrephaseTimeout(g);
         save(g);
 
-        afterCommit(() -> live.actionResolved(g, "CAISSE_ABANDONNEE", userId, null));
+        afterCommit(() -> live.actionResolved(g, oldMode, userId, null));
 
         return g;
     }

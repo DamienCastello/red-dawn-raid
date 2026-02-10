@@ -375,8 +375,8 @@
                 </ng-template>
             </ng-container>
 
-            <!-- ========== CAISSE_ABANDONNEE ========== -->
-            <ng-container *ngIf="vm.mode === 'CAISSE_ABANDONNEE'">
+            <!-- ========== CRATE_LAKE / CRATE_MANOR ========== -->
+            <ng-container *ngIf="vm.mode === 'CRATE_LAKE' || vm.mode === 'CRATE_MANOR'">
                 <!-- Vue ACTEUR -->
                 <ng-container *ngIf="vm.isActor; else crateSpectate">
                     <ng-container *ngIf="vm.roll === null">
@@ -740,10 +740,11 @@
                   || vm.mode === 'CLONES_OMBRE'
                   || vm.mode === 'BLESSED_STAKE'
                   || vm.mode === 'MARCHAND_ITINERANT'
-                  || vm.mode === 'CAISSE_ABANDONNEE'" [attr.data-digits]="vm.roll?.toString()?.length || 1">
+                  || vm.mode === 'CRATE_LAKE'
+                  || vm.mode === 'CRATE_MANOR'" [attr.data-digits]="vm.roll?.toString()?.length || 1">
                     <img class="dice" [src]="helpers.diceAsset(
                   vm.mode === 'CLONES_OMBRE' || vm.mode === 'BLESSED_STAKE' ? 'D4'
-                  : vm.mode === 'MARCHAND_ITINERANT' || vm.mode === 'CAISSE_ABANDONNEE' ? 'D6'
+                  : vm.mode === 'MARCHAND_ITINERANT' || vm.mode === 'CRATE_LAKE' || vm.mode === 'CRATE_MANOR' ? 'D6'
                   : 'D20',
                   vm.diceColor
                 )" alt="dice" />
