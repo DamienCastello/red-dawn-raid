@@ -254,6 +254,8 @@ export class GameComponent {
     onAmbushChoose: (id) => this.onAmbushChoose(id),
     onBlessedStakeRoll: () => this.onBlessedStakeRoll(),
     onMerchantRoll: () => this.onMerchantRoll(),
+    onCrateRoll: () => this.onCrateRoll(),
+    onCrateResolve: () => this.onCrateResolve(),
     onConfirmBonus: (mode) => this.onConfirmBonus(mode),
     onCancelBonus: () => this.onCancelBonus(),
     onSelectWeather2: (ws) => this.onSelectWeather2(ws),
@@ -750,7 +752,7 @@ export class GameComponent {
   // --- Actions ---
   preparedGarlicForThisRaid = false;
   // NET ou PIT, ou null si pas de piège en cours
-  actionMode: 'NET' | 'PIT' | 'INCENDIAIRE' | 'PROVOCATION' | 'AMBUSH' | 'LONELY' | 'BLESSED_STAKE' | 'CHARISMATIQUE' | 'MARCHAND_ITINERANT' | 'MARCHAND_BONUS_BUY' | 'PRESENCE_ECRASANTE' | 'CATACLYSME' | 'CLONES_OMBRE' | 'IMAGE_MIROIR_SETUP' | 'IMAGE_MIROIR_RESOLVE' | 'ECLIPSE' | 'BLOOD_MOON' | 'VOILE_DE_BRUME' | 'FAIM_IRREPRESSIBLE' | 'MARQUE_TENEBREUSE' | 'AFFAIBLISSEMENT_OCCULTE' | 'PASSAGE_SECRET' | 'AVIDITE_NOCTURNE' | 'EAU_BENITE' | null = null;
+  actionMode: 'NET' | 'PIT' | 'INCENDIAIRE' | 'PROVOCATION' | 'AMBUSH' | 'LONELY' | 'BLESSED_STAKE' | 'CHARISMATIQUE' | 'MARCHAND_ITINERANT' | 'MARCHAND_BONUS_BUY' | 'PRESENCE_ECRASANTE' | 'CATACLYSME' | 'CLONES_OMBRE' | 'IMAGE_MIROIR_SETUP' | 'IMAGE_MIROIR_RESOLVE' | 'ECLIPSE' | 'BLOOD_MOON' | 'VOILE_DE_BRUME' | 'FAIM_IRREPRESSIBLE' | 'MARQUE_TENEBREUSE' | 'AFFAIBLISSEMENT_OCCULTE' | 'PASSAGE_SECRET' | 'AVIDITE_NOCTURNE' | 'EAU_BENITE' | 'CAISSE_ABANDONNEE' | null = null;
   actionOwnerId: string | null = null;
   actionLocation: string | null = null;
   trapEnemies: SPlayer[] = [];
@@ -1268,9 +1270,13 @@ export class GameComponent {
     }
 
     this.actionTimeoutId = setTimeout(() => {
-      this.showActionModal = false;
+      if (this.actionMode === 'CAISSE_ABANDONNEE') {
+        this.onCrateResolve();
+      } else {
+        this.showActionModal = false;
+        this.maybeAutoAdvanceToPhase3();
+      }
       this.actionTimeoutId = null;
-      this.maybeAutoAdvanceToPhase3();
     }, 5000);
   }
 
@@ -1328,7 +1334,7 @@ export class GameComponent {
     'EAU_BENITE', 'FUMIGATION_AIL', 'PISTEUR', 'FEU_DE_CAMP',
     'NET', 'PIT', 'PROVOCATION', 'INCENDIAIRE', 'AMBUSH',
     'LONELY', 'BLESSED_STAKE', 'SACRED_ROSARY', 'CHARISMATIQUE',
-    'MARCHAND_ITINERANT', 'MARCHAND_BONUS_BUY'
+    'MARCHAND_ITINERANT', 'MARCHAND_BONUS_BUY', 'CAISSE_ABANDONNEE'
   ];
   private readonly VAMP_CODES = [
     'CATACLYSME', 'CLONES_OMBRE', 'IMAGE_MIROIR', 'PRESENCE_ECRASANTE',
@@ -1383,6 +1389,7 @@ export class GameComponent {
       case 'MARCHAND_ITINERANT':
       case 'MARCHAND_BONUS_BUY':
         return 'marchand_itinerant.png';
+      case 'CAISSE_ABANDONNEE': return 'caisse_abandonnee.png';
 
       // --- VAMPIRE ---
       case 'AFFAIBLISSEMENT_OCCULTE': return 'affaiblissement_occulte.png';
@@ -2477,7 +2484,8 @@ export class GameComponent {
         'PIT',
         'PROVOCATION',
         'AMBUSH',
-        'LONELY'
+        'LONELY',
+        'CAISSE_ABANDONNEE'
       ];
 
       const isHunter = hunterActions.includes(code);
@@ -2528,7 +2536,7 @@ export class GameComponent {
     return fallback;
   }
 
-  actionBackgroundSrc(mode: 'EAU_BENITE' | 'NET' | 'PIT' | 'INCENDIAIRE' | 'PROVOCATION' | 'AMBUSH' | 'LONELY' | 'BLESSED_STAKE' | 'CHARISMATIQUE' | 'MARCHAND_ITINERANT' | 'MARCHAND_BONUS_BUY' | 'PRESENCE_ECRASANTE' | 'CATACLYSME' | 'CLONES_OMBRE' | 'IMAGE_MIROIR_SETUP' | 'IMAGE_MIROIR_RESOLVE' | 'ECLIPSE' | 'BLOOD_MOON' | 'VOILE_DE_BRUME' | 'FAIM_IRREPRESSIBLE' | 'MARQUE_TENEBREUSE' | 'AFFAIBLISSEMENT_OCCULTE' | 'PASSAGE_SECRET' | 'AVIDITE_NOCTURNE' | null): String {
+  actionBackgroundSrc(mode: 'EAU_BENITE' | 'NET' | 'PIT' | 'INCENDIAIRE' | 'PROVOCATION' | 'AMBUSH' | 'LONELY' | 'BLESSED_STAKE' | 'CHARISMATIQUE' | 'MARCHAND_ITINERANT' | 'MARCHAND_BONUS_BUY' | 'PRESENCE_ECRASANTE' | 'CATACLYSME' | 'CLONES_OMBRE' | 'IMAGE_MIROIR_SETUP' | 'IMAGE_MIROIR_RESOLVE' | 'ECLIPSE' | 'BLOOD_MOON' | 'VOILE_DE_BRUME' | 'FAIM_IRREPRESSIBLE' | 'MARQUE_TENEBREUSE' | 'AFFAIBLISSEMENT_OCCULTE' | 'PASSAGE_SECRET' | 'AVIDITE_NOCTURNE' | 'CAISSE_ABANDONNEE' | null): String {
     if (mode === 'NET') return 'url(/assets/actions/net.png)';
     if (mode === 'PIT') return 'url(/assets/actions/traphole.png)';
     if (mode === 'INCENDIAIRE') return 'url(/assets/actions/burn.png)';
@@ -2551,6 +2559,7 @@ export class GameComponent {
     if (mode === 'PASSAGE_SECRET') return 'url(/assets/actions/secret_passage.png';
     if (mode === 'AVIDITE_NOCTURNE') return 'url(/assets/actions/nocturnal_greed.png)';
     if (mode === 'EAU_BENITE') return 'url(/assets/actions/holy_water.png';
+    if (mode === 'CAISSE_ABANDONNEE') return 'url(/assets/actions/abandoned_crate.png)';
     return '';
   }
 
@@ -3169,7 +3178,8 @@ export class GameComponent {
                 || g.currentAction.mode === 'AFFAIBLISSEMENT_OCCULTE'
                 || g.currentAction.mode === 'PASSAGE_SECRET'
                 || g.currentAction.mode === 'AVIDITE_NOCTURNE'
-                || g.currentAction.mode === 'EAU_BENITE')) {
+                || g.currentAction.mode === 'EAU_BENITE'
+                || g.currentAction.mode === 'CAISSE_ABANDONNEE')) {
               this.syncActionFromSnapshot(g);
             }
             this.syncMerchantUiFromSnapshot(g);
@@ -3206,13 +3216,16 @@ export class GameComponent {
           error: e => this.showError(e)
         });
 
-        // 2) laisse le résultat affiché, puis enchaîne (comme BITE_ROLLED)
-        setTimeout(() => {
-          this.api.combatContinue(this.gameId).subscribe({
-            error: e => this.showError(e)
-          });
-        }, this.SPECTATE_HOLD_MS);
-
+        // 2) laisse le résultat affiché, puis enchaîne (uniquement si combat/trap)
+        const rolledMode = event.payload?.mode;
+        const isCombatAction = rolledMode === 'NET' || rolledMode === 'PIT' || rolledMode === 'BLESSED_STAKE';
+        if (isCombatAction) {
+          setTimeout(() => {
+            this.api.combatContinue(this.gameId).subscribe({
+              error: e => this.showError(e)
+            });
+          }, this.SPECTATE_HOLD_MS);
+        }
         break;
       }
 
@@ -4138,7 +4151,8 @@ export class GameComponent {
         || _action === 'SACRED_ROSARY'
         || _action === 'CHARISMATIQUE'
         || _action === 'MARCHAND_ITINERANT'
-        || _action === 'EAU_BENITE')) {
+        || _action === 'EAU_BENITE'
+        || _action === 'CAISSE_ABANDONNEE')) {
 
       const me = this.me;
       const vamp = g.players?.find(p => p.role === 'VAMPIRE') || null;
@@ -4257,6 +4271,14 @@ export class GameComponent {
         if (g.phase !== 'PREPHASE3' && g.phase !== 'PHASE1') return false;
         return this.canPlayHolyWaterkHere();
 
+      case 'CAISSE_ABANDONNEE':
+        if (g.phase !== 'PREPHASE3') return false;
+        if (me.role !== 'HUNTER') return false;
+        if (me.crateUsedThisRaid) return false;
+        // Caisse abandonnée peut être jouée si le chasseur est au Lac ou au Manoir
+        const myLoc = this.locationOf(me.id);
+        return myLoc === 'lake' || myLoc === 'manor';
+
       default:
         return false;
     }
@@ -4278,6 +4300,7 @@ export class GameComponent {
     const canLonely = acts.includes('LONELY') && this.canUseActionNow('LONELY');
     const canStake = acts.includes('BLESSED_STAKE') && this.canUseActionNow('BLESSED_STAKE');
     const canRosary = acts.includes('SACRED_ROSARY') && this.canUseActionNow('SACRED_ROSARY');
+    const canCrate = acts.includes('CAISSE_ABANDONNEE') && this.canUseActionNow('CAISSE_ABANDONNEE');
 
     return (
       canInc ||
@@ -4286,7 +4309,8 @@ export class GameComponent {
       canProv ||
       canAmbush ||
       canStake ||
-      canRosary
+      canRosary ||
+      canCrate
     );
   }
 
@@ -4339,6 +4363,7 @@ export class GameComponent {
       case 'CHARISMATIQUE': return 'Charismatique';
       case 'MARCHAND_ITINERANT':
       case 'MARCHAND_BONUS_BUY': return 'Marchand itinérant';
+      case 'CAISSE_ABANDONNEE': return 'Caisse abandonnée';
       case 'PRESENCE_ECRASANTE': return 'Présence écrasante';
       case 'CATACLYSME': return 'Cataclysme';
       case 'CLONES_OMBRE': return 'Clones d’ombre';
@@ -4498,6 +4523,7 @@ export class GameComponent {
       || this.actionMode === 'PASSAGE_SECRET'
       || this.actionMode === 'AVIDITE_NOCTURNE'
       || this.actionMode === 'EAU_BENITE'
+      || this.actionMode === 'CAISSE_ABANDONNEE'
     ) {
       // Filet : acteur = chasseur propriétaire
       return this.actionOwnerId === meId;
@@ -4721,7 +4747,40 @@ export class GameComponent {
         this.actionResolving = false;
         // la suite est gérée par syncActionFromSnapshot + combatContinue/ACTION_RESOLVED
       },
-      error: e => {
+      error: (e: any) => {
+        this.actionResolving = false;
+        this.showError(e);
+      }
+    });
+  }
+
+  onCrateRoll(): void {
+    if (!this.game) return;
+
+    this.actionResolving = true;
+    this.api.rollCrate(this.gameId).subscribe({
+      next: () => {
+        this.actionResolving = false;
+        this.bumpHistoryScroll();
+      },
+      error: (e: any) => {
+        this.actionResolving = false;
+        this.showError(e);
+      }
+    });
+  }
+
+  onCrateResolve(): void {
+    if (!this.game) return;
+    this.actionResolving = true;
+    this.api.resolveCrate(this.gameId).subscribe({
+      next: () => {
+        this.actionResolving = false;
+        this.showActionModal = false;
+        // Relance immédiate du timer local pour fluidité (le backend l'a déjà fait côté serveur)
+        this.startPrephaseTimer();
+      },
+      error: (e: any) => {
         this.actionResolving = false;
         this.showError(e);
       }
@@ -4737,7 +4796,7 @@ export class GameComponent {
         this.actionResolving = false;
         this.bumpHistoryScroll();
       },
-      error: e => {
+      error: (e: any) => {
         this.actionResolving = false;
         this.showError(e);
       }
@@ -5407,9 +5466,9 @@ export class GameComponent {
       return;
     }
 
-    // --- Patch correctif pour timer (Image Miroir Setup) ---
-    if (act && act.mode === 'IMAGE_MIROIR_SETUP' && g.phase === 'PREPHASE3') {
-      // Si on doit choisir le lieu miroir, le timer DOIT être bloqué
+    // --- Patch correctif pour timer (Image Miroir Setup / Caisse abandonnée) ---
+    if (act && (act.mode === 'IMAGE_MIROIR_SETUP' || act.mode === 'CAISSE_ABANDONNEE') && g.phase === 'PREPHASE3') {
+      // Si on doit choisir le lieu miroir ou roll la caisse, le timer DOIT être bloqué
       this.stopPrephaseTimer();
       this.prephase3AdvanceSent = false;
     }
@@ -5436,6 +5495,7 @@ export class GameComponent {
       && act.mode !== 'AFFAIBLISSEMENT_OCCULTE'
       && act.mode !== 'PASSAGE_SECRET'
       && act.mode !== 'AVIDITE_NOCTURNE'
+      && act.mode !== 'CAISSE_ABANDONNEE'
       && act.mode !== 'EAU_BENITE')) {
 
       this.actionMode = null;
@@ -5818,6 +5878,12 @@ export class GameComponent {
       || this.actionMode === 'AFFAIBLISSEMENT_OCCULTE') {
 
       this.showActionModal = true;
+
+    } else if (this.actionMode === 'CAISSE_ABANDONNEE') {
+      this.showActionModal = true;
+      if (act.resolvedAtMillis) {
+        this.scheduleActionAutoClose();
+      }
 
     } else {
       this.showActionModal = true;

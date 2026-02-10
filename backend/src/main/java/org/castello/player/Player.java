@@ -72,6 +72,7 @@ public class Player {
     private Long lastSeenTs; // epoch ms
 
     private boolean elixirUsedThisRaid = false;
+    private boolean crateUsedThisRaid = false;
 
     public Player() {
     }
@@ -353,5 +354,13 @@ public class Player {
 
     public void setElixirUsedThisRaid(boolean elixirUsedThisRaid) {
         this.elixirUsedThisRaid = elixirUsedThisRaid;
+    }
+
+    public boolean isCrateUsedThisRaid() {
+        return crateUsedThisRaid;
+    }
+
+    public void setCrateUsedThisRaid(boolean crateUsedThisRaid) {
+        this.crateUsedThisRaid = crateUsedThisRaid;
     }
 }

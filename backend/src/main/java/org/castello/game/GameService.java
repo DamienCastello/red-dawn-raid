@@ -177,7 +177,7 @@ public class GameService {
                 g.getThirdWeatherDescriptionFr());
 
         // Players
-        List<GameSnapshot.PlayerView> players = g.getPlayers().stream().map(p -> {
+        List<GameSnapshot.PlayerView> players = playersSrc.stream().map(p -> {
             List<String> hand = (p.getHand() != null ? p.getHand() : List.of());
             List<String> potions = (p.getPotions() != null ? p.getPotions() : List.of());
             List<String> elixirs = (p.getElixirs() != null ? p.getElixirs() : List.of());
@@ -233,7 +233,8 @@ public class GameService {
                     p.getShopBonusEquipId(),
                     p.getShopBonusEquipTier(),
                     p.isShopBonusBuyPending(),
-                    p.isElixirUsedThisRaid());
+                    p.isElixirUsedThisRaid(),
+                    p.isCrateUsedThisRaid());
         }).toList();
 
         // Center
@@ -373,6 +374,7 @@ public class GameService {
                 || "CHARISMATIQUE".equals(a.getMode())
                 || "MARCHAND_ITINERANT".equals(a.getMode())
                 || "MARCHAND_BONUS_BUY".equals(a.getMode())
+                || "CAISSE_ABANDONNEE".equals(a.getMode())
                 || "PRESENCE_ECRASANTE".equals(a.getMode())
                 || "CATACLYSME".equals(a.getMode())
                 || "CLONES_OMBRE".equals(a.getMode())
@@ -1577,27 +1579,27 @@ public class GameService {
          * 
          * }
          */
-        /*
-         * for (var p : g.getPlayers()) {
-         * if ("HUNTER".equals(p.getRole())) {
-         * p.getActions().addAll(List.of(
-         * // "AMBUSH", "AMBUSH", "PROVOCATION", "PROVOCATION",
-         * // "NET", "NET", "PIT", "PIT", "NET", "NET", "PIT", "PIT",
-         * // "NET", "NET", "PIT", "PIT", "NET", "NET", "PIT", "PIT"
-         * ));
-         * }
-         * if ("VAMPIRE".equals(p.getRole())) {
-         * p.getActions().addAll(List.of(
-         * // "VOILE_DE_BRUME", "VOILE_DE_BRUME", "VOILE_DE_BRUME",
-         * "FAIM_IRREPRESSIBLE", "FAIM_IRREPRESSIBLE",
-         * "FAIM_IRREPRESSIBLE", "MARQUE_TENEBREUSE",
-         * // "IMAGE_MIROIR", "IMAGE_MIROIR", "IMAGE_MIROIR",
-         * "CLONES_OMBRE", "CLONES_OMBRE", "CLONES_OMBRE"
-         * // "PASSAGE_SECRET", "PASSAGE_SECRET", "PASSAGE_SECRET"
-         * ));
-         * }
-         * }
-         */
+
+        for (var p : g.getPlayers()) {
+            if ("HUNTER".equals(p.getRole())) {
+                p.getActions().addAll(List.of(
+                        // "AMBUSH", "AMBUSH", "PROVOCATION", "PROVOCATION",
+                        // "NET", "NET", "PIT", "PIT", "NET", "NET", "PIT", "PIT",
+                        // "NET", "NET", "PIT", "PIT", "NET", "NET", "PIT", "PIT"
+                        "CAISSE_ABANDONNEE", "CAISSE_ABANDONNEE", "CAISSE_ABANDONNEE"));
+            }
+            if ("VAMPIRE".equals(p.getRole())) {
+                p.getActions().addAll(List.of(
+                // "VOILE_DE_BRUME", "VOILE_DE_BRUME", "VOILE_DE_BRUME",
+                // "FAIM_IRREPRESSIBLE", "FAIM_IRREPRESSIBLE",
+                // "FAIM_IRREPRESSIBLE", "MARQUE_TENEBREUSE",
+                // "IMAGE_MIROIR", "IMAGE_MIROIR", "IMAGE_MIROIR",
+                // "CLONES_OMBRE", "CLONES_OMBRE", "CLONES_OMBRE"
+                // "PASSAGE_SECRET", "PASSAGE_SECRET", "PASSAGE_SECRET"
+                ));
+            }
+        }
+
         /*
          * // --- Inventaire actions (dev/test) ---
          * for (var p : g.getPlayers()) {
@@ -2017,8 +2019,9 @@ public class GameService {
                     g.getActionCardsBoughtThisRaid().clear();
                 }
 
-                for (Player pl : g.getPlayers()) {
-                    pl.setElixirUsedThisRaid(false);
+                for (Player p : g.getPlayers()) {
+                    p.setElixirUsedThisRaid(false);
+                    p.setCrateUsedThisRaid(false);
                 }
 
                 g.setCurrentAction(null);
@@ -2376,7 +2379,24 @@ public class GameService {
             }
         }
 
-        // 8) Passage secret (vampire)
+        // 8) Caisse abandonnée (chasseurs)
+        boolean hasCrate = false;
+        for (Player p : g.getPlayers()) {
+            if (!"HUNTER".equals(p.getRole()))
+                continue;
+            if (p.isCrateUsedThisRaid())
+                continue;
+            List<String> actions = p.getActions();
+            if (actions != null && actions.contains(Action.CAISSE_ABANDONNEE.name())) {
+                String loc = locationOf(g, p.getId());
+                if ("lake".equals(loc) || "manor".equals(loc)) {
+                    hasCrate = true;
+                    break;
+                }
+            }
+        }
+
+        // 9) Passage secret (vampire)
         boolean hasSecretPassageOption = hasUsableSecretPassageOption(g);
         boolean pendingEscape = g.getPendingVampireEscape() != null;
 
@@ -2389,6 +2409,7 @@ public class GameService {
                 || hasHolyWaterOption
                 || hasBlessedStake
                 || hasSacredRosary
+                || hasCrate
                 || hasSecretPassageOption
                 || pendingEscape;
 
@@ -2402,6 +2423,7 @@ public class GameService {
                         || hasHolyWaterOption
                         || hasBlessedStake
                         || hasSacredRosary
+                        || hasCrate
                         || hasSecretPassageOption
                         || pendingEscape);
 
@@ -2471,6 +2493,21 @@ public class GameService {
                             && !p.isSacredRosary()) {
                         hasPrephaseAction = true;
                     }
+
+                    // CAISSE_ABANDONNEE
+                    if (!hasPrephaseAction) {
+                        if (!p.isCrateUsedThisRaid() && acts.contains(Action.CAISSE_ABANDONNEE.name())) {
+                            String locC = locationOf(g, pid);
+                            if ("lake".equals(locC) || "manor".equals(locC)) {
+                                hasPrephaseAction = true;
+                            }
+                        }
+                        // OU déjà en cours de résolution par ce joueur
+                        if (!hasPrephaseAction && cur != null && "CAISSE_ABANDONNEE".equals(cur.getMode())
+                                && pid.equals(cur.getOwnerId())) {
+                            hasPrephaseAction = true;
+                        }
+                    }
                 }
 
                 // --- Côté VAMPIRE ---
@@ -2509,6 +2546,13 @@ public class GameService {
 
         // --- Timer comme avant ---
         if (hasPrephaseActivity) {
+            // Si une caisse est en cours (mais pas encore résolue), on ne lance PAS le
+            // timer
+            // -> on attend que le joueur roll.
+            if (cur != null && "CAISSE_ABANDONNEE".equals(cur.getMode()) && cur.getResolvedAtMillis() == null) {
+                return;
+            }
+
             int newVersion = g.getPrephaseTimerVersion() + 1;
             g.setPrephaseTimerVersion(newVersion);
             schedulePrephaseTimeout(g.getId(), 30_000, newVersion);
@@ -5944,7 +5988,8 @@ public class GameService {
                 }
 
                 if (g.getPhase() != Phase.PREPHASE3) {
-                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
                             "Cette action est utilisable juste avant les combats (PREPHASE3).");
                 }
 
@@ -6622,6 +6667,60 @@ public class GameService {
                 a.setResolvedAtMillis(System.currentTimeMillis());
                 g.setCurrentAction(a);
 
+                save(g);
+
+                final String fFeed = feedText;
+                final String fUserId = playerId;
+                final String fType = type.name();
+
+                afterCommit(() -> {
+                    pushLive(g, fFeed);
+                    live.actionUsed(g, fUserId, fType);
+                });
+
+                return g;
+            }
+
+            case CAISSE_ABANDONNEE -> {
+                if (!isHunter) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "chasseur uniquement");
+                }
+
+                if (p.isCrateUsedThisRaid()) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Vous avez déjà utilisé une caisse ce raid.");
+                }
+
+                if (g.getPhase() != Phase.PREPHASE3) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Caisse abandonnée est utilisable uniquement pendant la PREPHASE3.");
+                }
+
+                String loc = locationOf(g, playerId);
+
+                if (!"lake".equals(loc) && !"manor".equals(loc)) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Cette action nécessite d'être au Lac ou au Manoir.");
+                }
+
+                // Consommer la carte dans la main du chasseur
+                inv.remove(type.name());
+                discardHunterAction(g, type.name());
+
+                // Créer l'action interactive pour le front
+                Game.Action action = new Game.Action();
+                action.setMode("CAISSE_ABANDONNEE");
+                action.setOwnerId(playerId);
+                action.setLocation(loc);
+                g.setCurrentAction(action);
+                p.setCrateUsedThisRaid(true);
+
+                String msg = nameOf(g, playerId) + " découvre une caisse abandonnée au " + labelLieuFr(loc) + ".";
+                addHistory(g, msg);
+                feedText = msg;
+
+                setupUnstableAndPrephaseTimeout(g);
                 save(g);
 
                 final String fFeed = feedText;
@@ -7428,6 +7527,7 @@ public class GameService {
                     "IMAGE_MIROIR_RESOLVE",
                     "PASSAGE_SECRET",
                     "VOILE_DE_BRUME",
+                    "CAISSE_ABANDONNEE",
                     "CATACLYSME" ->
                 true;
 
@@ -8880,6 +8980,79 @@ public class GameService {
             // juste pour forcer les clients à refresh le snapshot (sans modale spectateur)
             live.actionResolved(g, "MARCHAND_ITINERANT", userId, null);
         });
+
+        return g;
+    }
+
+    @Transactional
+    public Game rollCrate(String gameId, String userId) {
+        Game g = findOr404(gameId);
+        Player p = findPlayer(g, userId);
+        if (p == null)
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
+        if (!isAlive(p)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Tu es hors de combat.");
+        }
+
+        Game.Action a = g.getCurrentAction();
+        if (a == null || !"CAISSE_ABANDONNEE".equals(a.getMode()) || !userId.equals(a.getOwnerId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Pas de caisse à ouvrir.");
+        }
+
+        if (a.getRoll() != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Caisse déjà ouverte.");
+        }
+
+        int d6 = 1 + RND.nextInt(6);
+        a.setRoll(d6);
+
+        java.util.List<String> breakdown = new java.util.ArrayList<>();
+        String resMsg;
+        if (d6 <= 2) {
+            grant(p, "wood", 2);
+            breakdown.add("Jet : " + d6 + " (1-2) → +2 bois.");
+            resMsg = nameOf(g, userId) + " trouve 2 bois dans la caisse (1d6 = " + d6 + ").";
+        } else if (d6 <= 4) {
+            grant(p, "iron", 2);
+            breakdown.add("Jet : " + d6 + " (3-4) → +2 fer.");
+            resMsg = nameOf(g, userId) + " trouve 2 fer dans la caisse (1d6 = " + d6 + ").";
+        } else {
+            grant(p, "wood", 2);
+            grant(p, "iron", 2);
+            breakdown.add("Jet : " + d6 + " (5-6) → +2 bois et +2 fer.");
+            resMsg = nameOf(g, userId) + " trouve 2 bois et 2 fer dans la caisse (1d6 = " + d6 + ").";
+        }
+
+        a.setBreakdownLines(breakdown);
+        a.setResolvedAtMillis(System.currentTimeMillis());
+
+        addHistory(g, resMsg);
+        setupUnstableAndPrephaseTimeout(g);
+
+        save(g);
+
+        final int fRoll = d6;
+        afterCommit(() -> {
+            pushLive(g, resMsg);
+            live.actionRolled(g, "CAISSE_ABANDONNEE", userId, null, fRoll);
+        });
+
+        return g;
+    }
+
+    @Transactional
+    public Game resolveCrateAction(String gameId, String userId) {
+        Game g = findOr404(gameId);
+        Game.Action a = g.getCurrentAction();
+        if (a == null || !"CAISSE_ABANDONNEE".equals(a.getMode()) || !userId.equals(a.getOwnerId())) {
+            return g;
+        }
+
+        g.setCurrentAction(null);
+        setupUnstableAndPrephaseTimeout(g);
+        save(g);
+
+        afterCommit(() -> live.actionResolved(g, "CAISSE_ABANDONNEE", userId, null));
 
         return g;
     }

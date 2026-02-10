@@ -375,6 +375,35 @@
                 </ng-template>
             </ng-container>
 
+            <!-- ========== CAISSE_ABANDONNEE ========== -->
+            <ng-container *ngIf="vm.mode === 'CAISSE_ABANDONNEE'">
+                <!-- Vue ACTEUR -->
+                <ng-container *ngIf="vm.isActor; else crateSpectate">
+                    <ng-container *ngIf="vm.roll === null">
+                        <p class="breakdown">
+                            Vous avez trouvé une caisse abandonnée ! Ouvrez-la pour découvrir son contenu.
+                        </p>
+
+                        <button type="button" (click)="actions.onCrateRoll()"
+                            [disabled]="vm.resolving || vm.roll !== null">
+                            Ouvrir la caisse
+                        </button>
+                    </ng-container>
+
+                    <ng-container *ngIf="vm.roll !== null">
+                    </ng-container>
+                </ng-container>
+
+                <!-- Vue SPECTATEUR -->
+                <ng-template #crateSpectate>
+                    <ng-container *ngIf="vm.roll === null">
+                        <p class="breakdown">
+                            Le chasseur examine une caisse abandonnée...
+                        </p>
+                    </ng-container>
+                </ng-template>
+            </ng-container>
+
             <!-- ========== CATACLYSME ========== -->
             <ng-container *ngIf="vm.mode === 'CATACLYSME'">
                 <!-- Vue ACTEUR -->
@@ -710,10 +739,11 @@
                   || vm.mode === 'NET' 
                   || vm.mode === 'CLONES_OMBRE'
                   || vm.mode === 'BLESSED_STAKE'
-                  || vm.mode === 'MARCHAND_ITINERANT'" [attr.data-digits]="vm.roll?.toString()?.length || 1">
+                  || vm.mode === 'MARCHAND_ITINERANT'
+                  || vm.mode === 'CAISSE_ABANDONNEE'" [attr.data-digits]="vm.roll?.toString()?.length || 1">
                     <img class="dice" [src]="helpers.diceAsset(
                   vm.mode === 'CLONES_OMBRE' || vm.mode === 'BLESSED_STAKE' ? 'D4'
-                  : vm.mode === 'MARCHAND_ITINERANT' ? 'D6'
+                  : vm.mode === 'MARCHAND_ITINERANT' || vm.mode === 'CAISSE_ABANDONNEE' ? 'D6'
                   : 'D20',
                   vm.diceColor
                 )" alt="dice" />

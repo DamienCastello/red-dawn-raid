@@ -42,7 +42,7 @@ export type GameSnapshot = {
   fogAffectedLocation?: string | null;
 
   currentAction?: {
-    mode: 'EAU_BENITE' | 'NET' | 'PIT' | 'PROVOCATION' | 'INCENDIAIRE' | 'AMBUSH' | 'LONELY' | 'BLESSED_STAKE' | 'CHARISMATIQUE' | 'MARCHAND_ITINERANT' | 'MARCHAND_BONUS_BUY' | 'PRESENCE_ECRASANTE' | 'CATACLYSME' | 'CLONES_OMBRE' | 'IMAGE_MIROIR_SETUP' | 'IMAGE_MIROIR_RESOLVE' | 'ECLIPSE' | 'BLOOD_MOON' | 'VOILE_DE_BRUME' | 'FAIM_IRREPRESSIBLE' | 'AFFAIBLISSEMENT_OCCULTE' | 'MARQUE_TENEBREUSE' | 'PASSAGE_SECRET' | 'AVIDITE_NOCTURNE';
+    mode: 'EAU_BENITE' | 'NET' | 'PIT' | 'PROVOCATION' | 'INCENDIAIRE' | 'AMBUSH' | 'LONELY' | 'BLESSED_STAKE' | 'CHARISMATIQUE' | 'MARCHAND_ITINERANT' | 'MARCHAND_BONUS_BUY' | 'PRESENCE_ECRASANTE' | 'CATACLYSME' | 'CLONES_OMBRE' | 'IMAGE_MIROIR_SETUP' | 'IMAGE_MIROIR_RESOLVE' | 'ECLIPSE' | 'BLOOD_MOON' | 'VOILE_DE_BRUME' | 'FAIM_IRREPRESSIBLE' | 'AFFAIBLISSEMENT_OCCULTE' | 'MARQUE_TENEBREUSE' | 'PASSAGE_SECRET' | 'AVIDITE_NOCTURNE' | 'CAISSE_ABANDONNEE';
     ownerId: string;
     location: string;
     targetId: string | null;
@@ -162,6 +162,7 @@ export type Player = {
   shopBonusEquipId?: string;
   shopBonusEquipTier?: number;
   shopBonusBuyPending?: boolean;
+  crateUsedThisRaid: boolean;
 };
 
 type Monster = {
@@ -372,6 +373,20 @@ export class ApiService {
   rollMerchant(gameId: string) {
     return this.http.post<void>(
       `${this.base}/games/${gameId}/actions/merchant/roll`,
+      {}
+    );
+  }
+
+  rollCrate(gameId: string) {
+    return this.http.post<void>(
+      `${this.base}/games/${gameId}/actions/crate/roll`,
+      {}
+    );
+  }
+
+  resolveCrate(gameId: string) {
+    return this.http.post<void>(
+      `${this.base}/games/${gameId}/actions/crate/resolve`,
       {}
     );
   }

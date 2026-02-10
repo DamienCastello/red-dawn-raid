@@ -313,6 +313,26 @@ public class GameController {
         return games.rollMerchantItinerant(id, user.getId());
     }
 
+    @PostMapping("/{id}/actions/crate/roll")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public Game rollCrate(
+            @PathVariable String id,
+            @RequestHeader("Authorization") String authorization) {
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+        return games.rollCrate(id, user.getId());
+    }
+
+    @PostMapping("/{id}/actions/crate/resolve")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public Game resolveCrate(
+            @PathVariable String id,
+            @RequestHeader("Authorization") String authorization) {
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+        return games.resolveCrateAction(id, user.getId());
+    }
+
     @PostMapping("/{id}/shop/start-bonus")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public Game startBonus(

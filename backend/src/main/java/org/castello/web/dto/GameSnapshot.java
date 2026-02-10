@@ -113,7 +113,8 @@ public record GameSnapshot(
                         String shopBonusEquipId,
                         Integer shopBonusEquipTier,
                         boolean shopBonusBuyPending,
-                        boolean elixirUsedThisRaid) {
+                        boolean elixirUsedThisRaid,
+                        boolean crateUsedThisRaid) {
         }
 
         public record DecksView(Pile actionsVamp, Pile actionsHunters, Pile potions, Pile elixirs) {
