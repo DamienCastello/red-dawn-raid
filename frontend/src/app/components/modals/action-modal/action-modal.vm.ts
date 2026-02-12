@@ -4,7 +4,7 @@ export type SPlayer = GameSnapshot['players'][number];
 
 export interface ActionModalVm {
     show: boolean;
-    mode: 'NET' | 'PIT' | 'INCENDIAIRE' | 'PROVOCATION' | 'AMBUSH' | 'LONELY' | 'BLESSED_STAKE' | 'CHARISMATIQUE' | 'MARCHAND_ITINERANT' | 'MARCHAND_BONUS_BUY' | 'PRESENCE_ECRASANTE' | 'CATACLYSME' | 'CLONES_OMBRE' | 'IMAGE_MIROIR_SETUP' | 'IMAGE_MIROIR_RESOLVE' | 'ECLIPSE' | 'BLOOD_MOON' | 'VOILE_DE_BRUME' | 'FAIM_IRREPRESSIBLE' | 'MARQUE_TENEBREUSE' | 'AFFAIBLISSEMENT_OCCULTE' | 'PASSAGE_SECRET' | 'AVIDITE_NOCTURNE' | 'EAU_BENITE' | 'CRATE_LAKE' | 'CRATE_MANOR' | null;
+    mode: 'NET' | 'PIT' | 'INCENDIAIRE' | 'PROVOCATION' | 'AMBUSH' | 'LONELY' | 'BLESSED_STAKE' | 'CHARISMATIQUE' | 'MARCHAND_ITINERANT' | 'MARCHAND_BONUS_BUY' | 'ADVANCED_TRANSMUTATION' | 'ADVANCED_TRANSMUTATION_BUY' | 'PRESENCE_ECRASANTE' | 'CATACLYSME' | 'CLONES_OMBRE' | 'IMAGE_MIROIR_SETUP' | 'IMAGE_MIROIR_RESOLVE' | 'ECLIPSE' | 'BLOOD_MOON' | 'VOILE_DE_BRUME' | 'FAIM_IRREPRESSIBLE' | 'MARQUE_TENEBREUSE' | 'AFFAIBLISSEMENT_OCCULTE' | 'PASSAGE_SECRET' | 'AVIDITE_NOCTURNE' | 'EAU_BENITE' | 'CRATE_LAKE' | 'CRATE_MANOR' | null;
     ownerId: string | null;
     location: string | null;
     trapEnemies: SPlayer[];
@@ -52,9 +52,11 @@ export interface ActionModalActions {
     onAmbushChoose: (id: string) => void;
     onBlessedStakeRoll: () => void;
     onMerchantRoll: () => void;
+    onAdvancedTransmutationRoll: () => void;
     onCrateRoll: () => void;
     onCrateResolve: () => void;
     onConfirmBonus: (mode: any) => void;
+    onConfirmVampireBonus: (mode: any) => void;
     onCancelBonus: () => void;
     onSelectWeather2: (ws: any) => void;
     onSelectWeather3: (ws: any) => void;
@@ -85,6 +87,12 @@ export interface ActionModalHelpers {
     merchantBuyText: () => string;
     canPayBonusWithResource: () => boolean;
     canPayBonusWithGold: () => boolean;
+    vampireBonusResultText: () => string;
+    vampireBonusBuyText: () => string;
+    canPayVampireBonusWithResource: () => boolean;
+    canPayVampireBonusWithSouls: () => boolean;
+    bonusResourceCostVampire: () => string;
+    bonusSoulsCost: () => string;
     labelWeather: (ws: any) => string;
     diceAsset: (type: any, color: any) => string;
     canConfirmClones: () => boolean;

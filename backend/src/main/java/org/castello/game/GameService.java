@@ -389,6 +389,7 @@ public class GameService {
                 || "AFFAIBLISSEMENT_OCCULTE".equals(a.getMode())
                 || "PASSAGE_SECRET".equals(a.getMode())
                 || "AVIDITE_NOCTURNE".equals(a.getMode())
+                || "ADVANCED_TRANSMUTATION".equals(a.getMode())
                 || "EAU_BENITE".equals(a.getMode()))) {
             action = new GameSnapshot.ActionView(
                     a.getMode(),
@@ -1546,16 +1547,20 @@ public class GameService {
                 if (huntersCount < 3) {
                     p.setHerbs(10);
                     p.setWater(10);
+                    p.setWood(5);
+                    p.setIron(5);
                 } else if (huntersCount > 4) {
                     p.setHerbs(20);
                     p.setWater(20);
+                    p.setWood(15);
+                    p.setIron(15);
                 } else {
                     p.setHerbs(15);
                     p.setWater(15);
+                    p.setWood(10);
+                    p.setIron(10);
                 }
                 p.setStone(10);
-                p.setWood(10);
-                p.setIron(10);
             }
             if ("HUNTER".equals(p.getRole())) {
                 p.setGold(150);
@@ -1587,10 +1592,12 @@ public class GameService {
                         // "AMBUSH", "AMBUSH", "PROVOCATION", "PROVOCATION",
                         // "NET", "NET", "PIT", "PIT", "NET", "NET", "PIT", "PIT",
                         // "NET", "NET", "PIT", "PIT", "NET", "NET", "PIT", "PIT"
-                        "CRATE_LAKE", "CRATE_MANOR", "CRATE_LAKE"));
+                        "MARCHAND_ITINERANT", "MARCHAND_ITINERANT"));
             }
             if ("VAMPIRE".equals(p.getRole())) {
                 p.getActions().addAll(List.of(
+                        "ADVANCED_TRANSMUTATION", "ADVANCED_TRANSMUTATION", "ADVANCED_TRANSMUTATION",
+                        "ADVANCED_TRANSMUTATION"
                 // "VOILE_DE_BRUME", "VOILE_DE_BRUME", "VOILE_DE_BRUME",
                 // "FAIM_IRREPRESSIBLE", "FAIM_IRREPRESSIBLE",
                 // "FAIM_IRREPRESSIBLE", "MARQUE_TENEBREUSE",
@@ -1988,7 +1995,9 @@ public class GameService {
                 // Sécurité : si une currentAction marchand traîne encore
                 var a = g.getCurrentAction();
                 if (a != null
-                        && ("MARCHAND_ITINERANT".equals(a.getMode()) || "MARCHAND_BONUS_BUY".equals(a.getMode()))) {
+                        && ("MARCHAND_ITINERANT".equals(a.getMode()) || "MARCHAND_BONUS_BUY".equals(a.getMode()) ||
+                                "ADVANCED_TRANSMUTATION".equals(a.getMode()) ||
+                                "ADVANCED_TRANSMUTATION_BUY".equals(a.getMode()))) {
                     g.setCurrentAction(null);
                 }
 
@@ -6802,6 +6811,55 @@ public class GameService {
                 return g;
             }
 
+            case ADVANCED_TRANSMUTATION -> {
+                if (!"VAMPIRE".equals(p.getRole())) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "vampire uniquement");
+                }
+
+                if (g.getPhase() != Phase.PHASE4) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Transmutation avancée est utilisable uniquement pendant la maintenance (PHASE4).");
+                }
+
+                // Si le joueur a déjà une offre / un jet / une modale achat ouverte -> refuse
+                if (p.isMerchantPending()
+                        || p.getShopBonusKind() != null
+                        || p.isShopBonusBuyPending()
+                        || p.getMerchantRoll() != null) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "tu as déjà une offre de transmutation en cours.");
+                }
+
+                // Consommer la carte dans la main du vampire
+                inv.remove(type.name());
+
+                // init état transmutation perso
+                p.setMerchantPending(true);
+                p.setMerchantRoll(null);
+                p.setShopBonusKind(null);
+                p.setShopBonusEquipId(null);
+                p.setShopBonusEquipTier(null);
+                p.setShopBonusBuyPending(false);
+
+                String msg = nameOf(g, playerId) + " active la Transmutation avancée dans l'antre.";
+                addHistory(g, msg);
+                feedText = msg;
+
+                save(g);
+
+                final String fFeed = feedText;
+                final String fUserId = playerId;
+                final String fType = type.name();
+
+                afterCommit(() -> {
+                    pushLive(g, fFeed);
+                    live.actionUsed(g, fUserId, fType);
+                });
+
+                return g;
+            }
+
             case CATACLYSME -> {
                 if (!isVamp) {
                     throw new ResponseStatusException(HttpStatus.FORBIDDEN, "vampire uniquement");
@@ -9002,6 +9060,115 @@ public class GameService {
     }
 
     @Transactional
+    public Game rollAdvancedTransmutation(String gameId, String userId) {
+        Game g = findOr404(gameId);
+
+        if (g.getPhase() != Phase.PHASE4) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE4");
+        }
+
+        Player p = findPlayer(g, userId);
+        if (p == null)
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
+        if (!isAlive(p)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Tu es hors de combat pour le reste de la partie.");
+        }
+        if (!"VAMPIRE".equals(p.getRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "vampires only");
+        }
+
+        // le jet n'existe que si le joueur a déclenché la carte
+        if (!p.isMerchantPending()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "no transmutation roll pending");
+        }
+        if (p.getMerchantRoll() != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "transmutation already rolled");
+        }
+
+        int d6 = 1 + RND.nextInt(6);
+        p.setMerchantRoll(d6);
+        p.setMerchantPending(false); // plus en attente
+        p.setShopBonusBuyPending(false); // reset sécurité
+
+        // reset offer
+        p.setShopBonusKind(null);
+        p.setShopBonusEquipId(null);
+        p.setShopBonusEquipTier(null);
+
+        String kind;
+        String line;
+
+        if (d6 >= 1 && d6 <= 3) {
+            // 1-3: élixir aléatoire
+            kind = "ELIXIR";
+            line = "Transmutation avancée — un élixir est disponible dans l'antre pour " + nameOf(g, userId) + ".";
+        } else {
+            // 4-6 : équipement perso (vampire)
+            int wTier = vampireWeaponTier(p.getWeapon());
+            int aTier = vampireArmorTier(p.getArmor());
+
+            Integer wOffer = (wTier < 2) ? Math.min(2, wTier + 1) : null;
+            Integer aOffer = (aTier < 2) ? Math.min(2, aTier + 1) : null;
+
+            // Règle : si T0/T1 => on propose celui qui est le plus bas, sinon 50/50
+            boolean preferWeapon;
+            if (wTier < aTier)
+                preferWeapon = true;
+            else if (aTier < wTier)
+                preferWeapon = false;
+            else
+                preferWeapon = RND.nextBoolean();
+
+            boolean weapon;
+            Integer tier;
+
+            if (preferWeapon && wOffer != null) {
+                weapon = true;
+                tier = wOffer;
+            } else if (!preferWeapon && aOffer != null) {
+                weapon = false;
+                tier = aOffer;
+            } else if (wOffer != null) {
+                weapon = true;
+                tier = wOffer;
+            } else if (aOffer != null) {
+                weapon = false;
+                tier = aOffer;
+            } else {
+                // déjà T2 partout => pas d'équipement (jamais T3) => fallback
+                kind = "ELIXIR";
+                p.setShopBonusKind(kind);
+                addHistory(g, "Transmutation avancée — " + nameOf(g, userId)
+                        + " est déjà équipé au maximum (T2). Offre remplacée par un élixir.");
+                save(g);
+                afterCommit(() -> live.actionResolved(g, "ADVANCED_TRANSMUTATION", userId, null));
+                return g;
+            }
+
+            kind = weapon ? "EQUIP_WEAPON" : "EQUIP_ARMOR";
+
+            String equipId = weapon ? vampireWeaponIdForTier(tier) : vampireArmorIdForTier(tier);
+
+            p.setShopBonusEquipTier(tier); // sert au prix
+            p.setShopBonusEquipId(equipId); // offre stable
+            line = "Transmutation avancée — " + (weapon ? "une arme" : "une armure")
+                    + " T" + tier + " est disponible dans l'antre pour " + nameOf(g, userId) + ".";
+        }
+
+        p.setShopBonusKind(kind);
+        addHistory(g, line);
+
+        save(g);
+
+        afterCommit(() -> {
+            // juste pour forcer les clients à refresh le snapshot (sans modale spectateur)
+            live.actionResolved(g, "ADVANCED_TRANSMUTATION", userId, null);
+        });
+
+        return g;
+    }
+
+    @Transactional
     public Game rollCrate(String gameId, String userId) {
         Game g = findOr404(gameId);
         Player p = findPlayer(g, userId);
@@ -9140,6 +9307,51 @@ public class GameService {
         };
     }
 
+    // === Vampire Equipment Helpers ===
+    private int vampireWeaponTier(String weaponId) {
+        if (weaponId == null)
+            return 0;
+        if (weaponId.startsWith("V_WEAPON_T1_"))
+            return 1;
+        if (weaponId.startsWith("V_WEAPON_T2_"))
+            return 2;
+        if (weaponId.startsWith("V_WEAPON_T3_"))
+            return 3;
+        return 0;
+    }
+
+    private int vampireArmorTier(String armorId) {
+        if (armorId == null)
+            return 0;
+        if (armorId.startsWith("V_ARMOR_T1_"))
+            return 1;
+        if (armorId.startsWith("V_ARMOR_T2_"))
+            return 2;
+        if (armorId.startsWith("V_ARMOR_T3_"))
+            return 3;
+        return 0;
+    }
+
+    private String vampireWeaponIdForTier(int tier) {
+        // sécurité: clamp 1..2 (never offer T3)
+        tier = Math.max(1, Math.min(2, tier));
+        return switch (tier) {
+            case 1 -> V_WEAPON_T1_SCYTHE;
+            case 2 -> V_WEAPON_T2_SWORD;
+            default -> V_WEAPON_T1_SCYTHE;
+        };
+    }
+
+    private String vampireArmorIdForTier(int tier) {
+        // sécurité: clamp 1..2 (never offer T3)
+        tier = Math.max(1, Math.min(2, tier));
+        return switch (tier) {
+            case 1 -> V_ARMOR_T1_CARAPACE;
+            case 2 -> V_ARMOR_T2_HAUBERT;
+            default -> V_ARMOR_T1_CARAPACE;
+        };
+    }
+
     @Transactional
     public Game startShopBonusPurchase(String gameId, String userId) {
         Game g = findOr404(gameId);
@@ -9152,8 +9364,8 @@ public class GameService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
         if (!isAlive(p))
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Tu es hors de combat pour le reste de la partie.");
-        if (!"HUNTER".equals(p.getRole()))
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "hunters only");
+        if (!"HUNTER".equals(p.getRole()) && !"VAMPIRE".equals(p.getRole()))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "hunters and vampires only");
 
         String kind = p.getShopBonusKind();
         if (kind == null)
@@ -9166,7 +9378,8 @@ public class GameService {
 
         afterCommit(() -> {
             // refresh clients (ne déclenche pas de modale chez les autres)
-            live.actionStarted(g, "MARCHAND_BONUS_BUY", userId, null, null);
+            String mode = "VAMPIRE".equals(p.getRole()) ? "ADVANCED_TRANSMUTATION_BUY" : "MARCHAND_BONUS_BUY";
+            live.actionStarted(g, mode, userId, null, null);
         });
 
         return g;
@@ -9184,11 +9397,21 @@ public class GameService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
         if (!isAlive(p))
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Tu es hors de combat pour le reste de la partie.");
-        if (!"HUNTER".equals(p.getRole()))
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "hunters only");
+        boolean isHunter = "HUNTER".equals(p.getRole());
+        boolean isVampire = "VAMPIRE".equals(p.getRole());
 
-        if (payment == null || (!"RESOURCE".equals(payment) && !"GOLD".equals(payment))) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "invalid payment mode");
+        if (!isHunter && !isVampire)
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "hunters and vampires only");
+
+        // Validate payment mode based on role
+        if (payment == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "payment mode required");
+        }
+        if (isHunter && !"RESOURCE".equals(payment) && !"GOLD".equals(payment)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "hunters can pay with RESOURCE or GOLD");
+        }
+        if (isVampire && !"RESOURCE".equals(payment) && !"SOULS".equals(payment)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "vampires can pay with RESOURCE or SOULS");
         }
 
         String kind = p.getShopBonusKind();
@@ -9247,11 +9470,16 @@ public class GameService {
                         throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
                     p.setWater(p.getWater() - waterCost);
                     p.setHerbs(p.getHerbs() - herbsCost);
-                } else {
+                } else if ("GOLD".equals(payment)) {
                     int cost = goldCost.applyAsInt(60);
                     if (p.getGold() < cost)
                         throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
                     p.setGold(p.getGold() - cost);
+                } else if ("SOULS".equals(payment)) {
+                    final int soulsCost = 50;
+                    if (p.getSouls() < soulsCost)
+                        throw new ResponseStatusException(HttpStatus.CONFLICT, "missing souls");
+                    p.setSouls(p.getSouls() - soulsCost);
                 }
 
                 String elixirId = drawFromDeck(g.getElixirDeck(), g.getElixirDiscard());
@@ -9263,8 +9491,11 @@ public class GameService {
                     p.setElixirs(new java.util.ArrayList<>());
                 p.getElixirs().add(elixirId);
 
-                message = nameOf(g, userId) + " achète un élixir (" + elixirId + ") via le marchand itinérant ("
-                        + ("RESOURCE".equals(payment) ? "ressources" : "or") + ").";
+                String source = isVampire ? "transmutation avancée" : "le marchand itinérant";
+                String paymentLabel = "RESOURCE".equals(payment) ? "ressources"
+                        : ("GOLD".equals(payment) ? "or" : "âmes déchues");
+                message = nameOf(g, userId) + " achète un élixir (" + elixirId + ") via " + source + " (" + paymentLabel
+                        + ").";
                 addHistory(g, message);
             }
 
@@ -9278,20 +9509,25 @@ public class GameService {
                 int woodCost = (t == 2) ? 2 : 1;
                 int ironCost = (t == 2) ? 2 : 1;
                 int baseGold = (t == 2) ? 150 : 100;
+                int soulsCost = (t == 2) ? 150 : 100;
 
                 if ("RESOURCE".equals(payment)) {
                     if (p.getWood() < woodCost || p.getIron() < ironCost)
                         throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
                     p.setWood(p.getWood() - woodCost);
                     p.setIron(p.getIron() - ironCost);
-                } else {
+                } else if ("GOLD".equals(payment)) {
                     int cost = goldCost.applyAsInt(baseGold);
                     if (p.getGold() < cost)
                         throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
                     p.setGold(p.getGold() - cost);
+                } else if ("SOULS".equals(payment)) {
+                    if (p.getSouls() < soulsCost)
+                        throw new ResponseStatusException(HttpStatus.CONFLICT, "missing souls");
+                    p.setSouls(p.getSouls() - soulsCost);
                 }
 
-                int current = hunterWeaponTier(p.getWeapon());
+                int current = isVampire ? vampireWeaponTier(p.getWeapon()) : hunterWeaponTier(p.getWeapon());
                 if (current >= t)
                     throw new ResponseStatusException(HttpStatus.CONFLICT, "tu as déjà une arme supérieure");
 
@@ -9301,8 +9537,11 @@ public class GameService {
                     case 2 -> p.setAttackDice("D8");
                 }
 
-                message = nameOf(g, userId) + " achète une arme T" + t + " (" + weaponId + ") via le marchand ("
-                        + ("RESOURCE".equals(payment) ? "ressources" : "or") + ").";
+                String source = isVampire ? "transmutation avancée" : "le marchand";
+                String paymentLabel = "RESOURCE".equals(payment) ? "ressources"
+                        : ("GOLD".equals(payment) ? "or" : "âmes déchues");
+                message = nameOf(g, userId) + " achète une arme T" + t + " (" + weaponId + ") via " + source + " ("
+                        + paymentLabel + ").";
                 addHistory(g, message);
             }
 
@@ -9315,20 +9554,25 @@ public class GameService {
                 int woodCost = (t == 2) ? 2 : 1;
                 int ironCost = (t == 2) ? 2 : 1;
                 int baseGold = (t == 2) ? 150 : 100;
+                int soulsCost = (t == 2) ? 150 : 100;
 
                 if ("RESOURCE".equals(payment)) {
                     if (p.getWood() < woodCost || p.getIron() < ironCost)
                         throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
                     p.setWood(p.getWood() - woodCost);
                     p.setIron(p.getIron() - ironCost);
-                } else {
+                } else if ("GOLD".equals(payment)) {
                     int cost = goldCost.applyAsInt(baseGold);
                     if (p.getGold() < cost)
                         throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
                     p.setGold(p.getGold() - cost);
+                } else if ("SOULS".equals(payment)) {
+                    if (p.getSouls() < soulsCost)
+                        throw new ResponseStatusException(HttpStatus.CONFLICT, "missing souls");
+                    p.setSouls(p.getSouls() - soulsCost);
                 }
 
-                int current = hunterArmorTier(p.getArmor());
+                int current = isVampire ? vampireArmorTier(p.getArmor()) : hunterArmorTier(p.getArmor());
                 if (current >= t)
                     throw new ResponseStatusException(HttpStatus.CONFLICT, "tu as déjà une armure supérieure");
 
@@ -9338,8 +9582,11 @@ public class GameService {
                     case 2 -> p.setDefenseDice("D8");
                 }
 
-                message = nameOf(g, userId) + " achète une armure T" + t + " (" + armorId + ") via le marchand ("
-                        + ("RESOURCE".equals(payment) ? "ressources" : "or") + ").";
+                String source = isVampire ? "transmutation avancée" : "le marchand";
+                String paymentLabel = "RESOURCE".equals(payment) ? "ressources"
+                        : ("GOLD".equals(payment) ? "or" : "âmes déchues");
+                message = nameOf(g, userId) + " achète une armure T" + t + " (" + armorId + ") via " + source + " ("
+                        + paymentLabel + ").";
                 addHistory(g, message);
             }
 
@@ -9360,7 +9607,8 @@ public class GameService {
 
         afterCommit(() -> {
             pushLive(g, fMessage);
-            live.actionResolved(g, "MARCHAND_BONUS_BUY", userId, null);
+            String mode = isVampire ? "ADVANCED_TRANSMUTATION_BUY" : "MARCHAND_BONUS_BUY";
+            live.actionResolved(g, mode, userId, null);
         });
 
         return g;

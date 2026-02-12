@@ -92,6 +92,7 @@ export interface ShopModalVm {
     bonusTitle: string;
     bonusResCost: any | null;
     bonusGoldCost: number | null;
+    bonusSoulsCost: string | null;
     canBuyBonus: boolean;
     bonusBuyDisabledTitle: string | null;
     bonusBuyImgSrc: string;

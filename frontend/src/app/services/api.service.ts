@@ -42,7 +42,7 @@ export type GameSnapshot = {
   fogAffectedLocation?: string | null;
 
   currentAction?: {
-    mode: 'EAU_BENITE' | 'NET' | 'PIT' | 'PROVOCATION' | 'INCENDIAIRE' | 'AMBUSH' | 'LONELY' | 'BLESSED_STAKE' | 'CHARISMATIQUE' | 'MARCHAND_ITINERANT' | 'MARCHAND_BONUS_BUY' | 'PRESENCE_ECRASANTE' | 'CATACLYSME' | 'CLONES_OMBRE' | 'IMAGE_MIROIR_SETUP' | 'IMAGE_MIROIR_RESOLVE' | 'ECLIPSE' | 'BLOOD_MOON' | 'VOILE_DE_BRUME' | 'FAIM_IRREPRESSIBLE' | 'AFFAIBLISSEMENT_OCCULTE' | 'MARQUE_TENEBREUSE' | 'PASSAGE_SECRET' | 'AVIDITE_NOCTURNE' | 'CRATE_LAKE' | 'CRATE_MANOR';
+    mode: 'EAU_BENITE' | 'NET' | 'PIT' | 'PROVOCATION' | 'INCENDIAIRE' | 'AMBUSH' | 'LONELY' | 'BLESSED_STAKE' | 'CHARISMATIQUE' | 'MARCHAND_ITINERANT' | 'MARCHAND_BONUS_BUY' | 'ADVANCED_TRANSMUTATION' | 'ADVANCED_TRANSMUTATION_BUY' | 'PRESENCE_ECRASANTE' | 'CATACLYSME' | 'CLONES_OMBRE' | 'IMAGE_MIROIR_SETUP' | 'IMAGE_MIROIR_RESOLVE' | 'ECLIPSE' | 'BLOOD_MOON' | 'VOILE_DE_BRUME' | 'FAIM_IRREPRESSIBLE' | 'AFFAIBLISSEMENT_OCCULTE' | 'MARQUE_TENEBREUSE' | 'PASSAGE_SECRET' | 'AVIDITE_NOCTURNE' | 'CRATE_LAKE' | 'CRATE_MANOR';
     ownerId: string;
     location: string;
     targetId: string | null;
@@ -377,6 +377,13 @@ export class ApiService {
     );
   }
 
+  rollAdvancedTransmutation(gameId: string) {
+    return this.http.post<void>(
+      `${this.base}/games/${gameId}/actions/advanced-transmutation/roll`,
+      {}
+    );
+  }
+
   rollCrate(gameId: string) {
     return this.http.post<void>(
       `${this.base}/games/${gameId}/actions/crate/roll`,
@@ -398,7 +405,7 @@ export class ApiService {
     );
   }
 
-  buyShopBonus(gameId: string, payment: 'RESOURCE' | 'GOLD') {
+  buyShopBonus(gameId: string, payment: 'RESOURCE' | 'GOLD' | 'SOULS') {
     const params = new HttpParams().set('payment', payment);
     return this.http.post<void>(
       `${this.base}/games/${gameId}/shop/buy-bonus`,

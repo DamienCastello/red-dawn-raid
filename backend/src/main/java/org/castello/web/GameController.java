@@ -313,6 +313,16 @@ public class GameController {
         return games.rollMerchantItinerant(id, user.getId());
     }
 
+    @PostMapping("/{id}/actions/advanced-transmutation/roll")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public Game rollAdvancedTransmutation(
+            @PathVariable String id,
+            @RequestHeader("Authorization") String authorization) {
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+        return games.rollAdvancedTransmutation(id, user.getId());
+    }
+
     @PostMapping("/{id}/actions/crate/roll")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public Game rollCrate(

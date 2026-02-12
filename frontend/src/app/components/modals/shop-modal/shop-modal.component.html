@@ -368,6 +368,47 @@
 
                 </ul>
             </div>
+
+            <!-- Bonus vampire (ADVANCED_TRANSMUTATION) -->
+            <div class="card card-buy-bottom vampire-card" *ngIf="vm.isMeVampire && vm.bonusKind">
+                <div class="card-header-line">
+                    <h4>{{ vm.bonusTitle }}</h4>
+
+                    <span class="price price-icons">
+                        <ng-container *ngIf="vm.bonusResCost as rc">
+                            <span class="cost-item">
+                                <span *ngIf="rc.water" class="cost-val">{{ rc.water }}</span>
+                                <span *ngIf="rc.water" class="cost-ico-box"><img class="cost-ico cost-ico-s"
+                                        src="/assets/icons/water.png" alt="Eau"></span>
+                                <span *ngIf="rc.herbs" class="cost-val">{{ rc.herbs }}</span>
+                                <span *ngIf="rc.herbs" class="cost-ico-box"><img class="cost-ico cost-ico-s"
+                                        src="/assets/icons/medical_grass.png" alt="Herbes"></span>
+                                <span *ngIf="rc.wood" class="cost-val">{{ rc.wood }}</span>
+                                <span *ngIf="rc.wood" class="cost-ico-box"><img class="cost-ico cost-ico-s"
+                                        src="/assets/icons/wood.png" alt="Bois"></span>
+                                <span *ngIf="rc.iron" class="cost-val">{{ rc.iron }}</span>
+                                <span *ngIf="rc.iron" class="cost-ico-box"><img class="cost-ico cost-ico-s"
+                                        src="/assets/icons/iron.png" alt="Fer"></span>
+                            </span>
+                        </ng-container>
+
+                        <span class="cost-or">ou</span>
+
+                        <span class="cost-item" title="Âmes" *ngIf="vm.bonusSoulsCost as sc">
+                            <span class="cost-val">{{ sc }}</span>
+                            <span class="cost-ico-box"><img class="cost-ico cost-ico-s" src="/assets/icons/souls.png"
+                                    alt="Âmes"></span>
+                        </span>
+                    </span>
+                </div>
+
+                <button class="shop-btn buy-card-btn shop-card-action-btn" (click)="actions.onBuyBonus($event)"
+                    [disabled]="!vm.canBuyBonus" [attr.title]="!vm.canBuyBonus ? vm.bonusBuyDisabledTitle : null"
+                    aria-label="Acheter objet bonus" (mouseenter)="actions.zoomEnter($event, vm.bonusTitle, false, 'L')"
+                    (mousemove)="actions.zoomMove($event)" (mouseleave)="actions.zoomLeave()">
+                    <img class="buy-img" [src]="vm.bonusBuyImgSrc" [alt]="vm.bonusTitle">
+                </button>
+            </div>
         </div>
 
         <!-- =========================

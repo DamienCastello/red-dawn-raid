@@ -254,9 +254,11 @@ export class GameComponent {
     onAmbushChoose: (id) => this.onAmbushChoose(id),
     onBlessedStakeRoll: () => this.onBlessedStakeRoll(),
     onMerchantRoll: () => this.onMerchantRoll(),
+    onAdvancedTransmutationRoll: () => this.onAdvancedTransmutationRoll(),
     onCrateRoll: () => this.onCrateRoll(),
     onCrateResolve: () => this.onCrateResolve(),
     onConfirmBonus: (mode) => this.onConfirmBonus(mode),
+    onConfirmVampireBonus: (mode) => this.onConfirmVampireBonus(mode),
     onCancelBonus: () => this.onCancelBonus(),
     onSelectWeather2: (ws) => this.onSelectWeather2(ws),
     onSelectWeather3: (ws) => this.onSelectWeather3(ws),
@@ -287,6 +289,12 @@ export class GameComponent {
     merchantBuyText: this.merchantBuyText.bind(this),
     canPayBonusWithResource: this.canPayBonusWithResource.bind(this),
     canPayBonusWithGold: this.canPayBonusWithGold.bind(this),
+    vampireBonusResultText: this.vampireBonusResultText.bind(this),
+    vampireBonusBuyText: this.vampireBonusBuyText.bind(this),
+    canPayVampireBonusWithResource: this.canPayVampireBonusWithResource.bind(this),
+    canPayVampireBonusWithSouls: this.canPayVampireBonusWithSouls.bind(this),
+    bonusResourceCostVampire: this.bonusResourceCostVampire.bind(this),
+    bonusSoulsCost: this.bonusSoulsCost.bind(this),
     labelWeather: this.labelWeather.bind(this),
     diceAsset: this.diceAsset.bind(this),
     canConfirmClones: this.canConfirmClones.bind(this),
@@ -324,6 +332,7 @@ export class GameComponent {
       bonusTitle: this.bonusTitle(),
       bonusResCost: this.bonusResCost(),
       bonusGoldCost: this.bonusGoldCost(),
+      bonusSoulsCost: this.bonusSoulsCost(),
       canBuyBonus: this.canBuyBonus(),
       bonusBuyDisabledTitle: this.bonusBuyDisabledTitle(),
       bonusBuyImgSrc: this.bonusBuyImgSrc(),
@@ -752,7 +761,7 @@ export class GameComponent {
   // --- Actions ---
   preparedGarlicForThisRaid = false;
   // NET ou PIT, ou null si pas de piège en cours
-  actionMode: 'NET' | 'PIT' | 'INCENDIAIRE' | 'PROVOCATION' | 'AMBUSH' | 'LONELY' | 'BLESSED_STAKE' | 'CHARISMATIQUE' | 'MARCHAND_ITINERANT' | 'MARCHAND_BONUS_BUY' | 'PRESENCE_ECRASANTE' | 'CATACLYSME' | 'CLONES_OMBRE' | 'IMAGE_MIROIR_SETUP' | 'IMAGE_MIROIR_RESOLVE' | 'ECLIPSE' | 'BLOOD_MOON' | 'VOILE_DE_BRUME' | 'FAIM_IRREPRESSIBLE' | 'MARQUE_TENEBREUSE' | 'AFFAIBLISSEMENT_OCCULTE' | 'PASSAGE_SECRET' | 'AVIDITE_NOCTURNE' | 'EAU_BENITE' | 'CRATE_LAKE' | 'CRATE_MANOR' | null = null;
+  actionMode: 'NET' | 'PIT' | 'INCENDIAIRE' | 'PROVOCATION' | 'AMBUSH' | 'LONELY' | 'BLESSED_STAKE' | 'CHARISMATIQUE' | 'MARCHAND_ITINERANT' | 'MARCHAND_BONUS_BUY' | 'ADVANCED_TRANSMUTATION' | 'ADVANCED_TRANSMUTATION_BUY' | 'PRESENCE_ECRASANTE' | 'CATACLYSME' | 'CLONES_OMBRE' | 'IMAGE_MIROIR_SETUP' | 'IMAGE_MIROIR_RESOLVE' | 'ECLIPSE' | 'BLOOD_MOON' | 'VOILE_DE_BRUME' | 'FAIM_IRREPRESSIBLE' | 'MARQUE_TENEBREUSE' | 'AFFAIBLISSEMENT_OCCULTE' | 'PASSAGE_SECRET' | 'AVIDITE_NOCTURNE' | 'EAU_BENITE' | 'CRATE_LAKE' | 'CRATE_MANOR' | null = null;
   actionOwnerId: string | null = null;
   actionLocation: string | null = null;
   trapEnemies: SPlayer[] = [];
@@ -1347,7 +1356,8 @@ export class GameComponent {
     'CATACLYSME', 'CLONES_OMBRE', 'IMAGE_MIROIR', 'PRESENCE_ECRASANTE',
     'ECLIPSE', 'BLOOD_MOON', 'VOILE_DE_BRUME', 'FAIM_IRREPRESSIBLE',
     'MARQUE_TENEBREUSE', 'AFFAIBLISSEMENT_OCCULTE', 'PASSAGE_SECRET',
-    'AVIDITE_NOCTURNE', 'IMAGE_MIROIR_SETUP', 'IMAGE_MIROIR_RESOLVE'
+    'AVIDITE_NOCTURNE', 'IMAGE_MIROIR_SETUP', 'IMAGE_MIROIR_RESOLVE',
+    'ADVANCED_TRANSMUTATION', 'ADVANCED_TRANSMUTATION_BUY'
   ];
 
   /** Action -> image (dossier dépend du rôle du joueur courant) */
@@ -1411,7 +1421,9 @@ export class GameComponent {
       case 'PRESENCE_ECRASANTE': return 'presence_ecrasante.png';
       case 'CATACLYSME': return 'cataclysme.png';
       case 'VOILE_DE_BRUME': return 'voile_de_brume.png';
-
+      case 'ADVANCED_TRANSMUTATION':
+      case 'ADVANCED_TRANSMUTATION_BUY':
+        return 'advanced_transmutation.png';
       case 'IMAGE_MIROIR':
       case 'IMAGE_MIROIR_SETUP':
       case 'IMAGE_MIROIR_RESOLVE':
@@ -1554,6 +1566,11 @@ export class GameComponent {
   bonusBuyImgSrc(): string {
     const kind = this.me?.shopBonusKind;
     if (!kind) return '';
+
+    // Vampire: ADVANCED_TRANSMUTATION → vampire verso
+    if (this.me?.role === 'VAMPIRE') {
+      return this.deckBackFor('VAMP_ACTIONS');
+    }
 
     switch (kind) {
       case 'POTION':
@@ -2544,7 +2561,7 @@ export class GameComponent {
     return fallback;
   }
 
-  actionBackgroundSrc(mode: 'EAU_BENITE' | 'NET' | 'PIT' | 'INCENDIAIRE' | 'PROVOCATION' | 'AMBUSH' | 'LONELY' | 'BLESSED_STAKE' | 'CHARISMATIQUE' | 'MARCHAND_ITINERANT' | 'MARCHAND_BONUS_BUY' | 'PRESENCE_ECRASANTE' | 'CATACLYSME' | 'CLONES_OMBRE' | 'IMAGE_MIROIR_SETUP' | 'IMAGE_MIROIR_RESOLVE' | 'ECLIPSE' | 'BLOOD_MOON' | 'VOILE_DE_BRUME' | 'FAIM_IRREPRESSIBLE' | 'MARQUE_TENEBREUSE' | 'AFFAIBLISSEMENT_OCCULTE' | 'PASSAGE_SECRET' | 'AVIDITE_NOCTURNE' | 'CRATE_LAKE' | 'CRATE_MANOR' | null): String {
+  actionBackgroundSrc(mode: 'EAU_BENITE' | 'NET' | 'PIT' | 'INCENDIAIRE' | 'PROVOCATION' | 'AMBUSH' | 'LONELY' | 'BLESSED_STAKE' | 'CHARISMATIQUE' | 'MARCHAND_ITINERANT' | 'MARCHAND_BONUS_BUY' | 'ADVANCED_TRANSMUTATION' | 'ADVANCED_TRANSMUTATION_BUY' | 'PRESENCE_ECRASANTE' | 'CATACLYSME' | 'CLONES_OMBRE' | 'IMAGE_MIROIR_SETUP' | 'IMAGE_MIROIR_RESOLVE' | 'ECLIPSE' | 'BLOOD_MOON' | 'VOILE_DE_BRUME' | 'FAIM_IRREPRESSIBLE' | 'MARQUE_TENEBREUSE' | 'AFFAIBLISSEMENT_OCCULTE' | 'PASSAGE_SECRET' | 'AVIDITE_NOCTURNE' | 'CRATE_LAKE' | 'CRATE_MANOR' | null): String {
     if (mode === 'NET') return 'url(/assets/actions/net.png)';
     if (mode === 'PIT') return 'url(/assets/actions/traphole.png)';
     if (mode === 'INCENDIAIRE') return 'url(/assets/actions/burn.png)';
@@ -2554,6 +2571,7 @@ export class GameComponent {
     if (mode === 'BLESSED_STAKE') return 'url(/assets/actions/blessed_stake.png)';
     if (mode === 'CHARISMATIQUE') return 'url(/assets/actions/charismatic.png)';
     if (mode === 'MARCHAND_ITINERANT' || mode === 'MARCHAND_BONUS_BUY') return 'url(/assets/actions/traveling_merchant.png)';
+    if (mode === 'ADVANCED_TRANSMUTATION' || mode === 'ADVANCED_TRANSMUTATION_BUY') return 'url(/assets/actions/advanced_transmutation.png)';
     if (mode === 'PRESENCE_ECRASANTE') return 'url(/assets/actions/overwhelming_presence.png)';
     if (mode === 'CATACLYSME') return 'url(/assets/actions/cataclysm.png)';
     if (mode === 'CLONES_OMBRE') return 'url(/assets/actions/shadow_clones.png)';
@@ -3187,6 +3205,8 @@ export class GameComponent {
                 || g.currentAction.mode === 'AFFAIBLISSEMENT_OCCULTE'
                 || g.currentAction.mode === 'PASSAGE_SECRET'
                 || g.currentAction.mode === 'AVIDITE_NOCTURNE'
+                || g.currentAction.mode === 'ADVANCED_TRANSMUTATION'
+                || g.currentAction.mode === 'ADVANCED_TRANSMUTATION_BUY'
                 || g.currentAction.mode === 'EAU_BENITE'
                 || g.currentAction.mode === 'CRATE_LAKE'
                 || g.currentAction.mode === 'CRATE_MANOR')) {
@@ -4048,7 +4068,7 @@ export class GameComponent {
     const me = g.players.find(p => p.id === this.meId);
     if (!me || !me.actions) return [];
 
-    return me.actions.filter(a => a === 'CHARISMATIQUE' || a === 'MARCHAND_ITINERANT' || a === 'AVIDITE_NOCTURNE');
+    return me.actions.filter(a => a === 'CHARISMATIQUE' || a === 'MARCHAND_ITINERANT' || a === 'ADVANCED_TRANSMUTATION' || a === 'AVIDITE_NOCTURNE');
   }
 
   canUseActionNow(_action: string): boolean {
@@ -4149,6 +4169,19 @@ export class GameComponent {
       if (_action === 'FUMIGATION_AIL' || _action === 'PISTEUR') {
         return true;
       }
+    }
+
+    if (_action === 'ADVANCED_TRANSMUTATION') {
+      console.log('[DEBUG] canUseActionNow(ADVANCED_TRANSMUTATION)', {
+        me: !!me,
+        role: me?.role,
+        phase: g.phase,
+        result: !!(me && me.role === 'VAMPIRE' && g.phase === 'PHASE4')
+      });
+      if (!me) return false;
+      if (me.role !== 'VAMPIRE') return false;
+      if (g.phase !== 'PHASE4') return false;
+      return true;
     }
 
     // À partir d'ici : on parle des actions de raid des chasseurs
@@ -4284,6 +4317,8 @@ export class GameComponent {
         return true;
       }
 
+
+
       case 'CRATE_LAKE':
       case 'CRATE_MANOR':
         if (me.crateUsedThisRaid) return false;
@@ -4383,6 +4418,8 @@ export class GameComponent {
       case 'CHARISMATIQUE': return 'Charismatique';
       case 'MARCHAND_ITINERANT':
       case 'MARCHAND_BONUS_BUY': return 'Marchand itinérant';
+      case 'ADVANCED_TRANSMUTATION':
+      case 'ADVANCED_TRANSMUTATION_BUY': return 'Transmutation avancée';
       case 'CRATE_LAKE': return 'Caisse : Lac';
       case 'CRATE_MANOR': return 'Caisse : Manoir';
       case 'PRESENCE_ECRASANTE': return 'Présence écrasante';
@@ -4532,6 +4569,8 @@ export class GameComponent {
       || this.actionMode === 'CHARISMATIQUE'
       || this.actionMode === 'MARCHAND_ITINERANT'
       || this.actionMode === 'MARCHAND_BONUS_BUY'
+      || this.actionMode === 'ADVANCED_TRANSMUTATION'
+      || this.actionMode === 'ADVANCED_TRANSMUTATION_BUY'
       || this.actionMode === 'CATACLYSME'
       || this.actionMode === 'CLONES_OMBRE'
       || this.actionMode === 'IMAGE_MIROIR_SETUP'
@@ -4857,8 +4896,14 @@ export class GameComponent {
   }
 
   bonusTitle(): string {
-    const kind = this.me?.shopBonusKind;
+    const me = this.me;
+    const kind = me?.shopBonusKind;
     if (!kind) return 'Objet bonus';
+
+    // Vampire: toujours "Rituel transmutation"
+    if (me?.role === 'VAMPIRE') {
+      return 'Rituel transmutation';
+    }
 
     switch (kind) {
       case 'POTION': return 'Potion';
@@ -4877,6 +4922,16 @@ export class GameComponent {
     // si max atteint (équipement), on bloque
     if (!this.canReceiveBonusItem()) return false;
 
+    // Vampire: can pay with resources OR souls
+    if (me.role === 'VAMPIRE') {
+      const canPayRes = this.canPayVampireBonusWithResource();
+      const canPaySouls = this.canPayVampireBonusWithSouls();
+      const result = canPayRes || canPaySouls;
+
+      return result;
+    }
+
+    // Hunter: can pay with resources OR gold
     return this.canPayBonusWithResource() || this.canPayBonusWithGold();
   }
 
@@ -4961,11 +5016,122 @@ export class GameComponent {
     });
   }
 
+  // === ADVANCED_TRANSMUTATION (Vampire) ===
+
+  onAdvancedTransmutationRoll(): void {
+    if (!this.game) return;
+
+    this.actionResolving = true;
+    this.api.rollAdvancedTransmutation(this.gameId).subscribe({
+      next: g => {
+        this.actionResolving = false;
+        this.bumpHistoryScroll();
+      },
+      error: (e: any) => {
+        this.actionResolving = false;
+        this.showError(e);
+      }
+    });
+  }
+
+  vampireBonusResultText(): string {
+    const v = this.actionRoll;
+    if (v == null) return '';
+
+    if (v >= 1 && v <= 4) return "un élixir est disponible dans l'antre.";
+
+    const k = this.me?.shopBonusKind;
+    if (k === 'EQUIP_WEAPON') return "une arme est disponible dans l'antre.";
+    if (k === 'EQUIP_ARMOR') return "une armure est disponible dans l'antre.";
+
+    return "rien n'est disponible (équipement max).";
+  }
+
+  vampireBonusBuyText(): string {
+    const k = this.me?.shopBonusKind;
+    if (k === 'ELIXIR') return 'Acheter cet élixir ?';
+    if (k === 'EQUIP_WEAPON') return 'Acheter cette arme ?';
+    if (k === 'EQUIP_ARMOR') return 'Acheter cette armure ?';
+    return '';
+  }
+
+  canPayVampireBonusWithResource(): boolean {
+    if (!this.me) return false;
+    const k = this.me.shopBonusKind;
+
+    if (k === 'ELIXIR') {
+      return (this.me.water >= 2) && (this.me.herbs >= 4);
+    }
+    if (k === 'EQUIP_WEAPON' || k === 'EQUIP_ARMOR') {
+      const tier = this.me.shopBonusEquipTier ?? 1;
+      const woodCost = (tier === 2) ? 2 : 1;
+      const ironCost = (tier === 2) ? 2 : 1;
+      return (this.me.wood >= woodCost) && (this.me.iron >= ironCost);
+    }
+    return false;
+  }
+
+  canPayVampireBonusWithSouls(): boolean {
+    if (!this.me) return false;
+    const k = this.me.shopBonusKind;
+
+    if (k === 'ELIXIR') {
+      return (this.me.souls >= 50);
+    }
+    if (k === 'EQUIP_WEAPON' || k === 'EQUIP_ARMOR') {
+      const tier = this.me.shopBonusEquipTier ?? 1;
+      const soulsCost = (tier === 2) ? 150 : 100;
+      return (this.me.souls >= soulsCost);
+    }
+    return false;
+  }
+
+  bonusResourceCostVampire(): string {
+    if (!this.me) return '';
+    const k = this.me.shopBonusKind;
+    if (k === 'ELIXIR') return '2 eau, 4 herbes';
+    if (k === 'EQUIP_WEAPON' || k === 'EQUIP_ARMOR') {
+      const tier = this.me.shopBonusEquipTier ?? 1;
+      if (tier === 2) return '2 bois, 2 fer';
+      return '1 bois, 1 fer';
+    }
+    return '';
+  }
+
+  bonusSoulsCost(): string {
+    if (!this.me) return '';
+    const k = this.me.shopBonusKind;
+    if (k === 'ELIXIR') return '50 âmes';
+    if (k === 'EQUIP_WEAPON' || k === 'EQUIP_ARMOR') {
+      const tier = this.me.shopBonusEquipTier ?? 1;
+      if (tier === 2) return '150 âmes';
+      return '100 âmes';
+    }
+    return '';
+  }
+
+  onConfirmVampireBonus(mode: 'RESOURCE' | 'SOULS'): void {
+    if (!this.game) return;
+
+    this.actionResolving = true;
+    this.api.buyShopBonus(this.gameId, mode).subscribe({
+      next: () => {
+        this.actionResolving = false;
+        this.bumpHistoryScroll();
+      },
+      error: (e: any) => {
+        this.actionResolving = false;
+        this.showError(e);
+      }
+    });
+  }
+
+
   /** true si l'objet bonus est achetable (règles "max atteint" inclues) */
   private canReceiveBonusItem(): boolean {
     const me: any = this.me;
     const kind = (me as any)?.shopBonusKind;
-    if (!me || me.role !== 'HUNTER' || !kind) return false;
+    if (!me || !kind) return false;
 
     // potions / elixirs : pas de notion de max ici
     if (kind === 'POTION' || kind === 'ELIXIR') return true;
@@ -4987,7 +5153,7 @@ export class GameComponent {
   bonusBuyDisabledTitle(): string | null {
     const me: any = this.me;
     const kind = me?.shopBonusKind;
-    if (!me || me.role !== 'HUNTER' || !kind) return null;
+    if (!me || !kind) return null;
 
     // 1) max atteint ?
     if (!this.canReceiveBonusItem()) {
@@ -5424,7 +5590,7 @@ export class GameComponent {
 
   get actionDiceColor(): 'red' | 'blue' {
     if (this.actionMode === 'NET' || this.actionMode === "INCENDIAIRE" || this.actionMode === 'BLESSED_STAKE') return 'blue';
-    if (this.actionMode === 'PIT' || this.actionMode === "CLONES_OMBRE") return 'red';
+    if (this.actionMode === 'PIT' || this.actionMode === "CLONES_OMBRE" || this.actionMode === 'ADVANCED_TRANSMUTATION') return 'red';
     return 'blue';
   }
 
@@ -5912,6 +6078,10 @@ export class GameComponent {
 
       this.showActionModal = true;
 
+    } else if (this.actionMode === 'MARCHAND_BONUS_BUY' || this.actionMode === 'ADVANCED_TRANSMUTATION_BUY') {
+      // Modale de choix de paiement (ressources/or pour hunter, ressources/âmes pour vampire)
+      this.showActionModal = true;
+
     } else if (this.actionMode === 'CRATE_LAKE' || this.actionMode === 'CRATE_MANOR') {
       this.showActionModal = true;
       if (act.resolvedAtMillis) {
@@ -5925,22 +6095,23 @@ export class GameComponent {
 
   private syncMerchantUiFromSnapshot(g: GameSnapshot) {
     const me: any = this.me;
-    if (!g || !me || me.role !== 'HUNTER') return;
+    if (!g || !me) return;
 
     const act: any = (g as any).currentAction;
 
-    // En PHASE4, CHARISMATIQUE/AVIDITE sont des popups "info" -> elles ne doivent JAMAIS bloquer Marchand
+    // En PHASE4, CHARISMATIQUE/AVIDITE sont des popups "info" -> elles ne doivent JAMAIS bloquer Marchand/Transmutation
     const isP4Info =
       (g.phase === 'PHASE4')
       && (act?.mode === 'CHARISMATIQUE' || act?.mode === 'AVIDITE_NOCTURNE');
 
-    // Si une vraie action serveur est en cours (non marchand, non info PHASE4) -> on ne touche pas
-    if (act?.mode && !isP4Info && act.mode !== 'MARCHAND_ITINERANT' && act.mode !== 'MARCHAND_BONUS_BUY') {
+    // Si une vraie action serveur est en cours (non marchand/transmutation, non info PHASE4) -> on ne touche pas
+    if (act?.mode && !isP4Info && act.mode !== 'MARCHAND_ITINERANT' && act.mode !== 'MARCHAND_BONUS_BUY'
+      && act.mode !== 'ADVANCED_TRANSMUTATION' && act.mode !== 'ADVANCED_TRANSMUTATION_BUY') {
       return;
     }
 
     // Si je suis en train de lire MA popup info PHASE4, ne pas l'écraser (2-5s),
-    // Marchand s'ouvrira juste après quand la popup se ferme.
+    // Marchand/Transmutation s'ouvrira juste après quand la popup se ferme.
     if (this.showActionModal
       && (this.actionMode === 'CHARISMATIQUE' || this.actionMode === 'AVIDITE_NOCTURNE')
       && this.actionOwnerId === me.id) {
@@ -5949,7 +6120,9 @@ export class GameComponent {
 
     // 1) modale paiement (perso)
     if (g.phase === 'PHASE4' && !!me.shopBonusBuyPending) {
-      this.actionMode = 'MARCHAND_BONUS_BUY' as any;
+      // Déterminer le mode selon le rôle
+      const mode = me.role === 'VAMPIRE' ? 'ADVANCED_TRANSMUTATION_BUY' : 'MARCHAND_BONUS_BUY';
+      this.actionMode = mode as any;
       this.actionOwnerId = me.id;
       this.actionLocation = null;
       this.actionSelectedTargetId = null;
@@ -5961,7 +6134,9 @@ export class GameComponent {
 
     // 2) modale jet D6 (perso)
     if (g.phase === 'PHASE4' && !!me.merchantPending) {
-      this.actionMode = 'MARCHAND_ITINERANT' as any;
+      // Déterminer le mode selon le rôle
+      const mode = me.role === 'VAMPIRE' ? 'ADVANCED_TRANSMUTATION' : 'MARCHAND_ITINERANT';
+      this.actionMode = mode as any;
       this.actionOwnerId = me.id;
       this.actionLocation = null;
       this.actionSelectedTargetId = null;
@@ -5981,7 +6156,9 @@ export class GameComponent {
       if (this.lastMerchantShownKey !== key) {
         this.lastMerchantShownKey = key;
 
-        this.actionMode = 'MARCHAND_ITINERANT' as any;
+        // Déterminer le mode selon le rôle
+        const mode = me.role === 'VAMPIRE' ? 'ADVANCED_TRANSMUTATION' : 'MARCHAND_ITINERANT';
+        this.actionMode = mode as any;
         this.actionOwnerId = me.id;
         this.actionLocation = null;
         this.actionSelectedTargetId = null;
@@ -5993,8 +6170,9 @@ export class GameComponent {
       }
     }
 
-    // 4) si on était sur une modale marchand mais plus rien -> fermer
-    if (this.actionMode === 'MARCHAND_ITINERANT' || this.actionMode === 'MARCHAND_BONUS_BUY') {
+    // 4) si on était sur une modale marchand/transmutation mais plus rien -> fermer
+    if (this.actionMode === 'MARCHAND_ITINERANT' || this.actionMode === 'MARCHAND_BONUS_BUY'
+      || this.actionMode === 'ADVANCED_TRANSMUTATION' || this.actionMode === 'ADVANCED_TRANSMUTATION_BUY') {
       this.actionMode = null;
       this.actionOwnerId = null;
       this.actionLocation = null;

@@ -375,6 +375,77 @@
                 </ng-template>
             </ng-container>
 
+            <!-- ========== ADVANCED_TRANSMUTATION ========== -->
+            <ng-container *ngIf="vm.mode === 'ADVANCED_TRANSMUTATION'">
+                <!-- Vue ACTEUR -->
+                <ng-container *ngIf="vm.isActor; else transmuteSpectate">
+                    <ng-container *ngIf="vm.roll === null">
+                        <p class="breakdown">
+                            Transmutation avancée — lance un D6 pour déterminer l'offrande de la nuit.
+                        </p>
+
+                        <button type="button" (click)="actions.onAdvancedTransmutationRoll()" [disabled]="vm.resolving">
+                            Lancer le dé
+                        </button>
+                    </ng-container>
+
+                    <ng-container *ngIf="vm.roll !== null">
+                        <p class="result">
+                            Transmutation avancée — {{ helpers.vampireBonusResultText() }}
+                        </p>
+                    </ng-container>
+                </ng-container>
+
+                <!-- Vue SPECTATEUR -->
+                <ng-template #transmuteSpectate>
+                    <ng-container *ngIf="vm.roll === null">
+                        <p class="breakdown">
+                            Transmutation avancée — en attente du jet de D6...
+                        </p>
+                    </ng-container>
+                    <ng-container *ngIf="vm.roll !== null">
+                        <p class="result">
+                            Transmutation avancée — {{ helpers.vampireBonusResultText() }}
+                        </p>
+                    </ng-container>
+                </ng-template>
+            </ng-container>
+
+            <!-- ========== ADVANCED_TRANSMUTATION_BUY ========== -->
+            <ng-container *ngIf="vm.mode === 'ADVANCED_TRANSMUTATION_BUY'">
+                <!-- Vue ACTEUR -->
+                <ng-container *ngIf="vm.isActor; else vampireBuySpectate">
+                    <p class="breakdown">
+                        {{ helpers.vampireBonusBuyText() }}
+                    </p>
+
+                    <div class="row" style="margin-top:.5rem; justify-content:center;">
+                        <button type="button" (click)="actions.onConfirmVampireBonus('RESOURCE')"
+                            [disabled]="vm.resolving || !helpers.canPayVampireBonusWithResource()">
+                            Payer en ressources ({{ helpers.bonusResourceCostVampire() }})
+                        </button>
+                        <button type="button" (click)="actions.onConfirmVampireBonus('SOULS')"
+                            [disabled]="vm.resolving || !helpers.canPayVampireBonusWithSouls()">
+                            Payer en âmes ({{ helpers.bonusSoulsCost() }})
+                        </button>
+                    </div>
+
+                    <div class="row" style="margin-top:.5rem; justify-content:center;">
+                        <button type="button" (click)="actions.onCancelBonus()" [disabled]="vm.resolving">
+                            Annuler
+                        </button>
+                    </div>
+                </ng-container>
+
+                <!-- Vue SPECTATEUR -->
+                <ng-template #vampireBuySpectate>
+                    <p class="breakdown">
+                        {{ helpers.vampireBonusBuyText() }}
+                    </p>
+                </ng-template>
+            </ng-container>
+
+
             <!-- ========== CRATE_LAKE / CRATE_MANOR ========== -->
             <ng-container *ngIf="vm.mode === 'CRATE_LAKE' || vm.mode === 'CRATE_MANOR'">
                 <!-- Vue ACTEUR -->
@@ -740,11 +811,12 @@
                   || vm.mode === 'CLONES_OMBRE'
                   || vm.mode === 'BLESSED_STAKE'
                   || vm.mode === 'MARCHAND_ITINERANT'
+                  || vm.mode === 'ADVANCED_TRANSMUTATION'
                   || vm.mode === 'CRATE_LAKE'
                   || vm.mode === 'CRATE_MANOR'" [attr.data-digits]="vm.roll?.toString()?.length || 1">
                     <img class="dice" [src]="helpers.diceAsset(
                   vm.mode === 'CLONES_OMBRE' || vm.mode === 'BLESSED_STAKE' ? 'D4'
-                  : vm.mode === 'MARCHAND_ITINERANT' || vm.mode === 'CRATE_LAKE' || vm.mode === 'CRATE_MANOR' ? 'D6'
+                  : vm.mode === 'MARCHAND_ITINERANT' || vm.mode === 'ADVANCED_TRANSMUTATION' || vm.mode === 'CRATE_LAKE' || vm.mode === 'CRATE_MANOR' ? 'D6'
                   : 'D20',
                   vm.diceColor
                 )" alt="dice" />
