@@ -163,6 +163,9 @@ export type Player = {
   shopBonusEquipTier?: number;
   shopBonusBuyPending?: boolean;
   crateUsedThisRaid: boolean;
+  resourceBoughtThisRaid?: boolean;
+  advancedTransmutationUsedThisRaid?: boolean;
+  merchantUsedThisRaid?: boolean;
 };
 
 type Monster = {
@@ -560,6 +563,10 @@ export class ApiService {
 
   sellResource(gameId: string, res: 'wood' | 'herbs' | 'stone' | 'iron' | 'water', qty = 1) {
     return this.http.post<void>(`${this.base}/games/${gameId}/shop/sell`, { res, qty });
+  }
+
+  buyResource(gameId: string, resource: 'WOOD' | 'IRON' | 'WATER' | 'HERBS') {
+    return this.http.post<GameSnapshot>(`${this.base}/games/${gameId}/shop/buy-resource`, { resource });
   }
 
   finishPhase4(gameId: string) {

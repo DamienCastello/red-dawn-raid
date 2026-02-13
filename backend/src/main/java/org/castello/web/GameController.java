@@ -389,6 +389,20 @@ public class GameController {
         games.sellResource(id, user.getId(), body.res, body.qty != null ? body.qty : 1);
     }
 
+    public static class BuyResourceReq {
+        public String resource;
+    }
+
+    @PostMapping("/{id}/shop/buy-resource")
+    public GameSnapshot buyResource(@PathVariable String id,
+            @RequestBody BuyResourceReq body,
+            @RequestHeader("Authorization") String authorization) {
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+        games.buyResource(id, user.getId(), body.resource);
+        return games.viewSnapshot(id, user.getId());
+    }
+
     public static class TransmuteReq {
         public String recipe;
     }

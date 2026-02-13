@@ -114,7 +114,10 @@ public record GameSnapshot(
                         Integer shopBonusEquipTier,
                         boolean shopBonusBuyPending,
                         boolean elixirUsedThisRaid,
-                        boolean crateUsedThisRaid) {
+                        boolean crateUsedThisRaid,
+                        boolean resourceBoughtThisRaid,
+                        boolean advancedTransmutationUsedThisRaid,
+                        boolean merchantUsedThisRaid) {
         }
 
         public record DecksView(Pile actionsVamp, Pile actionsHunters, Pile potions, Pile elixirs) {

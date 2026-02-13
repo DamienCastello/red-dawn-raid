@@ -36,6 +36,7 @@ export interface ShopModalHelpers {
     isClosing: (id: string) => boolean;
     isClosingOk: (id: string) => boolean;
     isClosingKo: (id: string) => boolean;
+    canBuyResource: () => boolean;
 }
 
 export interface ShopModalActions {
@@ -46,6 +47,7 @@ export interface ShopModalActions {
     onBuyHolyWaterAction: (ev: MouseEvent) => void;
     onBuyTrackingAction: (ev: MouseEvent) => void;
     onSell: (res: any, qty: number) => void;
+    onBuyResource: (resource: 'WOOD' | 'IRON' | 'WATER' | 'HERBS') => void;
     onTransmute: (recipe: any) => void;
     selectTradeTarget: (id: string) => void;
     bumpOffer: (res: string, delta: number) => void;

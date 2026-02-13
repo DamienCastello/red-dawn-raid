@@ -453,6 +453,66 @@
                         </div>
                     </div>
                 </div>
+
+                <div style="border-top: 1px solid rgba(0,0,0,0.1);"></div>
+                <h4>Acheter des ressources</h4>
+                <div class="grid sell-grid sell-grid-icons">
+                    <!-- Wood -->
+                    <div class="sell">
+                        <div class="sell-ico">
+                            <img class="sell-res-ico" src="/assets/icons/wood.png" alt="Bois">
+                        </div>
+                        <div class="actions">
+                            <button (click)="actions.onBuyResource('WOOD')" [disabled]="!helpers.canBuyResource()"
+                                style="white-space: nowrap;">
+                                -100<img class="sell-res-ico" src="/assets/icons/gold.png" alt="Or"
+                                    style="margin-left: 2px; vertical-align: middle;">
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Iron -->
+                    <div class="sell">
+                        <div class="sell-ico">
+                            <img class="sell-res-ico" src="/assets/icons/iron.png" alt="Fer">
+                        </div>
+                        <div class="actions">
+                            <button (click)="actions.onBuyResource('IRON')" [disabled]="!helpers.canBuyResource()"
+                                style="white-space: nowrap;">
+                                -100<img class="sell-res-ico" src="/assets/icons/gold.png" alt="Or"
+                                    style="margin-left: 2px; vertical-align: middle;">
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Water -->
+                    <div class="sell">
+                        <div class="sell-ico">
+                            <img class="sell-res-ico" src="/assets/icons/water.png" alt="Eau">
+                        </div>
+                        <div class="actions">
+                            <button (click)="actions.onBuyResource('WATER')" [disabled]="!helpers.canBuyResource()"
+                                style="white-space: nowrap;">
+                                -100<img class="sell-res-ico" src="/assets/icons/gold.png" alt="Or"
+                                    style="margin-left: 2px; vertical-align: middle;">
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Herbs -->
+                    <div class="sell">
+                        <div class="sell-ico">
+                            <img class="sell-res-ico" src="/assets/icons/medical_grass.png" alt="Plantes">
+                        </div>
+                        <div class="actions">
+                            <button (click)="actions.onBuyResource('HERBS')" [disabled]="!helpers.canBuyResource()"
+                                style="white-space: nowrap;">
+                                -100<img class="sell-res-ico" src="/assets/icons/gold.png" alt="Or"
+                                    style="margin-left: 2px; vertical-align: middle;">
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- UPGRADE ÉQUIPEMENT (par joueur) : 2 cards sur 1 ligne (comme eau bénite & espion) -->

@@ -348,6 +348,7 @@ export class GameComponent {
     onBuyHolyWaterAction: (ev) => this.onBuyHolyWaterAction(ev),
     onBuyTrackingAction: (ev) => this.onBuyTrackingAction(ev),
     onSell: (res, qty) => this.onSell(res, qty),
+    onBuyResource: (resource) => this.onBuyResource(resource),
     onTransmute: (recipe) => this.onTransmute(recipe),
     selectTradeTarget: (id) => this.selectTradeTarget(id),
     bumpOffer: (res, delta) => this.bumpOffer(res, delta),
@@ -394,7 +395,8 @@ export class GameComponent {
     statusClassFrom: this.statusClassFrom.bind(this),
     isClosing: this.isClosing.bind(this),
     isClosingOk: this.isClosingOk.bind(this),
-    isClosingKo: this.isClosingKo.bind(this)
+    isClosingKo: this.isClosingKo.bind(this),
+    canBuyResource: this.canBuyResource.bind(this)
   };
 
   get buildVm(): BuildModalVm {
@@ -4172,15 +4174,10 @@ export class GameComponent {
     }
 
     if (_action === 'ADVANCED_TRANSMUTATION') {
-      console.log('[DEBUG] canUseActionNow(ADVANCED_TRANSMUTATION)', {
-        me: !!me,
-        role: me?.role,
-        phase: g.phase,
-        result: !!(me && me.role === 'VAMPIRE' && g.phase === 'PHASE4')
-      });
       if (!me) return false;
       if (me.role !== 'VAMPIRE') return false;
       if (g.phase !== 'PHASE4') return false;
+      if (me.advancedTransmutationUsedThisRaid) return false;
       return true;
     }
 
@@ -4310,6 +4307,7 @@ export class GameComponent {
         if (!me) return false;
         if (me.role !== 'HUNTER') return false;
         if (g.phase !== 'PHASE4') return false;
+        if (me.merchantUsedThisRaid) return false;
 
         // Bloqué par Présence écrasante
         if (g.hunterActionsBlockedThisRaid) return false;
@@ -6280,7 +6278,6 @@ export class GameComponent {
     const g: any = this.game;
     const b = g?.currentBite;
     if (!b || b.roll == null) return '';
-    console.log("check: ", this.getPlayer(b.attackerId))
 
     const attacker = this.getPlayer?.(b.attackerId)?.username ?? 'Le vampire';
     const target = this.getPlayer?.(b.targetId)?.username ?? 'le chasseur';
@@ -6838,6 +6835,34 @@ export class GameComponent {
   onFinishPhase4() {
     this.waitingDone = true;
     this.api.finishPhase4(this.gameId).subscribe({
+      next: () => { },
+      error: e => this.showError(e)
+    });
+  }
+
+  canBuyResource(): boolean {
+    const me: any = this.me;
+    if (!me) return false;
+    if (me.role !== 'HUNTER') return false;
+    if (me.hp <= 0) return false;
+
+    //Check has 100 gold and not bought this raid
+    return me.gold >= 100 && !me.resourceBoughtThisRaid;
+  }
+
+  onBuyResource(resource: 'WOOD' | 'IRON' | 'WATER' | 'HERBS') {
+    if (!this.game || !this.canBuyResource()) return;
+
+    const resName = {
+      'WOOD': 'bois',
+      'IRON': 'fer',
+      'WATER': 'eau',
+      'HERBS': 'plantes'
+    }[resource];
+
+    if (!confirm(`Acheter 1 ${resName} pour 100 pièces d'or ?`)) return;
+
+    this.api.buyResource(this.game.id, resource).subscribe({
       next: () => { },
       error: e => this.showError(e)
     });

@@ -234,7 +234,10 @@ public class GameService {
                     p.getShopBonusEquipTier(),
                     p.isShopBonusBuyPending(),
                     p.isElixirUsedThisRaid(),
-                    p.isCrateUsedThisRaid());
+                    p.isCrateUsedThisRaid(),
+                    p.isResourceBoughtThisRaid(),
+                    p.isAdvancedTransmutationUsedThisRaid(),
+                    p.isMerchantUsedThisRaid());
         }).toList();
 
         // Center
@@ -2032,6 +2035,9 @@ public class GameService {
                 for (Player p : g.getPlayers()) {
                     p.setElixirUsedThisRaid(false);
                     p.setCrateUsedThisRaid(false);
+                    p.setResourceBoughtThisRaid(false);
+                    p.setAdvancedTransmutationUsedThisRaid(false);
+                    p.setMerchantUsedThisRaid(false);
                 }
 
                 g.setCurrentAction(null);
@@ -6781,6 +6787,11 @@ public class GameService {
                             "tu as déjà une offre du marchand en cours.");
                 }
 
+                if (p.isMerchantUsedThisRaid()) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Tu as déjà appelé un marchand itinérant ce raid.");
+                }
+
                 // Consommer la carte dans la main du chasseur
                 inv.remove(type.name());
                 discardHunterAction(g, type.name());
@@ -6792,6 +6803,7 @@ public class GameService {
                 p.setShopBonusEquipId(null);
                 p.setShopBonusEquipTier(null);
                 p.setShopBonusBuyPending(false);
+                p.setMerchantUsedThisRaid(true);
 
                 String msg = nameOf(g, playerId) + " appelle un marchand itinérant à la boutique.";
                 addHistory(g, msg);
@@ -6831,8 +6843,14 @@ public class GameService {
                             "tu as déjà une offre de transmutation en cours.");
                 }
 
+                if (p.isAdvancedTransmutationUsedThisRaid()) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Tu as déjà utilisé la transmutation avancée ce raid.");
+                }
+
                 // Consommer la carte dans la main du vampire
                 inv.remove(type.name());
+                discardVampAction(g, type.name());
 
                 // init état transmutation perso
                 p.setMerchantPending(true);
@@ -6841,6 +6859,7 @@ public class GameService {
                 p.setShopBonusEquipId(null);
                 p.setShopBonusEquipTier(null);
                 p.setShopBonusBuyPending(false);
+                p.setAdvancedTransmutationUsedThisRaid(true);
 
                 String msg = nameOf(g, playerId) + " active la Transmutation avancée dans l'antre.";
                 addHistory(g, msg);
@@ -9350,6 +9369,65 @@ public class GameService {
             case 2 -> V_ARMOR_T2_HAUBERT;
             default -> V_ARMOR_T1_CARAPACE;
         };
+    }
+
+    @Transactional
+    public Game buyResource(String gameId, String userId, String resourceType) {
+        Game g = findOr404(gameId);
+
+        if (g.getPhase() != Phase.PHASE4)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE4");
+
+        Player p = findPlayer(g, userId);
+        if (p == null)
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "not in game");
+        if (!isAlive(p))
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Tu es hors de combat pour le reste de la partie.");
+        if (!"HUNTER".equals(p.getRole()))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "hunters only");
+
+        // Check if already bought this raid
+        if (p.isResourceBoughtThisRaid())
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Tu as déjà acheté une ressource ce raid");
+
+        // Check gold
+        if (p.getGold() < 100)
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Pas assez d'or (100 requis)");
+
+        // Validate resource type
+        if (!"WOOD".equals(resourceType) && !"IRON".equals(resourceType)
+                && !"WATER".equals(resourceType) && !"HERBS".equals(resourceType))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Type de ressource invalide");
+
+        // Deduct gold
+        p.setGold(p.getGold() - 100);
+
+        // Add resource
+        switch (resourceType) {
+            case "WOOD" -> p.setWood(p.getWood() + 1);
+            case "IRON" -> p.setIron(p.getIron() + 1);
+            case "WATER" -> p.setWater(p.getWater() + 1);
+            case "HERBS" -> p.setHerbs(p.getHerbs() + 1);
+        }
+
+        // Mark as bought
+        p.setResourceBoughtThisRaid(true);
+
+        // Add history
+        String resName = switch (resourceType) {
+            case "WOOD" -> "bois";
+            case "IRON" -> "fer";
+            case "WATER" -> "eau";
+            case "HERBS" -> "plantes";
+            default -> resourceType;
+        };
+        String msg = nameOf(g, userId) + " a acheté 1 " + resName + " pour 100 pièces d'or.";
+        addHistory(g, msg);
+
+        save(g);
+        afterCommit(() -> live.stuffBought(g, userId));
+
+        return g;
     }
 
     @Transactional

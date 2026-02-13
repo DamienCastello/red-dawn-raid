@@ -73,6 +73,9 @@ public class Player {
 
     private boolean elixirUsedThisRaid = false;
     private boolean crateUsedThisRaid = false;
+    private boolean resourceBoughtThisRaid = false;
+    private boolean advancedTransmutationUsedThisRaid = false;
+    private boolean merchantUsedThisRaid = false;
 
     public Player() {
     }
@@ -362,5 +365,29 @@ public class Player {
 
     public void setCrateUsedThisRaid(boolean crateUsedThisRaid) {
         this.crateUsedThisRaid = crateUsedThisRaid;
+    }
+
+    public boolean isResourceBoughtThisRaid() {
+        return resourceBoughtThisRaid;
+    }
+
+    public void setResourceBoughtThisRaid(boolean resourceBoughtThisRaid) {
+        this.resourceBoughtThisRaid = resourceBoughtThisRaid;
+    }
+
+    public boolean isAdvancedTransmutationUsedThisRaid() {
+        return advancedTransmutationUsedThisRaid;
+    }
+
+    public void setAdvancedTransmutationUsedThisRaid(boolean advancedTransmutationUsedThisRaid) {
+        this.advancedTransmutationUsedThisRaid = advancedTransmutationUsedThisRaid;
+    }
+
+    public boolean isMerchantUsedThisRaid() {
+        return merchantUsedThisRaid;
+    }
+
+    public void setMerchantUsedThisRaid(boolean merchantUsedThisRaid) {
+        this.merchantUsedThisRaid = merchantUsedThisRaid;
     }
 }
