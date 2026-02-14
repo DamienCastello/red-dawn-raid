@@ -9951,7 +9951,7 @@ public class GameService {
         if (biteEnabled != null) {
             for (Boolean b : biteEnabled) {
                 if (Boolean.TRUE.equals(b)) {
-                    cost += 50;
+                    cost += 10;
                 }
             }
         }
@@ -11382,17 +11382,17 @@ public class GameService {
 
             // --- MORSURE DE CLONE ---
             if (fight != null && fight.isCloneAttack()) {
-                // D20, seuil 15, +10 âmes + 1 corruption
+                // D20, seuil 12, +30 âmes + 1 corruption
                 int roll = 1 + RND.nextInt(20);
                 b.setRoll(roll);
                 addHistory(g, nameOf(g, b.getAttackerId()) + " — jet de morsure (Clone) = " + roll + ".");
 
-                if (roll > 15) {
+                if (roll > 12) {
                     Player att = findPlayer(g, b.getAttackerId());
                     if (att != null) {
-                        att.setSouls(att.getSouls() + 10);
+                        att.setSouls(att.getSouls() + 30);
                         addHistory(g, "Morsure réussie ! (Clone) — " + nameOf(g, att.getId())
-                                + " draine 10 âmes à " + nameOf(g, target != null ? target.getId() : "la cible") + ".");
+                                + " draine 30 âmes à " + nameOf(g, target != null ? target.getId() : "la cible") + ".");
                     }
 
                     if (target != null && target.getCorruption() < 3) {
@@ -11517,13 +11517,13 @@ public class GameService {
                     rebuildCorruptionMods(g);
                     sendMods = true;
 
-                    // Bonus : morsure réussie => +50 âmes au vampire (ou +10 si clone)
+                    // Bonus : morsure réussie => +50 âmes au vampire (ou +30 si clone)
                     var vampOpt2 = getVamp(g);
                     if (vampOpt2.isPresent()) {
                         Player vamp2 = vampOpt2.get();
                         int reward = 50;
                         if (fight != null && fight.isCloneAttack()) {
-                            reward = 10;
+                            reward = 30;
                         }
 
                         vamp2.setSouls(vamp2.getSouls() + reward);

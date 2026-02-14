@@ -5314,7 +5314,7 @@ export class GameComponent {
     let cost = 0;
     if (this.clonesBiteParams) {
       for (const b of this.clonesBiteParams) {
-        if (b) cost += 50;
+        if (b) cost += 10;
       }
     }
     return cost;
@@ -6287,7 +6287,7 @@ export class GameComponent {
 
     const currentFight = this.game?.currentCombat;
     const isClone = currentFight?.cloneAttack;
-    const threshold = isClone ? 15 : 8;
+    const threshold = isClone ? 12 : 8;
 
     // Échec selon le seuil
     if (b.roll <= threshold) {
@@ -6305,7 +6305,7 @@ export class GameComponent {
         return `${target} est mordu et succombe à la corruption. ${target} devient un serviteur du vampire !`;
       }
       // Différencier clone vs vampire
-      const souls = isClone ? 10 : 50;
+      const souls = isClone ? 30 : 50;
       return `${target} est mordu. Le sang versé nourrit le vampire: +${souls} âmes déchues.`;
     }
 
