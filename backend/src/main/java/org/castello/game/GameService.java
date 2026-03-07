@@ -1592,14 +1592,15 @@ public class GameService {
         for (var p : g.getPlayers()) {
             if ("HUNTER".equals(p.getRole())) {
                 p.getActions().addAll(List.of(
-                        // "AMBUSH", "AMBUSH", "PROVOCATION", "PROVOCATION",
-                        // "NET", "NET", "PIT", "PIT", "NET", "NET", "PIT", "PIT",
-                        // "NET", "NET", "PIT", "PIT", "NET", "NET", "PIT", "PIT"
-                        "MARCHAND_ITINERANT", "MARCHAND_ITINERANT"));
+                        "CRATE_MANOR", "CRATE_LAKE"
+                // "AMBUSH", "AMBUSH", "PROVOCATION", "PROVOCATION",
+                // "NET", "NET", "PIT", "PIT", "NET", "NET", "PIT", "PIT",
+                // "NET", "NET", "PIT", "PIT", "NET", "NET", "PIT", "PIT"
+                // "MARCHAND_ITINERANT", "MARCHAND_ITINERANT"
+                ));
             }
             if ("VAMPIRE".equals(p.getRole())) {
                 p.getActions().addAll(List.of(
-                        "ADVANCED_TRANSMUTATION", "ADVANCED_TRANSMUTATION", "ADVANCED_TRANSMUTATION",
                         "ADVANCED_TRANSMUTATION"
                 // "VOILE_DE_BRUME", "VOILE_DE_BRUME", "VOILE_DE_BRUME",
                 // "FAIM_IRREPRESSIBLE", "FAIM_IRREPRESSIBLE",
@@ -1885,6 +1886,8 @@ public class GameService {
         hunterComp.put("SACRED_ROSARY", 1);
         hunterComp.put("CHARISMATIQUE", 4);
         hunterComp.put("MARCHAND_ITINERANT", 8);
+        hunterComp.put("CRATE_MANOR", 5);
+        hunterComp.put("CRATE_LAKE", 5);
 
         g.setHunterActionsDeck(buildDeckFromComposition(hunterComp));
         g.setHunterActionsDiscard(new ArrayList<>());
@@ -1903,6 +1906,7 @@ public class GameService {
         vampComp.put("AFFAIBLISSEMENT_OCCULTE", 3);
         vampComp.put("PASSAGE_SECRET", 2);
         vampComp.put("AVIDITE_NOCTURNE", 3);
+        vampComp.put("ADVANCED_TRANSMUTATION", 4);
 
         g.setVampActionsDeck(buildDeckFromComposition(vampComp));
         g.setVampActionsDiscard(new ArrayList<>());
