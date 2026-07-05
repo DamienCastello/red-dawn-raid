@@ -81,13 +81,15 @@ auth/joueur. C'est le point le plus important à comprendre :
 - Flux général : le client POST une action → `GameService` mute + persiste → `LiveEvents`
   diffuse → tous les clients reçoivent l'événement et (généralement) recharger le snapshot.
 
-### Authentification (deux notions de token distinctes)
+### Authentification (un seul token : `authToken`)
 - **`authToken`** — session de compte. `POST /api/auth/signup|login` le renvoie ; stocké côté
   client dans `sessionStorage`/`localStorage`. `authInterceptor` ajoute
   `Authorization: Bearer <authToken>` à chaque requête. `TokenAuthFilter` le résout en un
   utilisateur et attribue `ROLE_USER`.
-- **`playerToken`** — une identité par partie (UUID) émise au join, utilisée pour vérifier
-  qu'un appelant appartient bien à la partie concernée pour les actions liées à une partie.
+- **Appartenance à une partie** — il n'existe **pas** de token par partie. Au join,
+  `PlayerService.joinGame` crée une ligne SQL `players(user_id, game_id)` (une seule partie
+  par compte) ; les endpoints liés à une partie vérifient l'appartenance via
+  `PlayerService.requireInGame(userId, gameId)`.
 - `SecurityConfig` : sans état, CSRF désactivé, CORS restreint à localhost:4200 + les deux
   hôtes `castello.ovh`. `GET /api/games/**` et `/api/auth/**` sont publics ; les autres
   `/api/games/**` nécessitent `ROLE_USER` ; le handshake `/ws` n'est pas filtré par

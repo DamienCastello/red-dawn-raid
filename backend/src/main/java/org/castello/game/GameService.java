@@ -1482,7 +1482,7 @@ public class GameService {
             p.setDefenseDice("D4");
         }
 
-        // PV init (vamp = 20 + 10 * nb chasseurs)
+        // PV init (vamp = 20 + 5 * nb chasseurs)
         int huntersCount = (int) g.getPlayers().stream().filter(p -> !"VAMPIRE".equals(p.getRole())).count();
         for (var p : g.getPlayers()) {
             p.setHp("VAMPIRE".equals(p.getRole()) ? 20 + huntersCount * 5 : 20);
@@ -4221,8 +4221,8 @@ public class GameService {
             }
 
             // -------------------
-            // Vols d’objet par le vampire
-            // - Vol de base : si dégâts > 0 sur un chasseur
+            // Vols de ressource par le vampire (jamais l'or ni l'argent)
+            // - Vol de base : si dégâts > 0 sur un chasseur ET jet d'attaque au maximum du dé
             // - Salle de bal : Attaque sournoise = 1 vol supplémentaire
             // sur la cible, même si l’attaque échoue.
             // -------------------
@@ -11340,7 +11340,7 @@ public class GameService {
      * Tente / résout une morsure.
      *
      * Deux étapes possibles :
-     * - Étape 1 (vampire) : jet de morsure (D6).
+     * - Étape 1 (vampire) : jet de morsure (d20, réussite sur > 8 ; clone : d20 > 12).
      * * si échec → on clôt la morsure comme avant.
      * * si réussite :
      * - cible sans armure de plates argent → corruption appliquée immédiatement
@@ -11376,7 +11376,7 @@ public class GameService {
         RoundFight fight = g.getCurrentCombat();
 
         // ======================
-        // ÉTAPE 1 : D6 par le vampire
+        // ÉTAPE 1 : d20 de morsure par le vampire
         // ======================
         if (b.getRoll() == null) {
             // Seul le vampire (attaquant) peut faire le premier jet
@@ -11447,7 +11447,7 @@ public class GameService {
             boolean becameServant = false;
 
             if (target != null && roll > 8) {
-                // Morsure réussie côté D6
+                // Morsure réussie côté d20
 
                 boolean targetHasSacredRosary = (target != null && target.isSacredRosary());
 
@@ -11559,7 +11559,7 @@ public class GameService {
                 if (sendModsF) {
                     live.raidModsUpdated(g);
                 }
-                // Ici rollF = D6
+                // Ici rollF = d20 (morsure)
                 live.biteRolled(g, rollF, attF, tgtF, newCF, becameServantF, isSacredRosaryUsedF);
 
                 // Si le bite est résolu immédiatement (e.g. transformation Servant, chapelet
@@ -11578,7 +11578,7 @@ public class GameService {
         // ======================
 
         // On ne doit arriver ici que si :
-        // - un D6 a déjà été lancé (b.getRoll() != null),
+        // - un d20 a déjà été lancé (b.getRoll() != null),
         // - la morsure n'est pas encore résolue (resolvedAtMillis == null),
         // - la cible possède l'armure de plates argent,
         // - l'appel vient de la cible.
@@ -12366,7 +12366,7 @@ public class GameService {
                 p.setWood(p.getWood() + 2);
                 addHistory(g, nameOf(g, userId) + " transmute: 2 fer + 1 eau → +2 bois.");
             }
-            case "TRINITY_TO_SOULS" -> { // 1 bois + 1 fer + 1 eau → +20 âmes
+            case "TRINITY_TO_SOULS" -> { // 1 bois + 1 fer + 1 eau → +30 âmes
                 if (p.getWood() < 1 || p.getIron() < 1 || p.getWater() < 1)
                     throw new ResponseStatusException(HttpStatus.CONFLICT, "missing resources");
                 p.setWood(p.getWood() - 1);
@@ -12823,11 +12823,11 @@ public class GameService {
         switch (infra) {
             case SAWMILL -> {
                 grant(vamp, "wood", 6);
-                gains.add("+2 bois");
+                gains.add("+6 bois");
             }
             case MINE -> {
                 grant(vamp, "iron", 6);
-                gains.add("+2 fer");
+                gains.add("+6 fer");
             }
             case LIBRARY, LABORATORY, BALLROOM, ALTAR, FORGE -> {
                 // Pour l’instant : même logique que Manoir, tu ajusteras si tu as déjà un case

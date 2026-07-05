@@ -198,6 +198,10 @@ propres à ce bâtiment.
 |----------------|-------------|------|-------|
 | **Scierie** | Forêt | 2 pierre, 2 fer | Récolte de bois améliorée (+4) ; +1 bois auto en phase 4 |
 | **Mine** | Carrière | 3 bois, 1 fer | Récolte de fer améliorée (+4) ; +1 fer auto en phase 4 |
+
+> Le raid de sa construction, le bâtiment est **immédiatement récolté par le vampire** (à la
+> place du lieu de base) : **+6 bois** (Scierie), **+6 fer** (Mine), ou **d100 par dizaines
+> en âmes** pour les bâtiments du Manoir.
 | **Bibliothèque** | Manoir | 4 bois, 2 pierre, 1 fer | Étude, Subtilisation, Prédiction occulte |
 | **Laboratoire occulte** | Manoir | 2 eau, 2 herbes, 3 pierre, 50 âmes | Invoque des monstres, alchimie, explosion |
 | **Salle de bal** | Manoir | 5 pierre, 2 fer, 50 âmes | Danse macabre, attaque sournoise, valse sanguinaire |
@@ -245,6 +249,10 @@ Modificateurs de combat notables :
 - **Focalisation** : relance d'un dé, on garde le meilleur.
 - **Invisibilité** : l'attaquant frappe sans riposte adverse.
 - **Eau bénite** (mode attaque) : +4 dégâts sacrés contre le vampire.
+
+**Vol de ressource :** si le vampire inflige des dégâts à un chasseur **avec un jet
+d'attaque au maximum de son dé**, il lui vole en plus **1 ressource au hasard** (jamais
+l'or ni l'argent).
 
 ---
 
@@ -311,7 +319,7 @@ précis. Chaque camp a son propre deck.
 | **Eau bénite** | +4 dégâts sacrés contre le vampire en combat ; peut aussi **purifier l'autel** |
 | **Fumigation d'ail** | Protège un lieu : le vampire et ses serviteurs ne peuvent s'y rendre |
 | **Pisteur** | Suit le vampire : le chasseur se déplace sur le lieu joué par le vampire |
-| **Feu de camp** | Établit un feu de camp sur un lieu |
+| **Feu de camp** | Jouable uniquement sous **Crépuscule, Nuit obscure ou Nuit claire** : annule les effets de la météo **sur le lieu du chasseur** (et ré‑autorise les pièges sous Nuit obscure) |
 | **Filet** | Piège une cible sur le lieu : jet de d20 > 12 → **−1 défense** à la cible ce raid (contre un monstre : −1 attaque **et** −1 défense) |
 | **Fosse** | Piège plus handicapant que le Filet : la cible rate un jet de d20 (< 8) → **−2 défense** ce raid |
 | **Provocation** | Force un ennemi à cibler le chasseur |
@@ -336,7 +344,7 @@ précis. Chaque camp a son propre deck.
 | **Voile de brume** | Sur un lieu : récolte ÷2 et −1 défense des chasseurs présents |
 | **Faim irrépressible** | Autorise une morsure garantie si l'attaque échoue |
 | **Marque ténébreuse** | Marque un chasseur : +1 corruption chaque fois qu'il croise le vampire |
-| **Affaiblissement occulte** | Affaiblit un chasseur ciblé |
+| **Affaiblissement occulte** | **−2 attaque** à un chasseur ciblé pour ce raid |
 | **Passage secret** | Depuis le Manoir, téléporte le vampire vers un autre lieu après la révélation : pour **fuir une embuscade** ou pour **surgir en attaque surprise** sur des chasseurs |
 | **Avidité nocturne** | Augmente les prix de la boutique (+50) ce raid |
 | **Transmutation avancée** | Transmutation de ressources améliorée |
@@ -349,10 +357,10 @@ Quand un joueur se rend sur un Manoir **construit**, il peut activer l'effet du 
 
 - **Bibliothèque :**
   - *Étude des grimoires* : pioche une carte Action.
-  - *Subtilisation de manuscrit* : prend une carte Action **au hasard** dans la main d'un
-    adversaire (le vampire choisit quel chasseur) et la **mélange dans sa propre pioche**.
-    (Une carte ne change pas de camp : on ne peut pas *jouer* la carte volée d'un camp adverse,
-    on la récupère dans son deck.)
+  - *Subtilisation de manuscrit* : retire une carte Action de la main d'un adversaire —
+    choisie à l'aveugle parmi ses cartes face cachée (le vampire choisit quel chasseur ;
+    un chasseur cible le vampire) — et la **remélange dans la pioche du camp adverse**.
+    C'est un sabotage : on ne gagne pas la carte, on la renvoie dans le deck de sa victime.
   - *Prédiction occulte* : révèle (pour soi) la prochaine carte Action de l'adversaire et
     choisit de la placer **au-dessus ou au-dessous** de la pioche.
 - **Laboratoire occulte :** *Expérimentation* (dépense des âmes pour invoquer un monstre
@@ -367,15 +375,17 @@ Quand un joueur se rend sur un Manoir **construit**, il peut activer l'effet du 
     l'attaque n'inflige aucun dégât).
   - *Valse sanguinaire* : le vampire lance autant de dés d'attaque qu'il y a de chasseurs
     présents, garde le **meilleur** et l'applique à **tous** les chasseurs du lieu.
-  - Effet passif : les chasseurs présents sur la Salle de bal récoltent **deux fois** l'or de
-    ce lieu.
-- **Autel :** sanctuaire qui bascule entre deux états, **purifié** ou **corrompu**.
+  - *Pillage* (chasseurs) : un chasseur présent sur la Salle de bal **sans combat sur le
+    lieu** peut la piller : **+10 à +100 or** (d100 par dizaines), en plus de sa récolte
+    normale.
+- **Autel :** sanctuaire qui bascule entre deux états, **purifié** ou **corrompu**. À sa
+  construction, l'autel est **corrompu**.
   - *Autel purifié* : un **chasseur** peut y **retirer 1 corruption**. Le vampire peut le
-    **corrompre** par une **morsure réussie** sur ce lieu, ou en **sacrifiant des âmes**.
+    **corrompre** par une **morsure réussie** sur ce lieu, ou en **sacrifiant 30 âmes**.
   - *Autel corrompu* : le **vampire** peut y **ajouter +1 corruption** à un chasseur. Les
-    chasseurs peuvent le **purifier** en dépensant de l'**eau bénite**, ou en **repoussant le
-    vampire** lors des combats sur ce lieu — **mais** si le vampire a gagné au moins un
-    affrontement sur l'autel ce raid, il **n'est pas** purifié.
+    chasseurs peuvent le **purifier** en dépensant de l'**eau bénite**, ou par le combat :
+    si le vampire a subi **au moins 1 dégât** sur l'autel ce raid **et qu'aucune morsure
+    n'y a réussi**, l'autel est purifié en fin de raid.
 - **Forge :** fabrique des armes et armures (équipement de tier supérieur).
 
 ---
