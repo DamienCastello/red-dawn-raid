@@ -1493,6 +1493,24 @@ public class Game {
         return map;
     }
 
+    /**
+     * Ajoute (ou remplace par source) un mod de raid pour un joueur.
+     * Idempotent par 'source' : si un mod avec la même source existe,
+     * il est retiré avant ajout.
+     */
+    public void addRaidMod(String playerId, String stat, int amount, String source) {
+        if (raidMods == null)
+            raidMods = new HashMap<>();
+        var list = raidMods.computeIfAbsent(playerId, __ -> new ArrayList<>());
+
+        if (source != null && stat != null) {
+            list.removeIf(m -> source.equals(m.getSource()) && stat.equals(m.getStat()));
+        } else if (source != null) {
+            list.removeIf(m -> source.equals(m.getSource()));
+        }
+        list.add(new StatMod(stat, amount, source));
+    }
+
     /** A déjà joué ce raid : carte au centre, ou suivi Pisteur en attente. */
     public boolean hasPlayed(String playerId) {
         boolean hasLocation = center != null &&
