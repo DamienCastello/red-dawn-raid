@@ -779,39 +779,27 @@ public class GameService {
         return false;
     }
 
+    // Helpers délégués au modèle de domaine (Game / Player).
     private boolean isAlive(Player p) {
-        return p.getHp() > 0 && !p.isLeftGame();
+        return p.isAlive();
     }
 
     private void addHistory(@NonNull Game g, @NonNull String text) {
-        if (g.getHistory() == null)
-            g.setHistory(new ArrayList<>());
-        var hi = new Game.HistoryItem(g.getRaid(), g.getPhase(), System.currentTimeMillis(), text);
-        g.getHistory().add(hi);
+        g.addHistory(text);
     }
 
     private boolean hasPlayed(@NonNull Game g, String playerId) {
-        // 1) carte lieu au centre ?
-        boolean hasLocation = g.getCenter() != null &&
-                g.getCenter().stream().anyMatch(cb -> playerId.equals(cb.getPlayerId()));
-
-        // 2) suivi Pisteur ?
-        boolean isTracker = g.getTrackerHunters() != null &&
-                g.getTrackerHunters().contains(playerId);
-
-        return hasLocation || isTracker;
+        return g.hasPlayed(playerId);
     }
 
     @NonNull
     private Optional<Player> getVamp(@NonNull Game g) {
-        return g.getPlayers().stream().filter(p -> "VAMPIRE".equals(p.getRole())).findFirst();
+        return g.vampire();
     }
 
     @NonNull
     public List<Player> getHunters(@NonNull Game g) {
-        return g.getPlayers().stream()
-                .filter(p -> "HUNTER".equals(p.getRole()))
-                .toList();
+        return g.hunters();
     }
 
     private int diceSides(String d) {
@@ -829,10 +817,7 @@ public class GameService {
     }
 
     private String nameOf(Game g, String playerId) {
-        return g.getPlayers().stream()
-                .filter(p -> p.getId().equals(playerId))
-                .map(p -> (p.getUsername() != null && !p.getUsername().isBlank()) ? p.getUsername() : p.getId())
-                .findFirst().orElse(playerId);
+        return g.nameOf(playerId);
     }
 
     private WeatherStatus mapRollToWeather(int roll) {
@@ -2923,43 +2908,22 @@ public class GameService {
         return g;
     }
 
-    // Regroupe les joueurs par lieu posé au centre (faceUp n’a pas d’importance
-    // ici)
+    // Regroupe les joueurs par lieu posé au centre (délégué au modèle).
     @NonNull
     private Map<String, List<Player>> groupPlayersByLocation(@NonNull Game g) {
-        Map<String, List<Player>> map = new HashMap<>();
-        for (var cb : g.getCenter()) {
-            String loc = cb.getCard();
-            var p = g.getPlayers().stream().filter(pp -> pp.getId().equals(cb.getPlayerId())).findFirst().orElse(null);
-            if (p == null)
-                continue;
-            map.computeIfAbsent(loc, __ -> new ArrayList<>()).add(p);
-        }
-        return map;
+        return g.playersByLocation();
     }
 
     private String locationOf(Game g, String playerId) {
-        if (g.getCenter() == null)
-            return null;
-        return g.getCenter().stream()
-                .filter(cb -> playerId.equals(cb.getPlayerId()))
-                .map(CenterBoard::getCard)
-                .findFirst()
-                .orElse(null);
+        return g.locationOf(playerId);
     }
 
     private java.util.List<Player> playersOnLocation(Game g, String location) {
-        if (location == null)
-            return java.util.List.of();
-        return g.getPlayers().stream()
-                .filter(p -> location.equals(locationOf(g, p.getId())))
-                .toList();
+        return g.playersOn(location);
     }
 
     private java.util.List<Player> vampSideOnLocation(Game g, String location) {
-        return playersOnLocation(g, location).stream()
-                .filter(p -> "VAMPIRE".equals(p.getRole()) || "SERVANT".equals(p.getRole()))
-                .toList();
+        return g.vampSideOn(location);
     }
 
     @NonNull
@@ -5065,18 +5029,9 @@ public class GameService {
     }
 
     private void grant(Player p, String res, int qty) {
-        if (qty <= 0 || p == null)
+        if (p == null)
             return;
-        switch (res) {
-            case "wood" -> p.setWood(p.getWood() + qty);
-            case "herbs" -> p.setHerbs(p.getHerbs() + qty);
-            case "stone" -> p.setStone(p.getStone() + qty);
-            case "iron" -> p.setIron(p.getIron() + qty);
-            case "water" -> p.setWater(p.getWater() + qty);
-            case "gold" -> p.setGold(p.getGold() + qty);
-            case "souls" -> p.setSouls(p.getSouls() + qty);
-            case "silver" -> p.setSilver(p.getSilver() + qty);
-        }
+        p.grant(res, qty);
     }
 
     private String resLabelFr(String res) {
@@ -11677,7 +11632,7 @@ public class GameService {
     // Maintenance
     @Nullable
     private Player findPlayer(Game g, String id) {
-        return g.getPlayers().stream().filter(p -> p.getId().equals(id)).findFirst().orElse(null);
+        return g.findPlayer(id);
     }
 
     // Pioche dans un deck ordonné, avec reshuffle auto depuis la défausse

@@ -1,5 +1,6 @@
 package org.castello.game;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.castello.player.Player;
 
 import java.util.ArrayList;
@@ -8,6 +9,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.Map;
 import java.util.HashMap;
+import java.util.Optional;
 
 public class Game {
     private String id;
@@ -1431,5 +1433,87 @@ public class Game {
 
     public void setBankStoneProgress(Integer bankStoneProgress) {
         this.bankStoneProgress = bankStoneProgress;
+    }
+
+    // ===================================================================
+    // Helpers de domaine (valeurs calculées — non sérialisées dans le JSON)
+    // ===================================================================
+
+    @JsonIgnore
+    public Optional<Player> vampire() {
+        return players.stream().filter(Player::isVampire).findFirst();
+    }
+
+    @JsonIgnore
+    public List<Player> hunters() {
+        return players.stream().filter(Player::isHunter).toList();
+    }
+
+    /** Le joueur portant cet id, ou null s'il n'est pas dans la partie. */
+    public Player findPlayer(String id) {
+        return players.stream().filter(p -> p.getId().equals(id)).findFirst().orElse(null);
+    }
+
+    /** Nom affichable d'un joueur (username, sinon son id). */
+    public String nameOf(String playerId) {
+        return players.stream()
+                .filter(p -> p.getId().equals(playerId))
+                .map(p -> (p.getUsername() != null && !p.getUsername().isBlank()) ? p.getUsername() : p.getId())
+                .findFirst().orElse(playerId);
+    }
+
+    /** Ajoute une ligne d'historique horodatée sur le raid/la phase courants. */
+    public void addHistory(String text) {
+        if (history == null)
+            history = new ArrayList<>();
+        history.add(new HistoryItem(raid, phase, System.currentTimeMillis(), text));
+    }
+
+    /** Lieu joué au centre par ce joueur, ou null s'il n'a rien posé. */
+    public String locationOf(String playerId) {
+        if (center == null)
+            return null;
+        return center.stream()
+                .filter(cb -> playerId.equals(cb.getPlayerId()))
+                .map(CenterBoard::getCard)
+                .findFirst()
+                .orElse(null);
+    }
+
+    public List<Player> playersOn(String location) {
+        if (location == null)
+            return List.of();
+        return players.stream()
+                .filter(p -> location.equals(locationOf(p.getId())))
+                .toList();
+    }
+
+    public List<Player> vampSideOn(String location) {
+        return playersOn(location).stream()
+                .filter(Player::isVampSide)
+                .toList();
+    }
+
+    /** Regroupe les joueurs par lieu posé au centre (faceUp sans importance). */
+    @JsonIgnore
+    public Map<String, List<Player>> playersByLocation() {
+        Map<String, List<Player>> map = new HashMap<>();
+        for (var cb : center) {
+            String loc = cb.getCard();
+            var p = findPlayer(cb.getPlayerId());
+            if (p == null)
+                continue;
+            map.computeIfAbsent(loc, __ -> new ArrayList<>()).add(p);
+        }
+        return map;
+    }
+
+    /** A déjà joué ce raid : carte au centre, ou suivi Pisteur en attente. */
+    public boolean hasPlayed(String playerId) {
+        boolean hasLocation = center != null &&
+                center.stream().anyMatch(cb -> playerId.equals(cb.getPlayerId()));
+        boolean isTracker = trackerHunters != null &&
+                trackerHunters.contains(playerId);
+        return hasLocation || isTracker;
     }
 }

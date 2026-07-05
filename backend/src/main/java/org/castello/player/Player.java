@@ -1,5 +1,7 @@
 package org.castello.player;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -389,5 +391,51 @@ public class Player {
 
     public void setMerchantUsedThisRaid(boolean merchantUsedThisRaid) {
         this.merchantUsedThisRaid = merchantUsedThisRaid;
+    }
+
+    // ===================================================================
+    // Helpers de domaine (valeurs calculées — non sérialisées dans le JSON)
+    // ===================================================================
+
+    @JsonIgnore
+    public boolean isAlive() {
+        return hp > 0 && !leftGame;
+    }
+
+    @JsonIgnore
+    public boolean isHunter() {
+        return "HUNTER".equals(role);
+    }
+
+    @JsonIgnore
+    public boolean isVampire() {
+        return "VAMPIRE".equals(role);
+    }
+
+    @JsonIgnore
+    public boolean isServant() {
+        return "SERVANT".equals(role);
+    }
+
+    /** Vampire ou serviteur : le camp du vampire. */
+    @JsonIgnore
+    public boolean isVampSide() {
+        return isVampire() || isServant();
+    }
+
+    /** Ajoute qty à la ressource donnée ("wood", "herbs", "stone", …). */
+    public void grant(String res, int qty) {
+        if (qty <= 0)
+            return;
+        switch (res) {
+            case "wood" -> setWood(wood + qty);
+            case "herbs" -> setHerbs(herbs + qty);
+            case "stone" -> setStone(stone + qty);
+            case "iron" -> setIron(iron + qty);
+            case "water" -> setWater(water + qty);
+            case "gold" -> setGold(gold + qty);
+            case "souls" -> setSouls(souls + qty);
+            case "silver" -> setSilver(silver + qty);
+        }
     }
 }
