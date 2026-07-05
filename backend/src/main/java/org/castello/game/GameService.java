@@ -1,5 +1,6 @@
 package org.castello.game;
 
+import org.castello.game.support.Dice;
 import org.castello.game.support.GameStore;
 import org.castello.player.Player;
 import org.springframework.http.HttpStatus;
@@ -31,15 +32,17 @@ public class GameService {
 
     // ----- PERSISTENCE -----
     private final GameStore store;
+    private final Dice dice;
     private final GameRepository gameRepo;
     private final PlayerRepository playerRepo;
     private final org.castello.live.LiveEvents live;
     private final PlayerService playerService;
 
-    public GameService(GameStore store, GameRepository gameRepo, PlayerRepository playerRepo,
+    public GameService(GameStore store, Dice dice, GameRepository gameRepo, PlayerRepository playerRepo,
             @Qualifier("raidTaskScheduler") TaskScheduler raidScheduler, PlatformTransactionManager tm,
             org.castello.live.LiveEvents live, PlayerService playerService) {
         this.store = store;
+        this.dice = dice;
         this.gameRepo = gameRepo;
         this.playerRepo = playerRepo;
         this.raidScheduler = raidScheduler;
@@ -687,7 +690,6 @@ public class GameService {
     }
 
     // ---------- utilitaires ----------
-    private static final Random RND = new Random();
 
     private boolean computeHasUpcomingCombat(Game g) {
         // Face-up uniquement
@@ -1427,7 +1429,7 @@ public class GameService {
         g.setMessages(new ArrayList<>(List.of("Tirage météo ...")));
 
         // --- Rôles + mains (répartition initiale) ---
-        int vampIndex = RND.nextInt(g.getPlayers().size());
+        int vampIndex = dice.nextInt(g.getPlayers().size());
         for (int i = 0; i < g.getPlayers().size(); i++) {
             Player p = g.getPlayers().get(i);
             p.setRole(i == vampIndex ? "VAMPIRE" : "HUNTER");
@@ -1801,7 +1803,7 @@ public class GameService {
             }
         }
         // Mélange initial, une seule fois
-        java.util.Collections.shuffle(deck, RND);
+        dice.shuffle(deck);
         return deck;
     }
 
@@ -2119,7 +2121,7 @@ public class GameService {
                 var history = new ArrayList<String>();
                 for (var p : getHunters(g)) {
                     if (p.getCorruption() == 2) {
-                        int roll = 1 + RND.nextInt(6);
+                        int roll = dice.roll(6);
                         addHistory(g, nameOf(g, p.getId()) + " — Corruption (instable) jet de d6 = " + roll + ".");
                         if (roll <= 3) {
                             var eligibleHunters = getHunters(g).stream()
@@ -3695,7 +3697,7 @@ public class GameService {
                         rolls = new java.util.ArrayList<>();
                         best = Integer.MIN_VALUE;
                         for (int i = 0; i < huntersCountOnBallroom; i++) {
-                            int v = 1 + RND.nextInt(sides);
+                            int v = dice.roll(sides);
                             rolls.add(v);
                             if (v > best)
                                 best = v;
@@ -3724,7 +3726,7 @@ public class GameService {
 
                 } else if (r.getAttackerFirstRoll() != null && r.getAttackerRoll() == null) {
                     // Étape 2 : dé de Focalisation, unique pour cette Valse
-                    int focusRoll = 1 + RND.nextInt(sides);
+                    int focusRoll = dice.roll(sides);
                     r.setAttackerReroll(focusRoll);
 
                     int prevBest = r.getAttackerFirstRoll();
@@ -3765,7 +3767,7 @@ public class GameService {
                     rolls = new java.util.ArrayList<>();
                     best = Integer.MIN_VALUE;
                     for (int i = 0; i < huntersCountOnBallroom; i++) {
-                        int v = 1 + RND.nextInt(sides);
+                        int v = dice.roll(sides);
                         rolls.add(v);
                         if (v > best)
                             best = v;
@@ -3799,7 +3801,7 @@ public class GameService {
                 if (hasFocus) {
                     // FOCALISATION EXISTANT
                     if (r.getAttackerFirstRoll() == null && r.getAttackerRoll() == null) {
-                        int roll1 = 1 + RND.nextInt(sides);
+                        int roll1 = dice.roll(sides);
                         r.setAttackerFirstRoll(roll1);
 
                         addHistory(g, nameOf(g, r.getAttackerId())
@@ -3810,7 +3812,7 @@ public class GameService {
                         ev.atkRoll = roll1;
 
                     } else if (r.getAttackerFirstRoll() != null && r.getAttackerRoll() == null) {
-                        int roll2 = 1 + RND.nextInt(sides);
+                        int roll2 = dice.roll(sides);
                         int first = r.getAttackerFirstRoll();
                         int best = Math.max(first, roll2);
 
@@ -3843,7 +3845,7 @@ public class GameService {
                 } else {
                     // Pas de potion : jet simple
                     if (r.getAttackerRoll() == null) {
-                        int roll = 1 + RND.nextInt(sides);
+                        int roll = dice.roll(sides);
                         r.setAttackerRoll(roll);
                         addHistory(g, nameOf(g, r.getAttackerId()) + " — jet d'attaque = " + roll + ".");
 
@@ -3868,7 +3870,7 @@ public class GameService {
             if (hasFocus) {
                 if (r.getDefenderFirstRoll() == null && r.getDefenderRoll() == null) {
                     // 1er jet de défense, uniquement stocké comme "premier dé"
-                    int roll1 = 1 + RND.nextInt(sides);
+                    int roll1 = dice.roll(sides);
                     r.setDefenderFirstRoll(roll1);
 
                     addHistory(g, nameOf(g, r.getDefenderId())
@@ -3880,7 +3882,7 @@ public class GameService {
 
                 } else if (r.getDefenderFirstRoll() != null && r.getDefenderRoll() == null) {
                     // 2e appel : on fixe le jet final (meilleur des deux)
-                    int roll2 = 1 + RND.nextInt(sides);
+                    int roll2 = dice.roll(sides);
                     int first = r.getDefenderFirstRoll();
                     int best = Math.max(first, roll2);
 
@@ -3912,7 +3914,7 @@ public class GameService {
             } else {
                 // Pas de potion : comportement initial
                 if (r.getDefenderRoll() == null) {
-                    int roll = 1 + RND.nextInt(sides);
+                    int roll = dice.roll(sides);
                     r.setDefenderRoll(roll);
                     addHistory(g, nameOf(g, r.getDefenderId()) + " — jet de défense = " + roll + ".");
                     ev.sendDef = true;
@@ -4900,7 +4902,7 @@ public class GameService {
             g.setRaidMods(new HashMap<>());
 
         // 1) Mutations PURES (aucun save / aucun event ici)
-        int roll = 1 + RND.nextInt(12);
+        int roll = dice.roll(12);
         applyWeatherRoll(g, roll);
 
         // 2) Commit
@@ -5026,7 +5028,7 @@ public class GameService {
         if (pool.isEmpty())
             return null;
 
-        String type = pool.get(RND.nextInt(pool.size()));
+        String type = pool.get(dice.nextInt(pool.size()));
         switch (type) {
             case "WOOD" -> p.setWood(p.getWood() - 1);
             case "IRON" -> p.setIron(p.getIron() - 1);
@@ -5045,7 +5047,7 @@ public class GameService {
                 .toList();
         if (candidates.isEmpty())
             return null;
-        return candidates.get(RND.nextInt(candidates.size()));
+        return candidates.get(dice.nextInt(candidates.size()));
     }
 
     /**
@@ -5059,7 +5061,7 @@ public class GameService {
 
     // ressources
     private int rollD100Tens() {
-        return RND.nextInt(10) * 10;
+        return dice.nextInt(10) * 10;
     }
 
     private void grant(Player p, String res, int qty) {
@@ -5359,7 +5361,7 @@ public class GameService {
             pool.add("iron");
         if (h.getWater() > 0)
             pool.add("water");
-        return pool.isEmpty() ? null : pool.get(RND.nextInt(pool.size()));
+        return pool.isEmpty() ? null : pool.get(dice.nextInt(pool.size()));
     }
 
     private @Nullable String vampStealOne(Game g, Player vamp, Player hunter) {
@@ -5572,7 +5574,7 @@ public class GameService {
                         ? (20 + (g.getInitialPlayerCount() - 1) * 5)
                         : 20;
 
-                int d6 = 1 + RND.nextInt(6);
+                int d6 = dice.roll(6);
                 int amount = 2 + d6;
 
                 p.setHp(Math.min(max, p.getHp() + amount));
@@ -7872,7 +7874,7 @@ public class GameService {
                                 rollsCount = 1;
 
                             for (int k = 0; k < rollsCount; k++) {
-                                int roll = 1 + java.util.concurrent.ThreadLocalRandom.current().nextInt(20);
+                                int roll = dice.roll(20);
 
                                 String msg = entityName(g, monsterId) + " jette un dé pour éviter la Fosse de "
                                         + nameOf(g, hunterId) + " (1d20 = " + roll + "). ";
@@ -8161,7 +8163,7 @@ public class GameService {
             }
         }
 
-        int roll = 1 + java.util.concurrent.ThreadLocalRandom.current().nextInt(20);
+        int roll = dice.roll(20);
 
         String msg = nameOf(g, hunterId) + " jette un dé pour son Filet contre "
                 + entityName(g, targetId) + " (1d20 = " + roll + "). ";
@@ -8359,7 +8361,7 @@ public class GameService {
         }
 
         // Jet
-        int roll = 1 + java.util.concurrent.ThreadLocalRandom.current().nextInt(20);
+        int roll = dice.roll(20);
 
         String msg = entityName(g, targetId) + " jette un dé pour éviter la Fosse (1d20 = " + roll + "). ";
 
@@ -8463,7 +8465,7 @@ public class GameService {
         }
 
         // Jet de dé
-        int roll = 1 + java.util.concurrent.ThreadLocalRandom.current().nextInt(20);
+        int roll = dice.roll(20);
 
         java.util.List<String> breakdown = new java.util.ArrayList<>();
         breakdown.add("Jet d'Incendiaire : 1d20 = " + roll);
@@ -8861,7 +8863,7 @@ public class GameService {
         }
 
         // --- Jet d4 ---
-        int roll = 1 + java.util.concurrent.ThreadLocalRandom.current().nextInt(4); // 1..4
+        int roll = dice.roll(4); // 1..4
 
         int beforeHp;
         if (targetPlayer != null) {
@@ -8953,7 +8955,7 @@ public class GameService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "merchant already rolled");
         }
 
-        int d6 = 1 + RND.nextInt(6);
+        int d6 = dice.roll(6);
         p.setMerchantRoll(d6);
         p.setMerchantPending(false); // plus en attente
         p.setShopBonusBuyPending(false); // reset sécurité
@@ -8987,7 +8989,7 @@ public class GameService {
             else if (aTier < wTier)
                 preferWeapon = false;
             else
-                preferWeapon = RND.nextBoolean();
+                preferWeapon = dice.nextBoolean();
 
             boolean weapon;
             Integer tier;
@@ -9064,7 +9066,7 @@ public class GameService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "transmutation already rolled");
         }
 
-        int d6 = 1 + RND.nextInt(6);
+        int d6 = dice.roll(6);
         p.setMerchantRoll(d6);
         p.setMerchantPending(false); // plus en attente
         p.setShopBonusBuyPending(false); // reset sécurité
@@ -9096,7 +9098,7 @@ public class GameService {
             else if (aTier < wTier)
                 preferWeapon = false;
             else
-                preferWeapon = RND.nextBoolean();
+                preferWeapon = dice.nextBoolean();
 
             boolean weapon;
             Integer tier;
@@ -9167,7 +9169,7 @@ public class GameService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Caisse déjà ouverte.");
         }
 
-        int d6 = 1 + RND.nextInt(6);
+        int d6 = dice.roll(6);
         a.setRoll(d6);
 
         java.util.List<String> breakdown = new java.util.ArrayList<>();
@@ -9256,7 +9258,7 @@ public class GameService {
         // sécurité: clamp 1..2
         tier = Math.max(1, Math.min(2, tier));
 
-        int r3 = 1 + RND.nextInt(3); // 1..3 → bleed / stun / ranged
+        int r3 = dice.roll(3); // 1..3 → bleed / stun / ranged
 
         return switch (tier) {
             case 1 -> switch (r3) {
@@ -9840,7 +9842,7 @@ public class GameService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "dé déjà lancé.");
         }
 
-        int roll = 1 + RND.nextInt(4); // D4
+        int roll = dice.roll(4); // D4
         a.setRoll(roll);
 
         a.getBreakdownLines().add(
@@ -11343,7 +11345,7 @@ public class GameService {
             // --- MORSURE DE CLONE ---
             if (fight != null && fight.isCloneAttack()) {
                 // D20, seuil 12, +30 âmes + 1 corruption
-                int roll = 1 + RND.nextInt(20);
+                int roll = dice.roll(20);
                 b.setRoll(roll);
                 addHistory(g, nameOf(g, b.getAttackerId()) + " — jet de morsure (Clone) = " + roll + ".");
 
@@ -11395,7 +11397,7 @@ public class GameService {
                         + "si cette morsure réussit sur le sanctuaire, l'autel sera profané.");
             }
 
-            int roll = 1 + RND.nextInt(20);
+            int roll = dice.roll(20);
             b.setRoll(roll);
             addHistory(g, nameOf(g, b.getAttackerId()) + " — jet de morsure = " + roll + ".");
 
@@ -11549,7 +11551,7 @@ public class GameService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "armor roll already done");
         }
 
-        int d4 = 1 + RND.nextInt(4);
+        int d4 = dice.roll(4);
         b.setArmorRoll(d4);
         addHistory(g, "Armure de plates en argent — "
                 + nameOf(g, target.getId())
@@ -11685,7 +11687,7 @@ public class GameService {
 
         // 1) Si deck vide AVANT pioche, on recrée depuis la défausse
         if (deck.isEmpty() && discard != null && !discard.isEmpty()) {
-            java.util.Collections.shuffle(discard, RND);
+            dice.shuffle(discard);
             deck.addAll(discard);
             discard.clear();
         }
@@ -11698,7 +11700,7 @@ public class GameService {
 
         // 3) NOUVEAU : si le deck vient de tomber à 0, on reshuffle TOUT DE SUITE
         if (deck.isEmpty() && discard != null && !discard.isEmpty()) {
-            java.util.Collections.shuffle(discard, RND);
+            dice.shuffle(discard);
             deck.addAll(discard);
             discard.clear();
         }
@@ -12165,7 +12167,7 @@ public class GameService {
             tierMap.remove(userId);
         } else {
             int nextTier = 2;
-            int r2 = RND.nextInt(3);
+            int r2 = dice.nextInt(3);
             String nextType = (r2 == 0) ? "BLEED" : (r2 == 1) ? "RANGE" : "STUN";
             tierMap.put(userId, nextTier);
             typeMap.put(userId, nextType);
@@ -13970,7 +13972,7 @@ public class GameService {
         }
 
         deck.add(stolen);
-        java.util.Collections.shuffle(deck, RND);
+        dice.shuffle(deck);
 
         // 3) Historique
         String who = nameOf(g, owner.getId());
@@ -14130,7 +14132,7 @@ public class GameService {
 
         // Si deck vide mais discard non vide → on recrée le deck maintenant
         if (deck.isEmpty() && !discard.isEmpty()) {
-            java.util.Collections.shuffle(discard, RND);
+            dice.shuffle(discard);
             deck.addAll(discard);
             discard.clear();
         }
@@ -14578,14 +14580,14 @@ public class GameService {
         int sides = diceSides(m.attackDice); // même helper que pour les joueurs
         if (sides <= 0)
             return 0;
-        return 1 + RND.nextInt(sides);
+        return dice.roll(sides);
     }
 
     private int rollMonsterDefense(Game.Monster m) {
         int sides = diceSides(m.defenseDice);
         if (sides <= 0)
             return 0;
-        return 1 + RND.nextInt(sides);
+        return dice.roll(sides);
     }
 
     /**
@@ -14688,7 +14690,7 @@ public class GameService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "explosion already resolved");
         }
 
-        int roll = 1 + RND.nextInt(20);
+        int roll = dice.roll(20);
         g.setLaboratoryExplosionRoll(roll);
 
         String who = nameOf(g, hunter.getId());
@@ -14760,7 +14762,7 @@ public class GameService {
 
         String lostResKey = null;
         if (!resourceKeys.isEmpty()) {
-            lostResKey = resourceKeys.get(RND.nextInt(resourceKeys.size()));
+            lostResKey = resourceKeys.get(dice.nextInt(resourceKeys.size()));
             switch (lostResKey) {
                 case "wood" -> vamp.setWood(vamp.getWood() - 1);
                 case "herbs" -> vamp.setHerbs(vamp.getHerbs() - 1);
@@ -16180,7 +16182,7 @@ public class GameService {
             p.setGold(p.getGold() + goldGain);
 
             if (lvl >= 2) {
-                int r = RND.nextInt(4); // 0..3
+                int r = dice.nextInt(4); // 0..3
                 switch (r) {
                     case 0 -> p.setWood(p.getWood() + 1);
                     case 1 -> p.setIron(p.getIron() + 1);
