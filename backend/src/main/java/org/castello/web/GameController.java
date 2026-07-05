@@ -18,13 +18,16 @@ import java.util.ArrayList;
 public class GameController {
 
     private final GameService games;
+    private final org.castello.game.domain.SnapshotService snapshots;
     private final AuthService authService;
     private final PlayerService playerService;
 
     private static final Logger log = LoggerFactory.getLogger(GameController.class);
 
-    public GameController(GameService games, AuthService authService, PlayerService playerService) {
+    public GameController(GameService games, org.castello.game.domain.SnapshotService snapshots,
+            AuthService authService, PlayerService playerService) {
         this.games = games;
+        this.snapshots = snapshots;
         this.authService = authService;
         this.playerService = playerService;
     }
@@ -46,7 +49,7 @@ public class GameController {
             @RequestHeader("Authorization") String authorization) {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
-        return games.viewSnapshot(id, user.getId());
+        return snapshots.viewSnapshot(id, user.getId());
     }
 
     @PostMapping("/{id}/join")
@@ -112,7 +115,7 @@ public class GameController {
     public EndedGameSummary summary(@PathVariable String id,
             @RequestHeader("Authorization") String authorization) {
         authService.requireUser(authorization);
-        return games.viewEndedSummary(id);
+        return snapshots.viewEndedSummary(id);
     }
 
     @PostMapping("/{id}/advance")
@@ -400,7 +403,7 @@ public class GameController {
         var user = authService.requireUser(authorization);
         playerService.requireInGame(user.getId(), id);
         games.buyResource(id, user.getId(), body.resource);
-        return games.viewSnapshot(id, user.getId());
+        return snapshots.viewSnapshot(id, user.getId());
     }
 
     public static class TransmuteReq {
