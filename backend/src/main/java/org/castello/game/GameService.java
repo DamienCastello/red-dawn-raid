@@ -1430,63 +1430,7 @@ public class GameService {
         for (var p : g.getPlayers()) {
             p.setHp("VAMPIRE".equals(p.getRole()) ? 20 + huntersCount * 5 : 20);
         }
-        /*
-         * // startReal : ajout de 2 GARGOYLE à forest pour tester
-         * if (g.getMonsters() == null)
-         * g.setMonsters(new java.util.ArrayList<>());
-         * Game.Monster m1 = new Game.Monster();
-         * m1.id = java.util.UUID.randomUUID().toString();
-         * m1.type = Game.MonsterType.GARGOYLE;
-         * m1.location = "forest";
-         * m1.hp = 10;
-         * m1.attackDice = "D6";
-         * m1.defenseDice = "D8";
-         * g.getMonsters().add(m1);
-         * 
-         * Game.Monster m2 = new Game.Monster();
-         * m2.id = java.util.UUID.randomUUID().toString();
-         * m2.type = Game.MonsterType.GARGOYLE;
-         * m2.location = "forest";
-         * m2.hp = 10;
-         * m2.attackDice = "D6";
-         * m2.defenseDice = "D8";
-         * g.getMonsters().add(m2);
-         */
-        /*
-         * // ============================
-         * // MODE TEST : 1v1 + 2 morts
-         * // ============================
-         * // À utiliser en dev uniquement pour tester la gestion de joueurs morts.
-         * if (g.getPlayers().size() >= 4) {
-         * // On récupère les chasseurs après assignation aléatoire du vampire
-         * java.util.List<Player> hunters = g.getPlayers().stream()
-         * .filter(p -> "HUNTER".equals(p.getRole()))
-         * .toList();
-         * 
-         * // On veut au moins 3 chasseurs pour faire :
-         * // - 1 serviteur mort (ex-chasseur)
-         * // - 1 chasseur mort
-         * // - 1 chasseur vivant
-         * if (hunters.size() >= 3) {
-         * Player servantDead = hunters.get(0);
-         * Player hunterDead = hunters.get(1);
-         * Player hunterAlive = hunters.get(2);
-         * 
-         * // Le premier chasseur devient SERVANT mort
-         * servantDead.setRole("SERVANT");
-         * servantDead.setHp(0);
-         * 
-         * // Le deuxième reste HUNTER mais mort
-         * hunterDead.setHp(0);
-         * 
-         * // On laisse le vampire et hunterAlive avec leurs PV init.
-         * // Pas besoin de plus pour ce test : les méthodes isAlive() utiliseront hp>0
-         * }
-         * }
-         * // ============================
-         */
-
-        // --- Inventaire ressources (dev/test) ---
+        // --- Ressources de départ ---
         for (var p : g.getPlayers()) {
             if ("VAMPIRE".equals(p.getRole())) {
                 p.setSouls(100 * huntersCount);
@@ -1518,68 +1462,15 @@ public class GameService {
             }
         }
 
-        /*
-         * // --- Inventaire potions (dev/test) ---
-         * for (var p : g.getPlayers()) {
-         * if ("HUNTER".equals(p.getRole())) {
-         * p.getPotions().addAll(List.of("VIE"));
-         * }
-         * 
-         * if ("VAMPIRE".equals(p.getRole())) {
-         * p.getPotions().addAll(List.of("FOCALISATION", "FOCALISATION"));
-         * }
-         * 
-         * }
-         */
-
+        // --- Cartes action de départ ---
         for (var p : g.getPlayers()) {
             if ("HUNTER".equals(p.getRole())) {
-                p.getActions().addAll(List.of(
-                        "CRATE_MANOR", "CRATE_LAKE"
-                // "AMBUSH", "AMBUSH", "PROVOCATION", "PROVOCATION",
-                // "NET", "NET", "PIT", "PIT", "NET", "NET", "PIT", "PIT",
-                // "NET", "NET", "PIT", "PIT", "NET", "NET", "PIT", "PIT"
-                // "MARCHAND_ITINERANT", "MARCHAND_ITINERANT"
-                ));
+                p.getActions().addAll(List.of("CRATE_MANOR", "CRATE_LAKE"));
             }
             if ("VAMPIRE".equals(p.getRole())) {
-                p.getActions().addAll(List.of(
-                        "ADVANCED_TRANSMUTATION"
-                // "VOILE_DE_BRUME", "VOILE_DE_BRUME", "VOILE_DE_BRUME",
-                // "FAIM_IRREPRESSIBLE", "FAIM_IRREPRESSIBLE",
-                // "FAIM_IRREPRESSIBLE", "MARQUE_TENEBREUSE",
-                // "IMAGE_MIROIR", "IMAGE_MIROIR", "IMAGE_MIROIR",
-                // "CLONES_OMBRE", "CLONES_OMBRE", "CLONES_OMBRE"
-                // "PASSAGE_SECRET", "PASSAGE_SECRET", "PASSAGE_SECRET"
-                ));
+                p.getActions().addAll(List.of("ADVANCED_TRANSMUTATION"));
             }
         }
-
-        /*
-         * // --- Inventaire actions (dev/test) ---
-         * for (var p : g.getPlayers()) {
-         * if ("HUNTER".equals(p.getRole())) {
-         * p.getActions().addAll(List.of(
-         * "MARCHAND_ITINERANT", "MARCHAND_ITINERANT", "MARCHAND_ITINERANT",
-         * "CHARISMATIQUE", "SACRED_ROSARY", "SACRED_ROSARY", "BLESSED_STAKE",
-         * "BLESSED_STAKE",
-         * "AMBUSH", "AMBUSH", "EAU_BENITE", "EAU_BENITE", "PROVOCATION", "PROVOCATION",
-         * "EAU_BENITE", "INCENDIAIRE", "INCENDIAIRE", "NET", "PIT", "FUMIGATION_AIL",
-         * "FUMIGATION_AIL", "PISTEUR", "PISTEUR"
-         * ));
-         * }
-         * if ("VAMPIRE".equals(p.getRole())) {
-         * p.getActions().addAll(List.of(
-         * "AVIDITE_NOCTURNE", "AVIDITE_NOCTURNE", "VOILE_DE_BRUME", "BLOOD_MOON",
-         * "AFFAIBLISSEMENT_OCCULTE", "IMAGE_MIROIR", "IMAGE_MIROIR", "PASSAGE_SECRET",
-         * "PASSAGE_SECRET", "PASSAGE_SECRET", "FAIM_IRREPRESSIBLE", "CATACLYSME",
-         * "CATACLYSME",
-         * "CLONES_OMBRE", "CLONES_OMBRE", "MARQUE_TENEBREUSE", "PRESENCE_ECRASANTE",
-         * "PRESENCE_ECRASANTE"
-         * ));
-         * }
-         * }
-         */
 
         initDecks(g);
 
@@ -1958,7 +1849,6 @@ public class GameService {
                 g.setMirrorOwnerId(null);
                 g.setMirrorAltLocations(null);
                 g.setMirrorChosenLocation(null);
-                g.setFogBlocksHunterHarvestThisRaid(false);
                 g.setFogAffectedLocation(null);
                 g.setHungerAllowsBiteThisRaid(false);
                 g.setShopPricesIncreasedThisRaid(false);
@@ -2975,9 +2865,6 @@ public class GameService {
             for (var p : onLoc) {
                 boolean isHunter = "HUNTER".equals(p.getRole());
                 if (isHunter && instablePending.contains(p.getId())) {
-                    continue;
-                }
-                if (isHunter && g.isFogBlocksHunterHarvestThisRaid()) {
                     continue;
                 }
                 String who;

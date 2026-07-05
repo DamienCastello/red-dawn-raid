@@ -153,9 +153,6 @@ public class Game {
     private java.util.List<String> mirrorAltLocations;
     private String mirrorChosenLocation;
 
-    // annule récolte chasseurs (DEPRECATED - use fogAffectedLocation instead)
-    private boolean fogBlocksHunterHarvestThisRaid;
-
     // Lieu affecté par Voile de brume (récolte /2 + -1 DEF)
     private String fogAffectedLocation;
 
@@ -577,10 +574,6 @@ public class Game {
         return status;
     }
 
-    public int getRound() {
-        return raid;
-    }
-
     public Long getStartingAtTs() {
         return startingAtTs;
     }
@@ -984,14 +977,6 @@ public class Game {
 
     public void setMirrorChosenLocation(String mirrorChosenLocation) {
         this.mirrorChosenLocation = mirrorChosenLocation;
-    }
-
-    public boolean isFogBlocksHunterHarvestThisRaid() {
-        return fogBlocksHunterHarvestThisRaid;
-    }
-
-    public void setFogBlocksHunterHarvestThisRaid(boolean fogBlocksHunterHarvestThisRaid) {
-        this.fogBlocksHunterHarvestThisRaid = fogBlocksHunterHarvestThisRaid;
     }
 
     public String getFogAffectedLocation() {
