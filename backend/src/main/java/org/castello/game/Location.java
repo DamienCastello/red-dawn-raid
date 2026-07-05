@@ -32,6 +32,12 @@ public enum Location {
         return labelFr;
     }
 
+    /** Label FR d'un code de lieu ("forest" -> "Forêt"), ou le code si inconnu. */
+    public static String labelFrOf(String code) {
+        Location loc = fromCode(code);
+        return (loc != null) ? loc.labelFr() : code;
+    }
+
     /** Pour traduire un code stocké ("forest", "sawmill"...) en enum. */
     public static Location fromCode(String code) {
         if (code == null) return null;
