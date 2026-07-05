@@ -1,5 +1,6 @@
 package org.castello.game;
 
+import org.castello.game.domain.BankService;
 import org.castello.game.domain.DeckService;
 import org.castello.game.domain.HarvestService;
 import org.castello.game.domain.WeatherService;
@@ -37,13 +38,14 @@ public class GameService {
     private final DeckService decks;
     private final WeatherService weather;
     private final HarvestService harvest;
+    private final BankService bank;
     private final GameRepository gameRepo;
     private final PlayerRepository playerRepo;
     private final org.castello.live.LiveEvents live;
     private final PlayerService playerService;
 
     public GameService(GameStore store, Dice dice, DeckService decks, WeatherService weather,
-            HarvestService harvest,
+            HarvestService harvest, BankService bank,
             GameRepository gameRepo, PlayerRepository playerRepo,
             @Qualifier("raidTaskScheduler") TaskScheduler raidScheduler, PlatformTransactionManager tm,
             org.castello.live.LiveEvents live, PlayerService playerService) {
@@ -52,6 +54,7 @@ public class GameService {
         this.decks = decks;
         this.weather = weather;
         this.harvest = harvest;
+        this.bank = bank;
         this.gameRepo = gameRepo;
         this.playerRepo = playerRepo;
         this.raidScheduler = raidScheduler;
@@ -14702,94 +14705,10 @@ public class GameService {
 
     @Transactional
     public void contributeBankStone(String gameId, String playerId) {
-        Game g = findOr404(gameId);
-
-        if (g.getStatus() != GameStatus.ACTIVE)
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "game not active");
-
-        if (g.getPhase() != Phase.PHASE4)
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "bank only in PHASE4");
-
-        Player p = findPlayer(g, playerId);
-        if (p == null)
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "invalid player");
-
-        if (!"HUNTER".equals(p.getRole()))
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "hunters only");
-
-        if (p.getHp() <= 0)
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "dead player");
-
-        int lvl = (g.getBankLevel() == null ? 0 : g.getBankLevel());
-        int prog = (g.getBankStoneProgress() == null ? 0 : g.getBankStoneProgress());
-
-        if (lvl >= 3)
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "bank already max");
-
-        if (p.getStone() <= 0)
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "not enough stone");
-
-        // 1) payer 1 pierre
-        p.setStone(p.getStone() - 1);
-
-        // 2) progresser
-        prog += 1;
-
-        // 3) coût requis selon niveau actuel -> prochain niveau
-        int required = switch (lvl + 1) {
-            case 1 -> 10;
-            case 2 -> 15;
-            case 3 -> 20;
-            default -> Integer.MAX_VALUE;
-        };
-
-        boolean leveledUp = false;
-        if (prog >= required) {
-            lvl += 1;
-            prog = 0; // reset pour le prochain palier
-            leveledUp = true;
-
-            addHistory(g, "Banque — amélioration réussie : la banque passe au niveau " + lvl + ".");
-        } else {
-            addHistory(g, "Banque — dépôt d’1 pierre (" + prog + "/" + required + ").");
-        }
-
-        g.setBankLevel(lvl);
-        g.setBankStoneProgress(prog);
-
-        save(g);
-
-        afterCommit(() -> {
-            Game fresh = findOr404(gameId);
-            live.bankUpdated(fresh, playerId); // WS (refresh front)
-        });
+        bank.contributeBankStone(gameId, playerId);
     }
 
     private void applyBankBonusOnPhase4Entry(Game g) {
-        int lvl = (g.getBankLevel() == null ? 0 : g.getBankLevel());
-        if (lvl <= 0)
-            return;
-
-        for (Player p : g.getPlayers()) {
-            if (!"HUNTER".equals(p.getRole()))
-                continue;
-            if (p.getHp() <= 0)
-                continue;
-
-            int goldGain = (lvl >= 3) ? 100 : 50;
-            p.setGold(p.getGold() + goldGain);
-
-            if (lvl >= 2) {
-                int r = dice.nextInt(4); // 0..3
-                switch (r) {
-                    case 0 -> p.setWood(p.getWood() + 1);
-                    case 1 -> p.setIron(p.getIron() + 1);
-                    case 2 -> p.setHerbs(p.getHerbs() + 1);
-                    case 3 -> p.setWater(p.getWater() + 1);
-                }
-            }
-        }
-
-        addHistory(g, "Banque — bonus appliqué (niveau " + lvl + ") au début de la phase 4.");
+        bank.applyBankBonusOnPhase4Entry(g);
     }
 }
