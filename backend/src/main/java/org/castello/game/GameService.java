@@ -1,7 +1,6 @@
 package org.castello.game;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.castello.game.support.GameStore;
 import org.castello.player.Player;
 import org.springframework.http.HttpStatus;
 import org.springframework.lang.NonNull;
@@ -18,7 +17,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.castello.web.dto.EndedGameSummary;
 
-import org.castello.persistence.GameEntity;
 import org.castello.persistence.GameRepository;
 import org.castello.persistence.PlayerRepository;
 import org.castello.player.PlayerService;
@@ -32,68 +30,37 @@ public class GameService {
     private final TransactionTemplate tx;
 
     // ----- PERSISTENCE -----
+    private final GameStore store;
     private final GameRepository gameRepo;
     private final PlayerRepository playerRepo;
-    private final ObjectMapper mapper; // Jackson fourni par Spring Boot
     private final org.castello.live.LiveEvents live;
     private final PlayerService playerService;
 
-    public GameService(GameRepository gameRepo, PlayerRepository playerRepo,
+    public GameService(GameStore store, GameRepository gameRepo, PlayerRepository playerRepo,
             @Qualifier("raidTaskScheduler") TaskScheduler raidScheduler, PlatformTransactionManager tm,
-            ObjectMapper mapper,
             org.castello.live.LiveEvents live, PlayerService playerService) {
+        this.store = store;
         this.gameRepo = gameRepo;
         this.playerRepo = playerRepo;
         this.raidScheduler = raidScheduler;
         this.tx = new TransactionTemplate(tm);
-        this.mapper = mapper;
         this.live = live;
         this.playerService = playerService;
     }
 
     private static final Logger log = LoggerFactory.getLogger(GameService.class);
 
-    private String toJson(Game g) {
-        try {
-            return mapper.writeValueAsString(g);
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException(e);
-        }
-    }
-
-    private Game fromJson(String json) {
-        try {
-            return mapper.readValue(json, Game.class);
-        } catch (Exception e) {
-            throw new IllegalStateException(e);
-        }
-    }
-
+    // Plomberie déléguée à GameStore (voir game/support/GameStore.java).
     private Game findOr404(String id) {
-        var e = gameRepo.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Game not found"));
-        return fromJson(e.getStateJson());
+        return store.read(id);
     }
 
     private Game findOr404ForUpdate(String id) {
-        GameEntity ge = gameRepo.findByIdForUpdate(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "game not found"));
-        return fromJson(ge.getStateJson());
+        return store.loadForUpdate(id);
     }
 
     private void afterCommit(Runnable r) {
-        if (org.springframework.transaction.support.TransactionSynchronizationManager.isSynchronizationActive()) {
-            org.springframework.transaction.support.TransactionSynchronizationManager
-                    .registerSynchronization(new org.springframework.transaction.support.TransactionSynchronization() {
-                        @Override
-                        public void afterCommit() {
-                            r.run();
-                        }
-                    });
-        } else {
-            // au cas où on l’appelle hors transaction (no-op de tx) : on exécute quand même
-            r.run();
-        }
+        store.afterCommit(r);
     }
 
     private static Map<String, Integer> copyMap(Map<String, Integer> m) {
@@ -716,16 +683,7 @@ public class GameService {
 
     /** Sauvegarde en préservant la version (évite les inserts involontaires). */
     private void save(@NonNull Game g) {
-        String newJson = toJson(g);
-        gameRepo.findById(g.getId()).ifPresentOrElse(existing -> {
-            existing.setStateJson(newJson);
-            gameRepo.save(existing);
-        }, () -> {
-            GameEntity ne = new GameEntity();
-            ne.setId(g.getId());
-            ne.setStateJson(newJson);
-            gameRepo.save(ne);
-        });
+        store.save(g);
     }
 
     // ---------- utilitaires ----------
@@ -1145,9 +1103,7 @@ public class GameService {
     }
 
     public Collection<Game> list() {
-        return gameRepo.findAll().stream()
-                .map(ge -> fromJson(ge.getStateJson()))
-                .toList();
+        return store.readAll();
     }
 
     @Transactional
