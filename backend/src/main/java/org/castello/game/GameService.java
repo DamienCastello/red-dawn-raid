@@ -1,5 +1,6 @@
 package org.castello.game;
 
+import org.castello.game.domain.DeckService;
 import org.castello.game.support.Dice;
 import org.castello.game.support.GameStore;
 import org.castello.player.Player;
@@ -33,16 +34,19 @@ public class GameService {
     // ----- PERSISTENCE -----
     private final GameStore store;
     private final Dice dice;
+    private final DeckService decks;
     private final GameRepository gameRepo;
     private final PlayerRepository playerRepo;
     private final org.castello.live.LiveEvents live;
     private final PlayerService playerService;
 
-    public GameService(GameStore store, Dice dice, GameRepository gameRepo, PlayerRepository playerRepo,
+    public GameService(GameStore store, Dice dice, DeckService decks,
+            GameRepository gameRepo, PlayerRepository playerRepo,
             @Qualifier("raidTaskScheduler") TaskScheduler raidScheduler, PlatformTransactionManager tm,
             org.castello.live.LiveEvents live, PlayerService playerService) {
         this.store = store;
         this.dice = dice;
+        this.decks = decks;
         this.gameRepo = gameRepo;
         this.playerRepo = playerRepo;
         this.raidScheduler = raidScheduler;
@@ -75,26 +79,15 @@ public class GameService {
     }
 
     private int deckSize(List<String> deck) {
-        return (deck != null ? deck.size() : 0);
+        return decks.deckSize(deck);
     }
 
-    /**
-     * Taille "effective" du deck : ce qu’on considère comme
-     * encore piochable en tenant compte de la défausse.
-     *
-     * - Si deck non vide -> on renvoie deck.size()
-     * - Sinon -> on renvoie discard.size()
-     */
     private int deckAvailableSize(List<String> deck, List<String> discard) {
-        int deckSize = (deck != null ? deck.size() : 0);
-        if (deckSize > 0)
-            return deckSize;
-
-        return (discard != null ? discard.size() : 0);
+        return decks.availableSize(deck, discard);
     }
 
     private int discardSize(List<String> discard) {
-        return (discard != null ? discard.size() : 0);
+        return decks.discardSize(discard);
     }
 
     public GameSnapshot viewSnapshot(String gameId, String userId) {
@@ -1669,81 +1662,8 @@ public class GameService {
                 players);
     }
 
-    private List<String> buildDeckFromComposition(Map<String, Integer> composition) {
-        List<String> deck = new ArrayList<>();
-        for (var e : composition.entrySet()) {
-            String cardId = e.getKey();
-            int count = (e.getValue() != null ? e.getValue() : 0);
-            for (int i = 0; i < count; i++) {
-                deck.add(cardId);
-            }
-        }
-        // Mélange initial, une seule fois
-        dice.shuffle(deck);
-        return deck;
-    }
-
     private void initDecks(Game g) {
-        // --- Potions ---
-        Map<String, Integer> potionsComp = new HashMap<>();
-        potionsComp.put("FORCE", 6);
-        potionsComp.put("ENDURANCE", 6);
-        potionsComp.put("VIE", 7);
-        potionsComp.put("FOCALISATION", 4);
-        potionsComp.put("SANGSUE", 4);
-
-        g.setPotionDeck(buildDeckFromComposition(potionsComp));
-        g.setPotionDiscard(new ArrayList<>());
-
-        // --- Rare Potions ---
-        Map<String, Integer> elixirsComp = new HashMap<>();
-        elixirsComp.put("RESILIENCE", 3);
-        elixirsComp.put("RAGE", 3);
-        elixirsComp.put("RAPIDITE", 2);
-        elixirsComp.put("INVISIBILITE", 2);
-        elixirsComp.put("INVULNERABILITE", 1);
-
-        g.setElixirDeck(buildDeckFromComposition(elixirsComp));
-        g.setElixirDiscard(new ArrayList<>());
-
-        // --- Actions chasseurs ---
-        Map<String, Integer> hunterComp = new HashMap<>();
-        hunterComp.put("FUMIGATION_AIL", 3);
-        hunterComp.put("FEU_DE_CAMP", 2);
-        hunterComp.put("NET", 8);
-        hunterComp.put("PIT", 6);
-        hunterComp.put("INCENDIAIRE", 2);
-        hunterComp.put("PROVOCATION", 4);
-        hunterComp.put("AMBUSH", 3);
-        hunterComp.put("LONELY", 3);
-        hunterComp.put("BLESSED_STAKE", 6);
-        hunterComp.put("SACRED_ROSARY", 1);
-        hunterComp.put("CHARISMATIQUE", 4);
-        hunterComp.put("MARCHAND_ITINERANT", 8);
-        hunterComp.put("CRATE_MANOR", 5);
-        hunterComp.put("CRATE_LAKE", 5);
-
-        g.setHunterActionsDeck(buildDeckFromComposition(hunterComp));
-        g.setHunterActionsDiscard(new ArrayList<>());
-
-        // --- Actions vampire ---
-        Map<String, Integer> vampComp = new HashMap<>();
-        vampComp.put("PRESENCE_ECRASANTE", 2);
-        vampComp.put("CATACLYSME", 2);
-        vampComp.put("CLONES_OMBRE", 4);
-        vampComp.put("IMAGE_MIROIR", 2);
-        vampComp.put("ECLIPSE", 3);
-        vampComp.put("BLOOD_MOON", 1);
-        vampComp.put("VOILE_DE_BRUME", 3);
-        vampComp.put("FAIM_IRREPRESSIBLE", 4);
-        vampComp.put("MARQUE_TENEBREUSE", 2);
-        vampComp.put("AFFAIBLISSEMENT_OCCULTE", 3);
-        vampComp.put("PASSAGE_SECRET", 2);
-        vampComp.put("AVIDITE_NOCTURNE", 3);
-        vampComp.put("ADVANCED_TRANSMUTATION", 4);
-
-        g.setVampActionsDeck(buildDeckFromComposition(vampComp));
-        g.setVampActionsDiscard(new ArrayList<>());
+        decks.initDecks(g);
     }
 
     private boolean allHuntersSelected(@NonNull Game g) {
@@ -11522,84 +11442,49 @@ public class GameService {
         return g.findPlayer(id);
     }
 
-    // Pioche dans un deck ordonné, avec reshuffle auto depuis la défausse
+    // Pioches/défausses déléguées à DeckService.
     private String drawFromDeck(List<String> deck, List<String> discard) {
-        if (deck == null)
-            return null;
-
-        // 1) Si deck vide AVANT pioche, on recrée depuis la défausse
-        if (deck.isEmpty() && discard != null && !discard.isEmpty()) {
-            dice.shuffle(discard);
-            deck.addAll(discard);
-            discard.clear();
-        }
-
-        if (deck.isEmpty())
-            return null;
-
-        // 2) Pioche (top = fin)
-        String card = deck.remove(deck.size() - 1);
-
-        // 3) NOUVEAU : si le deck vient de tomber à 0, on reshuffle TOUT DE SUITE
-        if (deck.isEmpty() && discard != null && !discard.isEmpty()) {
-            dice.shuffle(discard);
-            deck.addAll(discard);
-            discard.clear();
-        }
-
-        return card;
+        return decks.draw(deck, discard);
     }
 
     private void putOnTop(List<String> deck, String cardId) {
-        if (deck == null || cardId == null)
-            return;
-        deck.add(cardId); // top = fin
+        decks.putOnTop(deck, cardId);
     }
 
     private void putOnBottom(List<String> deck, String cardId) {
-        if (deck == null || cardId == null)
-            return;
-        deck.add(0, cardId); // bottom = début
-    }
-
-    private void discardCard(List<String> discard, String cardId) {
-        if (discard == null || cardId == null)
-            return;
-        discard.add(cardId);
+        decks.putOnBottom(deck, cardId);
     }
 
     private String drawHunterAction(Game g) {
-        return drawFromDeck(g.getHunterActionsDeck(), g.getHunterActionsDiscard());
+        return decks.drawHunterAction(g);
     }
 
     private String drawVampAction(Game g) {
-        return drawFromDeck(g.getVampActionsDeck(), g.getVampActionsDiscard());
+        return decks.drawVampAction(g);
     }
 
-    // Potions communes
     private String drawPotion(Game g) {
-        return drawFromDeck(g.getPotionDeck(), g.getPotionDiscard());
+        return decks.drawPotion(g);
     }
 
-    // Potions rares
     private String drawElixir(Game g) {
-        return drawFromDeck(g.getElixirDeck(), g.getElixirDiscard());
+        return decks.drawElixir(g);
     }
 
     private void discardHunterAction(Game g, String cardId) {
-        discardCard(g.getHunterActionsDiscard(), cardId);
+        decks.discardHunterAction(g, cardId);
     }
 
     private void discardVampAction(Game g, String cardId) {
-        discardCard(g.getVampActionsDiscard(), cardId);
+        decks.discardVampAction(g, cardId);
     }
 
     private void discardPotion(Game g, String cardId) {
-        discardCard(g.getPotionDiscard(), cardId);
+        decks.discardPotion(g, cardId);
     }
 
     private void discardElixir(Game g, String cardId) {
-        discardCard(g.getElixirDiscard(), cardId);
+        decks.discardElixir(g, cardId);
     }
 
     @Transactional
