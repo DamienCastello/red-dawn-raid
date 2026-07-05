@@ -1,6 +1,7 @@
 package org.castello.game;
 
 import org.castello.game.domain.BankService;
+import org.castello.game.domain.ConstructionService;
 import org.castello.game.domain.TradeService;
 import org.castello.game.domain.DeckService;
 import org.castello.game.domain.EquipmentService;
@@ -47,6 +48,7 @@ public class GameService {
     private final TradeService trades;
     private final EquipmentService equipment;
     private final ShopService shop;
+    private final ConstructionService construction;
     private final GameRepository gameRepo;
     private final PlayerRepository playerRepo;
     private final org.castello.live.LiveEvents live;
@@ -54,7 +56,7 @@ public class GameService {
 
     public GameService(GameStore store, Dice dice, DeckService decks, WeatherService weather,
             HarvestService harvest, BankService bank, TradeService trades, EquipmentService equipment,
-            ShopService shop,
+            ShopService shop, ConstructionService construction,
             GameRepository gameRepo, PlayerRepository playerRepo,
             @Qualifier("raidTaskScheduler") TaskScheduler raidScheduler, PlatformTransactionManager tm,
             org.castello.live.LiveEvents live, PlayerService playerService) {
@@ -67,6 +69,7 @@ public class GameService {
         this.trades = trades;
         this.equipment = equipment;
         this.shop = shop;
+        this.construction = construction;
         this.gameRepo = gameRepo;
         this.playerRepo = playerRepo;
         this.raidScheduler = raidScheduler;
@@ -9862,239 +9865,17 @@ public class GameService {
     }
 
     private boolean hasResourcesForInfra(Player p, Infra infra) {
-        return switch (infra) {
-            case SAWMILL -> p.getStone() >= 2 && p.getIron() >= 2;
-            case MINE -> p.getWood() >= 3 && p.getIron() >= 1;
-            case LIBRARY -> p.getWood() >= 4 && p.getStone() >= 2 && p.getIron() >= 1;
-            case LABORATORY -> p.getWater() >= 2
-                    && p.getHerbs() >= 2
-                    && p.getStone() >= 3
-                    && p.getSouls() >= 50;
-            case BALLROOM -> p.getStone() >= 5 && p.getIron() >= 2 && p.getSouls() >= 50;
-            case ALTAR -> p.getStone() >= 4
-                    && p.getWood() >= 1
-                    && p.getIron() >= 2
-                    && p.getSouls() >= 50;
-            case FORGE -> p.getIron() >= 5
-                    && p.getStone() >= 4
-                    && p.getWood() >= 2;
-        };
+        return construction.hasResourcesForInfra(p, infra);
     }
 
-    private void payResourcesForInfra(Player p, Infra infra) {
-        switch (infra) {
-            case SAWMILL -> {
-                p.setStone(p.getStone() - 2);
-                p.setIron(p.getIron() - 2);
-            }
-            case MINE -> {
-                p.setWood(p.getWood() - 3);
-                p.setIron(p.getIron() - 1);
-            }
-            case LIBRARY -> {
-                p.setWood(p.getWood() - 4);
-                p.setStone(p.getStone() - 2);
-                p.setIron(p.getIron() - 1);
-            }
-            case LABORATORY -> {
-                p.setWater(p.getWater() - 2);
-                p.setHerbs(p.getHerbs() - 2);
-                p.setStone(p.getStone() - 3);
-                p.setSouls(p.getSouls() - 50);
-            }
-            case BALLROOM -> {
-                p.setStone(p.getStone() - 5);
-                p.setIron(p.getIron() - 2);
-                p.setSouls(p.getSouls() - 50);
-            }
-            case ALTAR -> {
-                p.setStone(p.getStone() - 4);
-                p.setWood(p.getWood() - 1);
-                p.setIron(p.getIron() - 2);
-                p.setSouls(p.getSouls() - 50);
-            }
-            case FORGE -> {
-                p.setIron(p.getIron() - 5);
-                p.setStone(p.getStone() - 4);
-                p.setWood(p.getWood() - 2);
-            }
-        }
-    }
-
-    /** Récolte du lieu construit (au lieu de Forêt/Carrière). */
-    private void applyInfraHarvest(Game g, Player vamp, Infra infra) {
-        java.util.List<String> gains = new java.util.ArrayList<>();
-        switch (infra) {
-            case SAWMILL -> {
-                grant(vamp, "wood", 6);
-                gains.add("+6 bois");
-            }
-            case MINE -> {
-                grant(vamp, "iron", 6);
-                gains.add("+6 fer");
-            }
-            case LIBRARY, LABORATORY, BALLROOM, ALTAR, FORGE -> {
-                // Pour l’instant : même logique que Manoir, tu ajusteras si tu as déjà un case
-                // "manor"
-                // Exemple : +1d100 or OU +1d100 âmes déchues selon rôle
-                int d100 = rollD100Tens();
-                if ("VAMPIRE".equals(vamp.getRole())) {
-                    grant(vamp, "souls", d100);
-                    gains.add("+" + d100 + " âmes déchues");
-                } else {
-                    grant(vamp, "gold", d100);
-                    gains.add("+" + d100 + " or");
-                }
-            }
-        }
-
-        if (!gains.isEmpty()) {
-            String who = nameOf(g, vamp.getId());
-            String line = "Récoltes — " + who + " (" + infra.labelFr() + ") : "
-                    + String.join(", ", gains);
-            addHistory(g, line);
-        }
-    }
-
-    private void giveInfraCardToAllPlayers(Game g, Infra infra) {
-        String cardCode = infra.locationCode(); // "sawmill" ou "mine"
-
-        for (var p : g.getPlayers()) {
-            p.getHand().add(cardCode);
-        }
-    }
-
-    /** À appeler à la fin de la PHASE3, avant de passer en PHASE4. */
     private void resolveInfraConstruction(Game g) {
-        var pc = g.getPendingConstruction();
-        if (pc == null)
-            return;
-
-        // On consomme la construction en attente dans tous les cas
-        g.setPendingConstruction(null);
-
-        var vampOpt = getVamp(g);
-        if (vampOpt.isEmpty())
-            return;
-        var vamp = vampOpt.get();
-
-        /*
-         * // 1) Si le vampire a pris des dégâts, la construction échoue,
-         * // mais il récolte le lieu d'origine (forêt/carrière)
-         * if (g.isVampireTookDamageThisRaid()) {
-         * addHistory(g, "La construction de " + pc.infra
-         * + " échoue : le vampire a subi des dégâts durant le raid.");
-         * applyBaseLocationHarvestForInfra(g, vamp, pc.infra);
-         * return;
-         * }
-         */
-
-        // 2) Vérifier qu'il a encore les ressources
-        if (!hasResourcesForInfra(vamp, pc.infra)) {
-            addHistory(g, "La construction de " + pc.infra
-                    + " échoue : le vampire n'a plus les ressources nécessaires.");
-            applyBaseLocationHarvestForInfra(g, vamp, pc.infra);
-            return;
-        }
-
-        // 3) Payer les ressources
-        payResourcesForInfra(vamp, pc.infra);
-
-        // 4) Marquer l'infrastructure comme construite (une seule fois par partie)
-        g.getBuiltInfras().add(pc.infra);
-
-        if (pc.infra == Infra.ALTAR) {
-            // Première fois qu'on le construit → autel corrompu
-            g.setAltarCorrupted(Boolean.TRUE);
-        }
-
-        addHistory(g, "La construction de " + pc.infra + " est achevée.");
-
-        // 5) Donner la carte Lieu correspondante à tous les joueurs
-        giveInfraCardToAllPlayers(g, pc.infra);
-
-        // 6) Récolte du nouveau lieu pour ce raid
-        applyInfraHarvest(g, vamp, pc.infra);
-
-        // persiste
-        save(g);
-
-        // events après commit
-        final String vampId = vamp.getId();
-        final String infraName = pc.infra.name();
-
-        afterCommit(() -> {
-            live.infraBuilt(g, vampId, infraName);
-        });
+        construction.resolveInfraConstruction(g);
     }
 
-    /** Récolte du lieu d'origine (FOREST/QUARRY) quand la construction échoue. */
-    private void applyBaseLocationHarvestForInfra(Game g, Player vamp, Infra infra) {
-        java.util.List<String> gains = new java.util.ArrayList<>();
-        String locKey;
-        String locLabel;
-
-        switch (infra) {
-            case SAWMILL -> {
-                // même logique que case "forest" de applyHarvests pour le vampire
-                grant(vamp, "wood", 2);
-                gains.add("+1 bois");
-                grant(vamp, "herbs", 4);
-                gains.add("+2 herbe médicinale");
-                locKey = "forest";
-                locLabel = labelLieuFr("forest");
-            }
-            case MINE -> {
-                // même logique que case "quarry"
-                grant(vamp, "iron", 2);
-                gains.add("+1 fer");
-                grant(vamp, "stone", 4);
-                gains.add("+2 pierre");
-                locKey = "quarry";
-                locLabel = labelLieuFr("quarry");
-            }
-            case LIBRARY, LABORATORY, BALLROOM, ALTAR, FORGE -> {
-                // même logique que "manor" quand la construction échoue
-                int d100 = rollD100Tens();
-                if ("VAMPIRE".equals(vamp.getRole())) {
-                    grant(vamp, "souls", d100 + 100);
-                    gains.add("+" + (d100 + 100) + " âmes déchues");
-                } else {
-                    grant(vamp, "gold", d100 + 100);
-                    gains.add("+" + (d100 + 100) + " or");
-                }
-                locKey = "manor";
-                locLabel = labelLieuFr("manor");
-            }
-            default -> {
-                return; // au cas où d'autres infras plus tard
-            }
-        }
-
-        if (!gains.isEmpty()) {
-            String who = nameOf(g, vamp.getId());
-            String line = "Récoltes — " + who + " (" + locLabel + ") : " + String.join(", ", gains);
-            addHistory(g, line);
-        }
+    private void destroyRaidInfrasAtEnd(Game g) {
+        construction.destroyRaidInfrasAtEnd(g);
     }
 
-    /**
-     * Fin de PREPHASE3 :
-     * - soit on démarre / poursuit la file d'effets de lieu,
-     * - soit on bascule en PHASE3 (récoltes + combats + pièges).
-     *
-     * Cette méthode :
-     * - suppose qu'on est encore en PREPHASE3,
-     * - suppose qu'il n'y a plus de choix "instable" en attente,
-     * - ne vérifie PAS readyForPhase3 (utile pour les timers serveur).
-     */
-    /**
-     * Fin de PREPHASE3 : Etape 1 - Résolution d'actions différées
-     *
-     * Si le vampire a une action en attente (Passage Secret, Image Miroir...),
-     * on la déclenche maintenant (pause du flux).
-     * Sinon, on passe à l'étape 2 (Effets de lieu ou PHASE3).
-     */
     private void finishPrephaseAndMaybeStartActionResolve(Game g, String gameId) {
         // INTERCEPTION : Résolution différée Passage Secret / Image Miroir
         if (g.getPendingVampireEscape() != null) {
@@ -11926,80 +11707,6 @@ public class GameService {
 
         // 3) On marque que le labo devra être détruit après les combats
         g.setLaboratoryToDestroy(true);
-    }
-
-    private void destroyRaidInfrasAtEnd(Game g) {
-        // 1) Construire l'ensemble des infras à détruire
-        java.util.EnumSet<Infra> toDestroy = java.util.EnumSet.noneOf(Infra.class);
-
-        if (g.getInfrasToDestroyEndOfRaid() != null) {
-            toDestroy.addAll(g.getInfrasToDestroyEndOfRaid());
-        }
-        if (g.isLaboratoryToDestroy()) {
-            toDestroy.add(Infra.LABORATORY);
-        }
-
-        if (toDestroy.isEmpty()) {
-            return;
-        }
-
-        // 2) Retirer les cartes de lieux correspondantes de la main des joueurs
-        for (var p : g.getPlayers()) {
-            var hand = p.getHand();
-
-            for (Infra infra : toDestroy) {
-                String locCode = infra.locationCode();
-                if (locCode == null)
-                    continue;
-                hand.removeIf(card -> card.equals(locCode));
-            }
-        }
-
-        // 3) Enlever les infras construites + effets permanents associés
-        if (g.getBuiltInfras() != null) {
-            for (Infra infra : toDestroy) {
-                if (!g.getBuiltInfras().contains(infra))
-                    continue;
-
-                g.getBuiltInfras().remove(infra);
-
-                String locCode = infra.locationCode();
-                String label = (locCode != null ? labelLieuFr(locCode) : infra.name());
-
-                switch (infra) {
-                    case LABORATORY -> {
-                        // Explosion du labo / destruction via Incendiaire
-                        addHistory(g, "Laboratoire occulte — le laboratoire est réduit en ruines.");
-                    }
-                    case BALLROOM -> {
-                        g.setBallroomDeathDance(false);
-                        g.setBallroomSneakAttack(false);
-                        g.setBallroomBloodWaltz(false);
-                        g.setBallroomBloodWaltzBestRoll(null);
-                        g.setBallroomBloodWaltzRolls(new java.util.ArrayList<>());
-                        addHistory(g, label + " est détruit par les flammes.");
-                    }
-                    case ALTAR -> {
-                        g.setAltarCorrupted(null);
-                        g.setAltarBiteOccurredThisRaid(false);
-                        g.setAltarVampTookDamageThisRaid(false);
-                        addHistory(g, "L'autel est réduit en cendres.");
-                    }
-                    case SAWMILL, MINE, LIBRARY, FORGE -> {
-                        addHistory(g, label + " est détruit par les flammes.");
-                    }
-                    default -> {
-                        addHistory(g, label + " est détruit.");
-                    }
-                }
-            }
-        }
-
-        // 4) Reset des flags pour le prochain raid
-        if (g.getInfrasToDestroyEndOfRaid() != null) {
-            g.getInfrasToDestroyEndOfRaid().clear();
-        }
-        g.setLaboratoryToDestroy(false);
     }
 
     private boolean isBallroomBloodWaltzAttack(Game g,
