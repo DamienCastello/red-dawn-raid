@@ -21,6 +21,9 @@ public interface RaidFlow {
     /** Recalcule readyForPhase3 + relance le timer de préphase (30 s) ou l'avance rapide. */
     void setupUnstableAndPrephaseTimeout(Game g);
 
+    /** Tous les chasseurs vivants ont-ils joué leur lieu ? */
+    boolean allHuntersSelected(Game g);
+
     /** Y a-t-il un combat imminent (cartes révélées) ? */
     boolean computeHasUpcomingCombat(Game g);
 
