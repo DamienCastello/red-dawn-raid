@@ -15,6 +15,9 @@ import org.castello.player.Player;
  */
 public interface RaidFlow {
 
+    /** Applique les effets d'entrée dans une phase (récoltes, combats, resets…). */
+    void applyPhaseEntry(Game g, Phase to);
+
     /** Recalcule readyForPhase3 + relance le timer de préphase (30 s) ou l'avance rapide. */
     void setupUnstableAndPrephaseTimeout(Game g);
 
