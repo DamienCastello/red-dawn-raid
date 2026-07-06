@@ -10,6 +10,7 @@ import org.castello.game.domain.ShopService;
 import org.castello.game.domain.WeatherService;
 import org.castello.game.support.Dice;
 import org.castello.game.support.GameStore;
+import org.castello.game.support.RaidFlow;
 import org.castello.player.Player;
 import org.springframework.http.HttpStatus;
 import org.springframework.lang.NonNull;
@@ -33,7 +34,7 @@ import java.util.*;
 import static org.castello.game.domain.EquipmentService.*;
 
 @Service
-public class GameService {
+public class GameService implements RaidFlow {
 
     private final TaskScheduler raidScheduler;
     private final TransactionTemplate tx;
@@ -222,7 +223,8 @@ public class GameService {
 
     // ---------- utilitaires ----------
 
-    private boolean computeHasUpcomingCombat(Game g) {
+    @Override
+    public boolean computeHasUpcomingCombat(Game g) {
         // Face-up uniquement
         var faceUp = (g.getCenter() != null ? g.getCenter() : java.util.List.<CenterBoard>of())
                 .stream()
@@ -1063,7 +1065,8 @@ public class GameService {
         });
     }
 
-    private void handleDeathsAndVictory(Game g) {
+    @Override
+    public void handleDeathsAndVictory(Game g) {
         // 1) Traitement "on death" (défausser actions chasseur, etc.)
         for (Player p : g.getPlayers()) {
             if (!isAlive(p)) {
@@ -1489,7 +1492,8 @@ public class GameService {
      * ni combat ni action jouable,
      * - lance soit le timer long de préphase, soit l'avance rapide vers PHASE3.
      */
-    private void setupUnstableAndPrephaseTimeout(Game g) {
+    @Override
+    public void setupUnstableAndPrephaseTimeout(Game g) {
         // on NE lance PAS la préphase si on est en attente de SETUP.
         // Si c'est IMAGE_MIROIR_RESOLVE, ça veut dire que le choix est fait,
         // donc on doit laisser filer le timer (attente de fin de préphase).
@@ -1907,7 +1911,8 @@ public class GameService {
         return findOr404(gameId);
     }
 
-    private void scheduleAdvance(String gameId, Phase expected, Phase target, long delayMs) {
+    @Override
+    public void scheduleAdvance(String gameId, Phase expected, Phase target, long delayMs) {
         raidScheduler.schedule(() -> tx.execute(status -> {
             Game g = findOr404(gameId);
 
@@ -1950,7 +1955,8 @@ public class GameService {
         }), java.time.Instant.now().plusMillis(delayMs));
     }
 
-    private void schedulePrephaseTimeout(String gameId, long millis, int expectedVersion) {
+    @Override
+    public void schedulePrephaseTimeout(String gameId, long millis, int expectedVersion) {
         raidScheduler.schedule(() -> tx.execute(status -> {
             Game g2 = findOr404(gameId);
 
@@ -2025,7 +2031,8 @@ public class GameService {
                 java.time.Instant.now().plusMillis(millis));
     }
 
-    private void scheduleNextLocationEffect(String gameId) {
+    @Override
+    public void scheduleNextLocationEffect(String gameId) {
         raidScheduler.schedule(() -> tx.execute(status -> {
             Game g = findOr404(gameId);
             if (g.getStatus() != GameStatus.ACTIVE)
@@ -2308,7 +2315,8 @@ public class GameService {
         return out;
     }
 
-    private void refreshPrephaseRevealMessages(Game g) {
+    @Override
+    public void refreshPrephaseRevealMessages(Game g) {
         if (g.getPhase() != Phase.PREPHASE3) {
             return; // sécurité
         }
@@ -8544,7 +8552,8 @@ public class GameService {
      * Appelé après une transformation Hunter -> Servant pour nettoyer la queue de
      * combats.
      */
-    private void cancelPendingCombatsForPlayer(Game g, Player player) {
+    @Override
+    public void cancelPendingCombatsForPlayer(Game g, Player player) {
         if (g.getCombatsQueue() == null || g.getCombatsQueue().isEmpty()) {
             return;
         }
