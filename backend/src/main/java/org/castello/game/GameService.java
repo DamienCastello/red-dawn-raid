@@ -9604,49 +9604,12 @@ public class GameService implements RaidFlow {
         return g;
     }
 
-    /**
-     * Défausse TOUTES les cartes d'action du joueur, puis vide sa main d'actions.
-     * À appeler AVANT de changer son rôle si on veut savoir s'il était chasseur ou
-     * vampire.
-     */
     private void discardAllActionsOf(Game g, Player p) {
-        List<String> inv = p.getActions();
-        if (inv == null || inv.isEmpty())
-            return;
-
-        boolean wasHunter = "HUNTER".equals(p.getRole());
-
-        // On travaille sur une copie pour éviter les soucis pendant le clear()
-        var copy = new java.util.ArrayList<>(inv);
-
-        for (String card : copy) {
-            if (wasHunter) {
-                discardHunterAction(g, card);
-            }
-            // on ne supprime pas ici élément par élément, on videra la liste à la fin
-        }
-
-        inv.clear(); // la main d'actions du joueur est vide
+        decks.discardAllActionsOf(g, p);
     }
 
-    /**
-     * Défausse TOUTES les cartes potions du joueur, puis vide sa main d'actions.
-     * À appeler AVANT de changer son rôle si on veut savoir s'il était chasseur ou
-     * vampire.
-     */
     private void discardAllPotionsOf(Game g, Player p) {
-        List<String> inv = p.getPotions();
-        if (inv == null || inv.isEmpty())
-            return;
-
-        // On travaille sur une copie pour éviter les soucis pendant le clear()
-        var copy = new java.util.ArrayList<>(inv);
-
-        for (String card : copy) {
-            discardPotion(g, card);
-        }
-
-        inv.clear(); // la main d'actions du joueur est vide
+        decks.discardAllPotionsOf(g, p);
     }
 
     // Maintenance

@@ -2,6 +2,7 @@ package org.castello.game.domain;
 
 import org.castello.game.Game;
 import org.castello.game.support.Dice;
+import org.castello.player.Player;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -206,5 +207,45 @@ public class DeckService {
 
     public void discardElixir(Game g, String cardId) {
         discardCard(g.getElixirDiscard(), cardId);
+    }
+
+    /**
+     * Défausse TOUTES les cartes d'action du joueur, puis vide sa main.
+     * À appeler AVANT de changer son rôle si on veut savoir s'il était
+     * chasseur ou vampire.
+     */
+    public void discardAllActionsOf(Game g, Player p) {
+        List<String> inv = p.getActions();
+        if (inv == null || inv.isEmpty())
+            return;
+
+        boolean wasHunter = "HUNTER".equals(p.getRole());
+
+        // On travaille sur une copie pour éviter les soucis pendant le clear()
+        var copy = new ArrayList<>(inv);
+
+        for (String card : copy) {
+            if (wasHunter) {
+                discardHunterAction(g, card);
+            }
+            // on ne supprime pas ici élément par élément, on videra la liste à la fin
+        }
+
+        inv.clear(); // la main d'actions du joueur est vide
+    }
+
+    /** Défausse TOUTES les potions du joueur, puis vide sa main de potions. */
+    public void discardAllPotionsOf(Game g, Player p) {
+        List<String> inv = p.getPotions();
+        if (inv == null || inv.isEmpty())
+            return;
+
+        var copy = new ArrayList<>(inv);
+
+        for (String card : copy) {
+            discardPotion(g, card);
+        }
+
+        inv.clear();
     }
 }
