@@ -3975,20 +3975,7 @@ public class GameService implements RaidFlow {
     }
 
     private boolean isEntityAlive(Game g, String entityId) {
-        if (entityId == null)
-            return false;
-
-        Player p = findPlayer(g, entityId);
-        if (p != null) {
-            return p.getHp() > 0;
-        }
-
-        Game.Monster m = findMonster(g, entityId);
-        if (m != null) {
-            return m.hp > 0;
-        }
-
-        return false;
+        return g.isEntityAlive(entityId);
     }
 
     // Météo
@@ -11421,58 +11408,23 @@ public class GameService implements RaidFlow {
     }
 
     private String monsterNameFr(Game.MonsterType type) {
-        return switch (type) {
-            case REVENANT -> "Revenant";
-            case BAT -> "Chauve-souris";
-            case GARGOYLE -> "Gargouille";
-            case WOLF -> "Loup";
-            case ABERRATION -> "Aberration";
-            case LICHE -> "Liche";
-        };
+        return type.labelFr();
     }
 
     private String entityName(Game g, String id) {
-        Player p = findPlayer(g, id);
-        if (p != null) {
-            return nameOf(g, p.getId()); // ton helper existant (username, etc.)
-        }
-        Game.Monster m = findMonster(g, id);
-        if (m != null) {
-            return monsterNameFr(m.type);
-        }
-        return id;
+        return g.entityName(id);
     }
 
     private List<Game.Monster> monstersOnLocation(Game g, String loc) {
-        if (g.getMonsters() == null || loc == null) {
-            return List.of();
-        }
-        return g.getMonsters().stream()
-                .filter(m -> loc.equals(m.location))
-                .toList();
+        return g.monstersOn(loc);
     }
 
     private Game.Monster findMonster(Game g, String monsterId) {
-        if (g.getMonsters() == null || monsterId == null) {
-            return null;
-        }
-        return g.getMonsters().stream()
-                .filter(m -> monsterId.equals(m.id))
-                .findFirst()
-                .orElse(null);
+        return g.findMonster(monsterId);
     }
 
     private boolean isEntityOnLocation(Game g, String entityId, String loc) {
-        Player p = findPlayer(g, entityId);
-        if (p != null) {
-            String pLoc = locationOf(g, p.getId());
-            return loc.equals(pLoc);
-        }
-        Game.Monster m = findMonster(g, entityId);
-        if (m != null) {
-            return loc.equals(m.location);
-        }
-        return false;
+        return g.isEntityOn(entityId, loc);
     }
 
     private boolean hasTrapTargetsOnLocation(Game g, String loc) {

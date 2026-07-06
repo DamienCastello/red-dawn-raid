@@ -522,12 +522,23 @@ public class Game {
     }
 
     public enum MonsterType {
-        REVENANT,
-        BAT,
-        GARGOYLE,
-        WOLF,
-        ABERRATION,
-        LICHE
+        REVENANT("Revenant"),
+        BAT("Chauve-souris"),
+        GARGOYLE("Gargouille"),
+        WOLF("Loup"),
+        ABERRATION("Aberration"),
+        LICHE("Liche");
+
+        private final String labelFr;
+
+        MonsterType(String labelFr) {
+            this.labelFr = labelFr;
+        }
+
+        @JsonIgnore
+        public String labelFr() {
+            return labelFr;
+        }
     }
 
     private MonsterType laboratoryDraftMonsterType; // nullable
@@ -1509,6 +1520,61 @@ public class Game {
             list.removeIf(m -> source.equals(m.getSource()));
         }
         list.add(new StatMod(stat, amount, source));
+    }
+
+    /** Le monstre portant cet id, ou null. */
+    public Monster findMonster(String monsterId) {
+        if (monsters == null || monsterId == null)
+            return null;
+        return monsters.stream()
+                .filter(m -> monsterId.equals(m.id))
+                .findFirst()
+                .orElse(null);
+    }
+
+    public List<Monster> monstersOn(String loc) {
+        if (monsters == null || loc == null)
+            return List.of();
+        return monsters.stream()
+                .filter(m -> loc.equals(m.location))
+                .toList();
+    }
+
+    /** Nom affichable d'une entité : joueur (username) ou monstre (label FR). */
+    public String entityName(String id) {
+        Player p = findPlayer(id);
+        if (p != null)
+            return nameOf(p.getId());
+        Monster m = findMonster(id);
+        if (m != null)
+            return m.type.labelFr();
+        return id;
+    }
+
+    /** L'entité (joueur ou monstre) est-elle vivante ? */
+    public boolean isEntityAlive(String entityId) {
+        if (entityId == null)
+            return false;
+        Player p = findPlayer(entityId);
+        if (p != null)
+            return p.getHp() > 0;
+        Monster m = findMonster(entityId);
+        if (m != null)
+            return m.hp > 0;
+        return false;
+    }
+
+    /** L'entité (joueur ou monstre) est-elle sur ce lieu ? */
+    public boolean isEntityOn(String entityId, String loc) {
+        Player p = findPlayer(entityId);
+        if (p != null) {
+            return loc.equals(locationOf(p.getId()));
+        }
+        Monster m = findMonster(entityId);
+        if (m != null) {
+            return loc.equals(m.location);
+        }
+        return false;
     }
 
     /** A déjà joué ce raid : carte au centre, ou suivi Pisteur en attente. */
