@@ -44,21 +44,35 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build   #
 
 ### Backend : un unique blob d'état de partie sérialisé
 Tout l'état d'exécution d'une partie tient dans **un seul POJO `Game`** (`game/Game.java`,
-~1400 lignes) qui est **sérialisé en/depuis une chaîne JSON** et stocké dans la colonne
+~1500 lignes) qui est **sérialisé en/depuis une chaîne JSON** et stocké dans la colonne
 `state` (`jsonb`) de `GameEntity` (`persistence/`). Il n'y a **aucun modèle relationnel de
 l'état de jeu** — la base contient `games(id, state jsonb, version)` plus les lignes
 auth/joueur. C'est le point le plus important à comprendre :
 
-- **`GameService.java` (~16k lignes) est le moteur de jeu tout entier.** Chaque mutation suit
-  le schéma : charger `Game` via `findOr404ForUpdate` (verrou pessimiste) → désérialiser depuis
-  le JSON → muter le POJO en mémoire → re-sérialiser → sauvegarder. Les helpers `toJson`/`fromJson`
-  encapsulent Jackson. La quasi-totalité des règles du jeu, transitions de phase, calculs de
-  combat, logique de boutique et effets de lieu/action vit ici.
+- **Les règles du jeu sont découpées en services de domaine sous `game/domain/`.** Chaque
+  service porte un chapitre des règles et suit le même patron : charger `Game` via
+  `GameStore.loadForUpdate` (verrou pessimiste) → muter le POJO → `GameStore.save` →
+  émettre les événements après commit (`GameStore.afterCommit`). Les services :
+  `WeatherService`, `HarvestService`, `ShopService`, `EquipmentService`, `ConstructionService`,
+  `CorruptionService`, `LocationEffectService`, `ActionCardService` (jouer une carte) +
+  `HunterActionService`/`VampireActionService` (résolutions), `CombatService`, `BankService`,
+  `TradeService`, `DeckService`, `SnapshotService`, `GameLifecycleService` (lobby/démarrage/victoire)
+  et `PhaseFlowService` (transitions de phase + timers).
+- **`game/support/`** contient la plomberie transverse : `GameStore` (charger/verrouiller/sauver
+  le JSON + `afterCommit`), `Dice` (tous les jets aléatoires) et `RaidFlow` (interface que les
+  domaines appellent pour relancer les timers de préphase / vérifier la victoire sans dépendance
+  circulaire ; implémentée par `PhaseFlowService`, injectée en `@Lazy`).
+- **`GameService.java` (~210 lignes) est une simple façade** : un point d'entrée pour le
+  contrôleur, chaque méthode déléguant au service de domaine responsable. Aucune règle n'y vit.
 - **`GameController.java` (~800 lignes)** est une fine couche REST sous `/api/games` — ~70
   endpoints, chacun déléguant à une méthode de `GameService` (ex. `advance`, `roll`,
-  `select-location`, `shop/buy-*`, `actions/<nom>/resolve`, `effect-*`). Pour ajouter une
-  mécanique de jeu on touche presque toujours : endpoint du contrôleur → méthode `GameService`
-  → diffusion d'un événement via `LiveEvents`.
+  `select-location`, `shop/buy-*`, `actions/<nom>/resolve`, `effect-*`) — sauf `GET /{id}` qui
+  appelle directement `SnapshotService`. Pour ajouter une mécanique on touche : endpoint du
+  contrôleur → façade `GameService` → méthode du service de domaine → `LiveEvents`.
+- Beaucoup de helpers de lecture sont portés par le **modèle** : `Game` expose `vampire()`,
+  `hunters()`, `findPlayer(id)`, `addHistory(...)`, `locationOf(id)`, `playersByLocation()`,
+  `addRaidMod(...)`, `entityName(id)`… et `Player` expose `isAlive()`, `isVampSide()`,
+  `grant(res, qty)` (tous `@JsonIgnore`, exclus du JSON sauvegardé).
 - **`Game.java`** imbrique aussi des records/enums métier ; les enums autonomes incluent `Phase`
   (PHASE0→PHASE4 avec PREPHASE3), `GameStatus` (CREATED/STARTING/ACTIVE/ENDED) et `Action`
   (les cartes action chasseur/vampire).
