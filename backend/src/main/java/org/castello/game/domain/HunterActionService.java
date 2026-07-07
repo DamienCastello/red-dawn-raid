@@ -69,6 +69,7 @@ public class HunterActionService {
         live.message(g, msg);
     }
 
+    @Transactional
     public Game chooseNetTarget(String gameId, String hunterId, String targetId) {
         Game g = store.loadForUpdate(gameId);
 

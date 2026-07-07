@@ -71,6 +71,7 @@ public class VampireActionService {
         live.message(g, msg);
     }
 
+    @Transactional
     public void resolveCataclysme(String gameId,
             String playerId,
             WeatherStatus secondChoice,
