@@ -42,6 +42,40 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --build   #
 
 ## Architecture
 
+### Vue d'ensemble backend (après refacto)
+
+```
+GameController (REST /api/games)         GET /{id} ─────────────┐
+        │ délègue chaque endpoint                               ▼
+        ▼                                                 SnapshotService
+   GameService  ← FAÇADE (~210 l, pure délégation, aucune règle)   (vue client masquée)
+        │
+        ▼  aiguille vers le bon domaine
+┌───────────────────────── game/domain/ (les règles) ─────────────────────────┐
+│ PhaseFlowService · CombatService · CorruptionService · LocationEffectService │
+│ ActionCardService · HunterActionService · VampireActionService · ShopService │
+│ WeatherService · HarvestService · ConstructionService · EquipmentService     │
+│ BankService · TradeService · DeckService · GameLifecycleService              │
+└──────────────────────────────────┬───────────────────────────────────────────┘
+        │ chaque service : loadForUpdate → mute Game → save → events après commit
+        ▼
+   game/support/ :  GameStore (JSON + verrou + afterCommit) · Dice (aléatoire)
+                    RaidFlow (interface : les domaines rappellent le flux en @Lazy)
+        │
+        ▼
+   PostgreSQL — games(id, state jsonb, version)   +   LiveEvents → WebSocket /topic
+```
+
+Deux points de conception clés issus de la refacto :
+- **Verrou + transaction** : toute méthode qui mute passe par `GameStore.loadForUpdate`
+  (`SELECT … FOR UPDATE`) pour éviter que deux actions simultanées s'écrasent (« dernière
+  écriture gagne »). Un verrou exige une transaction → ces méthodes sont `@Transactional`
+  (ou dans un `tx.execute{}`). Oublier l'annotation = erreur « Query requires transaction ».
+- **Casser la dépendance circulaire** : les domaines qui doivent relancer le flux de phases
+  (combat → vérifier victoire, etc.) ne dépendent pas de la classe `PhaseFlowService` mais de
+  l'interface `RaidFlow` qu'elle implémente, injectée en `@Lazy` (résolue au 1ᵉʳ appel, pas au
+  démarrage). Sans ça, Spring ne saurait pas lequel des deux construire en premier.
+
 ### Backend : un unique blob d'état de partie sérialisé
 Tout l'état d'exécution d'une partie tient dans **un seul POJO `Game`** (`game/Game.java`,
 ~1500 lignes) qui est **sérialisé en/depuis une chaîne JSON** et stocké dans la colonne
