@@ -12,6 +12,8 @@ import { HuntersRowComponent } from './components/board/hunters-row/hunters-row.
 import { HunterCardVm } from './components/board/board.types';
 import { MyBoardComponent } from './components/board/my-board/my-board.component';
 import { MyBoardVm, MyBoardActions, MyBoardHelpers } from './components/board/my-board/my-board.vm';
+import { CenterBoardComponent } from './components/board/center-board/center-board.component';
+import { CenterBoardVm, CenterBoardActions, CenterBoardHelpers } from './components/board/center-board/center-board.vm';
 
 import { PhaseBubbleComponent } from './phase-buble.component';
 import { ToastComponent } from './toast.component';
@@ -113,7 +115,7 @@ interface ForgeOption {
     BuildModalComponent, BuildConfirmModalComponent, SelectLibraryEffectModalComponent,
     SelectLaboratoryEffectModalComponent, SelectBallroomEffectModalComponent, SelectAltarEffectModalComponent,
     SelectForgeEffectModalComponent, UseLocationEffectModalComponent,
-    VampirePanelComponent, DecksPanelComponent, HuntersRowComponent, MyBoardComponent
+    VampirePanelComponent, DecksPanelComponent, HuntersRowComponent, MyBoardComponent, CenterBoardComponent
   ],
   templateUrl: './game.component.html',
   styleUrls: ['./game.component.scss']
@@ -150,6 +152,35 @@ export class GameComponent {
     labelLocation: (c) => this.labelLocation(c),
     locationInfo: (c) => this.locationInfo(c),
   };
+
+  /** Callbacks stables du plateau central. */
+  readonly centerBoardActions: CenterBoardActions = {
+    skipNow: () => this.skipNow(),
+  };
+
+  /** Prédicats/libellés stables du plateau central. */
+  readonly centerBoardHelpers: CenterBoardHelpers = {
+    pendingUnstable: () => this.pendingUnstable(),
+    imInUpcomingCombat: () => this.imInUpcomingCombat(),
+    canUseHunterPrephaseActions: () => this.canUseHunterPrephaseActions(),
+    canUseVampPrephaseActions: () => this.canUseVampPrephaseActions(),
+    isHunterId: (id) => this.isHunterId(id),
+    usernameOf: (id) => this.usernameOf(id),
+    labelLocation: (c) => this.labelLocation(c),
+  };
+
+  /** Données affichées par le plateau central. */
+  get centerBoardVm(): CenterBoardVm {
+    return {
+      game: this.game!,
+      me: this.me,
+      isMeDead: this.isMeDead,
+      remainingPrePhaseSeconds: this.remainingPrePhaseSeconds,
+      hasSkipped: this.hasSkipped,
+      centerHasAnything: this.centerHasAnything,
+      historyGroups: this.historyGroups(),
+    };
+  }
 
   /** Données affichées par mon board (recalculées à chaque cycle). */
   get myBoardVm(): MyBoardVm {

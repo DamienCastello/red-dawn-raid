@@ -26,106 +26,12 @@
 
 
     <!-- centre: plateau -->
-    <section class="panel panel-center">
-
-      <div class="center-grid">
-        <!-- GAUCHE : Fil en direct -->
-        <div class="center-col">
-          <h3 class="center-title">Fil en direct</h3>
-
-          <!-- Bandeau PREPHASE3 -->
-          <div *ngIf="game?.phase==='PREPHASE3' && game?.hasUpcomingCombat" class="prephase3">
-            <b>Préparation des actions</b>
-            <span *ngIf="remainingPrePhaseSeconds > 0"> ({{ remainingPrePhaseSeconds }}s)</span>
-
-            <div *ngIf="!isMeDead && me && game?.hasUpcomingCombat" style="margin-top:.5rem">
-              <button *ngIf="!pendingUnstable() && 
-                  (imInUpcomingCombat() 
-                  || canUseHunterPrephaseActions()
-                  || canUseVampPrephaseActions())" (click)="skipNow()" [disabled]="hasSkipped"
-                title="Signaler que vous avez fini vos actions">
-                J’ai fini
-              </button>
-
-              <small *ngIf="hasSkipped || 
-                  !(imInUpcomingCombat() 
-                    || canUseHunterPrephaseActions()
-                    || canUseVampPrephaseActions())" style="margin-left:.5rem; color:#666">
-                En attente des autres…
-              </small>
-            </div>
-          </div>
-
-          <!-- Messages “live” -->
-          <div *ngIf="(game?.messages?.length || 0) > 0" class="live-box">
-            <div *ngFor="let m of game?.messages" class="live-line">{{ m }}</div>
-          </div>
-
-          <!-- Centre (cartes) -->
-          <ng-container *ngIf="centerHasAnything; else emptyCenter">
-            <div class="center-cards">
-
-              <!-- Cartes jouées -->
-              <div class="center-card" *ngFor="let cp of game?.center">
-                <div class="center-card-name" [ngClass]="isHunterId(cp.playerId) ? 'name-hunter' : 'name-vamp'">
-                  {{ usernameOf(cp.playerId) }}
-                </div>
-
-                <img class="center-card-img"
-                  [src]="cp.faceUp ? ('/assets/cards/locations/' + cp.card + '.png') : '/assets/cards/zone_verso.png'"
-                  [alt]="cp.faceUp ? labelLocation(cp.card) : 'Carte face cachée'"
-                  (mouseenter)="zoomEnter($event, usernameOf(cp.playerId), isHunterId(cp.playerId))"
-                  (mousemove)="zoomMove($event)" (mouseleave)="zoomLeave()" />
-              </div>
-
-              <!-- Clones -->
-              <div class="center-card" *ngFor="let loc of game?.clonesLocations; let i = index">
-                <div class="center-card-name name-vamp">clone d'ombre {{ i + 1 }}</div>
-
-                <img class="center-card-img"
-                  [src]="game?.clonesFaceUp ? ('/assets/cards/locations/' + loc + '.png') : '/assets/cards/zone_verso.png'"
-                  [alt]="game?.clonesFaceUp ? labelLocation(loc) : 'Carte face cachée'"
-                  (mouseenter)="zoomEnter($event, 'clone d\'ombre ' + (i + 1), false)" (mousemove)="zoomMove($event)"
-                  (mouseleave)="zoomLeave()" />
-              </div>
-
-              <!-- Pisteur (affiché comme une carte "jouée") -->
-              <div class="center-card" *ngFor="let pid of (game?.trackerHunters || [])">
-                <div class="center-card-name name-hunter">
-                  {{ usernameOf(pid) }}
-                </div>
-
-                <img class="center-card-img" [src]="actionImg('PISTEUR')" alt="Pisteur"
-                  (mouseenter)="zoomEnter($event, usernameOf(pid), true)" (mousemove)="zoomMove($event)"
-                  (mouseleave)="zoomLeave()" />
-              </div>
-            </div>
-          </ng-container>
-
-          <ng-template #emptyCenter>
-            <div style="color:#999">Aucune carte jouée pour l’instant</div>
-          </ng-template>
-        </div>
-
-        <!-- DROITE : Historique -->
-        <div class="center-col">
-          <h3 class="center-title">Historique</h3>
-          <div #historyBox class="history-box">
-            <ng-container *ngFor="let g of historyGroups()">
-              <div class="history-head">
-                RAID {{ g.raid }}
-                {{ g.phase.startsWith('PHASE') ? ('PHASE ' + g.phaseNum) : g.phase }}:
-              </div>
-              <div *ngFor="let it of g.items" class="history-line">{{ it.text }}</div>
-            </ng-container>
-          </div>
-        </div>
-      </div>
-    </section>
+    <!-- centre: plateau (fil live + cartes + historique) -->
+    <app-center-board *ngIf="game"
+      [vm]="centerBoardVm" [actions]="centerBoardActions" [helpers]="centerBoardHelpers" [zoom]="zoom"></app-center-board>
 
 
 
-    <!-- droite: decks actions + potions -->
     <!-- droite: decks actions + potions -->
     <app-decks-panel [decks]="game?.decks" [zoom]="zoom"></app-decks-panel>
   </section>
