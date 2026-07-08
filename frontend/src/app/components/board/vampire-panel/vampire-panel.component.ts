@@ -77,6 +77,10 @@ import { ChipVm, ZoomHandlers } from '../board.types';
   // du host de game.component via le DOM). Un board.shared.scss dédié pourra
   // remplacer cet import lors des finitions.
   styleUrls: ['../../../game.component.scss'],
+  // Le host <app-vampire-panel> ne doit pas s'insérer comme boîte dans la grille
+  // parente (.boards-row) : display:contents le rend transparent pour que son
+  // .panel-left interne (grid-area: left) redevienne l'enfant direct de la grille.
+  styles: [':host { display: contents; }'],
 })
 export class VampirePanelComponent {
     @Input({ required: true }) vampire!: Player;
