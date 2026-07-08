@@ -146,13 +146,35 @@ auth/joueur. C'est le point le plus important à comprendre :
 ### Structure du frontend
 - Composants Angular standalone, routes dans `app.routes.ts` : `auth` → `lobby` → `game/:id`
   (les deux derniers derrière `authGuard`).
-- **`game.component.ts` (~8,5k lignes)** est l'orchestrateur monolithique en partie ; l'UI est
-  découpée en de nombreuses boîtes de dialogue sous `components/modals/` et
-  `components/limit-modals/`. Les composants de modale associent fréquemment un `*.component.ts`
-  à un `*.vm.ts` (view-model) qui met en forme les données du snapshot pour le template.
+- **`game.component.ts` (~8k lignes) est le « cerveau » de la partie** : il possède l'état (le
+  snapshot), écoute le WebSocket, appelle l'API et orchestre les modales. Il ne contient plus
+  le markup du plateau : le template (`game.component.html`, ~140 l) n'est qu'un assemblage de
+  composants de board.
+- **`components/board/` — les 5 régions du plateau** (composants d'affichage « bêtes ») :
+  `hunters-row` (haut), `vampire-panel` (milieu-gauche), `center-board` (milieu : fil live +
+  cartes du centre + historique auto-scrollé), `decks-panel` (milieu-droite), `my-board` (bas).
+  Plus deux feuilles partagées réutilisées par plusieurs régions : `player-equip-bar` et
+  `mod-chips`. Chaque région reçoit ses données via `@Input` (souvent un `vm`/`actions`/`helpers`
+  comme les modales) et remonte les clics ; l'état de sélection et les appels API restent dans
+  `game.component`. Types partagés dans `components/board/board.types.ts`.
+- **`services/game-assets.service.ts` (`GameAssetsService`)** centralise tous les helpers
+  d'affichage PURS (code → image/libellé FR : `weaponImg`, `actionImg`, `potionLabelFr`,
+  `deckCount`, `modIconSrc`…). Injecté par `game.component` (qui garde des relais 1-ligne pour
+  les modales) et directement par les composants de board.
+- **Styles** : `src/app/game-board.scss` est un stylesheet **global** (chargé via `angular.json`)
+  contenant tout le CSS du plateau, enveloppé sous `app-game { … }` pour rester scopé à la vue
+  de jeu (pas de collision avec lobby/auth) tout en étant partagé par tous les composants de
+  board sans duplication. Les composants de board portent juste `:host { display: contents }`
+  (pour ne pas casser les grilles/flex du parent) et n'ont pas de `styleUrls`.
+- Les **modales** sous `components/modals/` et `components/limit-modals/` associent souvent un
+  `*.component.ts` à un `*.vm.ts` (view-model). Le zoom au survol (agrandir une carte) reste géré
+  par `game.component` et est passé aux composants via un bundle `ZoomHandlers`.
 - Services (`services/`) : `ApiService` (tous les appels REST + les types TypeScript partagés
-  qui reflètent les DTO du backend), `LiveService` (STOMP), `AssetPreloaderService` (utilise le
-  manifeste généré), `NotifService`.
+  qui reflètent les DTO du backend), `LiveService` (STOMP), `GameAssetsService` (helpers
+  d'affichage), `AssetPreloaderService` (utilise le manifeste généré), `NotifService`.
+
+> **Build** : Angular exige Node ≥ 20.19 / 22.12. Le `node` par défaut peut être trop vieux —
+> utiliser Node 22 (`npm start` / `npm run build`).
 
 ## Environnements & profils
 - Profils Spring backend : `dev` (défaut, `application.yml`), `preprod`, `prod`, `container`

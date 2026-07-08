@@ -2153,8 +2153,6 @@ export class GameComponent {
   }
 
 
-  trackById(_i: number, p: SPlayer) { return p.id; }
-
   get centerHasAnything(): boolean {
     const g: any = this.game;
     return ((g?.center?.length || 0)
