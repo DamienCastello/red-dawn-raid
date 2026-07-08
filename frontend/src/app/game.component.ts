@@ -4,6 +4,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { ApiService, GameSnapshot, RawStatMod, Phase, Pile } from './services/api.service';
 import { LiveService, GameEvent } from './services/live.service';
 import { NotifyService } from './services/notif.service';
+import { GameAssetsService } from './services/game-assets.service';
 
 import { PhaseBubbleComponent } from './phase-buble.component';
 import { ToastComponent } from './toast.component';
@@ -114,6 +115,7 @@ export class GameComponent {
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   private live = inject(LiveService);
+  private assets = inject(GameAssetsService);
 
   get rollVm(): RollModalVm {
     const r = this.currentCombat;
@@ -1299,158 +1301,27 @@ export class GameComponent {
   }
 
   // assets card style
-  private diceToTier(d?: string): 0 | 1 | 2 | 3 {
-    const s = (d || 'D6').toUpperCase();
-    if (s.includes('12')) return 3;
-    if (s.includes('8')) return 2;
-    if (s.includes('6')) return 1;
-    return 0;
-  }
+  private diceToTier(d?: string): 0 | 1 | 2 | 3 { return this.assets.diceToTier(d); }
 
   // Hunters: T1+ => BLEED / STUN / RANGE selon player.weapon
-  private hunterWeaponType(weapon?: string): 'BLEED' | 'STUN' | 'RANGE' {
-    const w = (weapon || '').toUpperCase();
-    // stun
-    if (w.includes('MACE') || w.includes('HAMMER') || w.includes('FLAIL')) return 'STUN';
-    // range
-    if (w.includes('SPEAR') || w.includes('CROSSBOW') || w.includes('PISTOL')) return 'RANGE';
-    // bleed par défaut (SWORD / HALBERD / WRIST_BLADES / ou inconnu)
-    return 'BLEED';
-  }
+  private hunterWeaponType(weapon?: string): 'BLEED' | 'STUN' | 'RANGE' { return this.assets.hunterWeaponType(weapon); }
 
-  weaponImg(p: any): string {
-    const tier = this.diceToTier(p?.attackDice);
-    const isVamp = p?.role === 'VAMPIRE' || p?.role === 'SERVANT'
+  weaponImg(p: any): string { return this.assets.weaponImg(p); }
 
-    if (isVamp) {
-      return `/assets/cards/stuff/W_T${tier}_VAMP.png`;
-    }
-
-    // Hunter (et SERVANT si jamais): T0 n’a pas de type
-    if (tier === 0) {
-      return `/assets/cards/stuff/W_T0_HUNTER.png`;
-    }
-
-    const type = this.hunterWeaponType(p?.weapon);
-    return `/assets/cards/stuff/W_T${tier}_${type}_HUNTER.png`;
-  }
-
-  armorImg(p: any): string {
-    const tier = this.diceToTier(p?.defenseDice);
-    const isVamp = p?.role === 'VAMPIRE' || p?.role === 'SERVANT'
-    return isVamp
-      ? `/assets/cards/stuff/A_T${tier}_VAMP.png`
-      : `/assets/cards/stuff/A_T${tier}_HUNTER.png`;
-  }
-
-  private readonly HUNTER_ACTIONS_DIR = '/assets/cards/hunter_actions/';
-  private readonly VAMP_ACTIONS_DIR = '/assets/cards/vampire_actions/';
-  private readonly POTIONS_DIR = '/assets/cards/potions/';
-
-
-  private readonly HUNTER_CODES = [
-    'EAU_BENITE', 'FUMIGATION_AIL', 'PISTEUR', 'FEU_DE_CAMP',
-    'NET', 'PIT', 'PROVOCATION', 'INCENDIAIRE', 'AMBUSH',
-    'LONELY', 'BLESSED_STAKE', 'SACRED_ROSARY', 'CHARISMATIQUE',
-    'MARCHAND_ITINERANT', 'MARCHAND_BONUS_BUY', 'CRATE_LAKE', 'CRATE_MANOR'
-  ];
-  private readonly VAMP_CODES = [
-    'CATACLYSME', 'CLONES_OMBRE', 'IMAGE_MIROIR', 'PRESENCE_ECRASANTE',
-    'ECLIPSE', 'BLOOD_MOON', 'VOILE_DE_BRUME', 'FAIM_IRREPRESSIBLE',
-    'MARQUE_TENEBREUSE', 'AFFAIBLISSEMENT_OCCULTE', 'PASSAGE_SECRET',
-    'AVIDITE_NOCTURNE', 'IMAGE_MIROIR_SETUP', 'IMAGE_MIROIR_RESOLVE',
-    'ADVANCED_TRANSMUTATION', 'ADVANCED_TRANSMUTATION_BUY'
-  ];
+  armorImg(p: any): string { return this.assets.armorImg(p); }
 
   /** Action -> image (dossier dépend du rôle du joueur courant) */
-  actionImg(code: string | null | undefined, role: string | null | undefined = undefined): string {
-    if (!code) return '';
-    let base;
-
-    // 1. Force directory based on KNOWN action types (overrides role)
-    if (this.HUNTER_CODES.includes(code)) {
-      base = this.HUNTER_ACTIONS_DIR;
-    } else if (this.VAMP_CODES.includes(code)) {
-      base = this.VAMP_ACTIONS_DIR;
-    }
-    // 2. Fallback to role logic if code unknown (or generic)
-    else if (role === 'HUNTER') {
-      base = this.HUNTER_ACTIONS_DIR;
-    } else if (role === 'VAMPIRE' || role === 'SERVANT') {
-      base = this.VAMP_ACTIONS_DIR;
-    } else {
-      base = (this.me?.role === 'VAMPIRE')
-        ? this.VAMP_ACTIONS_DIR
-        : this.HUNTER_ACTIONS_DIR;
-    }
-
-
-    return base + this.actionFile(code);
-  }
+  actionImg(code: string | null | undefined, role: string | null | undefined = undefined): string { return this.assets.actionImg(code, role ?? this.me?.role); }
 
   /** Map des exceptions + fallback auto */
-  private actionFile(code: string): string {
-    switch (code) {
-      // --- HUNTER ---
-      case 'EAU_BENITE': return 'eau_benite.png';
-      case 'FUMIGATION_AIL': return 'fumigation_ail.png';
-      case 'PISTEUR': return 'pistage.png';
-      case 'FEU_DE_CAMP': return 'feu_de_camp.png';
-      case 'NET': return 'net.png';
-      case 'PIT': return 'pit.png';
-      case 'PROVOCATION': return 'provocation.png';
-      case 'INCENDIAIRE': return 'incendiaire.png';
-      case 'AMBUSH': return 'ambush.png';
-      case 'LONELY': return 'lonely.png';
-      case 'BLESSED_STAKE': return 'blessed_stake.png';
-      case 'SACRED_ROSARY': return 'sacred_rosary.png';
-      case 'CHARISMATIQUE': return 'charismatique.png';
-      case 'MARCHAND_ITINERANT':
-      case 'MARCHAND_BONUS_BUY':
-        return 'marchand_itinerant.png';
-      case 'CRATE_LAKE': return 'crate_lake.png';
-      case 'CRATE_MANOR': return 'crate-manor.png';
-
-      // --- VAMPIRE ---
-      case 'AFFAIBLISSEMENT_OCCULTE': return 'affaiblissement_occulte.png';
-      case 'CLONES_OMBRE': return 'clones_ombre.png';
-      case 'MARQUE_TENEBREUSE': return 'marque_tenebreuse.png';
-      case 'AVIDITE_NOCTURNE': return 'avidite_nocturne.png';
-      case 'ECLIPSE': return 'eclipse.png';
-      case 'PASSAGE_SECRET': return 'passage_secret.png';
-      case 'BLOOD_MOON': return 'blood_moon.png';
-      case 'FAIM_IRREPRESSIBLE': return 'faim_irrepressible.png';
-      case 'PRESENCE_ECRASANTE': return 'presence_ecrasante.png';
-      case 'CATACLYSME': return 'cataclysme.png';
-      case 'VOILE_DE_BRUME': return 'voile_de_brume.png';
-      case 'ADVANCED_TRANSMUTATION':
-      case 'ADVANCED_TRANSMUTATION_BUY':
-        return 'advanced_transmutation.png';
-      case 'IMAGE_MIROIR':
-      case 'IMAGE_MIROIR_SETUP':
-      case 'IMAGE_MIROIR_RESOLVE':
-        return 'image_miroir.png';
-
-      default:
-        // fallback auto: "PRESENCE_ECRASANTE" -> "presence_ecrasante.png"
-        return code.toLowerCase() + '.png';
-    }
-  }
+  private actionFile(code: string): string { return this.assets.actionFile(code); }
 
   /** Potion/Elixir -> image */
-  potionImg(code: string | null | undefined): string {
-    if (!code) return '';
-    return this.POTIONS_DIR + code.toLowerCase() + '.png';
-  }
+  potionImg(code: string | null | undefined): string { return this.assets.potionImg(code); }
 
   potionBackSrc = '/assets/cards/potion_verso.png';
 
-  actionBackSrc(p: any): string {
-    // Servant -> verso hunter (tu peux changer si tu veux)
-    return p?.role === 'VAMPIRE'
-      ? '/assets/cards/vampire_verso.png'
-      : '/assets/cards/hunter_verso.png';
-  }
+  actionBackSrc(p: any): string { return this.assets.actionBackSrc(p); }
 
   actionCount(p: any): number {
     return (p?.actions?.length ?? 0);
@@ -1490,33 +1361,11 @@ export class GameComponent {
     return xs.length ? xs[xs.length - 1] : null;
   }
 
-  private readonly ELIXIRS_DIR = '/assets/cards/elixirs/';
+  elixirImg(code: string | null | undefined): string { return this.assets.elixirImg(code); }
 
-  elixirImg(code: string | null | undefined): string {
-    if (!code) return '';
-    return this.ELIXIRS_DIR + code.toLowerCase() + '.png';
-  }
+  discardImgFor(kind: 'HUNTER_ACTIONS' | 'VAMP_ACTIONS' | 'POTIONS' | 'ELIXIRS', pile: any): string { return this.assets.discardImgFor(kind, this.lastDiscardId(pile)); }
 
-  discardImgFor(kind: 'HUNTER_ACTIONS' | 'VAMP_ACTIONS' | 'POTIONS' | 'ELIXIRS', pile: any): string {
-    const id = this.lastDiscardId(pile);
-    if (!id) return '';
-
-    switch (kind) {
-      case 'HUNTER_ACTIONS': return this.HUNTER_ACTIONS_DIR + this.actionFile(id);
-      case 'VAMP_ACTIONS': return this.VAMP_ACTIONS_DIR + this.actionFile(id);
-      case 'POTIONS': return this.potionImg(id);
-      case 'ELIXIRS': return this.elixirImg(id);
-    }
-  }
-
-  deckBackFor(kind: 'HUNTER_ACTIONS' | 'VAMP_ACTIONS' | 'POTIONS' | 'ELIXIRS'): string {
-    switch (kind) {
-      case 'HUNTER_ACTIONS': return '/assets/cards/hunter_verso.png';
-      case 'VAMP_ACTIONS': return '/assets/cards/vampire_verso.png';
-      case 'POTIONS': return this.potionBackSrc;
-      case 'ELIXIRS': return this.potionBackSrc;
-    }
-  }
+  deckBackFor(kind: 'HUNTER_ACTIONS' | 'VAMP_ACTIONS' | 'POTIONS' | 'ELIXIRS'): string { return this.assets.deckBackFor(kind); }
 
   // ---- BONUS (marchand) : coûts + image ----
   bonusResCost(): { water?: number; herbs?: number; wood?: number; iron?: number, silver?: number } | null {
@@ -2474,13 +2323,7 @@ export class GameComponent {
   }
 
   // chemin de l'icône météo
-  weatherIconSrc(ws?: string | null): string {
-    if (!ws) return '';
-
-    if (ws.includes('WIND')) return `/assets/weather/icon-wind.png`;
-    if (ws.includes('BLOOD_MOON')) return `/assets/weather/icon-red_moon.png`;
-    return `/assets/weather/icon-${ws.toLowerCase()}.png`;
-  }
+  weatherIconSrc(ws?: string | null): string { return this.assets.weatherIconSrc(ws); }
 
   private weatherCodeFromSource(m: RawStatMod): string | null {
     const src = (m as any).source || '';
@@ -2497,100 +2340,9 @@ export class GameComponent {
     return this.weatherIconSrc(code);
   }
 
-  modIconSrc(source: string): string {
-    const fallback = '/assets/icons/action-hunter-icon.png';
-    if (!source) return fallback;
+  modIconSrc(source: string): string { return this.assets.modIconSrc(source); }
 
-    if (source.startsWith('ACTION:')) {
-      const parts = source.split(':');
-      const code = parts[1] || '';
-
-      // Liste des actions qui sont forcément jouées par les chasseurs
-      const hunterActions = [
-        'NET',
-        'PIT',
-        'PROVOCATION',
-        'AMBUSH',
-        'LONELY',
-        'CRATE_LAKE', 'CRATE_MANOR'
-      ];
-
-      const isHunter = hunterActions.includes(code);
-
-      if (code === 'BLESSED_STAKE') return '/assets/icons/HUNTER-sword.png';
-      if (code === 'SACRED_ROSARY') return '/assets/icons/HUNTER-armor.png';
-
-      return isHunter
-        ? '/assets/icons/action-hunter-icon.png'
-        : '/assets/icons/action-vampire-icon.png';
-    }
-
-    if (source.startsWith('EQUIP:')) {
-      const parts = source.split(':');
-      const type = (parts[1] || '').toUpperCase();
-
-      if (type === 'BLEED_WEAPON'
-        || type === 'STUN_WEAPON'
-        || type === 'RANGED_WEAPON') {
-        return '/assets/icons/HUNTER-sword.png';
-      }
-
-      if (type === 'HUNTER_ARMOR') {
-        return '/assets/icons/HUNTER-armor.png';
-      }
-
-      if (type === 'VAMPIRE_WEAPON') {
-        return '/assets/icons/VAMPIRE-sword.png';
-      }
-
-      if (type === 'VAMPIRE_ARMOR' || type === 'VAMPIRE_ARMOR_T3') {
-        return '/assets/icons/VAMPIRE-armor.png';
-      }
-
-      return fallback;
-    }
-
-    if (source.startsWith('HIT:BLEED_WEAPON')) {
-      return '/assets/icons/bleed.png';
-    }
-    if (source.startsWith('HIT:STUN_WEAPON')) {
-      return '/assets/icons/stun.png';
-    }
-    if (source.startsWith('HIT:RANGED_WEAPON')) {
-      return '/assets/icons/range.png';
-    }
-
-    return fallback;
-  }
-
-  actionBackgroundSrc(mode: 'EAU_BENITE' | 'NET' | 'PIT' | 'INCENDIAIRE' | 'PROVOCATION' | 'AMBUSH' | 'LONELY' | 'BLESSED_STAKE' | 'CHARISMATIQUE' | 'MARCHAND_ITINERANT' | 'MARCHAND_BONUS_BUY' | 'ADVANCED_TRANSMUTATION' | 'ADVANCED_TRANSMUTATION_BUY' | 'PRESENCE_ECRASANTE' | 'CATACLYSME' | 'CLONES_OMBRE' | 'IMAGE_MIROIR_SETUP' | 'IMAGE_MIROIR_RESOLVE' | 'ECLIPSE' | 'BLOOD_MOON' | 'VOILE_DE_BRUME' | 'FAIM_IRREPRESSIBLE' | 'MARQUE_TENEBREUSE' | 'AFFAIBLISSEMENT_OCCULTE' | 'PASSAGE_SECRET' | 'AVIDITE_NOCTURNE' | 'CRATE_LAKE' | 'CRATE_MANOR' | null): String {
-    if (mode === 'NET') return 'url(/assets/actions/net.png)';
-    if (mode === 'PIT') return 'url(/assets/actions/traphole.png)';
-    if (mode === 'INCENDIAIRE') return 'url(/assets/actions/burn.png)';
-    if (mode === 'PROVOCATION') return 'url(/assets/actions/taunt.png)';
-    if (mode === 'AMBUSH') return 'url(/assets/actions/ambush.png)';
-    if (mode === 'LONELY') return 'url(/assets/actions/lonely.png)';
-    if (mode === 'BLESSED_STAKE') return 'url(/assets/actions/blessed_stake.png)';
-    if (mode === 'CHARISMATIQUE') return 'url(/assets/actions/charismatic.png)';
-    if (mode === 'MARCHAND_ITINERANT' || mode === 'MARCHAND_BONUS_BUY') return 'url(/assets/actions/traveling_merchant.png)';
-    if (mode === 'ADVANCED_TRANSMUTATION' || mode === 'ADVANCED_TRANSMUTATION_BUY') return 'url(/assets/actions/advanced_transmutation.png)';
-    if (mode === 'PRESENCE_ECRASANTE') return 'url(/assets/actions/overwhelming_presence.png)';
-    if (mode === 'CATACLYSME') return 'url(/assets/actions/cataclysm.png)';
-    if (mode === 'CLONES_OMBRE') return 'url(/assets/actions/shadow_clones.png)';
-    if (mode === 'IMAGE_MIROIR_SETUP' || mode === 'IMAGE_MIROIR_RESOLVE') return 'url(/assets/actions/miror_image.png';
-    if (mode === 'ECLIPSE') return 'url(/assets/actions/eclipse.png';
-    if (mode === 'BLOOD_MOON') return 'url(/assets/actions/redmoon.png';
-    if (mode === 'VOILE_DE_BRUME') return 'url(/assets/actions/veil_of_mist.png';
-    if (mode === 'FAIM_IRREPRESSIBLE') return 'url(/assets/actions/irrepressible_hunger.png';
-    if (mode === 'MARQUE_TENEBREUSE') return 'url(/assets/actions/dark_mark.png';
-    if (mode === 'AFFAIBLISSEMENT_OCCULTE') return 'url(/assets/actions/occult_weakening.png';
-    if (mode === 'PASSAGE_SECRET') return 'url(/assets/actions/secret_passage.png';
-    if (mode === 'AVIDITE_NOCTURNE') return 'url(/assets/actions/nocturnal_greed.png)';
-    if (mode === 'EAU_BENITE') return 'url(/assets/actions/holy_water.png';
-    if (mode === 'CRATE_LAKE') return 'url(/assets/actions/crate-lake.png)';
-    if (mode === 'CRATE_MANOR') return 'url(/assets/actions/crate-manor.png)';
-    return '';
-  }
+  actionBackgroundSrc(mode: string | null | undefined): String { return this.assets.actionBackgroundSrc(mode); }
 
   // --- HP helpers (pour une jauge plus tard) ---
   maxHpOf(p: SPlayer): number {
@@ -3955,14 +3707,7 @@ export class GameComponent {
     return p?.role === 'VAMPIRE' || p?.role === 'SERVANT';
   }
 
-  potionLabelFr(id: string): string {
-    switch (id) {
-      case 'FORCE': return 'Potion de force';
-      case 'ENDURANCE': return 'Potion d’endurance';
-      case 'VIE': return 'Potion de vie';
-      default: return id;
-    }
-  }
+  potionLabelFr(id: string): string { return this.assets.potionLabelFr(id); }
 
   isElixirMod(mod: { source?: string | null } | null | undefined): boolean {
     const src = mod?.source || '';
@@ -4397,47 +4142,7 @@ export class GameComponent {
     );
   }
 
-  actionLabelFr(mode: string | null | undefined): string {
-    if (!mode) return '';
-
-    switch (mode) {
-      case 'EAU_BENITE': return 'Eau bénite';
-      case 'FUMIGATION_AIL': return 'Fumigation d\'ail';
-      case 'PISTEUR': return 'Pisteur';
-      case 'FEU_DE_CAMP': return 'Feu de camp';
-      case 'NET': return 'Filet';
-      case 'PIT': return 'Fosse';
-      case 'PROVOCATION': return 'Provocation';
-      case 'INCENDIAIRE': return 'Incendiaire';
-      case 'AMBUSH': return 'Embuscade';
-      case 'LONELY': return 'Solitaire';
-      case 'BLESSED_STAKE': return 'Pieu béni';
-      case 'SACRED_ROSARY': return 'Chapelet sacré';
-      case 'CHARISMATIQUE': return 'Charismatique';
-      case 'MARCHAND_ITINERANT':
-      case 'MARCHAND_BONUS_BUY': return 'Marchand itinérant';
-      case 'ADVANCED_TRANSMUTATION':
-      case 'ADVANCED_TRANSMUTATION_BUY': return 'Transmutation avancée';
-      case 'CRATE_LAKE': return 'Caisse : Lac';
-      case 'CRATE_MANOR': return 'Caisse : Manoir';
-      case 'PRESENCE_ECRASANTE': return 'Présence écrasante';
-      case 'CATACLYSME': return 'Cataclysme';
-      case 'CLONES_OMBRE': return 'Clones d’ombre';
-      case 'IMAGE_MIROIR':
-      case 'IMAGE_MIROIR_SETUP':
-      case 'IMAGE_MIROIR_RESOLVE': return 'Image miroir';
-      case 'ECLIPSE': return 'Éclipse';
-      case 'BLOOD_MOON': return 'Lune sanglante';
-      case 'VOILE_DE_BRUME': return 'Voile de brume';
-      case 'FAIM_IRREPRESSIBLE': return 'Faim irrépressible';
-      case 'MARQUE_TENEBREUSE': return 'Marque ténébreuse';
-      case 'AFFAIBLISSEMENT_OCCULTE': return 'Affaiblissement occulte';
-      case 'PASSAGE_SECRET': return 'Passage secret';
-      case 'AVIDITE_NOCTURNE': return 'Avidité nocturne';
-      // etc si tu as d’autres modes
-      default: return '';
-    }
-  }
+  actionLabelFr(mode: string | null | undefined): string { return this.assets.actionLabelFr(mode); }
 
   useAction(type: string) {
     if (!this.game) return;
@@ -6997,13 +6702,7 @@ export class GameComponent {
   }
 
   // --- Format ressources pour le message succès ---
-  private labelFr(k: string): string {
-    switch (k) {
-      case 'wood': return 'bois'; case 'herbs': return 'herbes'; case 'stone': return 'pierre';
-      case 'iron': return 'fer'; case 'water': return 'eau'; case 'gold': return 'or';
-      case 'souls': return 'âmes'; case 'silver': return 'argent'; default: return k;
-    }
-  }
+  private labelFr(k: string): string { return this.assets.resLabelFr(k); }
   private packToText(pack?: Record<string, number>): string {
     if (!pack) return 'rien';
     const entries = Object.entries(pack).filter(([_, q]) => (q || 0) > 0);
@@ -7087,9 +6786,7 @@ export class GameComponent {
   }
 
   // --- ASSETS ---
-  private stuffImg(file: string): string {
-    return `/assets/cards/stuff/${file}`;
-  }
+  private stuffImg(file: string): string { return this.assets.stuffImg(file); }
 
   // Armure : pas random
   private armorOfferFile(): string | null {
@@ -8406,10 +8103,7 @@ export class GameComponent {
     return (this.game?.builtInfras ?? []).includes(code);
   }
 
-  infraImg(code: InfraCode): string {
-    // ex: "FORGE" -> "/assets/cards/locations/forge.png"
-    return `/assets/cards/locations/${code.toLowerCase()}.png`;
-  }
+  infraImg(code: InfraCode): string { return this.assets.infraImg(code); }
 
   private readonly INFRA_COSTS: Record<InfraCode, Partial<Record<string, number>>> = {
     SAWMILL: { stone: 2, iron: 2 },
