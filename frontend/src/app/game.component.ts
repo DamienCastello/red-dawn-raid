@@ -10,6 +10,8 @@ import { VampirePanelComponent } from './components/board/vampire-panel/vampire-
 import { DecksPanelComponent } from './components/board/decks-panel/decks-panel.component';
 import { HuntersRowComponent } from './components/board/hunters-row/hunters-row.component';
 import { HunterCardVm } from './components/board/board.types';
+import { MyBoardComponent } from './components/board/my-board/my-board.component';
+import { MyBoardVm, MyBoardActions, MyBoardHelpers } from './components/board/my-board/my-board.vm';
 
 import { PhaseBubbleComponent } from './phase-buble.component';
 import { ToastComponent } from './toast.component';
@@ -111,7 +113,7 @@ interface ForgeOption {
     BuildModalComponent, BuildConfirmModalComponent, SelectLibraryEffectModalComponent,
     SelectLaboratoryEffectModalComponent, SelectBallroomEffectModalComponent, SelectAltarEffectModalComponent,
     SelectForgeEffectModalComponent, UseLocationEffectModalComponent,
-    VampirePanelComponent, DecksPanelComponent, HuntersRowComponent
+    VampirePanelComponent, DecksPanelComponent, HuntersRowComponent, MyBoardComponent
   ],
   templateUrl: './game.component.html',
   styleUrls: ['./game.component.scss']
@@ -129,6 +131,43 @@ export class GameComponent {
     move: (ev) => this.zoomMove(ev),
     leave: () => this.zoomLeave(),
   };
+
+  /** Callbacks stables de mon board (bas). */
+  readonly myBoardActions: MyBoardActions = {
+    onLocationClick: (c) => this.onLocationClick(c),
+    onActionClick: (a, i) => this.onActionClick(a, i),
+    onPotionClick: (p, i) => this.onPotionClick(p, i),
+    playSelected: () => this.playSelected(),
+    openBuildModal: () => this.openBuildModal(),
+  };
+
+  /** Prédicats/libellés stables de mon board (bas). */
+  readonly myBoardHelpers: MyBoardHelpers = {
+    canPlayLocation: (c) => this.canPlayLocation(c),
+    canUseActionNow: (a) => this.canUseActionNow(a),
+    canUsePotionNow: (p) => this.canUsePotionNow(p),
+    isMeHunterUnstablePending: () => this.isMeHunterUnstablePending(),
+    labelLocation: (c) => this.labelLocation(c),
+    locationInfo: (c) => this.locationInfo(c),
+  };
+
+  /** Données affichées par mon board (recalculées à chaque cycle). */
+  get myBoardVm(): MyBoardVm {
+    return {
+      me: this.me!,
+      game: this.game!,
+      chips: this.chipsFor(this.me),
+      selectedLocation: this.selectedLocation,
+      selectedAction: this.selectedAction,
+      selectedActionIndex: this.selectedActionIndex,
+      selectedPotion: this.selectedPotion,
+      selectedPotionIndex: this.selectedPotionIndex,
+      canPlaySelection: this.canPlaySelection,
+      isWindActive: this.isWindActive,
+      isMeDead: this.isMeDead,
+      garlicTooltip: this.garlicTooltip,
+    };
+  }
 
   get rollVm(): RollModalVm {
     const r = this.currentCombat;
