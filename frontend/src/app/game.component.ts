@@ -5,6 +5,8 @@ import { ApiService, GameSnapshot, RawStatMod, Phase, Pile } from './services/ap
 import { LiveService, GameEvent } from './services/live.service';
 import { NotifyService } from './services/notif.service';
 import { GameAssetsService } from './services/game-assets.service';
+import { ChipVm, ZoomHandlers } from './components/board/board.types';
+import { VampirePanelComponent } from './components/board/vampire-panel/vampire-panel.component';
 
 import { PhaseBubbleComponent } from './phase-buble.component';
 import { ToastComponent } from './toast.component';
@@ -105,7 +107,8 @@ interface ForgeOption {
     SpectateModalComponent, ShopModalComponent, ActionModalComponent,
     BuildModalComponent, BuildConfirmModalComponent, SelectLibraryEffectModalComponent,
     SelectLaboratoryEffectModalComponent, SelectBallroomEffectModalComponent, SelectAltarEffectModalComponent,
-    SelectForgeEffectModalComponent, UseLocationEffectModalComponent
+    SelectForgeEffectModalComponent, UseLocationEffectModalComponent,
+    VampirePanelComponent
   ],
   templateUrl: './game.component.html',
   styleUrls: ['./game.component.scss']
@@ -116,6 +119,13 @@ export class GameComponent {
   private router = inject(Router);
   private live = inject(LiveService);
   private assets = inject(GameAssetsService);
+
+  /** Bundle de handlers de zoom passé aux composants de board. */
+  readonly zoom: ZoomHandlers = {
+    enter: (ev, badge?, badgeIsHunter?, size?, info?) => this.zoomEnter(ev, badge, badgeIsHunter, size ?? 'M', info),
+    move: (ev) => this.zoomMove(ev),
+    leave: () => this.zoomLeave(),
+  };
 
   get rollVm(): RollModalVm {
     const r = this.currentCombat;
@@ -2288,10 +2298,31 @@ export class GameComponent {
   }
 
   // --- Assets helpers (cœurs + cartes équipement) ---
-  heartIconFor(p?: SPlayer): string {
-    const role = p?.role.toUpperCase();
-    if (role === 'SERVANT') return `/assets/icons/VAMPIRE-hearth.png`;
-    else return `/assets/icons/${role}-hearth.png`;
+  heartIconFor(p?: SPlayer): string { return this.assets.heartIconFor(p); }
+
+  /**
+   * Construit la liste de "chips" (modificateurs affichables) d'un joueur,
+   * prête à être passée telle quelle à un composant de board. Centralise le
+   * calcul d'icône par type de source (météo / potion / action-equip-hit).
+   */
+  chipsFor(p?: SPlayer): ChipVm[] {
+    return this.modsForDisplay(p).map(m => {
+      const src = m.source || '';
+      let iconSrc = '';
+      if (src.startsWith('WEATHER:')) {
+        iconSrc = this.weatherIconSrcForMod(m);
+      } else if (src.startsWith('POTION:')) {
+        iconSrc = this.isElixirMod(m) ? 'assets/icons/elixir-icon.png' : 'assets/icons/potion-icon.png';
+      } else {
+        iconSrc = this.modIconSrc(src);
+      }
+      return {
+        label: this.labelOrChip(m),
+        title: this.titleFor(m),
+        iconSrc,
+        kind: src.split(':')[0],
+      };
+    });
   }
 
   // Image de fond une fois la météo tirée

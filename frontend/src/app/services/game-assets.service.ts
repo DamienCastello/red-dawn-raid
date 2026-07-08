@@ -73,6 +73,13 @@ export class GameAssetsService {
             : `/assets/cards/stuff/A_T${tier}_HUNTER.png`;
     }
 
+    /** Icône de cœur (PV) selon le rôle du joueur. */
+    heartIconFor(p: any): string {
+        const role = (p?.role || '').toUpperCase();
+        if (role === 'SERVANT') return `/assets/icons/VAMPIRE-hearth.png`;
+        return `/assets/icons/${role}-hearth.png`;
+    }
+
     stuffImg(file: string): string {
         return `/assets/cards/stuff/${file}`;
     }

@@ -95,69 +95,8 @@
   <!-- LIGNE MILIEU -->
   <section class="board-wide-center boards-row" [class.no-left]="!hasVampire || isMeVampire">
     <!-- gauche: stats vampire -->
-    <section *ngIf="hasVampire && !isMeVampire" class="panel panel-left">
-      <h3 style="margin:0 0 10px 0">Vampire</h3>
-
-      <div class="player-strip">
-        <div class="name">{{ vampirePlayer.username || vampirePlayer.id }}</div>
-        <div class="hp">
-          <img class="hp-heart" [src]="heartIconFor(vampirePlayer)" alt="HP" />
-          <span class="hp-value">{{ vampirePlayer.hp }}</span>
-        </div>
-      </div>
-
-      <!-- BARRE D’ÉQUIPEMENT-->
-      <div class="equip-bar">
-        <img class="equip-item" [src]="weaponImg(vampirePlayer)" alt="arme" (mouseenter)="zoomEnter($event)"
-          (mousemove)="zoomMove($event)" (mouseleave)="zoomLeave()" />
-        <img class="equip-item" [src]="armorImg(vampirePlayer)" alt="armure" (mouseenter)="zoomEnter($event)"
-          (mousemove)="zoomMove($event)" (mouseleave)="zoomLeave()" />
-
-        <div class="mini-stack">
-          <div class="mini-card mini-card-img" [title]="'Actions: ' + actionCount(vampirePlayer)"
-            (mouseenter)="zoomEnter($event, actionCount(vampirePlayer))" (mousemove)="zoomMove($event)"
-            (mouseleave)="zoomLeave()">
-            <img class="mini-back-img" [src]="actionBackSrc(vampirePlayer)" alt="actions" />
-            <span class="mini-badge">{{ actionCount(vampirePlayer) }}</span>
-          </div>
-
-          <div class="mini-card mini-card-img" [title]="'Potions/Élixirs: ' + consumablesCount(vampirePlayer)"
-            (mouseenter)="zoomEnter($event, consumablesCount(vampirePlayer))" (mousemove)="zoomMove($event)"
-            (mouseleave)="zoomLeave()">
-            <img class="mini-back-img" [src]="potionBackSrc" alt="potions" />
-            <span class="mini-badge">{{ consumablesCount(vampirePlayer) }}</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- CHIPS -->
-      <div class="mods-row" *ngIf="modsForDisplay(vampirePlayer).length">
-        <span class="mod-chip" *ngFor="let m of modsForDisplay(vampirePlayer)" [title]="titleFor(m)">
-          <div class="mods-badge-weather" *ngIf="m.source?.startsWith('WEATHER:')">
-            <img class="weather-ico" [src]="weatherIconSrcForMod(m)" alt="icône météo" />
-          </div>
-
-          <div class="mods-badge-potion" *ngIf="m.source?.startsWith('POTION:')">
-            <img class="mod-ico"
-              [src]="isElixirMod(m) ? 'assets/icons/elixir-icon.png' : 'assets/icons/potion-icon.png'"
-              alt="potion_or_elixir" />
-          </div>
-
-          <div class="mods-badge-action" *ngIf="m.source?.startsWith('ACTION:')">
-            <img class="mod-ico" [src]="modIconSrc(m.source)" alt="action" />
-          </div>
-
-          <div class="mods-badge-equip" *ngIf="m.source?.startsWith('EQUIP:')">
-            <img class="mod-ico" [src]="modIconSrc(m.source)" alt="équipement" />
-          </div>
-
-          <div class="mods-badge-hit" *ngIf="m.source?.startsWith('HIT:')">
-            <img class="mod-ico" [src]="modIconSrc(m.source)" alt="effet de coup" />
-          </div>
-          <span class="chip-val">{{ labelOrChip(m) }}</span>
-        </span>
-      </div>
-    </section>
+    <app-vampire-panel *ngIf="hasVampire && !isMeVampire"
+      [vampire]="vampirePlayer" [chips]="chipsFor(vampirePlayer)" [zoom]="zoom"></app-vampire-panel>
 
 
     <!-- centre: plateau -->
