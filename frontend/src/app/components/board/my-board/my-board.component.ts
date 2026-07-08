@@ -151,7 +151,6 @@ import { MyBoardVm, MyBoardActions, MyBoardHelpers } from './my-board.vm';
       </div>
     </section>
   `,
-  styleUrls: ['../../../game.component.scss'],
   styles: [':host { display: contents; }'],
 })
 export class MyBoardComponent {

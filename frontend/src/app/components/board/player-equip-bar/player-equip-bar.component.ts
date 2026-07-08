@@ -35,7 +35,6 @@ import { ZoomHandlers } from '../board.types';
       </div>
     </div>
   `,
-  styleUrls: ['../../../game.component.scss'],
   styles: [':host { display: contents; }'],
 })
 export class PlayerEquipBarComponent {

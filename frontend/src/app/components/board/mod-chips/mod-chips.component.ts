@@ -39,7 +39,6 @@ import { ChipVm } from '../board.types';
       </span>
     </div>
   `,
-  styleUrls: ['../../../game.component.scss'],
   styles: [':host { display: contents; }'],
 })
 export class ModChipsComponent {

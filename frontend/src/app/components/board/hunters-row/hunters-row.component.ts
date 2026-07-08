@@ -33,7 +33,6 @@ import { ModChipsComponent } from '../mod-chips/mod-chips.component';
       </div>
     </section>
   `,
-  styleUrls: ['../../../game.component.scss'],
   styles: [':host { display: contents; }'],
 })
 export class HuntersRowComponent {

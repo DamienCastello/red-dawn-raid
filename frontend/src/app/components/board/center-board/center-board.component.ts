@@ -106,7 +106,6 @@ import { CenterBoardVm, CenterBoardActions, CenterBoardHelpers } from './center-
       </div>
     </section>
   `,
-  styleUrls: ['../../../game.component.scss'],
   styles: [':host { display: contents; }'],
 })
 export class CenterBoardComponent implements AfterViewChecked {

@@ -31,7 +31,6 @@ import { ModChipsComponent } from '../mod-chips/mod-chips.component';
       <app-mod-chips [chips]="chips"></app-mod-chips>
     </section>
   `,
-  styleUrls: ['../../../game.component.scss'],
   styles: [':host { display: contents; }'],
 })
 export class VampirePanelComponent {

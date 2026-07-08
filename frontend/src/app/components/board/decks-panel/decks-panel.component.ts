@@ -98,7 +98,6 @@ import { ZoomHandlers } from '../board.types';
       </div>
     </section>
   `,
-  styleUrls: ['../../../game.component.scss'],
   styles: [':host { display: contents; }'],
 })
 export class DecksPanelComponent {
