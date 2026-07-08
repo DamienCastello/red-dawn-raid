@@ -200,6 +200,25 @@ export class GameAssetsService {
         return this.ELIXIRS_DIR + code.toLowerCase() + '.png';
     }
 
+    // ---------- Comptage des piles (deck / défausse) ----------
+
+    deckCount(pile: any): number {
+        return pile?.deck ?? 0;
+    }
+
+    discardCards(pile: any): string[] {
+        return Array.isArray(pile?.discardCards) ? pile.discardCards : [];
+    }
+
+    discardCount(pile: any): number {
+        return this.discardCards(pile).length;
+    }
+
+    lastDiscardId(pile: any): string | null {
+        const xs = this.discardCards(pile);
+        return xs.length ? xs[xs.length - 1] : null;
+    }
+
     deckBackFor(kind: 'HUNTER_ACTIONS' | 'VAMP_ACTIONS' | 'POTIONS' | 'ELIXIRS'): string {
         switch (kind) {
             case 'HUNTER_ACTIONS': return '/assets/cards/hunter_verso.png';

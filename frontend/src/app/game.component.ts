@@ -7,6 +7,7 @@ import { NotifyService } from './services/notif.service';
 import { GameAssetsService } from './services/game-assets.service';
 import { ChipVm, ZoomHandlers } from './components/board/board.types';
 import { VampirePanelComponent } from './components/board/vampire-panel/vampire-panel.component';
+import { DecksPanelComponent } from './components/board/decks-panel/decks-panel.component';
 
 import { PhaseBubbleComponent } from './phase-buble.component';
 import { ToastComponent } from './toast.component';
@@ -108,7 +109,7 @@ interface ForgeOption {
     BuildModalComponent, BuildConfirmModalComponent, SelectLibraryEffectModalComponent,
     SelectLaboratoryEffectModalComponent, SelectBallroomEffectModalComponent, SelectAltarEffectModalComponent,
     SelectForgeEffectModalComponent, UseLocationEffectModalComponent,
-    VampirePanelComponent
+    VampirePanelComponent, DecksPanelComponent
   ],
   templateUrl: './game.component.html',
   styleUrls: ['./game.component.scss']
@@ -1354,22 +1355,13 @@ export class GameComponent {
     return false;
   }
 
-  deckCount(pile: any): number {
-    return pile?.deck ?? 0;
-  }
+  deckCount(pile: any): number { return this.assets.deckCount(pile); }
 
-  discardCards(pile: any): string[] {
-    return Array.isArray(pile?.discardCards) ? pile.discardCards : [];
-  }
+  discardCards(pile: any): string[] { return this.assets.discardCards(pile); }
 
-  discardCount(pile: any): number {
-    return this.discardCards(pile).length;
-  }
+  discardCount(pile: any): number { return this.assets.discardCount(pile); }
 
-  lastDiscardId(pile: any): string | null {
-    const xs = this.discardCards(pile);
-    return xs.length ? xs[xs.length - 1] : null;
-  }
+  lastDiscardId(pile: any): string | null { return this.assets.lastDiscardId(pile); }
 
   elixirImg(code: string | null | undefined): string { return this.assets.elixirImg(code); }
 
