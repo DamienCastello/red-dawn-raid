@@ -8,6 +8,8 @@ import { GameAssetsService } from './services/game-assets.service';
 import { ChipVm, ZoomHandlers } from './components/board/board.types';
 import { VampirePanelComponent } from './components/board/vampire-panel/vampire-panel.component';
 import { DecksPanelComponent } from './components/board/decks-panel/decks-panel.component';
+import { HuntersRowComponent } from './components/board/hunters-row/hunters-row.component';
+import { HunterCardVm } from './components/board/board.types';
 
 import { PhaseBubbleComponent } from './phase-buble.component';
 import { ToastComponent } from './toast.component';
@@ -109,7 +111,7 @@ interface ForgeOption {
     BuildModalComponent, BuildConfirmModalComponent, SelectLibraryEffectModalComponent,
     SelectLaboratoryEffectModalComponent, SelectBallroomEffectModalComponent, SelectAltarEffectModalComponent,
     SelectForgeEffectModalComponent, UseLocationEffectModalComponent,
-    VampirePanelComponent, DecksPanelComponent
+    VampirePanelComponent, DecksPanelComponent, HuntersRowComponent
   ],
   templateUrl: './game.component.html',
   styleUrls: ['./game.component.scss']
@@ -2292,6 +2294,15 @@ export class GameComponent {
   // --- Assets helpers (cœurs + cartes équipement) ---
   heartIconFor(p?: SPlayer): string { return this.assets.heartIconFor(p); }
 
+  /** Cartes (chasseurs/serviteurs adverses) prêtes pour la rangée du haut. */
+  get hunterCards(): HunterCardVm[] {
+    return this.HunterAndServantPlayers.map(p => ({
+      player: p,
+      chips: this.chipsFor(p),
+      isCurrent: this.isCurrent(p),
+    }));
+  }
+
   /**
    * Construit la liste de "chips" (modificateurs affichables) d'un joueur,
    * prête à être passée telle quelle à un composant de board. Centralise le
@@ -2305,6 +2316,8 @@ export class GameComponent {
         iconSrc = this.weatherIconSrcForMod(m);
       } else if (src.startsWith('POTION:')) {
         iconSrc = this.isElixirMod(m) ? 'assets/icons/elixir-icon.png' : 'assets/icons/potion-icon.png';
+      } else if (src.startsWith('CORRUPTION')) {
+        iconSrc = '/assets/corruption/corruption-icon.png';
       } else {
         iconSrc = this.modIconSrc(src);
       }

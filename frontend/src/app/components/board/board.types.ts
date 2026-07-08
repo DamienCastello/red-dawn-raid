@@ -2,6 +2,8 @@
  * Types partagés par les composants de board (régions du plateau).
  */
 
+import { Player } from '../../services/api.service';
+
 /** Une "chip" de modificateur prête à afficher (données pures, calculées par le parent). */
 export interface ChipVm {
     label: string;
@@ -9,6 +11,13 @@ export interface ChipVm {
     iconSrc: string;
     /** Préfixe de la source ("WEATHER", "POTION", "ACTION", "EQUIP", "HIT", "CORRUPTION"). */
     kind: string | undefined;
+}
+
+/** Carte d'un chasseur/serviteur dans la rangée du haut (données pré-calculées). */
+export interface HunterCardVm {
+    player: Player;
+    chips: ChipVm[];
+    isCurrent: boolean;
 }
 
 /**
