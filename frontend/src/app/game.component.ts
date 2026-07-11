@@ -307,6 +307,8 @@ export class GameComponent {
       clonesLocationChoices: this.clonesLocationChoices,
       clonesSelectedLocations: this.clonesSelectedLocations,
       clonesBiteParams: this.clonesBiteParams,
+      portalLocationChoices: this.clonesLocationChoices,
+      portalSelectedLocation: this.selectedPortalLocation,
       weatherSecondChoices: this.weatherSecondChoices,
       weatherThirdChoices: this.weatherThirdChoices,
       selectedWeather2: this.selectedWeather2,
@@ -351,6 +353,8 @@ export class GameComponent {
     onCloneLocationChange: (idx, ev) => this.onCloneLocationChange(idx, ev),
     onCloneBiteChange: (idx, ev) => this.onCloneBiteChange(idx, ev),
     onClonesConfirm: () => this.onClonesConfirm(),
+    onPortalConfirm: () => this.onPortalConfirm(),
+    setSelectedPortalLocation: (loc) => this.selectedPortalLocation = loc,
     onMirrorSetupConfirm: () => this.onMirrorSetupConfirm(),
     onMirrorResolveChoose: (loc) => this.onMirrorResolveChoose(loc),
     onDarkMarkChoose: (id) => this.onDarkMarkChoose(id),
@@ -847,7 +851,7 @@ export class GameComponent {
   // --- Actions ---
   preparedGarlicForThisRaid = false;
   // NET ou PIT, ou null si pas de piège en cours
-  actionMode: 'NET' | 'PIT' | 'INCENDIAIRE' | 'PROVOCATION' | 'AMBUSH' | 'LONELY' | 'BLESSED_STAKE' | 'CHARISMATIQUE' | 'MARCHAND_ITINERANT' | 'MARCHAND_BONUS_BUY' | 'ADVANCED_TRANSMUTATION' | 'ADVANCED_TRANSMUTATION_BUY' | 'PRESENCE_ECRASANTE' | 'CATACLYSME' | 'CLONES_OMBRE' | 'IMAGE_MIROIR_SETUP' | 'IMAGE_MIROIR_RESOLVE' | 'ECLIPSE' | 'BLOOD_MOON' | 'VOILE_DE_BRUME' | 'FAIM_IRREPRESSIBLE' | 'MARQUE_TENEBREUSE' | 'AFFAIBLISSEMENT_OCCULTE' | 'PASSAGE_SECRET' | 'AVIDITE_NOCTURNE' | 'EAU_BENITE' | 'CRATE_LAKE' | 'CRATE_MANOR' | null = null;
+  actionMode: 'NET' | 'PIT' | 'INCENDIAIRE' | 'PROVOCATION' | 'AMBUSH' | 'LONELY' | 'BLESSED_STAKE' | 'CHARISMATIQUE' | 'MARCHAND_ITINERANT' | 'MARCHAND_BONUS_BUY' | 'ADVANCED_TRANSMUTATION' | 'ADVANCED_TRANSMUTATION_BUY' | 'PRESENCE_ECRASANTE' | 'CATACLYSME' | 'CLONES_OMBRE' | 'IMAGE_MIROIR_SETUP' | 'IMAGE_MIROIR_RESOLVE' | 'ECLIPSE' | 'BLOOD_MOON' | 'VOILE_DE_BRUME' | 'FAIM_IRREPRESSIBLE' | 'MARQUE_TENEBREUSE' | 'AFFAIBLISSEMENT_OCCULTE' | 'PASSAGE_SECRET' | 'AVIDITE_NOCTURNE' | 'EAU_BENITE' | 'CRATE_LAKE' | 'CRATE_MANOR' | 'PORTAL_INVOCATION_REVENANT' | 'PORTAL_INVOCATION_BAT' | null = null;
   actionOwnerId: string | null = null;
   actionLocation: string | null = null;
   trapEnemies: SPlayer[] = [];
@@ -878,6 +882,9 @@ export class GameComponent {
 
   clonesSelectedLocations: string[] = [];
   clonesBiteParams: boolean[] = [];
+
+  // Invocation de monstre (Portail) : lieu choisi par le vampire en PHASE2
+  selectedPortalLocation: string | null = null;
 
   selectedWeather2: string | null = null;
   selectedWeather3: string | null = null;
@@ -3932,7 +3939,8 @@ export class GameComponent {
     if (this.isMeHunterUnstablePending()) return false;
 
     // 1) Action vampire:
-    if (_action === 'CATACLYSME' || _action === 'CLONES_OMBRE') {
+    if (_action === 'CATACLYSME' || _action === 'CLONES_OMBRE'
+      || _action === 'PORTAL_INVOCATION_REVENANT' || _action === 'PORTAL_INVOCATION_BAT') {
       return g.phase === 'PHASE2' && me.role === 'VAMPIRE';
     }
 
@@ -5144,6 +5152,25 @@ export class GameComponent {
     return me.hand.filter(loc => !this.isGarlicBlockedLocation(loc));
   }
 
+  onPortalConfirm() {
+    if (!this.game) return;
+    if (this.actionMode !== 'PORTAL_INVOCATION_REVENANT' && this.actionMode !== 'PORTAL_INVOCATION_BAT') return;
+    if (!this.isActionActor || this.actionResolving) return;
+    if (!this.selectedPortalLocation) return;
+
+    this.actionResolving = true;
+    this.api.resolvePortalInvocation(this.game.id, this.selectedPortalLocation).subscribe({
+      next: _ => {
+        this.actionResolving = false;
+        // la modale se ferme quand currentAction repasse à null (syncActionFromSnapshot)
+      },
+      error: e => {
+        this.actionResolving = false;
+        this.showError(e);
+      }
+    });
+  }
+
   onMirrorSetupConfirm() {
     if (!this.game || !this.selectedMirrorLoc || !this.isActionActor || this.actionResolving) return;
 
@@ -5501,6 +5528,8 @@ export class GameComponent {
       && act.mode !== 'AVIDITE_NOCTURNE'
       && act.mode !== 'CRATE_LAKE'
       && act.mode !== 'CRATE_MANOR'
+      && act.mode !== 'PORTAL_INVOCATION_REVENANT'
+      && act.mode !== 'PORTAL_INVOCATION_BAT'
       && act.mode !== 'EAU_BENITE')) {
 
       this.actionMode = null;
@@ -5680,6 +5709,17 @@ export class GameComponent {
       if (this.actionRoll === null) {
         this.clonesSelectedLocations = [];
         this.clonesBiteParams = [];
+      }
+    }
+
+    // 7bis) INVOCATION DE MONSTRE (Portail) : choix d'un seul lieu
+    if (this.actionMode === 'PORTAL_INVOCATION_REVENANT' || this.actionMode === 'PORTAL_INVOCATION_BAT') {
+      this.trapEnemies = [];
+      this.trapCurrentIndex = 0;
+      this.incendiaireChoices = [];
+      // réinitialise la sélection tant que l'invocation n'est pas résolue
+      if (!act.resolvedAtMillis) {
+        this.selectedPortalLocation = null;
       }
     }
 

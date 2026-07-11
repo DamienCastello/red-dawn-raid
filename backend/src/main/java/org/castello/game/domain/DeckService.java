@@ -86,6 +86,8 @@ public class DeckService {
         vampComp.put("PASSAGE_SECRET", 2);
         vampComp.put("AVIDITE_NOCTURNE", 3);
         vampComp.put("ADVANCED_TRANSMUTATION", 4);
+        vampComp.put("PORTAL_INVOCATION_REVENANT", 4);
+        vampComp.put("PORTAL_INVOCATION_BAT", 4);
 
         g.setVampActionsDeck(buildDeckFromComposition(vampComp));
         g.setVampActionsDiscard(new ArrayList<>());

@@ -42,7 +42,7 @@ export type GameSnapshot = {
   fogAffectedLocation?: string | null;
 
   currentAction?: {
-    mode: 'EAU_BENITE' | 'NET' | 'PIT' | 'PROVOCATION' | 'INCENDIAIRE' | 'AMBUSH' | 'LONELY' | 'BLESSED_STAKE' | 'CHARISMATIQUE' | 'MARCHAND_ITINERANT' | 'MARCHAND_BONUS_BUY' | 'ADVANCED_TRANSMUTATION' | 'ADVANCED_TRANSMUTATION_BUY' | 'PRESENCE_ECRASANTE' | 'CATACLYSME' | 'CLONES_OMBRE' | 'IMAGE_MIROIR_SETUP' | 'IMAGE_MIROIR_RESOLVE' | 'ECLIPSE' | 'BLOOD_MOON' | 'VOILE_DE_BRUME' | 'FAIM_IRREPRESSIBLE' | 'AFFAIBLISSEMENT_OCCULTE' | 'MARQUE_TENEBREUSE' | 'PASSAGE_SECRET' | 'AVIDITE_NOCTURNE' | 'CRATE_LAKE' | 'CRATE_MANOR';
+    mode: 'EAU_BENITE' | 'NET' | 'PIT' | 'PROVOCATION' | 'INCENDIAIRE' | 'AMBUSH' | 'LONELY' | 'BLESSED_STAKE' | 'CHARISMATIQUE' | 'MARCHAND_ITINERANT' | 'MARCHAND_BONUS_BUY' | 'ADVANCED_TRANSMUTATION' | 'ADVANCED_TRANSMUTATION_BUY' | 'PRESENCE_ECRASANTE' | 'CATACLYSME' | 'CLONES_OMBRE' | 'IMAGE_MIROIR_SETUP' | 'IMAGE_MIROIR_RESOLVE' | 'ECLIPSE' | 'BLOOD_MOON' | 'VOILE_DE_BRUME' | 'FAIM_IRREPRESSIBLE' | 'AFFAIBLISSEMENT_OCCULTE' | 'MARQUE_TENEBREUSE' | 'PASSAGE_SECRET' | 'AVIDITE_NOCTURNE' | 'CRATE_LAKE' | 'CRATE_MANOR' | 'PORTAL_INVOCATION_REVENANT' | 'PORTAL_INVOCATION_BAT';
     ownerId: string;
     location: string;
     targetId: string | null;
@@ -492,6 +492,15 @@ export class ApiService {
     const params = new HttpParams().set('loc', loc);
     return this.http.post<GameSnapshot>(
       `${this.base}/games/${gameId}/actions/secret-passage/resolve`,
+      null,
+      { params }
+    );
+  }
+
+  resolvePortalInvocation(gameId: string, location: string) {
+    const params = new HttpParams().set('location', location);
+    return this.http.post<void>(
+      `${this.base}/games/${gameId}/actions/portal-invocation/resolve`,
       null,
       { params }
     );

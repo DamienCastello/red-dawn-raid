@@ -187,6 +187,8 @@ public class GameService {
 
     public Game resolveSecretPassage(String gameId, String playerId, String destination) { return vampireActions.resolveSecretPassage(gameId, playerId, destination); }
 
+    public Game resolvePortalInvocation(String gameId, String userId, String location) { return vampireActions.resolvePortalInvocation(gameId, userId, location); }
+
     // --- Effets de lieux (bâtiments du Manoir) → LocationEffectService ---
     public Game chooseLocationEffect(String gameId, String playerId, LocationEffectChoice choice) { return locationEffects.chooseLocationEffect(gameId, playerId, choice); }
 

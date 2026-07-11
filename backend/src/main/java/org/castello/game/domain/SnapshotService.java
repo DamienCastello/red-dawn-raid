@@ -301,6 +301,8 @@ public class SnapshotService {
                 || "PASSAGE_SECRET".equals(a.getMode())
                 || "AVIDITE_NOCTURNE".equals(a.getMode())
                 || "ADVANCED_TRANSMUTATION".equals(a.getMode())
+                || "PORTAL_INVOCATION_REVENANT".equals(a.getMode())
+                || "PORTAL_INVOCATION_BAT".equals(a.getMode())
                 || "EAU_BENITE".equals(a.getMode()))) {
             action = new GameSnapshot.ActionView(
                     a.getMode(),

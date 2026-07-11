@@ -1876,6 +1876,54 @@ public class ActionCardService {
                 return g;
             }
 
+            case PORTAL_INVOCATION_REVENANT, PORTAL_INVOCATION_BAT -> {
+                if (!isVamp) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "vampire uniquement");
+                }
+                if (g.getPhase() != Phase.PHASE2) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Invocation de monstre utilisable uniquement pendant la PHASE2.");
+                }
+                if (hasBlockingActionInProgress(g)) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "Une autre action est déjà en cours de résolution.");
+                }
+
+                // Consommer la carte
+                inv.remove(type.name());
+                decks.discardVampAction(g, type.name());
+
+                // currentAction : le vampire choisira le lieu dans la modale (comme Clones)
+                Game.Action a = new Game.Action();
+                a.setMode(type.name()); // "PORTAL_INVOCATION_REVENANT" ou "..._BAT"
+                a.setOwnerId(playerId);
+                a.setLocation(null);
+                a.setTargetId(null);
+                a.setRoll(null);
+                a.setBreakdownLines(new java.util.ArrayList<>());
+                a.setResolvedAtMillis(null);
+                g.setCurrentAction(a);
+
+                String monsterFr = (type == Action.PORTAL_INVOCATION_BAT)
+                        ? "une chauve-souris"
+                        : "un revenant";
+                String msg = g.nameOf(playerId) + " ouvre un portail pour invoquer " + monsterFr + ".";
+                g.addHistory(msg);
+                feedText = msg;
+
+                store.save(g);
+
+                final String fFeed = feedText;
+                final String fUserId = playerId;
+                final String fType = type.name();
+                store.afterCommit(() -> {
+                    pushLive(g, fFeed);
+                    live.actionUsed(g, fUserId, fType);
+                });
+
+                return g;
+            }
+
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "unknown action");
         }
 
@@ -1906,7 +1954,9 @@ public class ActionCardService {
                     "VOILE_DE_BRUME",
                     "CRATE_LAKE",
                     "CRATE_MANOR",
-                    "CATACLYSME" ->
+                    "CATACLYSME",
+                    "PORTAL_INVOCATION_REVENANT",
+                    "PORTAL_INVOCATION_BAT" ->
                 true;
 
             default -> false; // FAIM, PRESENCE, ECLIPSE, LONELY, BLOOD_MOON => non bloquantes

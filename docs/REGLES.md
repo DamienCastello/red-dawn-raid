@@ -348,6 +348,8 @@ précis. Chaque camp a son propre deck.
 | **Passage secret** | Depuis le Manoir, téléporte le vampire vers un autre lieu après la révélation : pour **fuir une embuscade** ou pour **surgir en attaque surprise** sur des chasseurs |
 | **Avidité nocturne** | Augmente les prix de la boutique (+50) ce raid |
 | **Transmutation avancée** | Transmutation de ressources améliorée |
+| **Portail : Revenant** | En **phase 2**, invoque un **Revenant** (monstre gardien : 5 PV, ATK D6, DEF D4) sur un lieu choisi. Gratuit (la carte est le coût). Le monstre **persiste** raid après raid jusqu'à sa mort |
+| **Portail : Chauve-souris** | En **phase 2**, invoque une **Chauve-souris** (monstre gardien : 5 PV, ATK D4, DEF D6) sur un lieu choisi. Gratuit ; persistant comme ci-dessus |
 
 ---
 

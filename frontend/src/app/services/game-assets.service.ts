@@ -28,7 +28,8 @@ export class GameAssetsService {
         'ECLIPSE', 'BLOOD_MOON', 'VOILE_DE_BRUME', 'FAIM_IRREPRESSIBLE',
         'MARQUE_TENEBREUSE', 'AFFAIBLISSEMENT_OCCULTE', 'PASSAGE_SECRET',
         'AVIDITE_NOCTURNE', 'IMAGE_MIROIR_SETUP', 'IMAGE_MIROIR_RESOLVE',
-        'ADVANCED_TRANSMUTATION', 'ADVANCED_TRANSMUTATION_BUY'
+        'ADVANCED_TRANSMUTATION', 'ADVANCED_TRANSMUTATION_BUY',
+        'PORTAL_INVOCATION_REVENANT', 'PORTAL_INVOCATION_BAT'
     ];
 
     // ---------- Tiers (miroir du back) ----------
@@ -146,6 +147,8 @@ export class GameAssetsService {
             case 'IMAGE_MIROIR_SETUP':
             case 'IMAGE_MIROIR_RESOLVE':
                 return 'image_miroir.png';
+            case 'PORTAL_INVOCATION_REVENANT': return 'portal_invocation_revenant.png';
+            case 'PORTAL_INVOCATION_BAT': return 'portal_invocation_bat.png';
 
             default:
                 return code.toLowerCase() + '.png';
@@ -185,6 +188,8 @@ export class GameAssetsService {
         if (mode === 'EAU_BENITE') return 'url(/assets/actions/holy_water.png';
         if (mode === 'CRATE_LAKE') return 'url(/assets/actions/crate-lake.png)';
         if (mode === 'CRATE_MANOR') return 'url(/assets/actions/crate-manor.png)';
+        if (mode === 'PORTAL_INVOCATION_REVENANT') return 'url(/assets/actions/portal_invocation_revenant.png)';
+        if (mode === 'PORTAL_INVOCATION_BAT') return 'url(/assets/actions/portal_invocation_bat.png)';
         return '';
     }
 
@@ -337,6 +342,8 @@ export class GameAssetsService {
             case 'AFFAIBLISSEMENT_OCCULTE': return 'Affaiblissement occulte';
             case 'PASSAGE_SECRET': return 'Passage secret';
             case 'AVIDITE_NOCTURNE': return 'Avidité nocturne';
+            case 'PORTAL_INVOCATION_REVENANT': return 'Portail : Revenant';
+            case 'PORTAL_INVOCATION_BAT': return 'Portail : Chauve-souris';
             default: return '';
         }
     }

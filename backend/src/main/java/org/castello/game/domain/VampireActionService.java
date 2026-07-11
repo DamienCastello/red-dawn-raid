@@ -360,6 +360,99 @@ public class VampireActionService {
         return g;
     }
 
+    /**
+     * Invocation de monstre par carte-action (Portail) : place un monstre
+     * (Revenant ou Chauve-souris selon la carte jouée) sur le lieu choisi,
+     * en PHASE2. Aucun coût en âmes — la carte est le coût. Le monstre est
+     * un gardien PERSISTANT (comme ceux du Laboratoire) : il défend le lieu
+     * raid après raid jusqu'à être tué en combat.
+     */
+    @Transactional
+    public Game resolvePortalInvocation(String gameId, String playerId, String location) {
+        Game g = store.loadForUpdate(gameId);
+
+        if (g.getStatus() != GameStatus.ACTIVE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "game not active");
+        }
+        if (g.getPhase() != Phase.PHASE2) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "not in PHASE2");
+        }
+
+        Player p = g.findPlayer(playerId);
+        if (p == null || !"VAMPIRE".equals(p.getRole())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "vampire uniquement");
+        }
+
+        Game.Action a = g.getCurrentAction();
+        String mode = (a != null) ? a.getMode() : null;
+        if (a == null || mode == null || !mode.startsWith("PORTAL_INVOCATION")
+                || !playerId.equals(a.getOwnerId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "aucune invocation de monstre en cours pour ce joueur.");
+        }
+        if (a.getResolvedAtMillis() != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "L'invocation a déjà été résolue pour ce raid.");
+        }
+        if (location == null || location.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "location required");
+        }
+        if (g.getGarlicBlockedLocations() != null
+                && g.getGarlicBlockedLocations().contains(location)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Impossible d'invoquer un monstre sur un lieu protégé par une fumigation d'ail.");
+        }
+
+        // Type + stats (miroir de l'Expérimentation du Labo, mais SANS coût d'âmes)
+        Game.MonsterType type = mode.endsWith("BAT")
+                ? Game.MonsterType.BAT
+                : Game.MonsterType.REVENANT;
+        int hp;
+        String atk;
+        String def;
+        if (type == Game.MonsterType.BAT) {
+            hp = 5;
+            atk = "D4";
+            def = "D6";
+        } else { // REVENANT
+            hp = 5;
+            atk = "D6";
+            def = "D4";
+        }
+
+        if (g.getMonsters() == null) {
+            g.setMonsters(new java.util.ArrayList<>());
+        }
+        Game.Monster m = new Game.Monster();
+        m.id = java.util.UUID.randomUUID().toString();
+        m.type = type;
+        m.location = location;
+        m.hp = hp;
+        m.attackDice = atk;
+        m.defenseDice = def;
+        g.getMonsters().add(m);
+
+        a.setLocation(location);
+        a.setResolvedAtMillis(System.currentTimeMillis());
+        g.setCurrentAction(null);
+
+        String monsterFr = (type == Game.MonsterType.BAT) ? "une chauve-souris" : "un revenant";
+        g.addHistory("Portail — " + g.nameOf(playerId) + " invoque " + monsterFr
+                + " pour défendre " + Location.labelFrOf(location) + ".");
+
+        store.save(g);
+
+        Game gAfter = g;
+        final String fMode = mode;
+        final String fLoc = location;
+        store.afterCommit(() -> {
+            live.actionResolved(gAfter, fMode, playerId, fLoc);
+            live.phaseChanged(gAfter);
+        });
+
+        return g;
+    }
+
     @Transactional
     public Game resolveVoileDeBrume(String gameId, String userId, String location) {
         Game g = store.loadForUpdate(gameId);

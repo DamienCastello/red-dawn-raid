@@ -630,6 +630,16 @@ public class GameController {
         games.resolveSecretPassage(id, user.getId(), loc);
     }
 
+    @PostMapping("/{id}/actions/portal-invocation/resolve")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resolvePortalInvocation(@PathVariable String id,
+            @RequestParam("location") String location,
+            @RequestHeader("Authorization") String authorization) {
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+        games.resolvePortalInvocation(id, user.getId(), location);
+    }
+
     @PostMapping("/{id}/actions/dark-mark/resolve")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void resolveDarkMark(@PathVariable String id,

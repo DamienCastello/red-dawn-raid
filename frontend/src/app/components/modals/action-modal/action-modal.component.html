@@ -594,6 +594,41 @@
                 </ng-template>
             </ng-container>
 
+            <!-- ========== INVOCATION DE MONSTRE (PORTAIL) ========== -->
+            <ng-container *ngIf="vm.mode === 'PORTAL_INVOCATION_REVENANT' || vm.mode === 'PORTAL_INVOCATION_BAT'">
+                <!-- Vue ACTEUR : choix d'un lieu de défense -->
+                <ng-container *ngIf="vm.isActor; else portalSpectate">
+                    <p class="breakdown">
+                        Ouvre un portail et invoque
+                        <b>{{ vm.mode === 'PORTAL_INVOCATION_BAT' ? 'une chauve-souris' : 'un revenant' }}</b>.
+                        Choisis le lieu qu'il défendra.
+                    </p>
+
+                    <div class="clones-assignment" *ngIf="vm.portalLocationChoices.length > 0">
+                        <div class="clone-row">
+                            <label>Lieu</label>
+                            <select [value]="vm.portalSelectedLocation || ''"
+                                (change)="actions.setSelectedPortalLocation($any($event.target).value || null)">
+                                <option value="">-- Choisir un lieu --</option>
+                                <option *ngFor="let loc of vm.portalLocationChoices" [value]="loc">
+                                    {{ helpers.labelLocation(loc) }}
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <button type="button" style="margin-top:.75rem" (click)="actions.onPortalConfirm()"
+                        [disabled]="vm.resolving || !vm.portalSelectedLocation">
+                        Invoquer le monstre
+                    </button>
+                </ng-container>
+
+                <!-- Vue SPECTATEUR -->
+                <ng-template #portalSpectate>
+                    <p class="breakdown">Le vampire ouvre un portail pour invoquer un monstre...</p>
+                </ng-template>
+            </ng-container>
+
             <!-- ========== VOILE DE BRUME ========== -->
             <ng-container *ngIf="vm.mode === 'VOILE_DE_BRUME'">
                 <ng-container *ngIf="vm.isActor; else voileSpectate">
