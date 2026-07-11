@@ -32,13 +32,13 @@ la partie.
   Carrière, Lac, Manoir.
 - **Dés de départ :** dé d'**attaque D4** et dé de **défense D4** pour tout le monde.
 - **Points de vie :**
-  - Vampire : **20 + 5 × (nombre de chasseurs)**.
+  - Vampire : **20 + 10 × (nombre de chasseurs)**.
   - Chaque chasseur : **20**.
 - **Ressources de départ :**
   - **Vampire :** `âmes = 100 × (nb chasseurs)`, `pierre = 10`, et bois/fer/herbes/eau
     variables selon le nombre de chasseurs (5/5/10/10 à 2 chasseurs, 10/10/15/15 à 3‑4,
     15/15/20/20 à 5+).
-  - **Chaque chasseur :** `150 or`, `10 herbes`, `10 eau`.
+  - **Chaque chasseur :** `150 or` (aucune ressource brute : tout est à récolter).
 
 > Note : le deck de cartes Action distribue aussi quelques cartes de départ selon la
 > configuration en cours ; référez‑vous à l'écran de jeu qui affiche toujours votre main
@@ -196,12 +196,14 @@ propres à ce bâtiment.
 
 | Infrastructure | Sur le lieu | Coût | Effet |
 |----------------|-------------|------|-------|
-| **Scierie** | Forêt | 2 pierre, 2 fer | Récolte de bois améliorée (+4) ; +1 bois auto en phase 4 |
-| **Mine** | Carrière | 3 bois, 1 fer | Récolte de fer améliorée (+4) ; +1 fer auto en phase 4 |
+| **Scierie** | Forêt | 2 pierre, 2 fer | Récolte de bois améliorée (+3) ; +1 bois auto en phase 4 |
+| **Mine** | Carrière | 3 bois, 1 fer | Récolte de fer améliorée (+3) ; +1 fer auto en phase 4 |
 
-> Le raid de sa construction, le bâtiment est **immédiatement récolté par le vampire** (à la
-> place du lieu de base) : **+6 bois** (Scierie), **+6 fer** (Mine), ou **d100 par dizaines
-> en âmes** pour les bâtiments du Manoir.
+> **Scierie et Mine n'ont pas de récolte d'inauguration** : le raid de leur construction, le
+> vampire récolte simplement le lieu de base (Forêt / Carrière) ; le bâtiment ne produit qu'à
+> partir des raids suivants (récolte de lieu **+3**, plus **+1 auto** en phase 4). Les
+> bâtiments du **Manoir**, eux, sont **immédiatement récoltés** le raid de leur construction
+> (**d100 par dizaines en âmes**).
 | **Bibliothèque** | Manoir | 4 bois, 2 pierre, 1 fer | Étude, Subtilisation, Prédiction occulte |
 | **Laboratoire occulte** | Manoir | 2 eau, 2 herbes, 3 pierre, 50 âmes | Invoque des monstres, alchimie, explosion |
 | **Salle de bal** | Manoir | 5 pierre, 2 fer, 50 âmes | Danse macabre, attaque sournoise, valse sanguinaire |
@@ -220,8 +222,8 @@ Chaque joueur récolte les ressources du lieu où il se trouve.
 | **Carrière** | +2 fer, +4 pierre |
 | **Lac** | +2 herbes, +4 eau |
 | **Manoir** | **d100 (par dizaines) + 100** → **or** (chasseur) ou **âmes** (vampire) |
-| **Scierie** | +4 bois |
-| **Mine** | +4 fer |
+| **Scierie** | +3 bois |
+| **Mine** | +3 fer |
 | **Bibliothèque / Labo / Salle de bal / Autel / Forge** | **d100 (par dizaines) + 50** → or / âmes |
 
 **Récolte divisée par deux** (arrondie à la dizaine supérieure pour l'or/les âmes) pour un

@@ -223,7 +223,7 @@ public class HarvestService {
                         }
                     }
                     case "sawmill" -> {
-                        int base = 4;
+                        int base = 3;
                         int wood = halfHarvest ? (base / 2) : base;
                         if (wood <= 0)
                             wood = 1;
@@ -234,7 +234,7 @@ public class HarvestService {
                     }
 
                     case "mine" -> {
-                        int base = 4;
+                        int base = 3;
                         int iron = halfHarvest ? (base / 2) : base;
                         if (iron <= 0)
                             iron = 1;

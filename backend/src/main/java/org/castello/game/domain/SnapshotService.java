@@ -145,7 +145,8 @@ public class SnapshotService {
                     p.isCrateUsedThisRaid(),
                     p.isResourceBoughtThisRaid(),
                     p.isAdvancedTransmutationUsedThisRaid(),
-                    p.isMerchantUsedThisRaid());
+                    p.isMerchantUsedThisRaid(),
+                    p.isBot());
         }).toList();
 
         // Center

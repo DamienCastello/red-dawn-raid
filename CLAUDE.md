@@ -117,6 +117,39 @@ auth/joueur. C'est le point le plus important à comprendre :
   (`@Qualifier("raidTaskScheduler")`, configuré dans `config/SchedulingConfig`) — les tours de
   jeu peuvent avancer sur un timer côté serveur, pas uniquement sur action du joueur.
 
+### Bots (mode solo) — package `bot/`
+La conception complète est dans `docs/BOT-DESIGN.md` (grille des 29 cartes, stratégies,
+plan en 4 étapes). Étapes 1 (« bot légal qui ne bloque jamais ») **et 2 (économie)**
+implémentées ; le profil économique (`BotProfile` : Bâtisseur/Prudent) pilote le choix
+de lieu pondéré, la construction du vampire, la boutique/banque/transmutation en PHASE4
+et les potions basiques en PREPHASE3.
+- **`BotManager`** : ajoute/retire un bot au lobby (endpoints `POST /api/games/{id}/bots`
+  et `POST /api/games/{id}/bots/{botId}/remove` dans `BotController`). Un bot est un
+  `Player` ordinaire du blob `Game` avec `bot=true` et un id `bot:<uuid>` — pas de compte,
+  pas de ligne SQL `players`, jamais d'appel REST. Max 6 bots, vampire possible.
+- **`BotOrchestrator`** : tick périodique (1,2 s, scheduler dédié `botTaskScheduler` dans
+  `SchedulingConfig`) qui balaie les parties contenant des bots et fait jouer **au plus une
+  action par partie et par tick** via `BotBrain`. Les refus serveur (409/403) sont normaux
+  (état changé entre-temps) et avalés — le tick suivant repart d'un état frais.
+  **Rythme** : l'orchestrateur mesure la « stabilité » de l'état observable (empreinte) et
+  `BotBrain` exige un délai minimal par type d'action, plus long quand des humains sont
+  présents — le front joue alors ses animations (météo 3 temps, `SPECTATE_HOLD_MS` = 5 s
+  sur les résultats de combat) et fait lui-même les progressions (`combat/continue`,
+  `advance`) ; le bot n'est qu'un filet de sécurité. Les courses résiduelles sont bénignes :
+  le front les ignore via `showErrorUnlessConflict` (409 silencieux, `game.component.ts`).
+- **`BotBrain`** : cerveau couvrant tous les points obligatoires (météo, choix de lieu,
+  assignation d'instables, effets de lieu — qui n'ont AUCUN timer serveur —, jets de
+  combat/morsure/fosse, fin de phase 4) PLUS l'économie (étape 2 : choix de lieu pondéré,
+  construction, boutique/banque/transmutation, potions) en appelant la **façade
+  `GameService`** : le bot subit les mêmes validations qu'un humain et ne lit que l'info
+  publique + sa propre main. `BotProfile` porte l'archétype économique (Bâtisseur/Prudent).
+- Exemptions lobby : les bots sont prêts d'office (`requestStart`) et jamais purgés comme
+  fantômes (`cleanupStaleLobbyPlayers`).
+- **Piège connu** : `combatsQueue` est une copie jamais mise à jour des jets (ils vivent sur
+  le miroir `currentCombat` après resérialisation JSON) → l'auto-PHASE4 de `combatContinue`
+  ne se déclenche jamais après de vrais combats. Comme le front humain
+  (`game.component.ts` → `advancePhase('PHASE4')`), le bot appelle `advance` explicitement.
+
 ### Événements temps réel (STOMP sur WebSocket)
 - `WebSocketConfig` expose `/ws` (et `/ws-sockjs`), un broker simple sur `/topic`, préfixe
   applicatif `/app`.

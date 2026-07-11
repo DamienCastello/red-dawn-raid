@@ -231,6 +231,12 @@ public class GameLifecycleService {
         else
             g.getReadyForStart().clear();
 
+        // Les bots n'ont pas d'écran de chargement : prêts d'office
+        for (Player p : g.getPlayers()) {
+            if (p.isBot())
+                g.getReadyForStart().add(p.getId());
+        }
+
         store.save(g);
         store.afterCommit(() -> live.lobbyUpdated(g));
     }
@@ -290,6 +296,10 @@ public class GameLifecycleService {
 
         for (Player p : g.getPlayers()) {
             if (p.isLeftGame())
+                continue;
+
+            // Les bots n'ont pas de client, donc pas de heartbeat : jamais fantômes
+            if (p.isBot())
                 continue;
 
             Long ts = p.getLastSeenTs();
@@ -427,10 +437,11 @@ public class GameLifecycleService {
             p.setDefenseDice("D4");
         }
 
-        // PV init (vamp = 20 + 5 * nb chasseurs)
+        // PV init (vamp = 20 + 10 * nb chasseurs) — doit rester cohérent avec
+        // CombatService.maxHpFor (plafond de régénération/soin).
         int huntersCount = (int) g.getPlayers().stream().filter(p -> !"VAMPIRE".equals(p.getRole())).count();
         for (var p : g.getPlayers()) {
-            p.setHp("VAMPIRE".equals(p.getRole()) ? 20 + huntersCount * 5 : 20);
+            p.setHp("VAMPIRE".equals(p.getRole()) ? 20 + huntersCount * 10 : 20);
         }
         // --- Ressources de départ ---
         for (var p : g.getPlayers()) {
@@ -457,8 +468,8 @@ public class GameLifecycleService {
             if ("HUNTER".equals(p.getRole())) {
                 p.setGold(150);
                 p.setWood(0);
-                p.setHerbs(10);
-                p.setWater(10);
+                p.setHerbs(0);
+                p.setWater(0);
                 p.setStone(0);
                 p.setIron(0);
             }

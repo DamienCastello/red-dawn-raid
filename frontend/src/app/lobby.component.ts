@@ -94,6 +94,25 @@ import { AssetPreloaderService } from './services/asset-preloader.service';
               </button>
             </div>
 
+            <div *ngIf="isSelectedCreated" class="section">
+              <h4 class="h4">Joueurs</h4>
+              <ul class="list">
+                <li *ngFor="let p of lobbySelectedPlayers" class="list-item player-line">
+                  <span>{{ p.username }}</span>
+                  <button *ngIf="p.bot" class="btn btn-ghost btn-mini" (click)="removeBot(p.id)">
+                    Retirer
+                  </button>
+                </li>
+              </ul>
+              <div class="row" style="margin-top:.6rem;">
+                <button class="btn"
+                        (click)="addBot()"
+                        [disabled]="activePlayersCount(selected) >= 7">
+                  🤖 Ajouter un bot
+                </button>
+              </div>
+            </div>
+
             <small *ngIf="isSelectedCreated" class="muted" style="display:block; margin-top:.5rem;">
               En attente du démarrage…
             </small>
@@ -545,6 +564,18 @@ import { AssetPreloaderService } from './services/asset-preloader.service';
       opacity: .75;
       margin-left: .35rem;
       font-size: .9em;
+    }
+
+    .player-line{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:.5rem;
+    }
+
+    .btn-mini{
+      padding:.25rem .55rem;
+      font-size:.85rem;
     }
 
     @media (max-width: 520px){
@@ -1009,6 +1040,21 @@ export class LobbyComponent {
       next: () => this.optimisticJoinLocal(selId),
       error: e => this.showError(e)
     });
+  }
+
+  // Joueurs actifs de la partie sélectionnée (pour la liste du lobby)
+  get lobbySelectedPlayers(): any[] {
+    return this.activePlayers;
+  }
+
+  addBot() {
+    if (!this.selected) return;
+    this.api.addBot(this.selected.id).subscribe({ error: e => this.showError(e) });
+  }
+
+  removeBot(botId: string) {
+    if (!this.selected) return;
+    this.api.removeBot(this.selected.id, botId).subscribe({ error: e => this.showError(e) });
   }
 
   private optimisticJoinLocal(gameId: string) {

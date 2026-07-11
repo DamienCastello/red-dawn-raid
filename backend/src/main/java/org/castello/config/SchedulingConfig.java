@@ -15,4 +15,18 @@ public class SchedulingConfig {
         s.initialize();
         return s;
     }
+
+    /**
+     * Scheduler dédié au tick des bots (voir bot/BotOrchestrator) : un pool
+     * séparé pour que les décisions des bots ne retardent jamais les timers
+     * de phase du raidTaskScheduler.
+     */
+    @Bean(name = "botTaskScheduler")
+    public ThreadPoolTaskScheduler botTaskScheduler() {
+        ThreadPoolTaskScheduler s = new ThreadPoolTaskScheduler();
+        s.setPoolSize(1);
+        s.setThreadNamePrefix("bot-scheduler-");
+        s.initialize();
+        return s;
+    }
 }

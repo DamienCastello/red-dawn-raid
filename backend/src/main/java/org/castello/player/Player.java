@@ -71,6 +71,7 @@ public class Player {
     private int corruption; // 0 = sain, 1 = affaibli, 2 = instable, 3 = servant
 
     private boolean leftGame = false;
+    private boolean bot = false; // joueur piloté par le serveur (voir package bot/)
     private Long lastSeenTs; // epoch ms
 
     private boolean elixirUsedThisRaid = false;
@@ -107,6 +108,14 @@ public class Player {
 
     public void setLeftGame(boolean leftGame) {
         this.leftGame = leftGame;
+    }
+
+    public boolean isBot() {
+        return bot;
+    }
+
+    public void setBot(boolean bot) {
+        this.bot = bot;
     }
 
     public Long getLastSeenTs() {

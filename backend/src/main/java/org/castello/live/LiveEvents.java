@@ -54,7 +54,8 @@ public class LiveEvents {
                                 .map(p -> Map.of(
                                                 "id", p.getId(),
                                                 "username", p.getUsername(),
-                                                "leftGame", p.isLeftGame()))
+                                                "leftGame", p.isLeftGame(),
+                                                "bot", p.isBot()))
                                 .toList();
 
                 var ready = (g.getReadyForStart() != null)
@@ -76,7 +77,8 @@ public class LiveEvents {
                                 .map(p -> Map.of(
                                                 "id", p.getId(),
                                                 "username", p.getUsername(),
-                                                "leftGame", p.isLeftGame()))
+                                                "leftGame", p.isLeftGame(),
+                                                "bot", p.isBot()))
                                 .toList();
 
                 sendLobby(new GameEvents(

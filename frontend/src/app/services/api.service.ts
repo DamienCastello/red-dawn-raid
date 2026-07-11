@@ -166,6 +166,7 @@ export type Player = {
   resourceBoughtThisRaid?: boolean;
   advancedTransmutationUsedThisRaid?: boolean;
   merchantUsedThisRaid?: boolean;
+  bot?: boolean;
 };
 
 type Monster = {
@@ -219,7 +220,7 @@ export type RawStatMod = {
 
 export type LobbyPlayer = Pick<
   GameSnapshot['players'][number],
-  'id' | 'username' | 'leftGame' | 'role' | 'hp'
+  'id' | 'username' | 'leftGame' | 'role' | 'hp' | 'bot'
 >;
 
 export type LobbyGame = {
@@ -277,6 +278,12 @@ export class ApiService {
 
   joinGame(id: string) {
     return this.http.post<void>(`${this.base}/games/${id}/join`, {});
+  }
+  addBot(id: string) {
+    return this.http.post<void>(`${this.base}/games/${id}/bots`, {});
+  }
+  removeBot(id: string, botId: string) {
+    return this.http.post<void>(`${this.base}/games/${id}/bots/${encodeURIComponent(botId)}/remove`, {});
   }
   presence(id: string) {
     return this.http.post<void>(`${this.base}/games/${id}/presence`, {});

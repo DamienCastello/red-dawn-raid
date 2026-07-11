@@ -95,13 +95,10 @@ public class ConstructionService {
     private void applyInfraHarvest(Game g, Player vamp, Infra infra) {
         java.util.List<String> gains = new java.util.ArrayList<>();
         switch (infra) {
-            case SAWMILL -> {
-                vamp.grant("wood", 6);
-                gains.add("+6 bois");
-            }
-            case MINE -> {
-                vamp.grant("iron", 6);
-                gains.add("+6 fer");
+            case SAWMILL, MINE -> {
+                // Pas de récolte d'inauguration : la Scierie/Mine ne rapporte qu'à
+                // partir des raids suivants (récolte de lieu +3, plus +1 auto en
+                // phase 4 pour le vampire).
             }
             case LIBRARY, LABORATORY, BALLROOM, ALTAR, FORGE -> {
                 // Pour l’instant : même logique que Manoir, tu ajusteras si tu as déjà un case

@@ -20,7 +20,7 @@ objectif :
 ## Ce que vous avez au départ
 
 - **Vampire :** beaucoup de PV, beaucoup d'**âmes**, un peu de tout pour construire.
-- **Chasseurs :** 20 PV, 150 **or**, quelques herbes et eau.
+- **Chasseurs :** 20 PV, 150 **or** (les ressources brutes sont à récolter).
 - Tout le monde a **4 cartes Lieu** (Forêt, Carrière, Lac, Manoir) et des dés **D4** en
   attaque et défense.
 

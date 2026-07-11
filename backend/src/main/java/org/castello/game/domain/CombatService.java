@@ -333,8 +333,17 @@ public class CombatService {
                     .filter(m -> m.hp > 0)
                     .toList();
 
+            // Noms des chasseurs engagés (pour la ligne d'historique "Combat — …")
+            String huntersNames = String.join(", ",
+                    huntersForDefault.stream().map(h -> g.nameOf(h.getId())).toList());
+
             // (A) Combats contre vampires/serviteurs (comme avant)
             for (var enemy : enemiesPlayers) {
+                if (!huntersForDefault.isEmpty()) {
+                    // Même format que l'aperçu de préphase (fil du centre)
+                    g.addHistory("Combat — " + g.nameOf(enemy.getId()) + " VS "
+                            + huntersNames + " à " + Location.labelFrOf(loc));
+                }
                 for (var h : huntersForDefault) {
 
                     // Marque ténébreuse : +1 corruption si chasseur marqué croise le vampire
@@ -380,6 +389,10 @@ public class CombatService {
 
             // (B) Combats contre monstres
             for (var m : monstersHere) {
+                if (!huntersForDefault.isEmpty()) {
+                    g.addHistory("Combat — " + m.type.labelFr() + " VS "
+                            + huntersNames + " à " + Location.labelFrOf(loc));
+                }
                 for (var h : huntersForDefault) {
 
                     boolean hunterInvisible = hasInvisibility(g, h.getId());
@@ -464,6 +477,12 @@ public class CombatService {
                             // on réutilise la même logique que pour les combats par défaut
                             .filter(p -> !unstableAssigned.contains(p.getId()))
                             .toList();
+
+                    if (!huntersHere.isEmpty()) {
+                        g.addHistory("Combat — clones d'ombre VS "
+                                + String.join(", ", huntersHere.stream().map(h -> g.nameOf(h.getId())).toList())
+                                + " à " + Location.labelFrOf(loc));
+                    }
 
                     for (Player h : huntersHere) {
                         boolean hunterInvisible = hasInvisibility(g, h.getId());
@@ -1977,9 +1996,8 @@ public class CombatService {
             }
             case VIE -> {
                 int before = p.getHp();
-                int max = ("VAMPIRE".equals(p.getRole()))
-                        ? (20 + (g.getInitialPlayerCount() - 1) * 5)
-                        : 20;
+                // Source unique du plafond de PV (vampire = 20 + 10 * nb chasseurs)
+                int max = maxHpFor(g, p);
 
                 int d6 = dice.roll(6);
                 int amount = 2 + d6;

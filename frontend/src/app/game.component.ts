@@ -1241,6 +1241,16 @@ export class GameComponent {
     setTimeout(() => this.errorMsg = '', 4000);
   }
 
+  /**
+   * Erreurs des progressions automatiques (combat/continue, advance…) :
+   * un 409 signifie juste qu'un autre client — ou un bot — a déjà fait
+   * avancer la partie. C'est une course bénigne, on ne l'affiche pas.
+   */
+  private showErrorUnlessConflict(e: any) {
+    if (e?.status === 409) return;
+    this.showError(e);
+  }
+
   private advanceToPhase1IfNeeded() {
     if (this.weatherAdvanceSent) return;
     if (!this.game?.id) return;
@@ -1353,7 +1363,7 @@ export class GameComponent {
       this.phase4AdvanceSent = true;
       setTimeout(() => {
         this.api.advancePhase(this.gameId, 'PHASE4').subscribe({
-          error: e => { this.phase4AdvanceSent = false; this.showError(e); }
+          error: e => { this.phase4AdvanceSent = false; this.showErrorUnlessConflict(e); }
         });
       }, this.SPECTATE_HOLD_MS); // petit temps de lecture du dernier breakdown
     }
@@ -2916,7 +2926,7 @@ export class GameComponent {
                 error: e => this.showError(e)
               });
             },
-            error: e => this.showError(e)
+            error: e => this.showErrorUnlessConflict(e)
           });
         }, this.SPECTATE_HOLD_MS);
         break;
@@ -2959,7 +2969,7 @@ export class GameComponent {
             if (isResolved) {
               setTimeout(() => {
                 this.api.combatContinue(this.gameId).subscribe({
-                  error: e => this.showError(e)
+                  error: e => this.showErrorUnlessConflict(e)
                 });
               }, this.SPECTATE_HOLD_MS);
             }
@@ -3123,7 +3133,7 @@ export class GameComponent {
         if (isCombatAction) {
           setTimeout(() => {
             this.api.combatContinue(this.gameId).subscribe({
-              error: e => this.showError(e)
+              error: e => this.showErrorUnlessConflict(e)
             });
           }, this.SPECTATE_HOLD_MS);
         }
@@ -5626,7 +5636,7 @@ export class GameComponent {
                   error: e => this.showError(e)
                 });
               },
-              error: e => this.showError(e)
+              error: e => this.showErrorUnlessConflict(e)
             });
           }, delay);
           return;

@@ -117,7 +117,8 @@ public record GameSnapshot(
                         boolean crateUsedThisRaid,
                         boolean resourceBoughtThisRaid,
                         boolean advancedTransmutationUsedThisRaid,
-                        boolean merchantUsedThisRaid) {
+                        boolean merchantUsedThisRaid,
+                        boolean bot) {
         }
 
         public record DecksView(Pile actionsVamp, Pile actionsHunters, Pile potions, Pile elixirs) {
