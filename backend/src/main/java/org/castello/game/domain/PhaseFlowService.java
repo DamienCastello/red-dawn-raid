@@ -355,13 +355,10 @@ public class PhaseFlowService implements RaidFlow {
                 g.setWeatherRoll(null);
                 g.setWeatherStatus(null);
                 g.setSecondaryWeatherStatus(null);
-                g.setThirdWeatherStatus(null);
                 g.setWeatherStatusNameFr(null);
                 g.setWeatherDescriptionFr(null);
                 g.setSecondaryWeatherStatusNameFr(null);
                 g.setSecondaryWeatherDescriptionFr(null);
-                g.setThirdWeatherStatusNameFr(null);
-                g.setThirdWeatherDescriptionFr(null);
                 g.setMessages(new ArrayList<>(List.of("Tirage météo ...")));
 
                 // reset des effets one-shot de raid
@@ -849,6 +846,12 @@ public class PhaseFlowService implements RaidFlow {
                                 && ("CRATE_LAKE".equals(cur.getMode()) || "CRATE_MANOR".equals(cur.getMode()))));
 
         // --- Initialisation de readyForPhase3 ---
+        // On EFFACE volontairement les « j'ai fini » : cette méthode est
+        // rappelée après chaque résolution de carte, et une carte jouée est une
+        // nouvelle info à laquelle un joueur peut vouloir RÉAGIR — il doit donc
+        // re-confirmer. (Le vrai bug — le bouton « j'ai fini » qui ne revenait
+        // pas côté front — est corrigé dans game.component.ts : le bouton suit
+        // désormais readyForPhase3, cf. skipInFlight.)
         g.getReadyForPhase3().clear();
 
         java.util.Set<String> participants = upcoming ? combat.participantsOfUpcomingCombat(g) : java.util.Set.of();
@@ -980,7 +983,11 @@ public class PhaseFlowService implements RaidFlow {
 
             int newVersion = g.getPrephaseTimerVersion() + 1;
             g.setPrephaseTimerVersion(newVersion);
-            schedulePrephaseTimeout(g.getId(), 30_000, newVersion);
+            // Tous les vivants sont déjà prêts (le dernier « prêt » peut venir
+            // d'un recalcul auto, qui ne déclenche pas la transition comme le
+            // ferait un skipAction) → timeout quasi immédiat au lieu de 30 s.
+            long delay = (!hasPendingUnstable && allReadyForPhase3(g)) ? 800 : 30_000;
+            schedulePrephaseTimeout(g.getId(), delay, newVersion);
         } else {
             // aucun combat, aucune action préphase : on saute vite vers PHASE3
             scheduleAdvance(g.getId(), Phase.PREPHASE3, Phase.PHASE3, 4000);
@@ -1678,8 +1685,11 @@ public class PhaseFlowService implements RaidFlow {
                     "construction possible uniquement en phase 2");
         }
 
-        if (g.getWeatherStatus() == WeatherStatus.WIND
-                || g.getSecondaryWeatherStatus() == WeatherStatus.WIND) {
+        // Seul un WIND NATUREL bloque la construction. Un WIND issu d'un Cataclysme
+        // (⟺ une météo secondaire existe) épargne le vampire — le seul à construire —
+        // immunisé aux 2 météos qu'il a choisies.
+        boolean cataclysme = g.getSecondaryWeatherStatus() != null;
+        if (g.getWeatherStatus() == WeatherStatus.WIND && !cataclysme) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "Impossible de construire ce raid à cause du cyclone.");

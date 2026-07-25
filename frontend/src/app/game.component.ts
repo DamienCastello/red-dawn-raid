@@ -175,7 +175,7 @@ export class GameComponent {
       me: this.me,
       isMeDead: this.isMeDead,
       remainingPrePhaseSeconds: this.remainingPrePhaseSeconds,
-      hasSkipped: this.hasSkipped,
+      hasSkipped: this.isMeReadyForPhase3() || this.hasSkipped,
       centerHasAnything: this.centerHasAnything,
       historyGroups: this.historyGroups(),
     };
@@ -309,10 +309,9 @@ export class GameComponent {
       clonesBiteParams: this.clonesBiteParams,
       portalLocationChoices: this.clonesLocationChoices,
       portalSelectedLocation: this.selectedPortalLocation,
-      weatherSecondChoices: this.weatherSecondChoices,
-      weatherThirdChoices: this.weatherThirdChoices,
+      weatherChoices: this.weatherChoices,
+      selectedWeather1: this.selectedWeather1,
       selectedWeather2: this.selectedWeather2,
-      selectedWeather3: this.selectedWeather3,
       cataclysmeLabelPair: this.cataclysmeLabelPair,
       mirrorLocationChoices: this.mirrorLocationChoices,
       selectedMirrorLoc: this.selectedMirrorLoc,
@@ -346,8 +345,8 @@ export class GameComponent {
     onConfirmBonus: (mode) => this.onConfirmBonus(mode),
     onConfirmVampireBonus: (mode) => this.onConfirmVampireBonus(mode),
     onCancelBonus: () => this.onCancelBonus(),
+    onSelectWeather1: (ws) => this.onSelectWeather1(ws),
     onSelectWeather2: (ws) => this.onSelectWeather2(ws),
-    onSelectWeather3: (ws) => this.onSelectWeather3(ws),
     onCataclysmeConfirm: () => this.onCataclysmeConfirm(),
     onClonesRoll: () => this.onClonesRoll(),
     onCloneLocationChange: (idx, ev) => this.onCloneLocationChange(idx, ev),
@@ -782,6 +781,10 @@ export class GameComponent {
   gameId = '';
   game?: GameSnapshot;
   errorMsg = '';
+  // Garde-fou « in-flight » : couvre la fenêtre entre le clic « j'ai fini » et
+  // l'arrivée de READY_UPDATED. La VÉRITÉ de « suis-je prêt » est readyForPhase3
+  // côté serveur (cf. isMeReadyForPhase3) — quand le serveur m'en retire (un
+  // joueur a joué une carte : je peux vouloir réagir), le bouton doit revenir.
   hasSkipped = false;
   private lastPhaseNotified?: Phase;
   private harvestBubbleShown = false;
@@ -886,11 +889,11 @@ export class GameComponent {
   // Invocation de monstre (Portail) : lieu choisi par le vampire en PHASE2
   selectedPortalLocation: string | null = null;
 
+  // Cataclysme : les 2 météos de tempête choisies (elles remplacent la météo en cours).
+  selectedWeather1: string | null = null;
   selectedWeather2: string | null = null;
-  selectedWeather3: string | null = null;
 
-  weatherSecondChoices: string[] = ['WIND', 'STORM', 'RAIN', 'BLIZZARD'];
-  weatherThirdChoices: string[] = ['WIND', 'STORM', 'RAIN', 'BLIZZARD'];
+  weatherChoices: string[] = ['WIND', 'STORM', 'RAIN', 'BLIZZARD'];
 
 
   // Pour éviter de réafficher 15 fois la modale Présence écrasante
@@ -920,6 +923,11 @@ export class GameComponent {
   // --- Morsure : état purement UI (pas dans GameSnapshot)
   isRolling = false;
   private biteNotBeforeMillis = 0; // petit délai de lecture avant d'ouvrir la modale
+  // Timer qui force un cycle de rendu au franchissement de biteNotBeforeMillis :
+  // showBiteModal compare Date.now() dans un getter (non réactif) — sans ce
+  // timer, la modale de morsure n'apparaît qu'au PROCHAIN événement (souvent le
+  // jet lui-même) et la phase « avant le jet » n'est jamais visible.
+  private biteRevealTimer: any = null;
   unstableLockedIds: Set<string> = new Set();
 
   isUnstableLocked = (unstableId: string) => this.unstableLockedIds.has(unstableId);
@@ -986,8 +994,8 @@ export class GameComponent {
   experimentMonsterMeta = {
     REVENANT: { cost: 100, hp: 5, atkDice: 'D6', defDice: 'D4' },
     BAT: { cost: 100, hp: 5, atkDice: 'D4', defDice: 'D6' },
-    GARGOYLE: { cost: 400, hp: 10, atkDice: 'D6', defDice: 'D8' },
-    WOLF: { cost: 400, hp: 10, atkDice: 'D8', defDice: 'D6' },
+    GARGOYLE: { cost: 300, hp: 10, atkDice: 'D6', defDice: 'D8' },
+    WOLF: { cost: 300, hp: 10, atkDice: 'D8', defDice: 'D6' },
     ABERRATION: { cost: 600, hp: 15, atkDice: 'D8', defDice: 'D8' },
     LICHE: { cost: 600, hp: 10, atkDice: 'D8', defDice: 'D8' },
   } as const;
@@ -1160,15 +1168,16 @@ export class GameComponent {
 
     const ok = window.confirm(
       "Êtes-vous sûr de vouloir abandonner la partie ?\n" +
-      "Votre personnage meurt si vous abandonnez."
+      "Un bot reprendra votre personnage si d'autres joueurs sont présents ; " +
+      "sinon votre personnage meurt."
     );
     if (!ok) return;
 
+    // Dans tous les cas l'humain se détache : on revient au lobby. (Si le perso est
+    // adopté, il reste VIVANT côté serveur, joué par un bot ; la modale de mort ne
+    // s'ouvrirait de toute façon pas, car elle exige isMeDead.)
     this.api.surrenderGame(this.game.id).subscribe({
-      next: () => {
-        this.deathModalSeen = false;
-        this.deathModalOpen = true;
-      },
+      next: () => this.router.navigate(['/lobby']),
       error: e => this.showError(e)
     });
   }
@@ -2857,6 +2866,7 @@ export class GameComponent {
         g.readyForPhase3 = Array.isArray(g.readyForPhase3) ? g.readyForPhase3 : [];
         const pid = event.payload.playerId;
         if (!g.readyForPhase3.includes(pid)) g.readyForPhase3.push(pid);
+        if (pid === this.meId) this.hasSkipped = false; // in-flight résolu
         (g as any).readyCount = event.payload.ready;
         (g as any).readyTotal = event.payload.total;
         this.game = { ...(g as GameSnapshot) };
@@ -2933,8 +2943,17 @@ export class GameComponent {
       }
 
       case 'BITE_STARTED': {
-        // petit délai de lecture avant d’ouvrir la modale
-        this.biteNotBeforeMillis = Date.now() + this.SPECTATE_HOLD_MS;
+        // Délai de lecture du résumé du duel avant d'ouvrir la modale morsure.
+        // ATTENTION : synchronisé avec BITE_ROLL du bot (BotBrain, backend) qui
+        // lance son d20 ~2 s après CE délai — la modale doit être VISIBLE 2 s
+        // avant le jet (réglage game designer).
+        this.biteNotBeforeMillis = Date.now() + 3_500;
+        // Forcer un rendu au franchissement du seuil : Date.now() dans le getter
+        // showBiteModal n'est pas réactif — sans ça, la modale n'apparaît qu'au
+        // prochain événement (souvent le jet du bot) et la phase « avant le
+        // jet » n'est jamais visible.
+        if (this.biteRevealTimer) clearTimeout(this.biteRevealTimer);
+        this.biteRevealTimer = setTimeout(() => { this.biteRevealTimer = null; }, 3_550);
         // récupère currentBite depuis le snapshot
         this.api.getGame(this.gameId).subscribe({
           next: g => this.game = g,
@@ -3128,8 +3147,13 @@ export class GameComponent {
         });
 
         // 2) laisse le résultat affiché, puis enchaîne (uniquement si combat/trap)
+        // INCENDIAIRE inclus : sans lui, personne n'appelait combatContinue après
+        // son jet → l'action restait dans currentAction et la modale/partie se
+        // bloquait (bug de prod : un chasseur joue Incendiaire, roll, puis figé —
+        // ne se voyait pas avec un bot présent, qui débloque via sa PHASE3).
         const rolledMode = event.payload?.mode;
-        const isCombatAction = rolledMode === 'NET' || rolledMode === 'PIT' || rolledMode === 'BLESSED_STAKE';
+        const isCombatAction = rolledMode === 'NET' || rolledMode === 'PIT'
+          || rolledMode === 'BLESSED_STAKE' || rolledMode === 'INCENDIAIRE';
         if (isCombatAction) {
           setTimeout(() => {
             this.api.combatContinue(this.gameId).subscribe({
@@ -3568,8 +3592,14 @@ export class GameComponent {
     );
   }
 
+  /** Le serveur me considère-t-il « prêt » (readyForPhase3) ce raid ? */
+  isMeReadyForPhase3(): boolean {
+    return !!this.meId && (this.game?.readyForPhase3 || []).includes(this.meId);
+  }
+
   skipNow() {
-    if (!this.game || this.hasSkipped) return; // évite le spam
+    // Déjà prêt côté serveur, ou clic en cours → on ne renvoie rien.
+    if (!this.game || this.isMeReadyForPhase3() || this.hasSkipped) return;
     this.hasSkipped = true;
 
     this.api.skipPrePhase3(this.game.id).subscribe({
@@ -3714,8 +3744,14 @@ export class GameComponent {
 
     if (this.isMeHunterUnstablePending()) return false;
 
-    // Sous blizzard : potions inutilisables
-    if (ws === 'BLIZZARD' || wss === 'BLIZZARD') {
+    // Sous blizzard : potions gelées. Un BLIZZARD actif gèle tout le monde, SAUF le
+    // vampire lanceur quand ce BLIZZARD fait partie de son Cataclysme. Cataclysme
+    // actif ⟺ une météo secondaire existe (base + secondaire = les 2 météos
+    // choisies, qui remplacent la base).
+    const cataclysme = !!wss;
+    const blizzardActive = ws === 'BLIZZARD' || wss === 'BLIZZARD';
+    const vampExempt = cataclysme && me.role === 'VAMPIRE';
+    if (blizzardActive && !vampExempt) {
       return false;
     }
 
@@ -4994,27 +5030,27 @@ export class GameComponent {
     return "Impossible: pas assez de ressources ni d'or.";
   }
 
-  onSelectWeather2(ws: string) {
-    this.selectedWeather2 = ws;
-    if (this.selectedWeather3 === ws) {
-      this.selectedWeather3 = null;
-    }
-  }
-
-  onSelectWeather3(ws: string) {
-    this.selectedWeather3 = ws;
+  onSelectWeather1(ws: string) {
+    this.selectedWeather1 = ws;
     if (this.selectedWeather2 === ws) {
       this.selectedWeather2 = null;
     }
   }
 
+  onSelectWeather2(ws: string) {
+    this.selectedWeather2 = ws;
+    if (this.selectedWeather1 === ws) {
+      this.selectedWeather1 = null;
+    }
+  }
+
   onCataclysmeConfirm() {
     if (!this.game || !this.isActionActor) return;
-    if (!this.selectedWeather2 || !this.selectedWeather3) return;
-    if (this.selectedWeather2 === this.selectedWeather3) return;
+    if (!this.selectedWeather1 || !this.selectedWeather2) return;
+    if (this.selectedWeather1 === this.selectedWeather2) return;
 
     this.actionResolving = true;
-    this.api.resolveCataclysme(this.game.id, this.selectedWeather2, this.selectedWeather3)
+    this.api.resolveCataclysme(this.game.id, this.selectedWeather1, this.selectedWeather2)
       .subscribe({
         next: () => { this.actionResolving = false; },
         error: e => { this.actionResolving = false; this.showError(e); }
@@ -5474,8 +5510,8 @@ export class GameComponent {
           this.trapCurrentIndex = 0;
           this.showActionModal = false;
           this.incendiaireChoices = [];
+          this.selectedWeather1 = null;
           this.selectedWeather2 = null;
-          this.selectedWeather3 = null;
         }
         return;
       }
@@ -5499,8 +5535,8 @@ export class GameComponent {
       this.trapEnemies = [];
       this.trapCurrentIndex = 0;
       this.incendiaireChoices = [];
+      this.selectedWeather1 = null;
       this.selectedWeather2 = null;
-      this.selectedWeather3 = null;
 
       this.showActionModal = true;
       this.scheduleActionAutoClose();
@@ -5552,8 +5588,8 @@ export class GameComponent {
       this.trapCurrentIndex = 0;
       this.showActionModal = false;
       this.incendiaireChoices = [];
+      this.selectedWeather1 = null;
       this.selectedWeather2 = null;
-      this.selectedWeather3 = null;
       return;
     }
 
@@ -5707,8 +5743,8 @@ export class GameComponent {
       this.trapEnemies = [];
       this.trapCurrentIndex = 0;
       this.incendiaireChoices = [];
+      this.selectedWeather1 = null;
       this.selectedWeather2 = null;
-      this.selectedWeather3 = null;
     }
 
     // 7) CLONES_OMBRE: D4 + choix de lieux
@@ -7111,7 +7147,11 @@ export class GameComponent {
   get isWindActive(): boolean {
     const w = this.game?.weather;
     if (!w) return false;
-    return w.status === 'WIND' || w.secondaryStatus === 'WIND';
+    // Seul un WIND NATUREL bloque la construction. Un WIND issu d'un Cataclysme
+    // (⟺ une météo secondaire existe) épargne le vampire — le seul à construire —,
+    // immunisé aux 2 météos qu'il choisit.
+    const cataclysme = !!w.secondaryStatus;
+    return w.status === 'WIND' && !cataclysme;
   }
 
   doBuild() {

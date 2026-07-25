@@ -65,8 +65,8 @@ public class DeckService {
         hunterComp.put("SACRED_ROSARY", 1);
         hunterComp.put("CHARISMATIQUE", 4);
         hunterComp.put("MARCHAND_ITINERANT", 8);
-        hunterComp.put("CRATE_MANOR", 5);
-        hunterComp.put("CRATE_LAKE", 5);
+        hunterComp.put("CRATE_MANOR", 7);
+        hunterComp.put("CRATE_LAKE", 7);
 
         g.setHunterActionsDeck(buildDeckFromComposition(hunterComp));
         g.setHunterActionsDiscard(new ArrayList<>());
@@ -85,7 +85,7 @@ public class DeckService {
         vampComp.put("AFFAIBLISSEMENT_OCCULTE", 3);
         vampComp.put("PASSAGE_SECRET", 2);
         vampComp.put("AVIDITE_NOCTURNE", 3);
-        vampComp.put("ADVANCED_TRANSMUTATION", 4);
+        vampComp.put("ADVANCED_TRANSMUTATION", 8);
         vampComp.put("PORTAL_INVOCATION_REVENANT", 4);
         vampComp.put("PORTAL_INVOCATION_BAT", 4);
 

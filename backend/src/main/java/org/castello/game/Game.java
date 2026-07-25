@@ -43,13 +43,10 @@ public class Game {
     private Integer weatherRoll;
     private WeatherStatus weatherStatus;
     private WeatherStatus secondaryWeatherStatus;
-    private WeatherStatus thirdWeatherStatus;
     private String weatherStatusNameFr;
     private String weatherDescriptionFr;
     private String secondaryWeatherStatusNameFr;
     private String secondaryWeatherDescriptionFr;
-    private String thirdWeatherStatusNameFr;
-    private String thirdWeatherDescriptionFr;
 
     // --- Buffs/Debuffs du raid (affichage + calcul) ---
     private Map<String, List<StatMod>> raidMods = new HashMap<>();
@@ -712,14 +709,6 @@ public class Game {
         this.secondaryWeatherStatus = secondaryWeatherStatus;
     }
 
-    public WeatherStatus getThirdWeatherStatus() {
-        return thirdWeatherStatus;
-    }
-
-    public void setThirdWeatherStatus(WeatherStatus thirdWeatherStatus) {
-        this.thirdWeatherStatus = thirdWeatherStatus;
-    }
-
     public String getWeatherStatusNameFr() {
         return weatherStatusNameFr;
     }
@@ -750,22 +739,6 @@ public class Game {
 
     public void setSecondaryWeatherDescriptionFr(String v) {
         this.secondaryWeatherDescriptionFr = v;
-    }
-
-    public String getThirdWeatherStatusNameFr() {
-        return thirdWeatherStatusNameFr;
-    }
-
-    public void setThirdWeatherStatusNameFr(String v) {
-        this.thirdWeatherStatusNameFr = v;
-    }
-
-    public String getThirdWeatherDescriptionFr() {
-        return thirdWeatherDescriptionFr;
-    }
-
-    public void setThirdWeatherDescriptionFr(String v) {
-        this.thirdWeatherDescriptionFr = v;
     }
 
     // buffs/debuffs

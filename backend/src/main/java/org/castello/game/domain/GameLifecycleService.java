@@ -475,17 +475,28 @@ public class GameLifecycleService {
             }
         }
 
-        // --- Cartes action de départ ---
-        for (var p : g.getPlayers()) {
-            if ("HUNTER".equals(p.getRole())) {
-                p.getActions().addAll(List.of("CRATE_MANOR", "CRATE_LAKE"));
-            }
-            if ("VAMPIRE".equals(p.getRole())) {
-                p.getActions().addAll(List.of("ADVANCED_TRANSMUTATION"));
-            }
-        }
+        // --- Cartes action de départ : AUCUNE carte fixe (décision game
+        // designer 2026-07-15) — uniquement la pioche initiale ci-dessous.
+        // Caisses et Transmutation avancée ne s'obtiennent plus que par la
+        // pioche (elles sont dans les decks).
 
         decks.initDecks(g);
+
+        // --- Pioche initiale (règle du game designer, 2026-07-14) : chaque
+        // chasseur pioche 1 carte Action, le vampire en pioche 1 PAR CHASSEUR. ---
+        for (var p : g.getPlayers()) {
+            if ("HUNTER".equals(p.getRole())) {
+                String cardId = decks.drawHunterAction(g);
+                if (cardId != null)
+                    p.getActions().add(cardId);
+            } else if ("VAMPIRE".equals(p.getRole())) {
+                for (int i = 0; i < huntersCount; i++) {
+                    String cardId = decks.drawVampAction(g);
+                    if (cardId != null)
+                        p.getActions().add(cardId);
+                }
+            }
+        }
 
         g.setCenter(new ArrayList<>());
 
@@ -541,12 +552,29 @@ public class GameLifecycleService {
                 .findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.CONFLICT, "not in game"));
 
-        // surrender = mort, MAIS on ne quitte pas
-        p.setHp(0);
-        // IMPORTANT : ne pas faire p.setLeftGame(true) ici
+        // Y a-t-il ENCORE un autre humain qui joue ? (présent = ni bot ni parti)
+        boolean otherHumanPresent = g.getPlayers().stream()
+                .filter(x -> !x.getId().equals(userId))
+                .anyMatch(x -> !x.isBot() && !x.isLeftGame());
 
-        // si ça peut terminer la game (ex: vampire abandonne)
-        handleDeathsAndVictory(g);
+        if (p.isAlive() && otherHumanPresent) {
+            // ADOPTION (§10 étape 4) : un bot REPREND le personnage VIVANT au lieu de
+            // le laisser mourir → la partie reste équilibrée pour les autres humains.
+            // Un Player adopté est reconnu partout par le flag isBot (son id reste
+            // celui du compte, mais aucun code ne suppose le préfixe « bot: »).
+            p.setBot(true);
+            g.addHistory(g.nameOf(p.getId())
+                    + " a abandonné : un bot reprend son personnage.");
+        } else {
+            // Dernier humain, ou personnage déjà à terre : abandon = mort (historique).
+            p.setHp(0);
+            // IMPORTANT : ne pas faire p.setLeftGame(true) ici
+            handleDeathsAndVictory(g); // peut terminer la game (ex : vampire seul abandonne)
+        }
+
+        // Dans les deux cas l'HUMAIN se détache : on libère son membership SQL pour
+        // qu'il puisse rejoindre une autre partie (le Player du blob, lui, reste).
+        playerService.leaveGame(userId, gameId);
 
         store.save(g);
 

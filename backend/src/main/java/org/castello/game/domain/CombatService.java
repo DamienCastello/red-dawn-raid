@@ -204,7 +204,9 @@ public class CombatService {
         List<String> out = new ArrayList<>();
         int cur = baseRoll;
         String sideLabel = "ATTACK".equalsIgnoreCase(stat) ? "L’attaque" : "La défense";
-        String name = g.nameOf(playerId);
+        // entityName (pas nameOf) : l'entité peut être un MONSTRE (filet/fosse sur
+        // un gardien) — nameOf renverrait son UUID brut dans l'historique.
+        String name = g.entityName(playerId);
 
         for (var m : modsAppliedFor(g, playerId, stat, location)) {
             int delta = m.getAmount();
@@ -1365,7 +1367,9 @@ public class CombatService {
                 // Puce DSP temporaire sur la cible : "saigne"
                 g.addRaidMod(r.getDefenderId(), "HIT", 0, "HIT:BLEED_WEAPON:DSP");
 
-                String line = g.nameOf(r.getDefenderId())
+                // entityName : le défenseur peut être un MONSTRE (nameOf renverrait
+                // son UUID brut dans l'historique)
+                String line = g.entityName(r.getDefenderId())
                         + " commence à saigner (" + bleed + " dégâts en fin de raid).";
                 g.addHistory(line);
                 appendBreakdown(r, line);
@@ -1935,7 +1939,14 @@ public class CombatService {
 
         WeatherStatus ws1 = g.getWeatherStatus();
         WeatherStatus ws2 = g.getSecondaryWeatherStatus();
-        if (ws1 == WeatherStatus.BLIZZARD || ws2 == WeatherStatus.BLIZZARD) {
+        // Cataclysme actif ⟺ une météo secondaire existe (base + secondaire = les 2
+        // météos choisies). Un BLIZZARD actif gèle les potions de TOUT LE MONDE, sauf
+        // le vampire lanceur quand ce BLIZZARD fait partie de son Cataclysme.
+        boolean cataclysme = ws2 != null;
+        boolean blizzardActive = ws1 == WeatherStatus.BLIZZARD || ws2 == WeatherStatus.BLIZZARD;
+        boolean vampExempt = cataclysme
+                && playerId.equals(g.vampire().map(Player::getId).orElse(null));
+        if (blizzardActive && !vampExempt) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "Impossible d'utiliser des potions sous le blizzard: elles sont gelées.");

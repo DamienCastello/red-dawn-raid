@@ -24,10 +24,9 @@ export interface ActionModalVm {
     clonesBiteParams: boolean[];
     portalLocationChoices: string[];
     portalSelectedLocation: string | null;
-    weatherSecondChoices: string[];
-    weatherThirdChoices: string[];
+    weatherChoices: string[];
+    selectedWeather1: string | null;
     selectedWeather2: string | null;
-    selectedWeather3: string | null;
     cataclysmeLabelPair: string | null;
     mirrorLocationChoices: string[];
     selectedMirrorLoc: string | null;
@@ -60,8 +59,8 @@ export interface ActionModalActions {
     onConfirmBonus: (mode: any) => void;
     onConfirmVampireBonus: (mode: any) => void;
     onCancelBonus: () => void;
+    onSelectWeather1: (ws: any) => void;
     onSelectWeather2: (ws: any) => void;
-    onSelectWeather3: (ws: any) => void;
     onCataclysmeConfirm: () => void;
     onClonesRoll: () => void;
     onCloneLocationChange: (idx: number, ev: any) => void;

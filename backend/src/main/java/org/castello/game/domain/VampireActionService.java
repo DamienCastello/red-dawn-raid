@@ -74,8 +74,8 @@ public class VampireActionService {
     @Transactional
     public void resolveCataclysme(String gameId,
             String playerId,
-            WeatherStatus secondChoice,
-            WeatherStatus thirdChoice) {
+            WeatherStatus first,
+            WeatherStatus second) {
 
         Game g = store.loadForUpdate(gameId);
 
@@ -99,78 +99,61 @@ public class VampireActionService {
                     "aucun Cataclysme en cours pour ce joueur.");
         }
 
-        if (secondChoice == null || thirdChoice == null) {
+        if (first == null || second == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "choix météo invalide");
         }
-        if (secondChoice == thirdChoice) {
+        if (first == second) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "les deux statuts météo doivent être différents.");
         }
 
-        // évite d'empiler plusieurs Cataclysmes
-        if (g.getSecondaryWeatherStatus() != null || g.getThirdWeatherStatus() != null) {
+        // évite d'empiler plusieurs Cataclysmes (une météo secondaire = déjà un Cataclysme)
+        if (g.getSecondaryWeatherStatus() != null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Cataclysme impossible : des statuts météo supplémentaires sont déjà actifs.");
         }
 
-        WeatherStatus base = g.getWeatherStatus();
+        WeatherStatus oldBase = g.getWeatherStatus();
 
-        // WIND déjà présent AVANT Cataclysme ? (base uniquement, car secondary/third
-        // sont null ici)
-        boolean windAlreadyApplied = (base == WeatherStatus.WIND);
+        // WIND était-il DÉJÀ actif via l'ancienne base ? (ses réparations ont alors
+        // déjà eu lieu en PHASE0 ; on ne les rejoue pas.)
+        boolean windAlreadyApplied = (oldBase == WeatherStatus.WIND);
 
-        // extras = choix qui ne doublonnent pas la base
-        var extras = new ArrayList<WeatherStatus>(2);
-        if (base == null || secondChoice != base)
-            extras.add(secondChoice);
-        if (base == null || thirdChoice != base)
-            extras.add(thirdChoice);
+        // Les 2 météos choisies REMPLACENT la météo en cours : 2 statuts MAX
+        // (base + secondaire). Le 1er choix devient la nouvelle base, le 2e la
+        // secondaire. Comme AUCUN statut secondaire n'existe hors Cataclysme,
+        // « secondaire != null » signale désormais un Cataclysme actif (utilisé par
+        // l'immunité et les gardes météo).
+        g.setWeatherStatus(first);
+        g.setWeatherStatusNameFr(weather.weatherNameFr(first));
+        g.setWeatherDescriptionFr(weather.weatherDescFr(first));
 
-        WeatherStatus extra2 = extras.size() >= 1 ? extras.get(0) : null;
-        WeatherStatus extra3 = extras.size() >= 2 ? extras.get(1) : null;
+        g.setSecondaryWeatherStatus(second);
+        g.setSecondaryWeatherStatusNameFr(weather.weatherNameFr(second));
+        g.setSecondaryWeatherDescriptionFr(weather.weatherDescFr(second));
 
-        g.setSecondaryWeatherStatus(extra2);
-        g.setThirdWeatherStatus(extra3);
-
-        // textes extras (base inchangée)
-        if (extra2 != null) {
-            g.setSecondaryWeatherStatusNameFr(weather.weatherNameFr(extra2));
-            g.setSecondaryWeatherDescriptionFr(weather.weatherDescFr(extra2));
-        } else {
-            g.setSecondaryWeatherStatusNameFr(null);
-            g.setSecondaryWeatherDescriptionFr(null);
-        }
-
-        if (extra3 != null) {
-            g.setThirdWeatherStatusNameFr(weather.weatherNameFr(extra3));
-            g.setThirdWeatherDescriptionFr(weather.weatherDescFr(extra3));
-        } else {
-            g.setThirdWeatherStatusNameFr(null);
-            g.setThirdWeatherDescriptionFr(null);
-        }
-
-        // résumé lisible
-        String baseName = (base != null ? weather.weatherNameFr(base) : "Météo");
-        String summaryName = baseName
-                + (extra2 != null ? " + " + weather.weatherNameFr(extra2) : "")
-                + (extra3 != null ? " + " + weather.weatherNameFr(extra3) : "");
+        // résumé lisible = les 2 météos du Cataclysme (l'ancienne est remplacée)
+        String summaryName = weather.weatherNameFr(first)
+                + " + " + weather.weatherNameFr(second);
 
         String hist = g.nameOf(playerId)
                 + " déclenche un Cataclysme: "
-                + weather.weatherNameFr(secondChoice) + " + " + weather.weatherNameFr(thirdChoice)
-                + ".";
+                + weather.weatherNameFr(first) + " + " + weather.weatherNameFr(second)
+                + " (remplace la météo en cours).";
         g.addHistory(hist);
 
-        // mods météo (doit prendre en compte thirdWeatherStatus)
+        // mods météo (base = 1er choix, secondaire = 2e choix) + immunité vampire
         weather.rebuildWeatherMods(g);
 
-        // effet WIND si WIND arrive via extras et n'était pas déjà là via la base
-        if (!windAlreadyApplied && (extra2 == WeatherStatus.WIND || extra3 == WeatherStatus.WIND)) {
-            weather.applyWindRepairs(g);
+        // effet WIND si une des 2 météos choisies est WIND (et que WIND n'était pas
+        // déjà actif via l'ancienne base). drainDomain=false : le vampire lanceur est
+        // immunisé — seul le village des chasseurs subit le cyclone, pas son domaine.
+        if (!windAlreadyApplied && (first == WeatherStatus.WIND || second == WeatherStatus.WIND)) {
+            weather.applyWindRepairs(g, false);
         }
 
         ca.setResolvedAtMillis(System.currentTimeMillis());
-        ca.setTargetId(secondChoice.name() + "," + thirdChoice.name());
+        ca.setTargetId(first.name() + "," + second.name());
 
         // Libère currentAction pour permettre de jouer une autre carte
         g.setCurrentAction(null);

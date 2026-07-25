@@ -1326,13 +1326,13 @@ public class LocationEffectService {
                 defDice = "D6";
             }
             case GARGOYLE -> {
-                soulsCost = 400;
+                soulsCost = 300;
                 hp = 10;
                 atkDice = "D6";
                 defDice = "D8";
             }
             case WOLF -> {
-                soulsCost = 400;
+                soulsCost = 300;
                 hp = 10;
                 atkDice = "D8";
                 defDice = "D6";
@@ -1517,6 +1517,13 @@ public class LocationEffectService {
         // ---- Ici on applique enfin l'effet, comme pour
         // applyLibraryTheftEffect/applyLibraryOmenEffect ----
         applyLaboratoryExperimentEffect(g, vamp, type, location);
+
+        // Marquer l'effet résolu SYNCHRONIQUEMENT (comme resolveAltarCorrupt) :
+        // sinon il reste "pending" jusqu'au timer scheduleNextLocationEffect (~5 s),
+        // et un client qui re-résout dans cette fenêtre (ex. un bot) échoue.
+        g.setLocationEffectPending(false);
+        g.setLocationEffectChoice(null);
+        inst.choice = null;
 
         store.save(g);
 
@@ -2240,6 +2247,15 @@ public class LocationEffectService {
         equipment.applyForge(g, p, equipCode);
 
         equipment.rebuildEquipmentMods(g);
+
+        // ---- CONSOMMER L'EFFET MAINTENANT (anti double resolve) ----
+        // Même patron que resolveLaboratoryExperiment : sinon l'effet reste
+        // « pending » jusqu'au timer scheduleNextLocationEffect (~5 s) et un
+        // client qui re-résout dans la fenêtre forge DEUX équipements le même
+        // raid (bug observé : le vampire bot passait T2 puis T3 d'un coup).
+        g.setLocationEffectPending(false);
+        g.setLocationEffectChoice(null);
+        inst.choice = null;
 
         store.save(g);
 

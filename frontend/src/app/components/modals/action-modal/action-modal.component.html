@@ -482,29 +482,29 @@
 
                     <ng-container *ngIf="!vm.cataclysmeLabelPair; else cataclysmeDone">
 
-                        <p><b>Second statut</b>:</p>
+                        <p><b>Première météo</b>:</p>
                         <div class="action-targets">
-                            <button type="button" *ngFor="let ws of vm.weatherSecondChoices"
-                                (click)="actions.onSelectWeather2(ws)" [class.selected]="vm.selectedWeather2 === ws"
-                                [disabled]="vm.resolving || vm.selectedWeather3 === ws">
+                            <button type="button" *ngFor="let ws of vm.weatherChoices"
+                                (click)="actions.onSelectWeather1(ws)" [class.selected]="vm.selectedWeather1 === ws"
+                                [disabled]="vm.resolving || vm.selectedWeather2 === ws">
                                 {{ helpers.labelWeather(ws) }}
                             </button>
                         </div>
 
-                        <p style="margin-top:.5rem"><b>Troisième statut</b>:</p>
+                        <p style="margin-top:.5rem"><b>Deuxième météo</b>:</p>
                         <div class="action-targets">
-                            <button type="button" *ngFor="let ws of vm.weatherThirdChoices"
-                                (click)="actions.onSelectWeather3(ws)" [class.selected]="vm.selectedWeather3 === ws"
-                                [disabled]="vm.resolving || vm.selectedWeather2 === ws">
+                            <button type="button" *ngFor="let ws of vm.weatherChoices"
+                                (click)="actions.onSelectWeather2(ws)" [class.selected]="vm.selectedWeather2 === ws"
+                                [disabled]="vm.resolving || vm.selectedWeather1 === ws">
                                 {{ helpers.labelWeather(ws) }}
                             </button>
                         </div>
 
                         <button type="button" style="margin-top:.75rem" (click)="actions.onCataclysmeConfirm()"
                             [disabled]="
+                  !vm.selectedWeather1 ||
                   !vm.selectedWeather2 ||
-                  !vm.selectedWeather3 ||
-                  vm.selectedWeather2 === vm.selectedWeather3 ||
+                  vm.selectedWeather1 === vm.selectedWeather2 ||
                   vm.resolving
                 ">
                             Valider cette combinaison

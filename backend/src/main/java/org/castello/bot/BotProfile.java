@@ -1,9 +1,5 @@
 package org.castello.bot;
 
-import org.castello.game.Infra;
-
-import java.util.List;
-
 /**
  * Profil (archétype) d'un bot — voir docs/BOT-DESIGN.md §3.
  *
@@ -37,12 +33,8 @@ public final class BotProfile {
         return archetype;
     }
 
-    /**
-     * Ordre de construction du vampire Bâtisseur : le socle économique
-     * (revenus auto + récoltes améliorées) avant les bâtiments de contrôle.
-     * Le bot suit cet ordre tant que les ressources suivent, sinon décale.
-     */
-    public List<Infra> constructionOrder() {
-        return List.of(Infra.SAWMILL, Infra.MINE, Infra.LIBRARY, Infra.FORGE);
-    }
+    // NB : l'ordre de construction du Bâtisseur n'est plus fixe — il est calculé
+    // de façon ADAPTATIVE dans BotBrain.chooseConstruction (nombre de Portails en
+    // main → éco défendable avant le Laboratoire, moteur de défense). Cette classe
+    // reste le point d'ancrage des archétypes pour les prochains lots (étape 3+).
 }

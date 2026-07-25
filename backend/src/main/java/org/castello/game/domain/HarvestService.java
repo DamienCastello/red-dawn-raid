@@ -92,15 +92,19 @@ public class HarvestService {
 
             boolean monsterHere = monsterLocs.contains(loc);
 
+            // Les clones d'ombre comptent comme un combat (décision game designer
+            // 2026-07-14 — annule l'ancien « nerf clones » qui les excluait de la
+            // division de récolte).
+            boolean cloneHere = g.getClonesLocations() != null
+                    && g.getClonesLocations().contains(loc);
+
             boolean hunterCausingCombatHere = onLoc.stream()
                     .anyMatch(p -> "HUNTER".equals(p.getRole())
                             && p.getHp() > 0
                             && !unstableHarvesters.contains(p.getId()));
 
-            // Combat s’il y a au moins un chasseur + (ennemi joueur OU monstre)
-            // NERF CLONES : on ne compte plus les clones ici pour ne pas impacter la
-            // récolte
-            boolean combatHere = (enemyHere || monsterHere) && hunterCausingCombatHere;
+            // Combat s’il y a au moins un chasseur + (ennemi joueur OU monstre OU clone)
+            boolean combatHere = (enemyHere || monsterHere || cloneHere) && hunterCausingCombatHere;
 
             for (var p : onLoc) {
                 boolean harvestForVamp = g.getUnstableHarvestLocByPlayer() != null

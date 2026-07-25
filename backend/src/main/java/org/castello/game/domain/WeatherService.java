@@ -112,11 +112,10 @@ public class WeatherService {
         }
 
         WeatherStatus ws1 = g.getWeatherStatus(); // base
-        WeatherStatus ws2 = g.getSecondaryWeatherStatus(); // extra 2
-        WeatherStatus ws3 = g.getThirdWeatherStatus(); // extra 3
+        WeatherStatus ws2 = g.getSecondaryWeatherStatus(); // secondaire (Cataclysme)
 
         // 2) si pas de météo active => on s’arrête
-        if (ws1 == null && ws2 == null && ws3 == null)
+        if (ws1 == null && ws2 == null)
             return;
 
         // 3) s'assurer qu'il y a une liste pour chaque joueur
@@ -124,15 +123,44 @@ public class WeatherService {
             g.getRaidMods().computeIfAbsent(p.getId(), __ -> new java.util.ArrayList<>());
         }
 
-        // 4) Appliquer les effets d'UN, DEUX ou TROIS statuts
+        // 4) Appliquer les effets d'UN ou DEUX statuts
         if (ws1 != null) {
             applyWeatherStatusMods(g, ws1);
         }
         if (ws2 != null) {
             applyWeatherStatusMods(g, ws2);
         }
-        if (ws3 != null) {
-            applyWeatherStatusMods(g, ws3);
+
+        // 5) IMMUNITÉ CATACLYSME : le VAMPIRE (lanceur) n'est PAS affecté par les
+        //    2 météos de son Cataclysme. Ces 2 météos REMPLACENT la base
+        //    (base + secondaire = les 2 choix), un Cataclysme actif se reconnaît à
+        //    « secondaire != null ». On retire alors du vampire les mods des 2
+        //    météos actives (base + secondaire).
+        applyCataclysmeImmunity(g);
+    }
+
+    /**
+     * Retire du vampire les mods des 2 météos de son Cataclysme. Cataclysme actif
+     * ⟺ une météo secondaire existe (aucune autre source n'en pose). Dans ce cas
+     * base ET secondaire sont les 2 météos choisies → on épargne le vampire des
+     * deux. Sans Cataclysme (secondaire null), aucune immunité.
+     */
+    private void applyCataclysmeImmunity(Game g) {
+        WeatherStatus ws1 = g.getWeatherStatus();
+        WeatherStatus ws2 = g.getSecondaryWeatherStatus();
+        if (ws2 == null)
+            return; // pas de Cataclysme → météo de base naturelle, aucune immunité
+        String vampId = g.vampire().map(Player::getId).orElse(null);
+        if (vampId == null)
+            return;
+        var mods = g.getRaidMods().get(vampId);
+        if (mods == null)
+            return;
+        for (WeatherStatus chosen : new WeatherStatus[] { ws1, ws2 }) {
+            if (chosen == null)
+                continue;
+            String prefix = "WEATHER:" + chosen.name();
+            mods.removeIf(m -> m.getSource() != null && m.getSource().startsWith(prefix));
         }
     }
 
@@ -268,7 +296,7 @@ public class WeatherService {
         rebuildWeatherMods(g);
 
         if (ws == WeatherStatus.WIND) {
-            applyWindRepairs(g);
+            applyWindRepairs(g, true); // cyclone NATUREL : le domaine du vampire paie aussi
         }
 
         // Historique
@@ -287,6 +315,15 @@ public class WeatherService {
     }
 
     public void applyWindRepairs(@NonNull Game g) {
+        applyWindRepairs(g, true);
+    }
+
+    /**
+     * Effets du Cyclone. {@code drainDomain} = false pour un WIND issu de
+     * Cataclysme : le vampire (lanceur) étant IMMUNISÉ, seul le village des
+     * chasseurs paie ; le domaine du vampire est épargné.
+     */
+    public void applyWindRepairs(@NonNull Game g, boolean drainDomain) {
         // 1) Chasseurs : -1 ressource aléatoire chacun (réparations du village)
         for (Player p : g.getPlayers()) {
             if (!"HUNTER".equals(p.getRole()))
@@ -309,6 +346,10 @@ public class WeatherService {
                             + " perd 1 " + resFr
                             + " pour réparer le village.");
         }
+
+        // Cataclysme : le domaine du vampire est immunisé → pas de réparations.
+        if (!drainDomain)
+            return;
 
         // 2) Domaine : -1 ressource aléatoire par construction
         int nbInfras = countDomainConstructions(g); // à adapter à ta structure d'infras

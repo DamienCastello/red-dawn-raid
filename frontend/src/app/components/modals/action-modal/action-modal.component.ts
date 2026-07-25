@@ -14,15 +14,19 @@ export class ActionModalComponent {
     @Input() actions!: ActionModalActions;
     @Input() helpers!: ActionModalHelpers;
 
-    // Parse une ligne de breakdown PIT au format "hunterId:targetId:location:roll"
+    // Parse une ligne de breakdown PIT au format "hunterId:targetId:location:roll".
+    // ATTENTION : l'id d'un BOT contient déjà un ':' ("bot:<uuid>") → parser
+    // depuis la FIN, sinon les champs se décalent et le dé affiche NaN.
     parsePitLine(line: string) {
         const parts = line.split(':');
         if (parts.length < 4) return null;
+        const roll = parseInt(parts[parts.length - 1], 10);
+        if (isNaN(roll)) return null; // ex. ligne "TOTAL_MONSTER_TARGETS:n"
         return {
-            hunterId: parts[0],
-            targetId: parts[1],
-            location: parts[2],
-            roll: parseInt(parts[3], 10)
+            hunterId: parts.slice(0, parts.length - 3).join(':'),
+            targetId: parts[parts.length - 3],
+            location: parts[parts.length - 2],
+            roll
         };
     }
 

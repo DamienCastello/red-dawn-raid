@@ -2517,12 +2517,15 @@ public class ActionCardService {
     }
 
     public boolean hasTrapTargetsOnLocation(Game g, String loc) {
-        // Joueurs côté vampire/serviteurs déjà gérés par ta fonction existante
+        // Uniquement des cibles VIVANTES : sinon prepareNextRaidAction ouvre un
+        // Filet face à un monstre mort → modale « choix de la cible » sans
+        // aucune cible sélectionnable → partie bloquée (bug observé en test).
         var enemies = g.vampSideOn(loc);
-        boolean hasPlayers = enemies != null && !enemies.isEmpty();
+        boolean hasPlayers = enemies != null
+                && enemies.stream().anyMatch(Player::isAlive);
 
         boolean hasMonsters = g.getMonsters() != null
-                && g.getMonsters().stream().anyMatch(m -> loc.equals(m.location));
+                && g.getMonsters().stream().anyMatch(m -> loc.equals(m.location) && m.hp > 0);
 
         return hasPlayers || hasMonsters;
     }
@@ -2681,6 +2684,21 @@ public class ActionCardService {
                         });
                         if (removed)
                             cancelledLonely++;
+                    }
+                }
+
+                // ---------- Embuscade : retirer le bonus d'attaque DÉJÀ appliqué ----------
+                // resolveAmbush pose +N ATK (ACTION:AMBUSH:ENG) sur chaque chasseur ;
+                // retirer les chasseurs d'ambushHuntersByEnemy (plus haut) restaure la
+                // riposte du vampire mais laissait ces mods actifs → l'embuscade
+                // « annulée » buffait quand même tout le monde au combat.
+                if (g.getRaidMods() != null) {
+                    var mods = g.getRaidMods().get(player.getId());
+                    if (mods != null) {
+                        mods.removeIf(m -> {
+                            String s = m.getSource();
+                            return s != null && s.startsWith("ACTION:AMBUSH");
+                        });
                     }
                 }
             }

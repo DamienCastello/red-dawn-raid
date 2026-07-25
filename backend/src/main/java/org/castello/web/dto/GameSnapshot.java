@@ -85,10 +85,7 @@ public record GameSnapshot(
                         String descFr,
                         String secondaryStatus,
                         String secondaryNameFr,
-                        String secondaryDescFr,
-                        String thirdStatus,
-                        String thirdNameFr,
-                        String thirdDescFr) {
+                        String secondaryDescFr) {
         }
 
         public record PlayerView(

@@ -29,9 +29,10 @@ public class BotManager {
     /** Décision produit : au plus 6 bots par partie. */
     private static final int MAX_BOTS = 6;
 
-    /** Noms thématiques ; le suffixe 🤖 rend le bot identifiable partout. */
+    /** Noms thématiques (chasseurs de l'ombre) ; le suffixe 🤖 rend le bot
+     *  identifiable partout. Role-neutral : un bot peut être chasseur OU vampire. */
     private static final List<String> NAME_POOL = List.of(
-            "Renfield", "Igor", "Mina", "Jonathan", "Abraham", "Lucy", "Quincey", "Arthur");
+            "Gabriel", "Sonja", "Belmont", "Silas", "Vesper", "Dante", "Cordelia", "Ronan");
 
     private final GameStore store;
     private final LiveEvents live;

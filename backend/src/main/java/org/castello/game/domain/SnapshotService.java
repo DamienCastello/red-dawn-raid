@@ -79,10 +79,7 @@ public class SnapshotService {
                 g.getWeatherDescriptionFr(),
                 (g.getSecondaryWeatherStatus() != null ? g.getSecondaryWeatherStatus().name() : null),
                 g.getSecondaryWeatherStatusNameFr(),
-                g.getSecondaryWeatherDescriptionFr(),
-                (g.getThirdWeatherStatus() != null ? g.getThirdWeatherStatus().name() : null),
-                g.getThirdWeatherStatusNameFr(),
-                g.getThirdWeatherDescriptionFr());
+                g.getSecondaryWeatherDescriptionFr());
 
         // Players
         List<GameSnapshot.PlayerView> players = playersSrc.stream().map(p -> {
