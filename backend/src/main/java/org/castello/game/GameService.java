@@ -76,6 +76,8 @@ public class GameService {
 
     public void surrender(String gameId, String userId) { lifecycle.surrender(gameId, userId); }
 
+    public void setRolePreference(String gameId, String requesterId, String targetPlayerId, String role) { lifecycle.setRolePreference(gameId, requesterId, targetPlayerId, role); }
+
     public void leave(String gameId, String userId) { lifecycle.leave(gameId, userId); }
 
     // --- Flux de phases (transitions, pose de lieu, maintenance) → PhaseFlowService ---

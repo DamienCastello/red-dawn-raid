@@ -221,7 +221,7 @@ export type RawStatMod = {
 export type LobbyPlayer = Pick<
   GameSnapshot['players'][number],
   'id' | 'username' | 'leftGame' | 'role' | 'hp' | 'bot'
->;
+> & { rolePreference?: string | null };
 
 export type LobbyGame = {
   id: string;
@@ -284,6 +284,14 @@ export class ApiService {
   }
   removeBot(id: string, botId: string) {
     return this.http.post<void>(`${this.base}/games/${id}/bots/${encodeURIComponent(botId)}/remove`, {});
+  }
+  /** Choix du rôle dans le lobby (le sien, ou celui d'un bot) : role = 'HUNTER' | 'VAMPIRE'. */
+  setRolePreference(id: string, playerId: string, role: 'HUNTER' | 'VAMPIRE') {
+    return this.http.post<void>(
+      `${this.base}/games/${id}/players/${encodeURIComponent(playerId)}/role-preference`,
+      null,
+      { params: { role } }
+    );
   }
   presence(id: string) {
     return this.http.post<void>(`${this.base}/games/${id}/presence`, {});

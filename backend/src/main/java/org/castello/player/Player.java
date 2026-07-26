@@ -10,6 +10,11 @@ public class Player {
     private String id; // userId (vient de l’auth)
     private String username;
     private String role;
+    /** Rôle SOUHAITÉ dans le lobby (« HUNTER »/« VAMPIRE », null = pas de préférence
+     *  → traité comme chasseur). Au démarrage, le vampire est tiré au sort parmi les
+     *  candidats « VAMPIRE » (cf. GameLifecycleService.startReal). N'a plus d'effet
+     *  une fois la partie lancée (le rôle réel est dans {@link #role}). */
+    private String rolePreference;
     /** Main de cartes LIEU (PHASE1/PHASE2). */
     private List<String> hand = new ArrayList<>();
 
@@ -132,6 +137,14 @@ public class Player {
 
     public void setRole(String role) {
         this.role = role;
+    }
+
+    public String getRolePreference() {
+        return rolePreference;
+    }
+
+    public void setRolePreference(String rolePreference) {
+        this.rolePreference = rolePreference;
     }
 
     // --- LIEUX ---

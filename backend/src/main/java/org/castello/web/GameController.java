@@ -99,6 +99,18 @@ public class GameController {
         games.surrender(id, user.getId());
     }
 
+    /** Choix du rôle dans le lobby : son propre rôle, ou celui d'un bot. */
+    @PostMapping("/{id}/players/{playerId}/role-preference")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void setRolePreference(@PathVariable String id,
+            @PathVariable String playerId,
+            @RequestParam("role") String role,
+            @RequestHeader("Authorization") String authorization) {
+        var user = authService.requireUser(authorization);
+        playerService.requireInGame(user.getId(), id);
+        games.setRolePreference(id, user.getId(), playerId, role);
+    }
+
     @PostMapping("/{id}/leave")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void leave(@PathVariable String id,

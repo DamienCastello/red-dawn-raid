@@ -426,7 +426,17 @@ public class GameLifecycleService {
         g.setMessages(new ArrayList<>(List.of("Tirage météo ...")));
 
         // --- Rôles + mains (répartition initiale) ---
-        int vampIndex = dice.nextInt(g.getPlayers().size());
+        // Le vampire est tiré au sort PARMI les joueurs (humains OU bots) qui ont
+        // choisi « VAMPIRE » dans le lobby. Si personne ne le veut, tirage aléatoire
+        // sur tout le monde (il faut bien un vampire).
+        List<Integer> vampCandidates = new ArrayList<>();
+        for (int i = 0; i < g.getPlayers().size(); i++) {
+            if ("VAMPIRE".equals(g.getPlayers().get(i).getRolePreference()))
+                vampCandidates.add(i);
+        }
+        int vampIndex = vampCandidates.isEmpty()
+                ? dice.nextInt(g.getPlayers().size())
+                : vampCandidates.get(dice.nextInt(vampCandidates.size()));
         for (int i = 0; i < g.getPlayers().size(); i++) {
             Player p = g.getPlayers().get(i);
             p.setRole(i == vampIndex ? "VAMPIRE" : "HUNTER");
@@ -537,6 +547,38 @@ public class GameLifecycleService {
         });
 
         return g;
+    }
+
+    /**
+     * Choix du rôle DANS LE LOBBY (partie CREATED) : un joueur règle son propre rôle
+     * souhaité, ou celui d'un BOT (comme on ajoute/retire un bot). Le rôle réel est
+     * tiré au démarrage (cf. startReal). {@code role} ∈ {« HUNTER », « VAMPIRE »}.
+     */
+    @Transactional
+    public void setRolePreference(String gameId, String requesterId, String targetPlayerId, String role) {
+        if (!"HUNTER".equals(role) && !"VAMPIRE".equals(role)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "role must be HUNTER or VAMPIRE");
+        }
+
+        Game g = store.loadForUpdate(gameId);
+        if (g.getStatus() != GameStatus.CREATED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "le rôle ne se choisit qu'avant le démarrage");
+        }
+
+        Player target = g.getPlayers().stream()
+                .filter(p -> p.getId().equals(targetPlayerId))
+                .findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "player not found"));
+
+        // On peut régler SON rôle, ou celui d'un BOT (n'importe quel membre gère les bots).
+        if (!target.getId().equals(requesterId) && !target.isBot()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "cannot change another player's role");
+        }
+
+        target.setRolePreference(role);
+        store.save(g);
+
+        store.afterCommit(() -> live.lobbyUpdated(store.read(gameId)));
     }
 
     @Transactional

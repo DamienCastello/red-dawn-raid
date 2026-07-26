@@ -99,11 +99,26 @@ import { AssetPreloaderService } from './services/asset-preloader.service';
               <ul class="list">
                 <li *ngFor="let p of lobbySelectedPlayers" class="list-item player-line">
                   <span>{{ p.username }}</span>
+                  <span class="role-choice">
+                    <ng-container *ngIf="canEditRole(p); else roleBadge">
+                      <button class="btn btn-mini role-btn" [class.active]="!wantsVampire(p)"
+                              (click)="setRole(p, 'HUNTER')">Chasseur</button>
+                      <button class="btn btn-mini role-btn" [class.active]="wantsVampire(p)"
+                              (click)="setRole(p, 'VAMPIRE')">Vampire</button>
+                    </ng-container>
+                    <ng-template #roleBadge>
+                      <span class="role-badge">{{ wantsVampire(p) ? 'Vampire' : 'Chasseur' }}</span>
+                    </ng-template>
+                  </span>
                   <button *ngIf="p.bot" class="btn btn-ghost btn-mini" (click)="removeBot(p.id)">
                     Retirer
                   </button>
                 </li>
               </ul>
+              <small class="muted" style="display:block;">
+                Le vampire est tiré au sort parmi ceux qui choisissent « Vampire »
+                (aléatoire si personne ne le veut).
+              </small>
               <div class="row" style="margin-top:.6rem;">
                 <button class="btn"
                         (click)="addBot()"
@@ -578,8 +593,22 @@ import { AssetPreloaderService } from './services/asset-preloader.service';
       font-size:.85rem;
     }
 
+    /* Choix du rôle (lobby) */
+    .role-choice{ display:flex; align-items:center; gap:.3rem; margin-left:auto; }
+    .role-btn{ opacity:.55; }
+    .role-btn.active{
+      opacity:1;
+      border-color:#b23;
+      box-shadow:0 0 0 1px #b23 inset;
+    }
+    .role-badge{
+      font-size:.8rem; opacity:.7; padding:.1rem .4rem;
+      border:1px solid #333; border-radius:.4rem;
+    }
+
     @media (max-width: 520px){
       .ready-grid{ flex-direction: column; }
+      .player-line{ flex-wrap:wrap; }
     }
   `]
 })
@@ -1055,6 +1084,23 @@ export class LobbyComponent {
   removeBot(botId: string) {
     if (!this.selected) return;
     this.api.removeBot(this.selected.id, botId).subscribe({ error: e => this.showError(e) });
+  }
+
+  // --- Choix du rôle (lobby) : le sien ou celui d'un bot ---
+  canEditRole(p: any): boolean {
+    return !!p && (p.id === this.myUserId || !!p.bot);
+  }
+  wantsVampire(p: any): boolean {
+    return p?.rolePreference === 'VAMPIRE';
+  }
+  setRole(p: any, role: 'HUNTER' | 'VAMPIRE') {
+    if (!this.selected || !this.canEditRole(p)) return;
+    if (this.wantsVampire(p) === (role === 'VAMPIRE')) return; // déjà ce rôle
+    const prev = p.rolePreference;
+    p.rolePreference = role; // optimiste (l'event lobby confirmera)
+    this.api.setRolePreference(this.selected.id, p.id, role).subscribe({
+      error: e => { p.rolePreference = prev; this.showError(e); }
+    });
   }
 
   private optimisticJoinLocal(gameId: string) {
